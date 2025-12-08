@@ -1,0 +1,6 @@
+<Project>
+	<PropertyGroup>
+<!--		<TreatWarningsAsErrors Condition="'$(Configuration)' == 'Release'">true</TreatWarningsAsErrors>-->
+		<UseArtifactsOutput>true</UseArtifactsOutput>
+	</PropertyGroup>
+</Project>

@@ -56,6 +56,25 @@ public class DebugAdapter : DebugAdapterBase
             });
         };
 
+  //       _debugger.OnBreakpointChanged += (breakpoint) =>
+		// {
+		// 	Protocol.SendEvent(new BreakpointEvent
+		// 	{
+		// 		Reason = BreakpointEvent.ReasonValue.Changed,
+		// 		Breakpoint = new MSBreakpoint
+		// 		{
+		// 			Id = breakpoint.Id,
+		// 			Verified = breakpoint.Verified,
+		// 			Line = ConvertDebuggerLineToClient(breakpoint.Line),
+		// 			Message = breakpoint.Message,
+		// 			Source = new Source
+		// 			{
+		// 				Path = breakpoint.FilePath
+		// 			}
+		// 		}
+		// 	});
+		// };
+
         _debugger.OnContinued += (threadId) =>
         {
             Protocol.SendEvent(new ContinuedEvent

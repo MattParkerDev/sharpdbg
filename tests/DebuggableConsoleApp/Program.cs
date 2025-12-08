@@ -11,7 +11,7 @@ public static class Program
 		{
 			// Keep the application running to allow debugging
 			System.Threading.Thread.Sleep(500);
-			Console.WriteLine("Log2");
+			MyClass.MyMethod();
 		}
 	}
 }

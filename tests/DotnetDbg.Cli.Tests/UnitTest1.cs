@@ -60,8 +60,8 @@ public class UnitTest1(ITestOutputHelper testOutputHelper)
 
 		    await initializedEventTcs.Task;
 
-		    var debugFilePath = @"C:\Users\Matthew\Documents\Git\dotnetdbg\tests\DebuggableConsoleApp\Program.cs";
-		    var debugFileBreakpointLine = 14;
+		    var debugFilePath = @"C:\Users\Matthew\Documents\Git\dotnetdbg\tests\DebuggableConsoleApp\MyClass.cs";
+		    var debugFileBreakpointLine = 7;
 
 		    var setBreakpointsRequest = new SetBreakpointsRequest
 		    {

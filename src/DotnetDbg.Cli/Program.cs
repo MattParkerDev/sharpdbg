@@ -34,6 +34,7 @@ class Program
             }
         }
 
+        //logPath = @"C:\Users\Matthew\Downloads\dotnetdbglogs\log.txt";
         // Setup logging if specified
         if (!string.IsNullOrEmpty(logPath))
         {

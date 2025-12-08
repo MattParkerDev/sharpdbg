@@ -61,7 +61,7 @@ public class UnitTest1(ITestOutputHelper testOutputHelper)
 		    await initializedEventTcs.Task;
 
 		    var debugFilePath = @"C:\Users\Matthew\Documents\Git\dotnetdbg\tests\DebuggableConsoleApp\MyClass.cs";
-		    var debugFileBreakpointLine = 7;
+		    var debugFileBreakpointLine = 9;
 
 		    var setBreakpointsRequest = new SetBreakpointsRequest
 		    {
@@ -72,7 +72,7 @@ public class UnitTest1(ITestOutputHelper testOutputHelper)
 		    //await Verify(breakpointsResponse);
 		    var configurationDoneRequest = new ConfigurationDoneRequest();
 		    debugProtocolHost.SendRequestSync(configurationDoneRequest);
-		    //await Task.Delay(5000, TestContext.Current.CancellationToken);
+		    await Task.Delay(5000, TestContext.Current.CancellationToken);
 	    }
 	    finally
 	    {

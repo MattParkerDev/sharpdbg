@@ -122,6 +122,7 @@ public class ManagedDebugger : IDisposable
     /// </summary>
     public void ConfigurationDone()
     {
+	    //System.Diagnostics.Debugger.Launch();
         _logger?.Invoke("ConfigurationDone");
 
         if (_pendingAttachProcessId.HasValue)
@@ -141,12 +142,24 @@ public class ManagedDebugger : IDisposable
         // Initialize the debugger
         var dbgShimPath = DbgShimResolver.Resolve();
         var dbgshim = new DbgShim(NativeLibrary.Load(dbgShimPath));
-        _corDebug = ClrDebugExtensions.Automatic(dbgshim, processId);
+        _corDebug = ClrDebugExtensions.Manual(dbgshim, processId);
         _corDebug.Initialize();
         _corDebug.SetManagedHandler(_callbacks);
 
         // Attach to the process
         _process = _corDebug.DebugActiveProcess(processId, false);
+        // // After attaching, enumerate already-loaded modules
+        // foreach (var appDomain in _process.AppDomains)
+        // {
+	       //  foreach (var assembly in appDomain.Assemblies)
+	       //  {
+		      //   foreach (var module in assembly.Modules)
+		      //   {
+			     //    var modulePath = module.Name;
+			     //    OnModuleLoaded?.Invoke(modulePath, Path.GetFileName(modulePath), modulePath);
+		      //   }
+	       //  }
+        // }
         _isAttached = true;
         IsRunning = true;
 

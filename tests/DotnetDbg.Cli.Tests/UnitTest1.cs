@@ -69,6 +69,7 @@ public class UnitTest1(ITestOutputHelper testOutputHelper)
 			    Breakpoints = [new SourceBreakpoint { Line = debugFileBreakpointLine }]
 		    };
 		    var breakpointsResponse = debugProtocolHost.SendRequestSync(setBreakpointsRequest);
+		    await Verify(breakpointsResponse);
 	    }
 	    finally
 	    {

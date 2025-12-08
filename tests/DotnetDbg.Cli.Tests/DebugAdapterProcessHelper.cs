@@ -12,8 +12,8 @@ public static class DebugAdapterProcessHelper
 		{
 			StartInfo = new ProcessStartInfo
 			{
-				//FileName = @"C:\Users\Matthew\Downloads\netcoredbg-win64\netcoredbg\netcoredbg.exe",
-				FileName = @"C:\Users\Matthew\Documents\Git\dotnetdbg\artifacts\bin\DotnetDbg.Cli\debug\DotnetDbg.Cli.exe",
+				FileName = @"C:\Users\Matthew\Downloads\netcoredbg-win64\netcoredbg\netcoredbg.exe",
+				//FileName = @"C:\Users\Matthew\Documents\Git\dotnetdbg\artifacts\bin\DotnetDbg.Cli\debug\DotnetDbg.Cli.exe",
 				Arguments = "--interpreter=vscode",
 				RedirectStandardInput = true,
 				RedirectStandardOutput = true,

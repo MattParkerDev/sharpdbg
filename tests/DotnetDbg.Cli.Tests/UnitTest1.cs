@@ -7,7 +7,7 @@ namespace DotnetDbg.Cli.Tests;
 public class UnitTest1(ITestOutputHelper testOutputHelper)
 {
     [Fact]
-    public void DotnetDbgCli_InitializeRequest_Returns()
+    public async Task DotnetDbgCli_InitializeRequest_Returns()
     {
 	    var process = DebugAdapterProcessHelper.GetDebugAdapterProcess();
 	    var debugProtocolHost = DebugAdapterProcessHelper.GetDebugProtocolHost(process, testOutputHelper);
@@ -17,5 +17,6 @@ public class UnitTest1(ITestOutputHelper testOutputHelper)
 	    Task.RunWithTimeout(() => response = debugProtocolHost.SendRequestSync(initializeRequest), () => process.Kill());
 
 	    process.Kill();
+	    await Verify(response);
     }
 }

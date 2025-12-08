@@ -44,6 +44,7 @@ public class ManagedDebugger : IDisposable
         _callbacks = new CorDebugManagedCallback();
 
         // Subscribe to callback events
+        _callbacks.OnAnyEvent += (s, e) => e.Controller.Continue(false);
         _callbacks.OnCreateProcess += HandleProcessCreated;
         _callbacks.OnExitProcess += HandleProcessExited;
         _callbacks.OnCreateThread += HandleThreadCreated;
@@ -142,7 +143,7 @@ public class ManagedDebugger : IDisposable
         // Initialize the debugger
         var dbgShimPath = DbgShimResolver.Resolve();
         var dbgshim = new DbgShim(NativeLibrary.Load(dbgShimPath));
-        _corDebug = ClrDebugExtensions.Manual(dbgshim, processId);
+        _corDebug = ClrDebugExtensions.Automatic(dbgshim, processId);
         _corDebug.Initialize();
         _corDebug.SetManagedHandler(_callbacks);
 

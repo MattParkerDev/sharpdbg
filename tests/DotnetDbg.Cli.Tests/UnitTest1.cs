@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using Microsoft.Diagnostics.NETCore.Client;
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol;
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
 using Newtonsoft.Json.Linq;
@@ -72,6 +73,7 @@ public class UnitTest1(ITestOutputHelper testOutputHelper)
 		    //await Verify(breakpointsResponse);
 		    var configurationDoneRequest = new ConfigurationDoneRequest();
 		    debugProtocolHost.SendRequestSync(configurationDoneRequest);
+		    //new DiagnosticsClient(debuggableProcess.Id).ResumeRuntime();
 		    await Task.Delay(5000, TestContext.Current.CancellationToken);
 	    }
 	    finally

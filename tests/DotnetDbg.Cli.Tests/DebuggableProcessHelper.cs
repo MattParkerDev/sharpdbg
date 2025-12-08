@@ -14,9 +14,11 @@ public static class DebuggableProcessHelper
 				RedirectStandardInput = false,
 				RedirectStandardOutput = false,
 				UseShellExecute = true,
-				CreateNoWindow = false
+				CreateNoWindow = false,
+				//EnvironmentVariables = { { "DOTNET_DefaultDiagnosticPortSuspend", "1" } }
 			}
 		};
+
 		process.Start();
 		return process;
 	}

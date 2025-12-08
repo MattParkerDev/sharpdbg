@@ -24,6 +24,7 @@
 
   <ItemGroup>
     <PackageReference Include="CliWrap" Version="3.10.0" />
+    <PackageReference Include="Microsoft.Diagnostics.NETCore.Client" Version="0.2.652701" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.0.1" />
     <PackageReference Include="Microsoft.VisualStudio.Shared.VSCodeDebugProtocol" Version="18.0.10427.1" />
     <PackageReference Include="Verify.XunitV3" Version="31.8.0" />

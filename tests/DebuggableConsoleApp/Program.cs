@@ -10,7 +10,8 @@ public static class Program
 		while (true)
 		{
 			// Keep the application running to allow debugging
-			System.Threading.Thread.Sleep(1000);
+			System.Threading.Thread.Sleep(500);
+			Console.WriteLine("Log2");
 		}
 	}
 }

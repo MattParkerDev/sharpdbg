@@ -696,7 +696,6 @@ public class ManagedDebugger : IDisposable
 	    var corThread = breakpointCorDebugManagedCallbackEventArgs.Thread;
         IsRunning = false;
         OnStopped?.Invoke(corThread.Id, "breakpoint");
-        Continue();
     }
 
     private void HandleStepComplete(object? sender, StepCompleteCorDebugManagedCallbackEventArgs stepCompleteCorDebugManagedCallbackEventArgs)
@@ -704,7 +703,6 @@ public class ManagedDebugger : IDisposable
 	    var corThread = stepCompleteCorDebugManagedCallbackEventArgs.Thread;
         IsRunning = false;
         OnStopped?.Invoke(corThread.Id, "step");
-        Continue();
     }
 
     private void HandleBreak(object? sender, BreakCorDebugManagedCallbackEventArgs breakCorDebugManagedCallbackEventArgs)
@@ -712,7 +710,6 @@ public class ManagedDebugger : IDisposable
         var corThread = breakCorDebugManagedCallbackEventArgs.Thread;
         IsRunning = false;
         OnStopped?.Invoke(corThread.Id, "pause");
-        Continue();
     }
 
     private void HandleException(object? sender, ExceptionCorDebugManagedCallbackEventArgs exceptionCorDebugManagedCallbackEventArgs)
@@ -720,7 +717,6 @@ public class ManagedDebugger : IDisposable
 	    var corThread = exceptionCorDebugManagedCallbackEventArgs.Thread;
         IsRunning = false;
         OnStopped?.Invoke(corThread.Id, "exception");
-        Continue();
     }
 
     public void Dispose()

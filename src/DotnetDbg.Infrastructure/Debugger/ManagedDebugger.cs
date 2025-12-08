@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Runtime.InteropServices;
 using ClrDebug;
 
 namespace DotnetDbg.Infrastructure.Debugger;
@@ -111,15 +112,21 @@ public class ManagedDebugger : IDisposable
         _logger?.Invoke($"Attaching to process: {processId}");
 
         // Initialize the debugger
-        _corDebug = new CorDebug();
+        var dbgShimPath = DbgShimResolver.Resolve();
+        var dbgshim = new DbgShim(NativeLibrary.Load(dbgShimPath));
+        _corDebug = ClrDebugExtensions.Automatic(dbgshim, processId);
         _corDebug.Initialize();
-        _corDebug.SetManagedHandler(_callbacks);
+        var cb = new CorDebugManagedCallback();
+        cb.OnAnyEvent += (s, e) => e.Controller.Continue(false);
+        _corDebug.SetManagedHandler(cb);
+	    // TODO: Fix this to use our callbacks
+        //_corDebug.SetManagedHandler(_callbacks);
 
         // Attach to the process
         _process = _corDebug.DebugActiveProcess(processId, false);
         _isAttached = true;
         IsRunning = true;
-        
+
         _logger?.Invoke($"Attached to process: {processId}");
     }
 
@@ -226,13 +233,13 @@ public class ManagedDebugger : IDisposable
         foreach (var line in lines)
         {
             var bp = _breakpointManager.CreateBreakpoint(filePath, line);
-            
+
             // Try to bind the breakpoint
             if (_process != null)
             {
                 TryBindBreakpoint(bp);
             }
-            
+
             result.Add(bp);
         }
 
@@ -251,7 +258,7 @@ public class ManagedDebugger : IDisposable
             // Find the function at this location
             // This is simplified - a real implementation would need symbol information
             // to map file/line to actual IL offset in a function
-            
+
             var appDomains = _process.EnumerateAppDomains();
             foreach (var appDomain in appDomains)
             {
@@ -308,7 +315,7 @@ public class ManagedDebugger : IDisposable
     public List<StackFrameInfo> GetStackTrace(int threadId, int startFrame = 0, int? levels = null)
     {
         var result = new List<StackFrameInfo>();
-        
+
         if (!_threads.TryGetValue(threadId, out var thread))
         {
             return result;
@@ -321,9 +328,9 @@ public class ManagedDebugger : IDisposable
             {
                 var frames = chain.EnumerateFrames();
                 var frameList = frames.ToList();
-                
+
                 var endFrame = levels.HasValue ? Math.Min(startFrame + levels.Value, frameList.Count) : frameList.Count;
-                
+
                 for (int i = startFrame; i < endFrame; i++)
                 {
                     var frame = frameList[i];
@@ -331,7 +338,7 @@ public class ManagedDebugger : IDisposable
                     {
                         var function = ilFrame.Function;
                         var frameId = _variableManager.CreateReference(ilFrame);
-                        
+
                         result.Add(new StackFrameInfo
                         {
                             Id = frameId,
@@ -358,7 +365,7 @@ public class ManagedDebugger : IDisposable
     public List<ScopeInfo> GetScopes(int frameId)
     {
         var result = new List<ScopeInfo>();
-        
+
         var frame = _variableManager.GetReference<CorDebugILFrame>(frameId);
         if (frame == null) return result;
 
@@ -439,7 +446,7 @@ public class ManagedDebugger : IDisposable
     public (string result, string? type, int variablesReference) Evaluate(string expression, int? frameId)
     {
         _logger?.Invoke($"Evaluate: {expression}");
-        
+
         // Simplified - proper implementation would use ICorDebugEval
         return ($"Evaluation not yet implemented: {expression}", "string", 0);
     }
@@ -470,7 +477,7 @@ public class ManagedDebugger : IDisposable
     public void Disconnect(bool terminateDebuggee)
     {
         _logger?.Invoke($"Disconnect (terminate: {terminateDebuggee})");
-        
+
         if (terminateDebuggee)
         {
             Terminate();

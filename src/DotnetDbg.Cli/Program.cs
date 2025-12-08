@@ -1,4 +1,5 @@
-﻿using System.Threading;
+﻿using System.Diagnostics;
+using System.Threading;
 using DotnetDbg.Application;
 
 namespace DotnetDbg.Cli;
@@ -77,15 +78,16 @@ class Program
             {
                 try
                 {
+	                //Debugger.Launch();
                     var inputStream = Console.OpenStandardInput();
                     var outputStream = Console.OpenStandardOutput();
-                    
+
                     // Create the debug adapter
                     var adapter = new DebugAdapter(Log);
-                    
+
                     // Initialize the protocol client and start it
                     adapter.Initialize(inputStream, outputStream);
-                    
+
                     Log("Protocol server starting...");
                     // Run() starts the protocol client's message loop in a background thread
                     adapter.Protocol.Run();

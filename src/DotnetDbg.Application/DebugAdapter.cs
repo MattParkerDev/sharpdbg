@@ -195,13 +195,13 @@ public class DebugAdapter : DebugAdapterBase
     protected override ConfigurationDoneResponse HandleConfigurationDoneRequest(ConfigurationDoneArguments arguments)
     {
         _logger?.Invoke("Configuration done");
-        
+
         // If not stopped at entry, continue execution
         if (_debugger.IsRunning)
         {
             _debugger.Continue();
         }
-        
+
         return new ConfigurationDoneResponse();
     }
 
@@ -246,14 +246,14 @@ public class DebugAdapter : DebugAdapterBase
     {
         // Exception breakpoints configuration
         _logger?.Invoke($"Exception breakpoints: {string.Join(", ", arguments?.Filters ?? new List<string>())}");
-        
+
         return new SetExceptionBreakpointsResponse();
     }
 
     protected override ThreadsResponse HandleThreadsRequest(ThreadsArguments arguments)
     {
         var threads = _debugger.GetThreads();
-        
+
         var responseThreads = threads.Select(t => new MSThread
         {
             Id = t.id,
@@ -269,7 +269,7 @@ public class DebugAdapter : DebugAdapterBase
     protected override StackTraceResponse HandleStackTraceRequest(StackTraceArguments arguments)
     {
         var frames = _debugger.GetStackTrace(arguments.ThreadId, arguments.StartFrame ?? 0, arguments.Levels);
-        
+
         var responseFrames = frames.Select(f => new MSStackFrame
         {
             Id = f.Id,
@@ -289,7 +289,7 @@ public class DebugAdapter : DebugAdapterBase
     protected override ScopesResponse HandleScopesRequest(ScopesArguments arguments)
     {
         var scopes = _debugger.GetScopes(arguments.FrameId);
-        
+
         var responseScopes = scopes.Select(s => new Scope
         {
             Name = s.Name,
@@ -306,7 +306,7 @@ public class DebugAdapter : DebugAdapterBase
     protected override VariablesResponse HandleVariablesRequest(VariablesArguments arguments)
     {
         var variables = _debugger.GetVariables(arguments.VariablesReference);
-        
+
         var responseVariables = variables.Select(v => new Variable
         {
             Name = v.Name,
@@ -336,7 +336,7 @@ public class DebugAdapter : DebugAdapterBase
     protected override ContinueResponse HandleContinueRequest(ContinueArguments arguments)
     {
         _debugger.Continue();
-        
+
         return new ContinueResponse
         {
             AllThreadsContinued = true
@@ -346,42 +346,42 @@ public class DebugAdapter : DebugAdapterBase
     protected override NextResponse HandleNextRequest(NextArguments arguments)
     {
         _debugger.StepNext(arguments.ThreadId);
-        
+
         return new NextResponse();
     }
 
     protected override StepInResponse HandleStepInRequest(StepInArguments arguments)
     {
         _debugger.StepIn(arguments.ThreadId);
-        
+
         return new StepInResponse();
     }
 
     protected override StepOutResponse HandleStepOutRequest(StepOutArguments arguments)
     {
         _debugger.StepOut(arguments.ThreadId);
-        
+
         return new StepOutResponse();
     }
 
     protected override PauseResponse HandlePauseRequest(PauseArguments arguments)
     {
         _debugger.Pause();
-        
+
         return new PauseResponse();
     }
 
     protected override DisconnectResponse HandleDisconnectRequest(DisconnectArguments arguments)
     {
         _debugger.Disconnect(arguments?.TerminateDebuggee ?? false);
-        
+
         return new DisconnectResponse();
     }
 
     protected override TerminateResponse HandleTerminateRequest(TerminateArguments arguments)
     {
         _debugger.Terminate();
-        
+
         return new TerminateResponse();
     }
 

@@ -11,4 +11,8 @@
     <ProjectReference Include="..\DotnetDbg.Application\DotnetDbg.Application.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Diagnostics.DbgShim" Version="9.0.652701" />
+  </ItemGroup>
+
 </Project>

@@ -10,13 +10,8 @@ public class UnitTest1(ITestOutputHelper testOutputHelper)
     public void DotnetDbgCli_InitializeRequest_Returns()
     {
 	    var process = DebugAdapterProcessHelper.GetDebugAdapterProcess();
+	    var debugProtocolHost = DebugAdapterProcessHelper.GetDebugProtocolHost(process, testOutputHelper);
 
-	    var debugProtocolHost = new DebugProtocolHost(process.StandardInput.BaseStream, process.StandardOutput.BaseStream, false);
-	    debugProtocolHost.LogMessage += (sender, args) =>
-	    {
-		    testOutputHelper.WriteLine($"Log: {args.Message}");
-	    };
-	    debugProtocolHost.VerifySynchronousOperationAllowed();
 	    var initializeRequest = new InitializeRequest
 	    {
 		    ClientID = "vscode",

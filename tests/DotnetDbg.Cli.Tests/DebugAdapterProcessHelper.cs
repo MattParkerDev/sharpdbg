@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol;
 
 namespace DotnetDbg.Cli.Tests;
 
@@ -21,5 +22,16 @@ public static class DebugAdapterProcessHelper
 		};
 		process.Start();
 		return process;
+	}
+
+	public static DebugProtocolHost GetDebugProtocolHost(Process process, ITestOutputHelper testOutputHelper)
+	{
+		var debugProtocolHost = new DebugProtocolHost(process.StandardInput.BaseStream, process.StandardOutput.BaseStream, false);
+		debugProtocolHost.LogMessage += (sender, args) =>
+		{
+			testOutputHelper.WriteLine($"Log: {args.Message}");
+		};
+		debugProtocolHost.VerifySynchronousOperationAllowed();
+		return debugProtocolHost;
 	}
 }

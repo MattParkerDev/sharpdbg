@@ -10,7 +10,7 @@ public class BreakpointManager
     private int _nextBreakpointId = 1;
     private readonly Dictionary<int, BreakpointInfo> _breakpoints = new();
     private readonly Dictionary<string, List<int>> _breakpointsByFile = new();
-    private readonly object _lock = new();
+    private readonly Lock _lock = new();
 
     public class BreakpointInfo
     {

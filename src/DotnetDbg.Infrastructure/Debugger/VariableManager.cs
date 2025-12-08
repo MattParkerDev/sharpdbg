@@ -7,7 +7,7 @@ public class VariableManager
 {
     private int _nextReference = 1;
     private readonly Dictionary<int, object> _references = new();
-    private readonly object _lock = new();
+    private readonly Lock _lock = new();
 
     /// <summary>
     /// Create a reference for an object

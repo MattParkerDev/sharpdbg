@@ -707,6 +707,7 @@ public class ManagedDebugger : IDisposable
 
     private void HandleBreakpoint(object? sender, BreakpointCorDebugManagedCallbackEventArgs breakpointCorDebugManagedCallbackEventArgs)
     {
+	    // TODO: Keep track of last breakpoint, and do not invoke OnStopped multiple times for same breakpoint hit - it will spam otherwise
 	    var corThread = breakpointCorDebugManagedCallbackEventArgs.Thread;
         IsRunning = false;
         OnStopped?.Invoke(corThread.Id, "breakpoint");

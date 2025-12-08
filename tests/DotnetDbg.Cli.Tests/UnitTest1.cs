@@ -44,5 +44,33 @@ public class UnitTest1(ITestOutputHelper testOutputHelper)
 	    }
     }
 
-    
+    [Fact]
+    public async Task DotnetDbgCli_SetBreakpointsRequest_Returns()
+    {
+	    var process = DebugAdapterProcessHelper.GetDebugAdapterProcess();
+	    var debuggableProcess = DebuggableProcessHelper.StartDebuggableProcess();
+	    try
+	    {
+		    var debugProtocolHost = DebugAdapterProcessHelper.GetDebugProtocolHost(process, testOutputHelper);
+		    var initializeRequest = DebugAdapterProcessHelper.GetInitializeRequest();
+		    debugProtocolHost.SendRequestSync(initializeRequest);
+		    var attachRequest = DebugAdapterProcessHelper.GetAttachRequest(debuggableProcess.Id);
+		    debugProtocolHost.SendRequestSync(attachRequest);
+
+		    var debugFilePath = @"C:\Users\Matthew\Documents\Git\dotnetdbg\tests\DebuggableConsoleApp\Program.cs";
+		    var debugFileBreakpointLine = 8;
+
+		    var setBreakpointsRequest = new SetBreakpointsRequest
+		    {
+			    Source = new Source { Path = debugFilePath },
+			    Breakpoints = [new SourceBreakpoint { Line = debugFileBreakpointLine }]
+		    };
+		    var breakpointsResponse = debugProtocolHost.SendRequestSync(setBreakpointsRequest);
+	    }
+	    finally
+	    {
+		    process.Kill();
+		    debuggableProcess.Kill();
+	    }
+    }
 }

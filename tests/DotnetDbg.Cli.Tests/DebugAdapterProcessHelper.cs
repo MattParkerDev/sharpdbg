@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics;
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol;
+using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
 
 namespace DotnetDbg.Cli.Tests;
 
@@ -32,6 +33,25 @@ public static class DebugAdapterProcessHelper
 			testOutputHelper.WriteLine($"Log: {args.Message}");
 		};
 		debugProtocolHost.VerifySynchronousOperationAllowed();
+	    debugProtocolHost.Run();
 		return debugProtocolHost;
+	}
+
+	public static InitializeRequest GetInitializeRequest()
+	{
+		return new InitializeRequest
+		{
+			ClientID = "vscode",
+			ClientName = "Visual Studio Code",
+			AdapterID = "coreclr",
+			Locale = "en-us",
+			LinesStartAt1 = true,
+			ColumnsStartAt1 = true,
+			PathFormat = InitializeArguments.PathFormatValue.Path,
+			SupportsVariableType = true,
+			SupportsVariablePaging = true,
+			SupportsRunInTerminalRequest = true,
+			SupportsHandshakeRequest = true
+		};
 	}
 }

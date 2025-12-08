@@ -11,22 +11,8 @@ public class UnitTest1(ITestOutputHelper testOutputHelper)
     {
 	    var process = DebugAdapterProcessHelper.GetDebugAdapterProcess();
 	    var debugProtocolHost = DebugAdapterProcessHelper.GetDebugProtocolHost(process, testOutputHelper);
-
-	    var initializeRequest = new InitializeRequest
-	    {
-		    ClientID = "vscode",
-		    ClientName = "Visual Studio Code",
-		    AdapterID = "coreclr",
-		    Locale = "en-us",
-		    LinesStartAt1 = true,
-		    ColumnsStartAt1 = true,
-		    PathFormat = InitializeArguments.PathFormatValue.Path,
-		    SupportsVariableType = true,
-		    SupportsVariablePaging = true,
-		    SupportsRunInTerminalRequest = true,
-		    SupportsHandshakeRequest = true
-	    };
-	    debugProtocolHost.Run();
+	    var initializeRequest = DebugAdapterProcessHelper.GetInitializeRequest();
+	    
 	    InitializeResponse? response = null;
 	    var sendTask = Task.Run(() =>
 	    {

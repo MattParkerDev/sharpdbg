@@ -50,6 +50,7 @@ public class ManagedDebugger : IDisposable
         _callbacks.OnStepComplete += HandleStepComplete;
         _callbacks.OnBreak += HandleBreak;
         _callbacks.OnException += HandleException;
+        //_callbacks.OnAnyEvent += (s, e) => e.Controller.Continue(false);
     }
 
     /// <summary>
@@ -116,8 +117,6 @@ public class ManagedDebugger : IDisposable
         var dbgshim = new DbgShim(NativeLibrary.Load(dbgShimPath));
         _corDebug = ClrDebugExtensions.Automatic(dbgshim, processId);
         _corDebug.Initialize();
-        //var cb = new CorDebugManagedCallback();
-        //cb.OnAnyEvent += (s, e) => e.Controller.Continue(false);
         _corDebug.SetManagedHandler(_callbacks);
 
         // Attach to the process
@@ -529,6 +528,7 @@ public class ManagedDebugger : IDisposable
         {
             OnStopped?.Invoke(0, "entry");
         }
+        Continue();
     }
 
     private void HandleProcessExited(object? sender, ExitProcessCorDebugManagedCallbackEventArgs exitProcessCorDebugManagedCallbackEventArgs)
@@ -537,6 +537,7 @@ public class ManagedDebugger : IDisposable
         IsRunning = false;
         OnExited?.Invoke();
         OnTerminated?.Invoke();
+        Continue();
     }
 
     private void HandleThreadCreated(object? sender, CreateThreadCorDebugManagedCallbackEventArgs createThreadCorDebugManagedCallbackEventArgs)
@@ -544,6 +545,7 @@ public class ManagedDebugger : IDisposable
 	    var corThread = createThreadCorDebugManagedCallbackEventArgs.Thread;
         _threads[corThread.Id] = corThread;
         OnThreadStarted?.Invoke(corThread.Id, $"Thread {corThread.Id}");
+        Continue();
     }
 
     private void HandleThreadExited(object? sender, ExitThreadCorDebugManagedCallbackEventArgs exitThreadCorDebugManagedCallbackEventArgs)
@@ -551,6 +553,7 @@ public class ManagedDebugger : IDisposable
         var corThread = exitThreadCorDebugManagedCallbackEventArgs.Thread;
         _threads.Remove(corThread.Id);
         OnThreadExited?.Invoke(corThread.Id, $"Thread {corThread.Id}");
+        Continue();
     }
 
     private void HandleModuleLoaded(object? sender, LoadModuleCorDebugManagedCallbackEventArgs loadModuleCorDebugManagedCallbackEventArgs)
@@ -558,6 +561,7 @@ public class ManagedDebugger : IDisposable
 	    var corModule = loadModuleCorDebugManagedCallbackEventArgs.Module;
         var name = corModule.Name;
         OnModuleLoaded?.Invoke(name, name, name);
+        Continue();
     }
 
     private void HandleBreakpoint(object? sender, BreakpointCorDebugManagedCallbackEventArgs breakpointCorDebugManagedCallbackEventArgs)
@@ -565,6 +569,7 @@ public class ManagedDebugger : IDisposable
 	    var corThread = breakpointCorDebugManagedCallbackEventArgs.Thread;
         IsRunning = false;
         OnStopped?.Invoke(corThread.Id, "breakpoint");
+        Continue();
     }
 
     private void HandleStepComplete(object? sender, StepCompleteCorDebugManagedCallbackEventArgs stepCompleteCorDebugManagedCallbackEventArgs)
@@ -572,6 +577,7 @@ public class ManagedDebugger : IDisposable
 	    var corThread = stepCompleteCorDebugManagedCallbackEventArgs.Thread;
         IsRunning = false;
         OnStopped?.Invoke(corThread.Id, "step");
+        Continue();
     }
 
     private void HandleBreak(object? sender, BreakCorDebugManagedCallbackEventArgs breakCorDebugManagedCallbackEventArgs)
@@ -579,6 +585,7 @@ public class ManagedDebugger : IDisposable
         var corThread = breakCorDebugManagedCallbackEventArgs.Thread;
         IsRunning = false;
         OnStopped?.Invoke(corThread.Id, "pause");
+        Continue();
     }
 
     private void HandleException(object? sender, ExceptionCorDebugManagedCallbackEventArgs exceptionCorDebugManagedCallbackEventArgs)
@@ -586,6 +593,7 @@ public class ManagedDebugger : IDisposable
 	    var corThread = exceptionCorDebugManagedCallbackEventArgs.Thread;
         IsRunning = false;
         OnStopped?.Invoke(corThread.Id, "exception");
+        Continue();
     }
 
     public void Dispose()

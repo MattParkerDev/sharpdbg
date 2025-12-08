@@ -72,6 +72,7 @@ public class UnitTest1(ITestOutputHelper testOutputHelper)
 		    //await Verify(breakpointsResponse);
 		    var configurationDoneRequest = new ConfigurationDoneRequest();
 		    debugProtocolHost.SendRequestSync(configurationDoneRequest);
+		    await Task.Delay(1000);
 	    }
 	    finally
 	    {

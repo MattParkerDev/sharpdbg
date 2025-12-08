@@ -9,20 +9,7 @@ public class UnitTest1(ITestOutputHelper testOutputHelper)
     [Fact]
     public void DotnetDbgCli_InitializeRequest_Returns()
     {
-	    var process = new Process
-	    {
-		    StartInfo = new ProcessStartInfo
-		    {
-			    //FileName = @"C:\Users\Matthew\Downloads\netcoredbg-win64\netcoredbg\netcoredbg.exe",
-			    FileName = @"C:\Users\Matthew\Documents\Git\dotnetdbg\artifacts\bin\DotnetDbg.Cli\debug\DotnetDbg.Cli.exe",
-			    Arguments = "--interpreter=vscode",
-			    RedirectStandardInput = true,
-			    RedirectStandardOutput = true,
-			    UseShellExecute = false,
-			    CreateNoWindow = true
-		    }
-	    };
-	    process.Start();
+	    var process = DebugAdapterProcessHelper.GetDebugAdapterProcess();
 
 	    var debugProtocolHost = new DebugProtocolHost(process.StandardInput.BaseStream, process.StandardOutput.BaseStream, false);
 	    debugProtocolHost.LogMessage += (sender, args) =>

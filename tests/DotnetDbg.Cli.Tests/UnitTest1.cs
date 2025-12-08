@@ -51,11 +51,14 @@ public class UnitTest1(ITestOutputHelper testOutputHelper)
 	    var debuggableProcess = DebuggableProcessHelper.StartDebuggableProcess();
 	    try
 	    {
-		    var debugProtocolHost = DebugAdapterProcessHelper.GetDebugProtocolHost(process, testOutputHelper);
+			var initializedEventTcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+		    var debugProtocolHost = DebugAdapterProcessHelper.GetDebugProtocolHost(process, testOutputHelper, initializedEventTcs);
 		    var initializeRequest = DebugAdapterProcessHelper.GetInitializeRequest();
 		    debugProtocolHost.SendRequestSync(initializeRequest);
 		    var attachRequest = DebugAdapterProcessHelper.GetAttachRequest(debuggableProcess.Id);
 		    debugProtocolHost.SendRequestSync(attachRequest);
+
+		    await initializedEventTcs.Task;
 
 		    var debugFilePath = @"C:\Users\Matthew\Documents\Git\dotnetdbg\tests\DebuggableConsoleApp\Program.cs";
 		    var debugFileBreakpointLine = 8;

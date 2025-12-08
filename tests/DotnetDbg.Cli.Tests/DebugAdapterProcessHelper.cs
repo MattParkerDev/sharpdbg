@@ -27,7 +27,7 @@ public static class DebugAdapterProcessHelper
 		return process;
 	}
 
-	public static DebugProtocolHost GetDebugProtocolHost(Process process, ITestOutputHelper testOutputHelper)
+	public static DebugProtocolHost GetDebugProtocolHost(Process process, ITestOutputHelper testOutputHelper, TaskCompletionSource? initializedEventTcs = null)
 	{
 		var debugProtocolHost = new DebugProtocolHost(process.StandardInput.BaseStream, process.StandardOutput.BaseStream, false);
 		debugProtocolHost.LogMessage += (sender, args) =>
@@ -38,6 +38,10 @@ public static class DebugAdapterProcessHelper
 		{
 			var signatureResponse = await DebuggerHandshakeSigner.Sign(responder.Arguments.Value);
 			responder.SetResponse(new HandshakeResponse(signatureResponse));
+		});
+		debugProtocolHost.RegisterEventType<InitializedEvent>(@event =>
+		{
+			initializedEventTcs?.SetResult();
 		});
 		debugProtocolHost.VerifySynchronousOperationAllowed();
 	    debugProtocolHost.Run();

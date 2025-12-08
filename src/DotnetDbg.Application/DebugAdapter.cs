@@ -65,11 +65,11 @@ public class DebugAdapter : DebugAdapterBase
             });
         };
 
-        _debugger.OnExited += (exitCode) =>
+        _debugger.OnExited += () =>
         {
             Protocol.SendEvent(new ExitedEvent
             {
-                ExitCode = exitCode
+                ExitCode = 0 // There is no built-in, cross-platform way to get the exit code of an exited process
             });
         };
 

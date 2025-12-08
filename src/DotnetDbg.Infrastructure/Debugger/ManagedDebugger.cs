@@ -11,7 +11,7 @@ public class ManagedDebugger : IDisposable
 {
     private CorDebug? _corDebug;
     private CorDebugProcess? _process;
-    private readonly DebuggerCallbacks _callbacks;
+    private readonly CorDebugManagedCallback _callbacks;
     private readonly BreakpointManager _breakpointManager;
     private readonly VariableManager _variableManager;
     private readonly Action<string>? _logger;
@@ -21,7 +21,7 @@ public class ManagedDebugger : IDisposable
 
     public event Action<int, string>? OnStopped;
     public event Action<int>? OnContinued;
-    public event Action<int>? OnExited;
+    public event Action? OnExited;
     public event Action? OnTerminated;
     public event Action<int, string>? OnThreadStarted;
     public event Action<int, string>? OnThreadExited;
@@ -31,21 +31,21 @@ public class ManagedDebugger : IDisposable
     public BreakpointManager BreakpointManager => _breakpointManager;
     public VariableManager VariableManager => _variableManager;
     public bool IsRunning { get; private set; }
-    private ICorDebugProcess? _rawProcess;
+    private CorDebugProcess? _rawProcess;
 
     public ManagedDebugger(Action<string>? logger = null)
     {
         _logger = logger;
         _breakpointManager = new BreakpointManager();
         _variableManager = new VariableManager();
-        _callbacks = new DebuggerCallbacks(logger);
+        _callbacks = new CorDebugManagedCallback();
 
         // Subscribe to callback events
-        _callbacks.OnProcessCreated += HandleProcessCreated;
-        _callbacks.OnProcessExited += HandleProcessExited;
-        _callbacks.OnThreadCreated += HandleThreadCreated;
-        _callbacks.OnThreadExited += HandleThreadExited;
-        _callbacks.OnModuleLoaded += HandleModuleLoaded;
+        _callbacks.OnCreateProcess += HandleProcessCreated;
+        _callbacks.OnExitProcess += HandleProcessExited;
+        _callbacks.OnCreateThread += HandleThreadCreated;
+        _callbacks.OnExitThread += HandleThreadExited;
+        _callbacks.OnLoadModule += HandleModuleLoaded;
         _callbacks.OnBreakpoint += HandleBreakpoint;
         _callbacks.OnStepComplete += HandleStepComplete;
         _callbacks.OnBreak += HandleBreak;
@@ -98,7 +98,7 @@ public class ManagedDebugger : IDisposable
 
         // Attach debugger to the started process
         _process = _corDebug.DebugActiveProcess(systemProcess.Id, false);
-        _rawProcess = _process.Raw;
+        _rawProcess = _process;
         _isAttached = true;
         IsRunning = !_stopAtEntry;
         _logger?.Invoke($"Process created and attached with PID: {systemProcess.Id}");
@@ -116,11 +116,9 @@ public class ManagedDebugger : IDisposable
         var dbgshim = new DbgShim(NativeLibrary.Load(dbgShimPath));
         _corDebug = ClrDebugExtensions.Automatic(dbgshim, processId);
         _corDebug.Initialize();
-        var cb = new CorDebugManagedCallback();
-        cb.OnAnyEvent += (s, e) => e.Controller.Continue(false);
-        _corDebug.SetManagedHandler(cb);
-	    // TODO: Fix this to use our callbacks
-        //_corDebug.SetManagedHandler(_callbacks);
+        //var cb = new CorDebugManagedCallback();
+        //cb.OnAnyEvent += (s, e) => e.Controller.Continue(false);
+        _corDebug.SetManagedHandler(_callbacks);
 
         // Attach to the process
         _process = _corDebug.DebugActiveProcess(processId, false);
@@ -523,69 +521,69 @@ public class ManagedDebugger : IDisposable
     }
 
     // Event handlers
-    private void HandleProcessCreated(ICorDebugProcess process)
+    private void HandleProcessCreated(object? sender, CreateProcessCorDebugManagedCallbackEventArgs createProcessCorDebugManagedCallbackEventArgs)
     {
         _logger?.Invoke("Process created event");
-        _rawProcess = process;
+        _rawProcess = createProcessCorDebugManagedCallbackEventArgs.Process;
         if (_stopAtEntry)
         {
             OnStopped?.Invoke(0, "entry");
         }
     }
 
-    private void HandleProcessExited(ICorDebugProcess process, int exitCode)
+    private void HandleProcessExited(object? sender, ExitProcessCorDebugManagedCallbackEventArgs exitProcessCorDebugManagedCallbackEventArgs)
     {
-        _logger?.Invoke($"Process exited with code: {exitCode}");
+	    _logger?.Invoke($"Process exited");
         IsRunning = false;
-        OnExited?.Invoke(exitCode);
+        OnExited?.Invoke();
         OnTerminated?.Invoke();
     }
 
-    private void HandleThreadCreated(ICorDebugAppDomain appDomain, ICorDebugThread thread)
+    private void HandleThreadCreated(object? sender, CreateThreadCorDebugManagedCallbackEventArgs createThreadCorDebugManagedCallbackEventArgs)
     {
-        var corThread = new CorDebugThread(thread);
+	    var corThread = createThreadCorDebugManagedCallbackEventArgs.Thread;
         _threads[corThread.Id] = corThread;
         OnThreadStarted?.Invoke(corThread.Id, $"Thread {corThread.Id}");
     }
 
-    private void HandleThreadExited(ICorDebugAppDomain appDomain, ICorDebugThread thread)
+    private void HandleThreadExited(object? sender, ExitThreadCorDebugManagedCallbackEventArgs exitThreadCorDebugManagedCallbackEventArgs)
     {
-        var corThread = new CorDebugThread(thread);
+        var corThread = exitThreadCorDebugManagedCallbackEventArgs.Thread;
         _threads.Remove(corThread.Id);
         OnThreadExited?.Invoke(corThread.Id, $"Thread {corThread.Id}");
     }
 
-    private void HandleModuleLoaded(ICorDebugAppDomain appDomain, ICorDebugModule module)
+    private void HandleModuleLoaded(object? sender, LoadModuleCorDebugManagedCallbackEventArgs loadModuleCorDebugManagedCallbackEventArgs)
     {
-        var corModule = new CorDebugModule(module);
+	    var corModule = loadModuleCorDebugManagedCallbackEventArgs.Module;
         var name = corModule.Name;
         OnModuleLoaded?.Invoke(name, name, name);
     }
 
-    private void HandleBreakpoint(ICorDebugAppDomain appDomain, ICorDebugThread thread, ICorDebugBreakpoint breakpoint)
+    private void HandleBreakpoint(object? sender, BreakpointCorDebugManagedCallbackEventArgs breakpointCorDebugManagedCallbackEventArgs)
     {
-        var corThread = new CorDebugThread(thread);
+	    var corThread = breakpointCorDebugManagedCallbackEventArgs.Thread;
         IsRunning = false;
         OnStopped?.Invoke(corThread.Id, "breakpoint");
     }
 
-    private void HandleStepComplete(ICorDebugAppDomain appDomain, ICorDebugThread thread)
+    private void HandleStepComplete(object? sender, StepCompleteCorDebugManagedCallbackEventArgs stepCompleteCorDebugManagedCallbackEventArgs)
     {
-        var corThread = new CorDebugThread(thread);
+	    var corThread = stepCompleteCorDebugManagedCallbackEventArgs.Thread;
         IsRunning = false;
         OnStopped?.Invoke(corThread.Id, "step");
     }
 
-    private void HandleBreak(ICorDebugAppDomain appDomain, ICorDebugThread thread)
+    private void HandleBreak(object? sender, BreakCorDebugManagedCallbackEventArgs breakCorDebugManagedCallbackEventArgs)
     {
-        var corThread = new CorDebugThread(thread);
+        var corThread = breakCorDebugManagedCallbackEventArgs.Thread;
         IsRunning = false;
         OnStopped?.Invoke(corThread.Id, "pause");
     }
 
-    private void HandleException(ICorDebugAppDomain appDomain, ICorDebugThread thread, ICorDebugFrame frame, int offset, CorDebugExceptionCallbackType eventType, CorDebugExceptionFlags flags)
+    private void HandleException(object? sender, ExceptionCorDebugManagedCallbackEventArgs exceptionCorDebugManagedCallbackEventArgs)
     {
-        var corThread = new CorDebugThread(thread);
+	    var corThread = exceptionCorDebugManagedCallbackEventArgs.Thread;
         IsRunning = false;
         OnStopped?.Invoke(corThread.Id, "exception");
     }

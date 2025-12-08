@@ -1,6 +1,7 @@
 ﻿using System.Diagnostics;
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol;
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
+using SharpIDE.Application.Features.Debugging.Signing;
 
 namespace DotnetDbg.Cli.Tests;
 
@@ -12,8 +13,8 @@ public static class DebugAdapterProcessHelper
 		{
 			StartInfo = new ProcessStartInfo
 			{
-				FileName = @"C:\Users\Matthew\Downloads\netcoredbg-win64\netcoredbg\netcoredbg.exe",
-				//FileName = @"C:\Users\Matthew\Documents\Git\dotnetdbg\artifacts\bin\DotnetDbg.Cli\debug\DotnetDbg.Cli.exe",
+				//FileName = @"C:\Users\Matthew\Downloads\netcoredbg-win64\netcoredbg\netcoredbg.exe",
+				FileName = @"C:\Users\Matthew\Documents\Git\dotnetdbg\artifacts\bin\DotnetDbg.Cli\debug\DotnetDbg.Cli.exe",
 				Arguments = "--interpreter=vscode",
 				RedirectStandardInput = true,
 				RedirectStandardOutput = true,
@@ -32,6 +33,11 @@ public static class DebugAdapterProcessHelper
 		{
 			testOutputHelper.WriteLine($"Log: {args.Message}");
 		};
+		debugProtocolHost.RegisterClientRequestType<HandshakeRequest, HandshakeArguments, HandshakeResponse>(async void (responder) =>
+		{
+			var signatureResponse = await DebuggerHandshakeSigner.Sign(responder.Arguments.Value);
+			responder.SetResponse(new HandshakeResponse(signatureResponse));
+		});
 		debugProtocolHost.VerifySynchronousOperationAllowed();
 	    debugProtocolHost.Run();
 		return debugProtocolHost;

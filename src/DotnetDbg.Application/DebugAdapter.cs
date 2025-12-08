@@ -1,0 +1,425 @@
+using DotnetDbg.Infrastructure.Debugger;
+using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol;
+using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
+// Newtonsoft.Json.Linq is required for accessing ConfigurationProperties from LaunchArguments/AttachArguments
+// The Microsoft DAP library uses JToken for dynamic configuration properties
+using Newtonsoft.Json.Linq;
+using MSBreakpoint = Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages.Breakpoint;
+using MSThread = Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages.Thread;
+using MSStackFrame = Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages.StackFrame;
+
+namespace DotnetDbg.Application;
+
+/// <summary>
+/// Main debug adapter that coordinates DAP protocol and debugger engine
+/// </summary>
+public class DebugAdapter : DebugAdapterBase
+{
+    private readonly ManagedDebugger _debugger;
+    private readonly Action<string>? _logger;
+    private bool _clientLinesStartAt1 = true;
+    private bool _clientColumnsStartAt1 = true;
+
+    public DebugAdapter(Action<string>? logger = null)
+    {
+        _logger = logger;
+        _debugger = new ManagedDebugger(logger);
+
+        // Subscribe to debugger events
+        SubscribeToDebuggerEvents();
+    }
+
+    public void Initialize(Stream input, Stream output)
+    {
+        InitializeProtocolClient(input, output);
+    }
+
+    // Helper method to extract configuration properties from LaunchArguments/AttachArguments
+    private static T? GetConfigValue<T>(Dictionary<string, JToken>? config, string key)
+    {
+        if (config != null && config.TryGetValue(key, out var token))
+        {
+            return token.ToObject<T>();
+        }
+        return default;
+    }
+
+    private void SubscribeToDebuggerEvents()
+    {
+        _debugger.OnStopped += (threadId, reason) =>
+        {
+            Protocol.SendEvent(new StoppedEvent
+            {
+                Reason = ConvertStopReason(reason),
+                ThreadId = threadId,
+                AllThreadsStopped = true
+            });
+        };
+
+        _debugger.OnContinued += (threadId) =>
+        {
+            Protocol.SendEvent(new ContinuedEvent
+            {
+                ThreadId = threadId,
+                AllThreadsContinued = true
+            });
+        };
+
+        _debugger.OnExited += (exitCode) =>
+        {
+            Protocol.SendEvent(new ExitedEvent
+            {
+                ExitCode = exitCode
+            });
+        };
+
+        _debugger.OnTerminated += () =>
+        {
+            Protocol.SendEvent(new TerminatedEvent());
+        };
+
+        _debugger.OnThreadStarted += (threadId, name) =>
+        {
+            Protocol.SendEvent(new ThreadEvent
+            {
+                Reason = ThreadEvent.ReasonValue.Started,
+                ThreadId = threadId
+            });
+        };
+
+        _debugger.OnThreadExited += (threadId, name) =>
+        {
+            Protocol.SendEvent(new ThreadEvent
+            {
+                Reason = ThreadEvent.ReasonValue.Exited,
+                ThreadId = threadId
+            });
+        };
+
+        _debugger.OnModuleLoaded += (id, name, path) =>
+        {
+            Protocol.SendEvent(new ModuleEvent
+            {
+                Reason = ModuleEvent.ReasonValue.New,
+                Module = new Module
+                {
+                    Id = id,
+                    Name = name,
+                    Path = path
+                }
+            });
+        };
+
+        _debugger.OnOutput += (output) =>
+        {
+            Protocol.SendEvent(new OutputEvent
+            {
+                Category = OutputEvent.CategoryValue.Stdout,
+                Output = output
+            });
+        };
+    }
+
+    // Command handlers
+    protected override InitializeResponse HandleInitializeRequest(InitializeArguments arguments)
+    {
+        _clientLinesStartAt1 = arguments.LinesStartAt1 ?? true;
+        _clientColumnsStartAt1 = arguments.ColumnsStartAt1 ?? true;
+
+        // Send initialized event
+        Protocol.SendEvent(new InitializedEvent());
+
+        return new InitializeResponse
+        {
+            SupportsConfigurationDoneRequest = true,
+            SupportsFunctionBreakpoints = true,
+            SupportsConditionalBreakpoints = false,
+            SupportsEvaluateForHovers = true,
+            SupportsStepBack = false,
+            SupportsSetVariable = false,
+            SupportsRestartFrame = false,
+            SupportsTerminateRequest = true,
+            ExceptionBreakpointFilters = new List<ExceptionBreakpointsFilter>
+            {
+                new() { Filter = "all", Label = "All Exceptions", Default = false },
+                new() { Filter = "user-unhandled", Label = "User-unhandled Exceptions", Default = true }
+            }
+        };
+    }
+
+    protected override LaunchResponse HandleLaunchRequest(LaunchArguments arguments)
+    {
+        var program = GetConfigValue<string>(arguments.ConfigurationProperties, "program");
+        if (string.IsNullOrEmpty(program))
+        {
+            throw new ProtocolException("Missing program path");
+        }
+
+        var args = GetConfigValue<string[]>(arguments.ConfigurationProperties, "args") ?? Array.Empty<string>();
+        var cwd = GetConfigValue<string>(arguments.ConfigurationProperties, "cwd");
+        var env = GetConfigValue<Dictionary<string, string>>(arguments.ConfigurationProperties, "env");
+        var stopAtEntry = GetConfigValue<bool?>(arguments.ConfigurationProperties, "stopAtEntry") ?? false;
+
+        try
+        {
+            _debugger.Launch(program, args, cwd, env, stopAtEntry);
+            return new LaunchResponse();
+        }
+        catch (Exception ex)
+        {
+            _logger?.Invoke($"Launch failed: {ex.Message}");
+            throw new ProtocolException($"Failed to launch: {ex.Message}");
+        }
+    }
+
+    protected override AttachResponse HandleAttachRequest(AttachArguments arguments)
+    {
+        var processId = GetConfigValue<int?>(arguments.ConfigurationProperties, "processId");
+        if (processId == null)
+        {
+            throw new ProtocolException("Missing process ID");
+        }
+
+        try
+        {
+            _debugger.Attach(processId.Value);
+            return new AttachResponse();
+        }
+        catch (Exception ex)
+        {
+            _logger?.Invoke($"Attach failed: {ex.Message}");
+            throw new ProtocolException($"Failed to attach: {ex.Message}");
+        }
+    }
+
+    protected override ConfigurationDoneResponse HandleConfigurationDoneRequest(ConfigurationDoneArguments arguments)
+    {
+        _logger?.Invoke("Configuration done");
+        
+        // If not stopped at entry, continue execution
+        if (_debugger.IsRunning)
+        {
+            _debugger.Continue();
+        }
+        
+        return new ConfigurationDoneResponse();
+    }
+
+    protected override SetBreakpointsResponse HandleSetBreakpointsRequest(SetBreakpointsArguments arguments)
+    {
+        if (arguments.Source?.Path == null)
+        {
+            throw new ProtocolException("Missing source path");
+        }
+
+        var lines = arguments.Breakpoints?.Select(bp => ConvertClientLineToDebugger(bp.Line)).ToArray() ?? Array.Empty<int>();
+        var breakpoints = _debugger.SetBreakpoints(arguments.Source.Path, lines);
+
+        var responseBreakpoints = breakpoints.Select(bp => new MSBreakpoint
+        {
+            Id = bp.Id,
+            Verified = bp.Verified,
+            Line = ConvertDebuggerLineToClient(bp.Line),
+            Message = bp.Message,
+            Source = new Source
+            {
+                Path = bp.FilePath
+            }
+        }).ToList();
+
+        return new SetBreakpointsResponse
+        {
+            Breakpoints = responseBreakpoints
+        };
+    }
+
+    protected override SetFunctionBreakpointsResponse HandleSetFunctionBreakpointsRequest(SetFunctionBreakpointsArguments arguments)
+    {
+        // Function breakpoints not yet fully implemented
+        return new SetFunctionBreakpointsResponse
+        {
+            Breakpoints = new List<MSBreakpoint>()
+        };
+    }
+
+    protected override SetExceptionBreakpointsResponse HandleSetExceptionBreakpointsRequest(SetExceptionBreakpointsArguments arguments)
+    {
+        // Exception breakpoints configuration
+        _logger?.Invoke($"Exception breakpoints: {string.Join(", ", arguments?.Filters ?? new List<string>())}");
+        
+        return new SetExceptionBreakpointsResponse();
+    }
+
+    protected override ThreadsResponse HandleThreadsRequest(ThreadsArguments arguments)
+    {
+        var threads = _debugger.GetThreads();
+        
+        var responseThreads = threads.Select(t => new MSThread
+        {
+            Id = t.id,
+            Name = t.name
+        }).ToList();
+
+        return new ThreadsResponse
+        {
+            Threads = responseThreads
+        };
+    }
+
+    protected override StackTraceResponse HandleStackTraceRequest(StackTraceArguments arguments)
+    {
+        var frames = _debugger.GetStackTrace(arguments.ThreadId, arguments.StartFrame ?? 0, arguments.Levels);
+        
+        var responseFrames = frames.Select(f => new MSStackFrame
+        {
+            Id = f.Id,
+            Name = f.Name,
+            Line = ConvertDebuggerLineToClient(f.Line),
+            Column = ConvertDebuggerColumnToClient(f.Column),
+            Source = f.Source != null ? new Source { Path = f.Source } : null
+        }).ToList();
+
+        return new StackTraceResponse
+        {
+            StackFrames = responseFrames,
+            TotalFrames = responseFrames.Count
+        };
+    }
+
+    protected override ScopesResponse HandleScopesRequest(ScopesArguments arguments)
+    {
+        var scopes = _debugger.GetScopes(arguments.FrameId);
+        
+        var responseScopes = scopes.Select(s => new Scope
+        {
+            Name = s.Name,
+            VariablesReference = s.VariablesReference,
+            Expensive = s.Expensive
+        }).ToList();
+
+        return new ScopesResponse
+        {
+            Scopes = responseScopes
+        };
+    }
+
+    protected override VariablesResponse HandleVariablesRequest(VariablesArguments arguments)
+    {
+        var variables = _debugger.GetVariables(arguments.VariablesReference);
+        
+        var responseVariables = variables.Select(v => new Variable
+        {
+            Name = v.Name,
+            Value = v.Value,
+            Type = v.Type,
+            VariablesReference = v.VariablesReference
+        }).ToList();
+
+        return new VariablesResponse
+        {
+            Variables = responseVariables
+        };
+    }
+
+    protected override EvaluateResponse HandleEvaluateRequest(EvaluateArguments arguments)
+    {
+        var (result, type, variablesReference) = _debugger.Evaluate(arguments.Expression, arguments.FrameId);
+
+        return new EvaluateResponse
+        {
+            Result = result,
+            Type = type,
+            VariablesReference = variablesReference
+        };
+    }
+
+    protected override ContinueResponse HandleContinueRequest(ContinueArguments arguments)
+    {
+        _debugger.Continue();
+        
+        return new ContinueResponse
+        {
+            AllThreadsContinued = true
+        };
+    }
+
+    protected override NextResponse HandleNextRequest(NextArguments arguments)
+    {
+        _debugger.StepNext(arguments.ThreadId);
+        
+        return new NextResponse();
+    }
+
+    protected override StepInResponse HandleStepInRequest(StepInArguments arguments)
+    {
+        _debugger.StepIn(arguments.ThreadId);
+        
+        return new StepInResponse();
+    }
+
+    protected override StepOutResponse HandleStepOutRequest(StepOutArguments arguments)
+    {
+        _debugger.StepOut(arguments.ThreadId);
+        
+        return new StepOutResponse();
+    }
+
+    protected override PauseResponse HandlePauseRequest(PauseArguments arguments)
+    {
+        _debugger.Pause();
+        
+        return new PauseResponse();
+    }
+
+    protected override DisconnectResponse HandleDisconnectRequest(DisconnectArguments arguments)
+    {
+        _debugger.Disconnect(arguments?.TerminateDebuggee ?? false);
+        
+        return new DisconnectResponse();
+    }
+
+    protected override TerminateResponse HandleTerminateRequest(TerminateArguments arguments)
+    {
+        _debugger.Terminate();
+        
+        return new TerminateResponse();
+    }
+
+    // Coordinate conversion helpers
+    private int ConvertClientLineToDebugger(int line)
+    {
+        return _clientLinesStartAt1 ? line : line + 1;
+    }
+
+    private int ConvertDebuggerLineToClient(int line)
+    {
+        return _clientLinesStartAt1 ? line : line - 1;
+    }
+
+    private int ConvertClientColumnToDebugger(int column)
+    {
+        return _clientColumnsStartAt1 ? column : column + 1;
+    }
+
+    private int ConvertDebuggerColumnToClient(int column)
+    {
+        return _clientColumnsStartAt1 ? column : column - 1;
+    }
+
+    private static StoppedEvent.ReasonValue ConvertStopReason(string reason)
+    {
+        return reason.ToLowerInvariant() switch
+        {
+            "step" => StoppedEvent.ReasonValue.Step,
+            "breakpoint" => StoppedEvent.ReasonValue.Breakpoint,
+            "exception" => StoppedEvent.ReasonValue.Exception,
+            "pause" => StoppedEvent.ReasonValue.Pause,
+            "entry" => StoppedEvent.ReasonValue.Entry,
+            "goto" => StoppedEvent.ReasonValue.Goto,
+            "function breakpoint" => StoppedEvent.ReasonValue.FunctionBreakpoint,
+            "data breakpoint" => StoppedEvent.ReasonValue.DataBreakpoint,
+            "instruction breakpoint" => StoppedEvent.ReasonValue.InstructionBreakpoint,
+            _ => StoppedEvent.ReasonValue.Unknown
+        };
+    }
+}

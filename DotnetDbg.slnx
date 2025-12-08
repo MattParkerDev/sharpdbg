@@ -11,4 +11,8 @@
     <Project Path="src/DotnetDbg.Cli/DotnetDbg.Cli.csproj" />
     <Project Path="src/DotnetDbg.Infrastructure/DotnetDbg.Infrastructure.csproj" />
   </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/DebuggableConsoleApp/DebuggableConsoleApp.csproj" />
+    <Project Path="tests/DotnetDbg.Cli.Tests/DotnetDbg.Cli.Tests.csproj" />
+  </Folder>
 </Solution>

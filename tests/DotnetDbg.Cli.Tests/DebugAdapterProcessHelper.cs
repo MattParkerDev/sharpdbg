@@ -1,6 +1,7 @@
 ﻿using System.Diagnostics;
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol;
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
+using Newtonsoft.Json.Linq;
 using SharpIDE.Application.Features.Debugging.Signing;
 
 namespace DotnetDbg.Cli.Tests;
@@ -58,6 +59,20 @@ public static class DebugAdapterProcessHelper
 			SupportsVariablePaging = true,
 			SupportsRunInTerminalRequest = true,
 			SupportsHandshakeRequest = true
+		};
+	}
+
+	public static AttachRequest GetAttachRequest(int processId)
+	{
+		return new AttachRequest
+		{
+			ConfigurationProperties = new Dictionary<string, JToken>
+			{
+				["name"] = "AttachRequestName",
+				["type"] = "coreclr",
+				["processId"] = processId,
+				["console"] = "internalConsole", // integratedTerminal, externalTerminal, internalConsole
+			}
 		};
 	}
 }

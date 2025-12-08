@@ -34,18 +34,7 @@ public class UnitTest1(ITestOutputHelper testOutputHelper)
 		    var debugProtocolHost = DebugAdapterProcessHelper.GetDebugProtocolHost(process, testOutputHelper);
 		    var initializeRequest = DebugAdapterProcessHelper.GetInitializeRequest();
 		    debugProtocolHost.SendRequestSync(initializeRequest);
-
-		    var attachRequest = new AttachRequest
-		    {
-			    ConfigurationProperties = new Dictionary<string, JToken>
-			    {
-				    ["name"] = "AttachRequestName",
-				    ["type"] = "coreclr",
-				    ["processId"] = debuggableProcess.Id,
-				    ["console"] = "internalConsole", // integratedTerminal, externalTerminal, internalConsole
-			    }
-		    };
-
+		    var attachRequest = DebugAdapterProcessHelper.GetAttachRequest(debuggableProcess.Id);
 		    debugProtocolHost.SendRequestSync(attachRequest);
 	    }
 	    finally
@@ -54,4 +43,6 @@ public class UnitTest1(ITestOutputHelper testOutputHelper)
 		    debuggableProcess.Kill();
 	    }
     }
+
+    
 }

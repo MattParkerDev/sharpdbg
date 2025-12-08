@@ -14,13 +14,40 @@ public class BreakpointManager
 
     public class BreakpointInfo
     {
+        /// <summary>Unique breakpoint ID</summary>
         public int Id { get; set; }
+
+        /// <summary>Requested source file path</summary>
         public string FilePath { get; set; } = string.Empty;
+
+        /// <summary>Requested line number (1-based)</summary>
         public int Line { get; set; }
+
+        /// <summary>Whether the breakpoint has been bound to actual code</summary>
         public bool Verified { get; set; }
+
+        /// <summary>The ICorDebugFunctionBreakpoint if bound</summary>
         public CorDebugFunctionBreakpoint? CorBreakpoint { get; set; }
-        public ICorDebugBreakpoint? RawBreakpoint { get; set; }
+
+        /// <summary>Status message (e.g., why unverified)</summary>
         public string? Message { get; set; }
+
+        // Resolution info (populated when bound)
+
+        /// <summary>Resolved line number (may differ from requested Line)</summary>
+        public int? ResolvedLine { get; set; }
+
+        /// <summary>Resolved end line number</summary>
+        public int? ResolvedEndLine { get; set; }
+
+        /// <summary>Method token where breakpoint is set</summary>
+        public int? MethodToken { get; set; }
+
+        /// <summary>IL offset within the method</summary>
+        public int? ILOffset { get; set; }
+
+        /// <summary>Module base address where breakpoint is bound</summary>
+        public long? ModuleBaseAddress { get; set; }
     }
 
     /// <summary>
@@ -133,6 +160,28 @@ public class BreakpointManager
         lock (_lock)
         {
             return _breakpoints.Values.FirstOrDefault(bp => bp.CorBreakpoint == corBreakpoint);
+        }
+    }
+
+    /// <summary>
+    /// Get all pending (unverified) breakpoints
+    /// </summary>
+    public List<BreakpointInfo> GetPendingBreakpoints()
+    {
+        lock (_lock)
+        {
+            return _breakpoints.Values.Where(bp => !bp.Verified).ToList();
+        }
+    }
+
+    /// <summary>
+    /// Get all breakpoints
+    /// </summary>
+    public List<BreakpointInfo> GetAllBreakpoints()
+    {
+        lock (_lock)
+        {
+            return _breakpoints.Values.ToList();
         }
     }
 

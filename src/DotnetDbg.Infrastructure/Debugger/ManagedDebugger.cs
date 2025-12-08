@@ -16,6 +16,7 @@ public class ManagedDebugger : IDisposable
     private readonly VariableManager _variableManager;
     private readonly Action<string>? _logger;
     private readonly Dictionary<int, CorDebugThread> _threads = new();
+    private readonly Dictionary<long, ModuleInfo> _modules = new();
     private bool _stopAtEntry;
     private bool _isAttached;
 
@@ -27,6 +28,7 @@ public class ManagedDebugger : IDisposable
     public event Action<int, string>? OnThreadExited;
     public event Action<string, string, string>? OnModuleLoaded;
     public event Action<string>? OnOutput;
+    public event Action<BreakpointManager.BreakpointInfo>? OnBreakpointChanged;
 
     public BreakpointManager BreakpointManager => _breakpointManager;
     public VariableManager VariableManager => _variableManager;
@@ -217,11 +219,21 @@ public class ManagedDebugger : IDisposable
     {
         _logger?.Invoke($"SetBreakpoints: {filePath}, lines: {string.Join(",", lines)}");
 
-        // Clear existing breakpoints for this file
+        // Deactivate and clear existing breakpoints for this file
         var existingBreakpoints = _breakpointManager.GetBreakpointsForFile(filePath);
         foreach (var bp in existingBreakpoints)
         {
-            bp.CorBreakpoint?.Activate(false);
+            if (bp.CorBreakpoint != null)
+            {
+                try
+                {
+                    bp.CorBreakpoint.Activate(false);
+                }
+                catch (Exception ex)
+                {
+                    _logger?.Invoke($"Error deactivating breakpoint: {ex.Message}");
+                }
+            }
         }
         _breakpointManager.ClearBreakpointsForFile(filePath);
 
@@ -231,10 +243,15 @@ public class ManagedDebugger : IDisposable
         {
             var bp = _breakpointManager.CreateBreakpoint(filePath, line);
 
-            // Try to bind the breakpoint
+            // Try to bind the breakpoint if we have a process
             if (_process != null)
             {
                 TryBindBreakpoint(bp);
+            }
+            else
+            {
+                // No process yet, mark as pending
+                bp.Message = "The breakpoint is pending and will be resolved when debugging starts.";
             }
 
             result.Add(bp);
@@ -244,41 +261,84 @@ public class ManagedDebugger : IDisposable
     }
 
     /// <summary>
-    /// Try to bind a breakpoint to the actual code
+    /// Try to bind a breakpoint to the actual code using symbol information
     /// </summary>
-    private void TryBindBreakpoint(BreakpointManager.BreakpointInfo bp)
+    private bool TryBindBreakpoint(BreakpointManager.BreakpointInfo bp)
     {
         try
         {
-            if (_process == null) return;
+            if (_process == null) return false;
 
-            // Find the function at this location
-            // This is simplified - a real implementation would need symbol information
-            // to map file/line to actual IL offset in a function
+            // Find a module that contains the source file
+            ModuleInfo? targetModule = null;
+            SymbolReader.ResolvedBreakpoint? resolved = null;
 
-            var appDomains = _process.EnumerateAppDomains();
-            foreach (var appDomain in appDomains)
+            foreach (var moduleInfo in _modules.Values)
             {
-                var assemblies = appDomain.EnumerateAssemblies();
-                foreach (var assembly in assemblies)
+                if (moduleInfo.SymbolReader == null)
+                    continue;
+
+                resolved = moduleInfo.SymbolReader.ResolveBreakpoint(bp.FilePath, bp.Line);
+                if (resolved != null)
                 {
-                    var modules = assembly.EnumerateModules();
-                    foreach (var module in modules)
-                    {
-                        // Try to get symbol reader for the module
-                        // This would require PDB files and proper symbol resolution
-                        // For now, mark as unverified
-                    }
+                    targetModule = moduleInfo;
+                    break;
                 }
             }
 
-            // For now, mark as unverified - proper implementation needs symbol support
-            _breakpointManager.SetVerified(bp.Id, false, "Symbol resolution not yet implemented");
+            if (targetModule == null || resolved == null)
+            {
+                // No module found with symbols for this file
+                bp.Verified = false;
+                bp.Message = "The breakpoint will not currently be hit. No symbols have been loaded for this document.";
+                _logger?.Invoke($"Breakpoint at {bp.FilePath}:{bp.Line} - no symbols found");
+                return false;
+            }
+
+            // Get the function from the method token
+            var function = targetModule.Module.GetFunctionFromToken(resolved.MethodToken);
+            var ilCode = function.ILCode;
+
+            // Create a breakpoint at the resolved IL offset
+            var corBreakpoint = ilCode.CreateBreakpoint(resolved.ILOffset);
+            corBreakpoint.Activate(true);
+
+            // Update breakpoint info
+            bp.CorBreakpoint = corBreakpoint;
+            bp.Verified = true;
+            bp.ResolvedLine = resolved.StartLine;
+            bp.ResolvedEndLine = resolved.EndLine;
+            bp.MethodToken = resolved.MethodToken;
+            bp.ILOffset = resolved.ILOffset;
+            bp.ModuleBaseAddress = targetModule.BaseAddress;
+            bp.Message = null;
+
+            _logger?.Invoke($"Breakpoint bound at {bp.FilePath}:{bp.Line} -> resolved to line {resolved.StartLine}, IL offset {resolved.ILOffset} in method 0x{resolved.MethodToken:X}");
+            return true;
         }
         catch (Exception ex)
         {
-            _logger?.Invoke($"Error binding breakpoint: {ex.Message}");
-            _breakpointManager.SetVerified(bp.Id, false, ex.Message);
+            _logger?.Invoke($"Error binding breakpoint at {bp.FilePath}:{bp.Line}: {ex.Message}");
+            bp.Verified = false;
+            bp.Message = $"Error binding breakpoint: {ex.Message}";
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Try to bind all pending breakpoints (called when a new module is loaded)
+    /// </summary>
+    private void TryBindPendingBreakpoints()
+    {
+        var pendingBreakpoints = _breakpointManager.GetPendingBreakpoints();
+
+        foreach (var bp in pendingBreakpoints)
+        {
+            if (TryBindBreakpoint(bp))
+            {
+                // Notify that the breakpoint changed (became verified)
+                OnBreakpointChanged?.Invoke(bp);
+            }
         }
     }
 
@@ -501,6 +561,14 @@ public class ManagedDebugger : IDisposable
         _threads.Clear();
         _breakpointManager.Clear();
         _variableManager.Clear();
+
+        // Dispose all module info (which disposes symbol readers)
+        foreach (var moduleInfo in _modules.Values)
+        {
+            moduleInfo.Dispose();
+        }
+        _modules.Clear();
+
         _isAttached = false;
         IsRunning = false;
     }
@@ -558,9 +626,44 @@ public class ManagedDebugger : IDisposable
 
     private void HandleModuleLoaded(object? sender, LoadModuleCorDebugManagedCallbackEventArgs loadModuleCorDebugManagedCallbackEventArgs)
     {
-	    var corModule = loadModuleCorDebugManagedCallbackEventArgs.Module;
-        var name = corModule.Name;
-        OnModuleLoaded?.Invoke(name, name, name);
+        var corModule = loadModuleCorDebugManagedCallbackEventArgs.Module;
+        var modulePath = corModule.Name;
+        var baseAddress = (long)corModule.BaseAddress;
+
+        _logger?.Invoke($"Module loaded: {modulePath} at 0x{baseAddress:X}");
+
+        // Try to load symbols for this module
+        SymbolReader? symbolReader = null;
+        try
+        {
+            symbolReader = SymbolReader.TryLoad(modulePath);
+            if (symbolReader != null)
+            {
+                _logger?.Invoke($"  Symbols loaded for {Path.GetFileName(modulePath)}");
+            }
+            else
+            {
+                _logger?.Invoke($"  No symbols found for {Path.GetFileName(modulePath)}");
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger?.Invoke($"  Error loading symbols for {Path.GetFileName(modulePath)}: {ex.Message}");
+        }
+
+        // Store module info
+        var moduleInfo = new ModuleInfo(corModule, modulePath, symbolReader);
+        _modules[baseAddress] = moduleInfo;
+
+        // Fire the module loaded event
+        OnModuleLoaded?.Invoke(modulePath, Path.GetFileName(modulePath), modulePath);
+
+        // Try to bind any pending breakpoints now that we have a new module with symbols
+        if (symbolReader != null)
+        {
+            TryBindPendingBreakpoints();
+        }
+
         Continue();
     }
 

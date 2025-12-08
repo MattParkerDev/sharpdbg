@@ -195,13 +195,7 @@ public class DebugAdapter : DebugAdapterBase
     protected override ConfigurationDoneResponse HandleConfigurationDoneRequest(ConfigurationDoneArguments arguments)
     {
         _logger?.Invoke("Configuration done");
-
-        // If not stopped at entry, continue execution
-        if (_debugger.IsRunning)
-        {
-            _debugger.Continue();
-        }
-
+        _debugger.ConfigurationDone();
         return new ConfigurationDoneResponse();
     }
 

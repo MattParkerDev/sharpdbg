@@ -19,6 +19,7 @@ public class ManagedDebugger : IDisposable
     private readonly Dictionary<long, ModuleInfo> _modules = new();
     private bool _stopAtEntry;
     private bool _isAttached;
+    private int? _pendingAttachProcessId;
 
     public event Action<int, string>? OnStopped;
     public event Action<int>? OnContinued;
@@ -108,9 +109,32 @@ public class ManagedDebugger : IDisposable
     }
 
     /// <summary>
-    /// Attach to an existing process
+    /// Store process ID for later attach (actual attach happens in ConfigurationDone)
     /// </summary>
     public void Attach(int processId)
+    {
+        _logger?.Invoke($"Storing attach target: {processId}");
+        _pendingAttachProcessId = processId;
+    }
+
+    /// <summary>
+    /// Called when DAP configuration is complete - performs deferred attach
+    /// </summary>
+    public void ConfigurationDone()
+    {
+        _logger?.Invoke("ConfigurationDone");
+
+        if (_pendingAttachProcessId.HasValue)
+        {
+            PerformAttach(_pendingAttachProcessId.Value);
+            _pendingAttachProcessId = null;
+        }
+    }
+
+    /// <summary>
+    /// Actually attach to an existing process
+    /// </summary>
+    private void PerformAttach(int processId)
     {
         _logger?.Invoke($"Attaching to process: {processId}");
 

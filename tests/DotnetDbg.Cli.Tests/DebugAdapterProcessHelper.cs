@@ -43,6 +43,10 @@ public static class DebugAdapterProcessHelper
 		{
 			initializedEventTcs?.SetResult();
 		});
+		// debugProtocolHost.RegisterEventType<StoppedEvent>(async void (@event) =>
+		// {
+		// 	testOutputHelper.WriteLine("Stopped Event");
+		// });
 		debugProtocolHost.VerifySynchronousOperationAllowed();
 	    debugProtocolHost.Run();
 		return debugProtocolHost;

@@ -10,8 +10,9 @@ public static class Program
 		while (true)
 		{
 			// Keep the application running to allow debugging
-			System.Threading.Thread.Sleep(500);
 			MyClass.MyMethod();
+			Thread.Sleep(500);
+			//await Task.Delay(500);
 		}
 	}
 }

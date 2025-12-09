@@ -49,7 +49,7 @@ public class UnitTest1(ITestOutputHelper testOutputHelper)
     public async Task DotnetDbgCli_SetBreakpointsRequest_Returns()
     {
 	    var process = DebugAdapterProcessHelper.GetDebugAdapterProcess();
-	    var debuggableProcess = DebuggableProcessHelper.StartDebuggableProcess();
+	    var debuggableProcess = DebuggableProcessHelper.StartDebuggableProcess(false);
 	    try
 	    {
 			var initializedEventTcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -73,7 +73,7 @@ public class UnitTest1(ITestOutputHelper testOutputHelper)
 		    //await Verify(breakpointsResponse);
 		    var configurationDoneRequest = new ConfigurationDoneRequest();
 		    debugProtocolHost.SendRequestSync(configurationDoneRequest);
-		    //new DiagnosticsClient(debuggableProcess.Id).ResumeRuntime();
+		    new DiagnosticsClient(debuggableProcess.Id).ResumeRuntime();
 		    await Task.Delay(5000, TestContext.Current.CancellationToken);
 	    }
 	    finally

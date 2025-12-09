@@ -154,16 +154,19 @@ public class ManagedDebugger : IDisposable
         // Initialize the debugger
         var dbgShimPath = DbgShimResolver.Resolve();
         var dbgshim = new DbgShim(NativeLibrary.Load(dbgShimPath));
-        _corDebug = ClrDebugExtensions.Automatic(dbgshim, processId);
-        _corDebug.Initialize();
-        _corDebug.SetManagedHandler(_callbacks);
+        _ = Task.Run(() =>
+		{
+			_corDebug = ClrDebugExtensions.Automatic(dbgshim, processId);
+			_corDebug.Initialize();
+			_corDebug.SetManagedHandler(_callbacks);
 
-        // Attach to the process
-        _process = _corDebug.DebugActiveProcess(processId, false);
-        _isAttached = true;
-        IsRunning = true;
+			// Attach to the process
+			_process = _corDebug.DebugActiveProcess(processId, false);
+			_isAttached = true;
+			IsRunning = true;
 
-        _logger?.Invoke($"Attached to process: {processId}");
+			_logger?.Invoke($"Attached to process: {processId}");
+		});
     }
 
     /// <summary>

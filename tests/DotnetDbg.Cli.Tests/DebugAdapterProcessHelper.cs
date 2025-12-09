@@ -48,7 +48,6 @@ public static class DebugAdapterProcessHelper
 		// 	testOutputHelper.WriteLine("Stopped Event");
 		// });
 		debugProtocolHost.VerifySynchronousOperationAllowed();
-	    debugProtocolHost.Run();
 		return debugProtocolHost;
 	}
 

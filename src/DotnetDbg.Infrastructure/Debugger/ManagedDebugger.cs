@@ -160,18 +160,6 @@ public class ManagedDebugger : IDisposable
 
         // Attach to the process
         _process = _corDebug.DebugActiveProcess(processId, false);
-        // // After attaching, enumerate already-loaded modules
-        // foreach (var appDomain in _process.AppDomains)
-        // {
-	       //  foreach (var assembly in appDomain.Assemblies)
-	       //  {
-		      //   foreach (var module in assembly.Modules)
-		      //   {
-			     //    var modulePath = module.Name;
-			     //    OnModuleLoaded?.Invoke(modulePath, Path.GetFileName(modulePath), modulePath);
-		      //   }
-	       //  }
-        // }
         _isAttached = true;
         IsRunning = true;
 

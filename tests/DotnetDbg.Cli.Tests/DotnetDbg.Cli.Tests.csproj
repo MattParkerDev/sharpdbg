@@ -6,6 +6,7 @@
     <OutputType>Exe</OutputType>
     <RootNamespace>DotnetDbg.Cli.Tests</RootNamespace>
     <TargetFramework>net10.0</TargetFramework>
+	<UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>
     <!--
     This template uses native xUnit.net command line options when using 'dotnet run' and
     VSTest by default when using 'dotnet test'. For more information on how to enable support
@@ -25,11 +26,9 @@
   <ItemGroup>
     <PackageReference Include="CliWrap" Version="3.10.0" />
     <PackageReference Include="Microsoft.Diagnostics.NETCore.Client" Version="0.2.652701" />
-    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.0.1" />
     <PackageReference Include="Microsoft.VisualStudio.Shared.VSCodeDebugProtocol" Version="18.0.10427.1" />
     <PackageReference Include="Verify.XunitV3" Version="31.8.0" />
-    <PackageReference Include="xunit.v3" Version="3.2.1" />
-    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5" />
+    <PackageReference Include="xunit.v3.mtp-v2" Version="3.2.1" />
   </ItemGroup>
 
 </Project>

@@ -155,11 +155,11 @@ public class BreakpointManager
     /// <summary>
     /// Find breakpoint by ClrDebug breakpoint
     /// </summary>
-    public BreakpointInfo? FindByCorBreakpoint(CorDebugFunctionBreakpoint corBreakpoint)
+    public BreakpointInfo? FindByCorBreakpoint(ICorDebugFunctionBreakpoint corBreakpoint)
     {
         lock (_lock)
         {
-            return _breakpoints.Values.FirstOrDefault(bp => bp.CorBreakpoint == corBreakpoint);
+            return _breakpoints.Values.FirstOrDefault(bp => bp.CorBreakpoint!.Raw == corBreakpoint);
         }
     }
 

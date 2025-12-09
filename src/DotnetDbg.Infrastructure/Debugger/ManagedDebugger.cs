@@ -255,6 +255,7 @@ public class ManagedDebugger : IDisposable
     /// </summary>
     public List<BreakpointManager.BreakpointInfo> SetBreakpoints(string filePath, int[] lines)
     {
+	    //System.Diagnostics.Debugger.Launch();
         _logger?.Invoke($"SetBreakpoints: {filePath}, lines: {string.Join(",", lines)}");
 
         // Deactivate and clear existing breakpoints for this file
@@ -717,6 +718,9 @@ public class ManagedDebugger : IDisposable
 		    return;
 	    }
 	    _lastHitBreakpoint = breakpoint;
+	    if (breakpoint is not CorDebugFunctionBreakpoint functionBreakpoint) return;
+	    var managedBreakpoint = _breakpointManager.FindByCorBreakpoint(functionBreakpoint.Raw);
+	    ArgumentNullException.ThrowIfNull(managedBreakpoint);
 	    // TODO: Keep track of last breakpoint, and do not invoke OnStopped multiple times for same breakpoint hit - it will spam otherwise
 	    var corThread = breakpointCorDebugManagedCallbackEventArgs.Thread;
         IsRunning = false;

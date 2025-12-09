@@ -128,8 +128,9 @@ public class DotnetDbgTests(ITestOutputHelper testOutputHelper)
 
 		    var stoppedEvent = await stoppedEventTcs.Task;
 		    ;
-		    //var stackTraceRequest = new StackTraceRequest { ThreadId = @event.ThreadId!.Value, StartFrame = 0, Levels = 1 };
-		    //var stackTraceResponse = debugProtocolHost.SendRequestSync(stackTraceRequest);
+		    var stackTraceRequest = new StackTraceRequest { ThreadId = stoppedEvent.ThreadId!.Value, StartFrame = 0, Levels = 1 };
+		    var stackTraceResponse = debugProtocolHost.SendRequestSync(stackTraceRequest);
+		    ;
 	    }
 	    finally
 	    {

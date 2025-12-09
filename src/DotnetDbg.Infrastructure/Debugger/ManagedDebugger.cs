@@ -22,6 +22,8 @@ public class ManagedDebugger : IDisposable
     private int? _pendingAttachProcessId;
 
     public event Action<int, string>? OnStopped;
+    // ThreadId, FilePath, Line, Reason
+    public event Action<int, string, int, string>? OnStopped2;
     public event Action<int>? OnContinued;
     public event Action? OnExited;
     public event Action? OnTerminated;
@@ -727,10 +729,9 @@ public class ManagedDebugger : IDisposable
 	    }
 	    var managedBreakpoint = _breakpointManager.FindByCorBreakpoint(functionBreakpoint.Raw);
 	    ArgumentNullException.ThrowIfNull(managedBreakpoint);
-	    // TODO: Keep track of last breakpoint, and do not invoke OnStopped multiple times for same breakpoint hit - it will spam otherwise
 	    var corThread = breakpointCorDebugManagedCallbackEventArgs.Thread;
         IsRunning = false;
-        OnStopped?.Invoke(corThread.Id, "breakpoint");
+        OnStopped2?.Invoke(corThread.Id, managedBreakpoint.FilePath, managedBreakpoint.Line, "breakpoint");
     }
 
     private void HandleStepComplete(object? sender, StepCompleteCorDebugManagedCallbackEventArgs stepCompleteCorDebugManagedCallbackEventArgs)

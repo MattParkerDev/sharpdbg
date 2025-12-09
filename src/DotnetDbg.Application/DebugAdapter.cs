@@ -56,6 +56,20 @@ public class DebugAdapter : DebugAdapterBase
             });
         };
 
+        _debugger.OnStopped2 += (threadId, filePath, line, reason) =>
+        {
+	        var source = new Source { Path = filePath };
+	        var stoppedEvent = new StoppedEvent
+	        {
+		        Reason = ConvertStopReason(reason),
+		        ThreadId = threadId,
+		        AllThreadsStopped = true
+	        };
+	        stoppedEvent.AdditionalProperties["source"] = JToken.FromObject(source);
+	        stoppedEvent.AdditionalProperties["line"] = JToken.FromObject(line);
+	        Protocol.SendEvent(stoppedEvent);
+        };
+
   //       _debugger.OnBreakpointChanged += (breakpoint) =>
 		// {
 		// 	Protocol.SendEvent(new BreakpointEvent

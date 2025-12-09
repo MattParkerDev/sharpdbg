@@ -5,8 +5,17 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>
+	
+	<ItemGroup>
+		<Publicize IncludeCompilerGeneratedMembers="false" Include="Microsoft.VisualStudio.Shared.VSCodeDebugProtocol" />
+		<DoNotPublicize Include="Microsoft.VisualStudio.Shared.VSCodeDebugProtocol:Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.DebugAdapterBase" />
+	</ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="Krafs.Publicizer" Version="2.3.0">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
     <PackageReference Include="Microsoft.VisualStudio.Shared.VSCodeDebugProtocol" Version="18.0.10427.1" />
   </ItemGroup>
 

@@ -62,7 +62,7 @@ public class ManagedDebugger : IDisposable
     private void OnAnyEvent(object? sender, CorDebugManagedCallbackEventArgs e)
     {
 	    _logger?.Invoke($"Event: {e.GetType().Name}");
-	    if (e is CreateAppDomainCorDebugManagedCallbackEventArgs or LoadAssemblyCorDebugManagedCallbackEventArgs)
+	    if (e is CreateAppDomainCorDebugManagedCallbackEventArgs or LoadAssemblyCorDebugManagedCallbackEventArgs or NameChangeCorDebugManagedCallbackEventArgs)
 	    {
 		    e.Controller.Continue(false);
 	    }

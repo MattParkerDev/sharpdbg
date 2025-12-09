@@ -44,7 +44,7 @@ public class ManagedDebugger : IDisposable
         _callbacks = new CorDebugManagedCallback();
 
         // Subscribe to callback events
-        _callbacks.OnAnyEvent += (s, e) => e.Controller.Continue(false);
+        _callbacks.OnAnyEvent += OnAnyEvent;
         _callbacks.OnCreateProcess += HandleProcessCreated;
         _callbacks.OnExitProcess += HandleProcessExited;
         _callbacks.OnCreateThread += HandleThreadCreated;
@@ -55,6 +55,15 @@ public class ManagedDebugger : IDisposable
         _callbacks.OnBreak += HandleBreak;
         _callbacks.OnException += HandleException;
         //_callbacks.OnAnyEvent += (s, e) => e.Controller.Continue(false);
+    }
+
+    private void OnAnyEvent(object? sender, CorDebugManagedCallbackEventArgs e)
+    {
+	    _logger?.Invoke($"Event: {e.GetType().Name}");
+	    if (e is CreateAppDomainCorDebugManagedCallbackEventArgs or LoadAssemblyCorDebugManagedCallbackEventArgs)
+	    {
+		    e.Controller.Continue(false);
+	    }
     }
 
     /// <summary>

@@ -74,7 +74,7 @@ public class UnitTest1(ITestOutputHelper testOutputHelper)
 		    var configurationDoneRequest = new ConfigurationDoneRequest();
 		    debugProtocolHost.SendRequestSync(configurationDoneRequest);
 		    //new DiagnosticsClient(debuggableProcess.Id).ResumeRuntime();
-		    await Task.Delay(3000, TestContext.Current.CancellationToken);
+		    await Task.Delay(5000, TestContext.Current.CancellationToken);
 	    }
 	    finally
 	    {

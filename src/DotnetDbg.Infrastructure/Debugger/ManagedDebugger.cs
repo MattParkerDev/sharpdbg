@@ -705,8 +705,18 @@ public class ManagedDebugger : IDisposable
         Continue();
     }
 
+    private CorDebugBreakpoint? _lastHitBreakpoint = null;
     private void HandleBreakpoint(object? sender, BreakpointCorDebugManagedCallbackEventArgs breakpointCorDebugManagedCallbackEventArgs)
     {
+	    //System.Diagnostics.Debugger.Launch();
+	    var breakpoint = breakpointCorDebugManagedCallbackEventArgs.Breakpoint;
+	    ArgumentNullException.ThrowIfNull(breakpoint);
+	    if (_lastHitBreakpoint?.Raw == breakpoint.Raw)
+	    {
+		    IsRunning = false;
+		    return;
+	    }
+	    _lastHitBreakpoint = breakpoint;
 	    // TODO: Keep track of last breakpoint, and do not invoke OnStopped multiple times for same breakpoint hit - it will spam otherwise
 	    var corThread = breakpointCorDebugManagedCallbackEventArgs.Thread;
         IsRunning = false;

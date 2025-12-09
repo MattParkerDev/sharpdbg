@@ -175,7 +175,7 @@ public class DebugAdapter : DebugAdapterBase
             ExceptionBreakpointFilters = new List<ExceptionBreakpointsFilter>
             {
                 new() { Filter = "all", Label = "All Exceptions", Default = false },
-                new() { Filter = "user-unhandled", Label = "User-unhandled Exceptions", Default = true }
+                new() { Filter = "user-unhandled", Label = "User-Unhandled Exceptions", Default = true }
             }
         };
     }

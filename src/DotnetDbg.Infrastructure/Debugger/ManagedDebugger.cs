@@ -620,7 +620,7 @@ public class ManagedDebugger : IDisposable
         {
             var module = function.Module;
             var token = function.Token;
-            return $"Function_{token:X}";
+            return $"{Path.GetFileName(module.Name)}{token:X}";
         }
         catch
         {

@@ -55,19 +55,35 @@ public class DotnetDbgTests(ITestOutputHelper testOutputHelper)
 		    debugProtocolHost.SendRequestSync(initializeRequest);
 		    var attachRequest = DebugAdapterProcessHelper.GetAttachRequest(debuggableProcess.Id);
 		    debugProtocolHost.SendRequestSync(attachRequest);
-
 		    await initializedEventTcs.Task;
-
-		    var debugFilePath = @"C:\Users\Matthew\Documents\Git\dotnetdbg\tests\DebuggableConsoleApp\MyClass.cs";
-		    var debugFileBreakpointLine = 9;
-
-		    var setBreakpointsRequest = new SetBreakpointsRequest
-		    {
-			    Source = new Source { Path = debugFilePath },
-			    Breakpoints = [new SourceBreakpoint { Line = debugFileBreakpointLine }]
-		    };
+		    var setBreakpointsRequest = DebugAdapterProcessHelper.GetSetBreakpointsRequest();
 		    var breakpointsResponse = debugProtocolHost.SendRequestSync(setBreakpointsRequest);
-		    //await Verify(breakpointsResponse);
+		    await Verify(breakpointsResponse);
+	    }
+	    finally
+	    {
+		    process.Kill();
+		    debuggableProcess.Kill();
+	    }
+    }
+
+    [Fact]
+    public async Task DotnetDbgCli_ConfigurationDoneRequest_Returns()
+    {
+	    var process = DebugAdapterProcessHelper.GetDebugAdapterProcess();
+	    var debuggableProcess = DebuggableProcessHelper.StartDebuggableProcess(false);
+	    try
+	    {
+		    var initializedEventTcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+		    var debugProtocolHost = DebugAdapterProcessHelper.GetDebugProtocolHost(process, testOutputHelper, initializedEventTcs);
+		    var initializeRequest = DebugAdapterProcessHelper.GetInitializeRequest();
+		    debugProtocolHost.SendRequestSync(initializeRequest);
+		    var attachRequest = DebugAdapterProcessHelper.GetAttachRequest(debuggableProcess.Id);
+		    debugProtocolHost.SendRequestSync(attachRequest);
+		    await initializedEventTcs.Task;
+		    var setBreakpointsRequest = DebugAdapterProcessHelper.GetSetBreakpointsRequest();
+		    var breakpointsResponse = debugProtocolHost.SendRequestSync(setBreakpointsRequest);
+
 		    var configurationDoneRequest = new ConfigurationDoneRequest();
 		    debugProtocolHost.SendRequestSync(configurationDoneRequest);
 		    new DiagnosticsClient(debuggableProcess.Id).ResumeRuntime();

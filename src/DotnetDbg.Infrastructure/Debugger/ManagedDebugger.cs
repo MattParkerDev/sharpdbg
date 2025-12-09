@@ -435,6 +435,7 @@ public class ManagedDebugger : IDisposable
                     if (frame is CorDebugILFrame ilFrame)
                     {
                         var function = ilFrame.Function;
+
                         var frameId = _variableManager.CreateReference(ilFrame);
 
                         result.Add(new StackFrameInfo
@@ -618,9 +619,16 @@ public class ManagedDebugger : IDisposable
     {
         try
         {
-            var module = function.Module;
-            var token = function.Token;
-            return $"{Path.GetFileName(module.Name)}{token:X}";
+	        var token = function.Token;
+	        var module = function.Module;
+	        var metadataImport = module.GetMetaDataInterface().MetaDataImport;
+	        var methodName = metadataImport.GetMethodProps(token).szMethod;
+
+	        var @class = function.Class;
+	        var classToken = @class.Token;
+	        var className = metadataImport.GetTypeDefProps(classToken).szTypeDef;
+
+            return $"{Path.GetFileName(module.Name)}!{className}.{methodName}()";
         }
         catch
         {

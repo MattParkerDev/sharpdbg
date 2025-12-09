@@ -1,12 +1,9 @@
-using System.Diagnostics;
 using Microsoft.Diagnostics.NETCore.Client;
-using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol;
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
-using Newtonsoft.Json.Linq;
 
 namespace DotnetDbg.Cli.Tests;
 
-public class UnitTest1(ITestOutputHelper testOutputHelper)
+public class DotnetDbgTests(ITestOutputHelper testOutputHelper)
 {
     [Fact]
     public async Task DotnetDbgCli_InitializeRequest_Returns()

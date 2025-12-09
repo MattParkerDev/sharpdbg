@@ -73,45 +73,23 @@ class Program
             }
 
             // Set up DAP protocol using stdin/stdout
-            // Note: Must run on MTA thread for ClrDebug
-            Exception? threadException = null;
-            var thread = new Thread(() =>
-            {
-                try
-                {
-	                //Debugger.Launch();
-                    var inputStream = Console.OpenStandardInput();
-                    var outputStream = Console.OpenStandardOutput();
 
-                    // Create the debug adapter
-                    var adapter = new DebugAdapter(Log);
+            //Debugger.Launch();
+            var inputStream = Console.OpenStandardInput();
+            var outputStream = Console.OpenStandardOutput();
 
-                    // Initialize the protocol client and start it
-                    adapter.Initialize(inputStream, outputStream);
+            // Create the debug adapter
+            var adapter = new DebugAdapter(Log);
 
-                    Log("Protocol server starting...");
-                    // Run() starts the protocol client's message loop in a background thread
-                    adapter.Protocol.Run();
-                    // WaitForReader() blocks until the input stream is closed (client disconnects)
-                    adapter.Protocol.WaitForReader();
-                    Log("Protocol server stopped");
-                }
-                catch (Exception ex)
-                {
-                    Log($"Fatal error: {ex.Message}");
-                    Log($"Stack trace: {ex.StackTrace}");
-                    threadException = ex;
-                }
-            });
+            // Initialize the protocol client and start it
+            adapter.Initialize(inputStream, outputStream);
 
-            thread.SetApartmentState(ApartmentState.MTA);
-            thread.Start();
-            thread.Join();
-
-            if (threadException != null)
-            {
-                return 1;
-            }
+            Log("Protocol server starting...");
+            // Run() starts the protocol client's message loop in a background thread
+            adapter.Protocol.Run();
+            // WaitForReader() blocks until the input stream is closed (client disconnects)
+            adapter.Protocol.WaitForReader();
+            Log("Protocol server stopped");
 
             return 0;
         }

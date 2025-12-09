@@ -441,7 +441,7 @@ public class ManagedDebugger : IDisposable
                         result.Add(new StackFrameInfo
                         {
                             Id = frameId,
-                            Name = GetFunctionName(function),
+                            Name = GetFunctionFormattedName(function),
                             Line = 0, // Would need symbol info
                             Column = 0,
                             Source = null
@@ -615,7 +615,7 @@ public class ManagedDebugger : IDisposable
         IsRunning = false;
     }
 
-    private string GetFunctionName(CorDebugFunction function)
+    private static string GetFunctionFormattedName(CorDebugFunction function)
     {
         try
         {

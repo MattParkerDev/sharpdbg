@@ -75,8 +75,9 @@ public class DotnetDbgTests(ITestOutputHelper testOutputHelper)
     [Fact]
     public async Task DotnetDbgCli_ConfigurationDoneRequest_Returns()
     {
+	    var startSuspended = false;
 	    var process = DebugAdapterProcessHelper.GetDebugAdapterProcess();
-	    var debuggableProcess = DebuggableProcessHelper.StartDebuggableProcess(false);
+	    var debuggableProcess = DebuggableProcessHelper.StartDebuggableProcess(startSuspended);
 	    try
 	    {
 		    var initializedEventTcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -92,7 +93,8 @@ public class DotnetDbgTests(ITestOutputHelper testOutputHelper)
 
 		    var configurationDoneRequest = new ConfigurationDoneRequest();
 		    debugProtocolHost.SendRequestSync(configurationDoneRequest);
-		    new DiagnosticsClient(debuggableProcess.Id).ResumeRuntime();
+		    // DiagnosticsClient.ResumeRuntime seems to have a different implementation on MacOS - it will throw if the runtime is not paused...
+		    if (startSuspended) new DiagnosticsClient(debuggableProcess.Id).ResumeRuntime();
 		    await Task.Delay(5000, TestContext.Current.CancellationToken);
 	    }
 	    finally
@@ -105,8 +107,9 @@ public class DotnetDbgTests(ITestOutputHelper testOutputHelper)
     [Fact]
     public async Task DotnetDbgCli_StackTraceRequest_Returns()
     {
+	    var startSuspended = false;
 	    var process = DebugAdapterProcessHelper.GetDebugAdapterProcess();
-	    var debuggableProcess = DebuggableProcessHelper.StartDebuggableProcess(false);
+	    var debuggableProcess = DebuggableProcessHelper.StartDebuggableProcess(startSuspended);
 	    try
 	    {
 		    var initializedEventTcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -124,7 +127,8 @@ public class DotnetDbgTests(ITestOutputHelper testOutputHelper)
 
 		    var configurationDoneRequest = new ConfigurationDoneRequest();
 		    debugProtocolHost.SendRequestSync(configurationDoneRequest);
-		    new DiagnosticsClient(debuggableProcess.Id).ResumeRuntime();
+		    // DiagnosticsClient.ResumeRuntime seems to have a different implementation on MacOS - it will throw if the runtime is not paused...
+		    if (startSuspended) new DiagnosticsClient(debuggableProcess.Id).ResumeRuntime();
 
 		    var stoppedEvent = await stoppedEventTcs.Task;
 		    ;

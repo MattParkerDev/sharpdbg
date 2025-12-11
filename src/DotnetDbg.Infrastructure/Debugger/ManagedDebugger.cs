@@ -437,14 +437,30 @@ public class ManagedDebugger : IDisposable
                         var function = ilFrame.Function;
 
                         var frameId = _variableManager.CreateReference(ilFrame);
+                        var module = _modules[function.Module.BaseAddress];
+                        var line = 0;
+                        var column = 0;
+                        string? sourceFilePath = null;
+                        if (module.SymbolReader is not null)
+                        {
+	                        var ilOffset = ilFrame.IP.pnOffset;
+	                        var methodToken = function.Token;
+	                        var sourceInfo = module.SymbolReader.GetSourceLocationForOffset(methodToken, ilOffset);
+	                        if (sourceInfo != null)
+	                        {
+		                        line = sourceInfo.Value.startLine;
+		                        column = sourceInfo.Value.startColumn;
+		                        sourceFilePath = sourceInfo.Value.sourceFilePath;
+	                        }
+                        }
 
                         result.Add(new StackFrameInfo
                         {
                             Id = frameId,
                             Name = GetFunctionFormattedName(function),
-                            Line = 0, // Would need symbol info
-                            Column = 0,
-                            Source = null
+                            Line = line,
+                            Column = column,
+                            Source = sourceFilePath
                         });
                     }
                 }

@@ -243,6 +243,27 @@ public class SymbolReader : IDisposable
         return bestMatch;
     }
 
+    public (string sourceFilePath, int startLine, int endLine, int startColumn, int endColumn)? GetSourceLocationForOffset(int methodToken, int ilOffset)
+    {
+		var methodHandle = MetadataTokens.MethodDefinitionHandle(methodToken);
+		var methodDebugInfo = _reader.GetMethodDebugInformation(methodHandle);
+
+		if (methodDebugInfo.SequencePointsBlob.IsNil)
+			return null;
+
+		foreach (var sp in methodDebugInfo.GetSequencePoints())
+		{
+			if (sp.IsHidden) continue;
+			if (sp.Offset != ilOffset) continue;
+
+			var spDocument = sp.Document.IsNil ? methodDebugInfo.Document : sp.Document;
+			var document = _reader.GetDocument(spDocument);
+			var documentFilePath = _reader.GetString(document.Name);
+			return (documentFilePath, sp.StartLine, sp.EndLine, sp.StartColumn, sp.EndColumn);
+		}
+		return null;
+    }
+
     /// <summary>
     /// Get all source files referenced in the PDB
     /// </summary>

@@ -302,7 +302,9 @@ public class DebugAdapter : DebugAdapterBase
             Id = f.Id,
             Name = f.Name,
             Line = ConvertDebuggerLineToClient(f.Line),
+            EndLine = ConvertDebuggerLineToClient(f.EndLine),
             Column = ConvertDebuggerColumnToClient(f.Column),
+            EndColumn =  ConvertDebuggerColumnToClient(f.EndColumn),
             Source = f.Source != null ? new Source { Path = f.Source } : null
         }).ToList();
 

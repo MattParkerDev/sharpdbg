@@ -440,6 +440,8 @@ public class ManagedDebugger : IDisposable
                         var module = _modules[function.Module.BaseAddress];
                         var line = 0;
                         var column = 0;
+                        var endLine = 0;
+                        var endColumn = 0;
                         string? sourceFilePath = null;
                         if (module.SymbolReader is not null)
                         {
@@ -450,6 +452,8 @@ public class ManagedDebugger : IDisposable
 	                        {
 		                        line = sourceInfo.Value.startLine;
 		                        column = sourceInfo.Value.startColumn;
+		                        endLine = sourceInfo.Value.endLine;
+		                        endColumn = sourceInfo.Value.endColumn;
 		                        sourceFilePath = sourceInfo.Value.sourceFilePath;
 	                        }
                         }
@@ -459,7 +463,9 @@ public class ManagedDebugger : IDisposable
                             Id = frameId,
                             Name = GetFunctionFormattedName(function),
                             Line = line,
+                            EndLine =  endLine,
                             Column = column,
+                            EndColumn =  endColumn,
                             Source = sourceFilePath
                         });
                     }
@@ -792,24 +798,26 @@ public class ManagedDebugger : IDisposable
 // Helper classes for returning data
 public class StackFrameInfo
 {
-    public int Id { get; set; }
-    public string Name { get; set; } = string.Empty;
-    public int Line { get; set; }
-    public int Column { get; set; }
-    public string? Source { get; set; }
+    public required int Id { get; set; }
+    public required string Name { get; set; }
+    public required int Line { get; set; }
+    public required int EndLine { get; set; }
+    public required int Column { get; set; }
+    public required int EndColumn { get; set; }
+    public required string? Source { get; set; }
 }
 
 public class ScopeInfo
 {
-    public string Name { get; set; } = string.Empty;
-    public int VariablesReference { get; set; }
-    public bool Expensive { get; set; }
+    public required string Name { get; set; }
+    public required int VariablesReference { get; set; }
+    public required bool Expensive { get; set; }
 }
 
 public class VariableInfo
 {
-    public string Name { get; set; } = string.Empty;
-    public string Value { get; set; } = string.Empty;
-    public string? Type { get; set; }
-    public int VariablesReference { get; set; }
+    public required string Name { get; set; }
+    public required string Value { get; set; }
+    public required string? Type { get; set; }
+    public required int VariablesReference { get; set; }
 }

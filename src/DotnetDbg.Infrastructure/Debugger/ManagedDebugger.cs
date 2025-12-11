@@ -530,7 +530,7 @@ public partial class ManagedDebugger : IDisposable
 
         try
         {
-            if (scope is LocalsScope localsScope)
+            if (scope is LocalsScope {Frame: not null} localsScope)
             {
 	            foreach (var (index, localVariableCorDebugValue) in localsScope.Frame.LocalVariables.Index())
 	            {

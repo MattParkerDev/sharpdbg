@@ -1,3 +1,4 @@
+using AwesomeAssertions;
 using DotnetDbg.Application;
 using Microsoft.Diagnostics.NETCore.Client;
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol;
@@ -40,7 +41,11 @@ public class DotnetDbgInMemoryTests(ITestOutputHelper testOutputHelper)
 		    ;
 		    var stackTraceRequest = new StackTraceRequest { ThreadId = stoppedEvent.ThreadId!.Value, StartFrame = 0, Levels = 1 };
 		    var stackTraceResponse = debugProtocolHost.SendRequestSync(stackTraceRequest);
-		    await Verify(stackTraceResponse);
+
+		    var scopesRequest = new ScopesRequest { FrameId = stackTraceResponse.StackFrames!.First().Id };
+		    var scopesResponse = debugProtocolHost.SendRequestSync(scopesRequest);
+		    scopesResponse.Scopes.Should().HaveCount(1);
+		    var scope = scopesResponse.Scopes.Single();
 	    }
 	    finally
 	    {

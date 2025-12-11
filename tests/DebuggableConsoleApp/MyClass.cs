@@ -9,5 +9,7 @@ public class MyClass
 		var myInt = 4;
 		Console.WriteLine($"Log{_counter}");
 		_counter++;
+
+		var anotherVar = "asdf";
 	}
 }

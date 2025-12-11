@@ -182,9 +182,9 @@ public class DotnetDbgTests(ITestOutputHelper testOutputHelper)
 
 		    List<Variable> expectedVariables =
 		    [
-		    	new  Variable() {Name = "this", Value = "{DebuggableConsoleApp.MyClass}", Type = "DebuggableConsoleApp.MyClass", EvaluateName = "this", VariablesReference = 2, NamedVariables = 2 },
-		    	new  Variable() {Name = "myInt", Value = "0", Type = "int", EvaluateName = "myInt" },
-		    	new  Variable() {Name = "anotherVar", Value = "null", Type = "string", EvaluateName = "anotherVar" },
+		    	new Variable() {Name = "this", Value = "{DebuggableConsoleApp.MyClass}", Type = "DebuggableConsoleApp.MyClass", EvaluateName = "this", VariablesReference = 2, NamedVariables = 2 },
+		    	new Variable() {Name = "myInt", Value = "0", Type = "int", EvaluateName = "myInt" },
+		    	new Variable() {Name = "anotherVar", Value = "null", Type = "string", EvaluateName = "anotherVar" },
 		    ];
 
 		    var variablesRequest = new VariablesRequest { VariablesReference = scope.VariablesReference };

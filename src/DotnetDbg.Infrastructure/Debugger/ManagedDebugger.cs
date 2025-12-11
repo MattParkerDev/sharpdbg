@@ -489,7 +489,7 @@ public class ManagedDebugger : IDisposable
 
         var frame = _variableManager.GetReference<CorDebugILFrame>(frameId);
         if (frame == null) return result;
-        
+
         // Of Type CoreDebugValue[]
         var localVariables = frame.LocalVariables;
         var arguments = frame.Arguments;
@@ -532,14 +532,21 @@ public class ManagedDebugger : IDisposable
         {
             if (scope is LocalsScope localsScope)
             {
-                // Get local variables - simplified, needs proper implementation
-                result.Add(new VariableInfo
-                {
-                    Name = "local1",
-                    Value = "value1",
-                    Type = "int",
-                    VariablesReference = 0
-                });
+	            foreach (var (index, localVariableCorDebugValue) in localsScope.Frame.LocalVariables.Index())
+	            {
+		            var value = "TODO";
+		            var module = _modules[localsScope.Frame.Function.Module.BaseAddress];
+		            var localVariableName = module.SymbolReader?.GetLocalVariableName(localsScope.Frame.Function.Token, index) ?? "UNKNOWN";
+		            var variableInfo = new VariableInfo
+		            {
+			            Name = localVariableName,
+			            Value = value,
+			            Type = localVariableCorDebugValue.Type.ToString(),
+			            VariablesReference = 0 // TODO: set if complex type
+		            };
+
+		            result.Add(variableInfo);
+	            }
             }
             else if (scope is ArgumentsScope argsScope)
             {

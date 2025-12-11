@@ -44,8 +44,21 @@ public class DotnetDbgInMemoryTests(ITestOutputHelper testOutputHelper)
 
 		    var scopesRequest = new ScopesRequest { FrameId = stackTraceResponse.StackFrames!.First().Id };
 		    var scopesResponse = debugProtocolHost.SendRequestSync(scopesRequest);
-		    scopesResponse.Scopes.Should().HaveCount(1);
-		    var scope = scopesResponse.Scopes.Single();
+
+		    var scope = scopesResponse.Scopes.First();
+
+		    List<Variable> expectedVariables =
+		    [
+			    new Variable() {Name = "this", Value = "{DebuggableConsoleApp.MyClass}", Type = "DebuggableConsoleApp.MyClass", EvaluateName = "this", VariablesReference = 2, NamedVariables = 2 },
+			    new Variable() {Name = "myInt", Value = "0", Type = "int", EvaluateName = "myInt" },
+			    new Variable() {Name = "anotherVar", Value = "null", Type = "string", EvaluateName = "anotherVar" },
+		    ];
+
+		    var variablesRequest = new VariablesRequest { VariablesReference = scope.VariablesReference };
+		    var variablesResponse = debugProtocolHost.SendRequestSync(variablesRequest);
+		    var variables = variablesResponse.Variables;
+		    variables.Should().HaveCount(3);
+		    variables.Should().BeEquivalentTo(expectedVariables);
 	    }
 	    finally
 	    {

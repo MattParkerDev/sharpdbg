@@ -264,6 +264,29 @@ public class SymbolReader : IDisposable
 		return null;
     }
 
+    public string? GetLocalVariableName(int methodToken, int localIndex)
+    {
+	    var methodHandle = MetadataTokens.MethodDefinitionHandle(methodToken);
+
+	    var localScopes = _reader.GetLocalScopes(methodHandle);
+	    foreach (var scopeHandle in localScopes)
+	    {
+		    var scope = _reader.GetLocalScope(scopeHandle);
+
+		    foreach (var variableHandle in scope.GetLocalVariables())
+		    {
+			    var variable = _reader.GetLocalVariable(variableHandle);
+
+			    if (variable.Index == localIndex)
+			    {
+				    return _reader.GetString(variable.Name);
+			    }
+		    }
+	    }
+
+	    return null;
+    }
+
     /// <summary>
     /// Get all source files referenced in the PDB
     /// </summary>

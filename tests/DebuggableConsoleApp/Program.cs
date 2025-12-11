@@ -11,7 +11,7 @@ public static class Program
 		while (true)
 		{
 			// Keep the application running to allow debugging
-			myClass.MyMethod();
+			myClass.MyMethod(13);
 			Thread.Sleep(500);
 			//await Task.Delay(500);
 		}

@@ -183,6 +183,7 @@ public class DotnetDbgTests(ITestOutputHelper testOutputHelper)
 		    List<Variable> expectedVariables =
 		    [
 		    	new Variable() {Name = "this", Value = "{DebuggableConsoleApp.MyClass}", Type = "DebuggableConsoleApp.MyClass", EvaluateName = "this", VariablesReference = 2, NamedVariables = 2 },
+		    	new Variable() {Name = "myParam", Value = "13", Type = "long", EvaluateName = "myParam" },
 		    	new Variable() {Name = "myInt", Value = "0", Type = "int", EvaluateName = "myInt" },
 		    	new Variable() {Name = "anotherVar", Value = "null", Type = "string", EvaluateName = "anotherVar" },
 		    ];
@@ -190,7 +191,7 @@ public class DotnetDbgTests(ITestOutputHelper testOutputHelper)
 		    var variablesRequest = new VariablesRequest { VariablesReference = scope.VariablesReference };
 		    var variablesResponse = debugProtocolHost.SendRequestSync(variablesRequest);
 		    var variables = variablesResponse.Variables;
-		    variables.Should().HaveCount(3);
+		    variables.Should().HaveCount(4);
 		    variables.Should().BeEquivalentTo(expectedVariables);
 	    }
 	    finally

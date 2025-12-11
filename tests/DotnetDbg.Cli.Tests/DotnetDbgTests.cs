@@ -142,4 +142,46 @@ public class DotnetDbgTests(ITestOutputHelper testOutputHelper)
 		    debuggableProcess.Kill();
 	    }
     }
+
+    [Fact]
+    public async Task DotnetDbgCli_ScopesRequest_Returns()
+    {
+	    var startSuspended = false;
+	    var process = DebugAdapterProcessHelper.GetDebugAdapterProcess();
+	    var debuggableProcess = DebuggableProcessHelper.StartDebuggableProcess(startSuspended);
+	    try
+	    {
+		    var initializedEventTcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+		    var debugProtocolHost = DebugAdapterProcessHelper.GetDebugProtocolHost(process, testOutputHelper, initializedEventTcs);
+		    var stoppedEventTcs = new TaskCompletionSource<StoppedEvent>(TaskCreationOptions.RunContinuationsAsynchronously);
+		    debugProtocolHost.RegisterEventType<StoppedEvent>(@event => stoppedEventTcs.TrySetResult(@event));
+			debugProtocolHost.Run();
+		    var initializeRequest = DebugAdapterProcessHelper.GetInitializeRequest();
+		    debugProtocolHost.SendRequestSync(initializeRequest);
+		    var attachRequest = DebugAdapterProcessHelper.GetAttachRequest(debuggableProcess.Id);
+		    debugProtocolHost.SendRequestSync(attachRequest);
+		    await initializedEventTcs.Task;
+		    var setBreakpointsRequest = DebugAdapterProcessHelper.GetSetBreakpointsRequest();
+		    var breakpointsResponse = debugProtocolHost.SendRequestSync(setBreakpointsRequest);
+
+		    var configurationDoneRequest = new ConfigurationDoneRequest();
+		    debugProtocolHost.SendRequestSync(configurationDoneRequest);
+		    // DiagnosticsClient.ResumeRuntime seems to have a different implementation on MacOS - it will throw if the runtime is not paused...
+		    if (startSuspended) new DiagnosticsClient(debuggableProcess.Id).ResumeRuntime();
+
+		    var stoppedEvent = await stoppedEventTcs.Task;
+
+		    var stackTraceRequest = new StackTraceRequest { ThreadId = stoppedEvent.ThreadId!.Value, StartFrame = 0, Levels = 1 };
+		    var stackTraceResponse = debugProtocolHost.SendRequestSync(stackTraceRequest);
+
+		    var scopesRequest = new ScopesRequest { FrameId = stackTraceResponse.StackFrames!.First().Id };
+		    var scopesResponse = debugProtocolHost.SendRequestSync(scopesRequest);
+		    await Verify(scopesResponse);
+	    }
+	    finally
+	    {
+		    process.Kill();
+		    debuggableProcess.Kill();
+	    }
+    }
 }

@@ -512,7 +512,7 @@ public partial class ManagedDebugger : IDisposable
         var result = new List<VariableInfo>();
 
         var scope = _variableManager.GetReference<object>(variablesReference);
-        if (scope == null) return result;
+        if (scope is null) return result;
         if (scope is not LocalsScope {Frame: not null} localsScope) throw new InvalidOperationException("This should never happen");
 
         try

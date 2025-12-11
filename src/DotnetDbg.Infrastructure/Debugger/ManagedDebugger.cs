@@ -503,18 +503,6 @@ public partial class ManagedDebugger : IDisposable
 		        Expensive = false
 	        });
         }
-
-        if (arguments.Length is not 0)
-        {
-	        // Add arguments scope
-	        var argsRef = _variableManager.CreateReference(new ArgumentsScope { Frame = frame });
-	        result.Add(new ScopeInfo
-	        {
-		        Name = "Arguments",
-		        VariablesReference = argsRef,
-		        Expensive = false
-	        });
-        }
         return result;
     }
 
@@ -527,40 +515,27 @@ public partial class ManagedDebugger : IDisposable
 
         var scope = _variableManager.GetReference<object>(variablesReference);
         if (scope == null) return result;
+        if (scope is not LocalsScope {Frame: not null} localsScope) throw new InvalidOperationException("This should never happen");
 
         try
         {
-            if (scope is LocalsScope {Frame: not null} localsScope)
-            {
-	            foreach (var (index, localVariableCorDebugValue) in localsScope.Frame.LocalVariables.Index())
-	            {
-		            var corDebugFunction = localsScope.Frame.Function;
-		            var module = _modules[corDebugFunction.Module.BaseAddress];
-		            var localVariableName = module.SymbolReader?.GetLocalVariableName(corDebugFunction.Token, index);
-		            if (localVariableName is null) continue; // Compiler generated locals will not be found. E.g. DefaultInterpolatedStringHandler
-		            var value = GetValueForCorDebugValue(localVariableCorDebugValue);
-		            var variableInfo = new VariableInfo
-		            {
-			            Name = localVariableName,
-			            Value = value,
-			            Type = localVariableCorDebugValue.Type.ToString(),
-			            VariablesReference = 0 // TODO: set if complex type
-		            };
+	        foreach (var (index, localVariableCorDebugValue) in localsScope.Frame.LocalVariables.Index())
+	        {
+		        var corDebugFunction = localsScope.Frame.Function;
+		        var module = _modules[corDebugFunction.Module.BaseAddress];
+		        var localVariableName = module.SymbolReader?.GetLocalVariableName(corDebugFunction.Token, index);
+		        if (localVariableName is null) continue; // Compiler generated locals will not be found. E.g. DefaultInterpolatedStringHandler
+		        var value = GetValueForCorDebugValue(localVariableCorDebugValue);
+		        var variableInfo = new VariableInfo
+		        {
+			        Name = localVariableName,
+			        Value = value,
+			        Type = localVariableCorDebugValue.Type.ToString(),
+			        VariablesReference = 0 // TODO: set if complex type
+		        };
 
-		            result.Add(variableInfo);
-	            }
-            }
-            else if (scope is ArgumentsScope argsScope)
-            {
-                // Get arguments - simplified, needs proper implementation
-                result.Add(new VariableInfo
-                {
-                    Name = "arg1",
-                    Value = "argValue",
-                    Type = "string",
-                    VariablesReference = 0
-                });
-            }
+		        result.Add(variableInfo);
+	        }
         }
         catch (Exception ex)
         {
@@ -794,11 +769,6 @@ public partial class ManagedDebugger : IDisposable
 
     // Helper classes for scope tracking
     private class LocalsScope
-    {
-        public CorDebugILFrame? Frame { get; set; }
-    }
-
-    private class ArgumentsScope
     {
         public CorDebugILFrame? Frame { get; set; }
     }

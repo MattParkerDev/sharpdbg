@@ -7,10 +7,11 @@ public static class Program
 	{
 		Console.WriteLine("DebuggableConsoleApp is running");
 		Console.WriteLine("Log2");
+		var myClass = new MyClass();
 		while (true)
 		{
 			// Keep the application running to allow debugging
-			MyClass.MyMethod();
+			myClass.MyMethod();
 			Thread.Sleep(500);
 			//await Task.Delay(500);
 		}

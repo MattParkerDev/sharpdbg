@@ -1,10 +1,12 @@
 ﻿namespace DebuggableConsoleApp;
 
-public static class MyClass
+public class MyClass
 {
+	private readonly string _name = "TestName";
 	private static int _counter = 0;
-	public static void MyMethod()
+	public void MyMethod()
 	{
+		var myInt = 4;
 		Console.WriteLine($"Log{_counter}");
 		_counter++;
 	}

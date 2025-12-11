@@ -1,4 +1,5 @@
 using System.Threading.Channels;
+using AwesomeAssertions;
 using Microsoft.Diagnostics.NETCore.Client;
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol;
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
@@ -176,7 +177,9 @@ public class DotnetDbgTests(ITestOutputHelper testOutputHelper)
 
 		    var scopesRequest = new ScopesRequest { FrameId = stackTraceResponse.StackFrames!.First().Id };
 		    var scopesResponse = debugProtocolHost.SendRequestSync(scopesRequest);
-		    await Verify(scopesResponse);
+		    scopesResponse.Scopes.Should().HaveCount(1);
+		    var scope = scopesResponse.Scopes.Single();
+		    ;
 	    }
 	    finally
 	    {

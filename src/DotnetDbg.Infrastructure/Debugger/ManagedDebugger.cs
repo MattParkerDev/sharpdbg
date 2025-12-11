@@ -489,32 +489,32 @@ public class ManagedDebugger : IDisposable
 
         var frame = _variableManager.GetReference<CorDebugILFrame>(frameId);
         if (frame == null) return result;
-
-        try
+        
+        // Of Type CoreDebugValue[]
+        var localVariables = frame.LocalVariables;
+        var arguments = frame.Arguments;
+        if (localVariables.Length is not 0)
         {
-            // Add locals scope
-            var localsRef = _variableManager.CreateReference(new LocalsScope { Frame = frame });
-            result.Add(new ScopeInfo
-            {
-                Name = "Locals",
-                VariablesReference = localsRef,
-                Expensive = false
-            });
-
-            // Add arguments scope
-            var argsRef = _variableManager.CreateReference(new ArgumentsScope { Frame = frame });
-            result.Add(new ScopeInfo
-            {
-                Name = "Arguments",
-                VariablesReference = argsRef,
-                Expensive = false
-            });
-        }
-        catch (Exception ex)
-        {
-            _logger?.Invoke($"Error getting scopes: {ex.Message}");
+	        var localsRef = _variableManager.CreateReference(new LocalsScope { Frame = frame });
+	        result.Add(new ScopeInfo
+	        {
+		        Name = "Locals",
+		        VariablesReference = localsRef,
+		        Expensive = false
+	        });
         }
 
+        if (arguments.Length is not 0)
+        {
+	        // Add arguments scope
+	        var argsRef = _variableManager.CreateReference(new ArgumentsScope { Frame = frame });
+	        result.Add(new ScopeInfo
+	        {
+		        Name = "Arguments",
+		        VariablesReference = argsRef,
+		        Expensive = false
+	        });
+        }
         return result;
     }
 

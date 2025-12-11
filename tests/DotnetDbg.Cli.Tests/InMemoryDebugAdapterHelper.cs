@@ -6,7 +6,7 @@ namespace DotnetDbg.Cli.Tests;
 
 public static class InMemoryDebugAdapterHelper
 {
-	public static (Stream input, Stream output) GetAdapterStreams(ITestOutputHelper testOutputHelper)
+	public static (Stream input, Stream output, DebugAdapter debugAdapter) GetAdapterStreams(ITestOutputHelper testOutputHelper)
 	{
 		var stdInServer = new AnonymousPipeServerStream(PipeDirection.Out); // write
 		var stdInClient = new AnonymousPipeClientStream(PipeDirection.In, stdInServer.ClientSafePipeHandle); // std in read
@@ -23,7 +23,7 @@ public static class InMemoryDebugAdapterHelper
 			//adapter.Protocol.WaitForReader();
 		});
 
-		return (stdInServer, stdOutClient);
+		return (stdInServer, stdOutClient, adapter);
 
 		void Log(string message)
 		{

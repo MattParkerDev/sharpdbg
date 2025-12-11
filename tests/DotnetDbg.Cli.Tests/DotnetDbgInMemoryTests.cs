@@ -1,3 +1,4 @@
+using DotnetDbg.Application;
 using Microsoft.Diagnostics.NETCore.Client;
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol;
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
@@ -11,10 +12,12 @@ public class DotnetDbgInMemoryTests(ITestOutputHelper testOutputHelper)
     {
 	    var startSuspended = false;
 	    var debuggableProcess = DebuggableProcessHelper.StartDebuggableProcess(startSuspended);
+	    DebugAdapter? debugAdapter = null;
 	    try
 	    {
 		    var initializedEventTcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-		    var (input, output) = InMemoryDebugAdapterHelper.GetAdapterStreams(testOutputHelper);
+		    var (input, output, adapter) = InMemoryDebugAdapterHelper.GetAdapterStreams(testOutputHelper);
+		    debugAdapter = adapter;
 
 		    var debugProtocolHost = DebugAdapterProcessHelper.GetDebugProtocolHost(input, output, testOutputHelper, initializedEventTcs);
 		    var stoppedEventTcs = new TaskCompletionSource<StoppedEvent>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -42,6 +45,7 @@ public class DotnetDbgInMemoryTests(ITestOutputHelper testOutputHelper)
 	    finally
 	    {
 		    debuggableProcess.Kill();
+		    debugAdapter?.Protocol.Stop();
 	    }
     }
 }

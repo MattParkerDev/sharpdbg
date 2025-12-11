@@ -10,15 +10,13 @@ public class DotnetDbgInMemoryTests(ITestOutputHelper testOutputHelper)
     public async Task DotnetDbgCli_StackTraceRequest_Returns()
     {
 	    var startSuspended = false;
-	    var process = DebugAdapterProcessHelper.GetDebugAdapterProcess();
 	    var debuggableProcess = DebuggableProcessHelper.StartDebuggableProcess(startSuspended);
 	    try
 	    {
 		    var initializedEventTcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
 		    var (input, output) = InMemoryDebugAdapterHelper.GetAdapterStreams(testOutputHelper);
 
-		    //var debugProtocolHost = DebugAdapterProcessHelper.GetDebugProtocolHost(output, input, testOutputHelper, initializedEventTcs);
-		    var debugProtocolHost = DebugAdapterProcessHelper.GetDebugProtocolHost(process, testOutputHelper, initializedEventTcs);
+		    var debugProtocolHost = DebugAdapterProcessHelper.GetDebugProtocolHost(input, output, testOutputHelper, initializedEventTcs);
 		    var stoppedEventTcs = new TaskCompletionSource<StoppedEvent>(TaskCreationOptions.RunContinuationsAsynchronously);
 		    debugProtocolHost.RegisterEventType<StoppedEvent>(@event => stoppedEventTcs.TrySetResult(@event));
 			debugProtocolHost.Run();

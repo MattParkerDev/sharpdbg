@@ -26,13 +26,15 @@ public static class DebugAdapterProcessHelper
 		process.Start();
 		return process;
 	}
+	public static DebugProtocolHost GetDebugProtocolHost(Process process, ITestOutputHelper testOutputHelper, TaskCompletionSource? initializedEventTcs = null) =>
+		GetDebugProtocolHost(process.StandardInput.BaseStream, process.StandardOutput.BaseStream, testOutputHelper, initializedEventTcs);
 
-	public static DebugProtocolHost GetDebugProtocolHost(Process process, ITestOutputHelper testOutputHelper, TaskCompletionSource? initializedEventTcs = null)
+	public static DebugProtocolHost GetDebugProtocolHost(Stream inputStream, Stream outputStream, ITestOutputHelper testOutputHelper, TaskCompletionSource? initializedEventTcs = null)
 	{
-		var debugProtocolHost = new DebugProtocolHost(process.StandardInput.BaseStream, process.StandardOutput.BaseStream, false);
+		var debugProtocolHost = new DebugProtocolHost(inputStream, outputStream, false);
 		debugProtocolHost.LogMessage += (sender, args) =>
 		{
-			testOutputHelper.WriteLine($"Log: {args.Message}");
+			testOutputHelper.WriteLine($"Log [DAP Host]: {args.Message}");
 		};
 		debugProtocolHost.RegisterClientRequestType<HandshakeRequest, HandshakeArguments, HandshakeResponse>(async void (responder) =>
 		{

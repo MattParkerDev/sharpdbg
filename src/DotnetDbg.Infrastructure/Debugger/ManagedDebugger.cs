@@ -490,19 +490,17 @@ public partial class ManagedDebugger : IDisposable
         var frame = _variableManager.GetReference<CorDebugILFrame>(frameId);
         if (frame == null) return result;
 
-        // Of Type CoreDebugValue[]
         var localVariables = frame.LocalVariables;
         var arguments = frame.Arguments;
-        if (localVariables.Length is not 0)
+        if (localVariables.Length is 0 && arguments.Length is 0) return result;
+
+        var localsRef = _variableManager.CreateReference(new LocalsScope { Frame = frame });
+        result.Add(new ScopeInfo
         {
-	        var localsRef = _variableManager.CreateReference(new LocalsScope { Frame = frame });
-	        result.Add(new ScopeInfo
-	        {
-		        Name = "Locals",
-		        VariablesReference = localsRef,
-		        Expensive = false
-	        });
-        }
+	        Name = "Locals",
+	        VariablesReference = localsRef,
+	        Expensive = false
+        });
         return result;
     }
 

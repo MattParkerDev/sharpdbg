@@ -279,6 +279,8 @@ public class SymbolReader : IDisposable
 
 			    if (variable.Index == localIndex)
 			    {
+				    if (variable.Attributes is LocalVariableAttributes.DebuggerHidden) return "HIDDEN";
+				    if (variable.Name.IsNil) return "NIL";
 				    return _reader.GetString(variable.Name);
 			    }
 		    }

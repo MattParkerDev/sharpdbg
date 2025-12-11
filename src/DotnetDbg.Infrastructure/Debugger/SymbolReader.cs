@@ -289,6 +289,29 @@ public class SymbolReader : IDisposable
 	    return null;
     }
 
+    public string?  GetArgumentName(int methodToken, int paramIndex)
+    {
+	    var methodHandle = MetadataTokens. MethodDefinitionHandle(methodToken);
+	    var methodDef = _reader.GetMethodDefinition(methodHandle);
+
+	    var parameters = methodDef.GetParameters();
+
+	    int currentIndex = 0;
+	    foreach (var paramHandle in parameters)
+	    {
+		    if (currentIndex == paramIndex)
+		    {
+			    var param = _reader.GetParameter(paramHandle);
+
+			    if (param.Name.IsNil) return null;
+			    return _reader.GetString(param.Name);
+		    }
+		    currentIndex++;
+	    }
+
+	    return null;
+    }
+
     /// <summary>
     /// Get all source files referenced in the PDB
     /// </summary>

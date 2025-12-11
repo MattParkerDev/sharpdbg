@@ -339,6 +339,7 @@ public class DebugAdapter : DebugAdapterBase
         var responseVariables = variables.Select(v => new Variable
         {
             Name = v.Name,
+            EvaluateName = v.Name,
             Value = v.Value,
             Type = v.Type,
             VariablesReference = v.VariablesReference

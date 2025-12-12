@@ -18,7 +18,7 @@ public partial class ManagedDebugger
 				Name = localVariableName,
 				Value = value,
 				Type = friendlyTypeName,
-				VariablesReference = 0 // TODO: set if complex type
+				VariablesReference = GetVariablesReference(localVariableCorDebugValue)
 			};
 			result.Add(variableInfo);
 		}
@@ -43,7 +43,7 @@ public partial class ManagedDebugger
 		        Name = "this", // Hardcoded - 'this' has no metadata
 		        Value = value,
 		        Type = friendlyTypeName,
-		        VariablesReference = 0 // TODO: set if complex type
+		        VariablesReference = GetVariablesReference(implicitThisValue)
 	        };
 	        result.Add(variableInfo);
         }
@@ -62,9 +62,46 @@ public partial class ManagedDebugger
 		        Name = argumentName,
 		        Value = value,
 		        Type = friendlyTypeName,
-		        VariablesReference = 0 // TODO: set if complex type
+		        VariablesReference = GetVariablesReference(argumentCorDebugValue)
 	        };
 	        result.Add(variableInfo);
         }
+	}
+
+	private int GetVariablesReference(CorDebugValue corDebugValue)
+	{
+		try
+		{
+			// Dereference if it's a reference type
+			var valueToCheck = corDebugValue;
+			if (corDebugValue is CorDebugReferenceValue { IsNull: false } refValue)
+			{
+				valueToCheck = refValue.Dereference();
+			}
+
+			if (valueToCheck is CorDebugObjectValue objectValue)
+			{
+				var type = objectValue.Type;
+				// Strings are objects but typically displayed as primitives
+				if (type is CorElementType.String) return 0;
+				if (type is CorElementType.Class or CorElementType.ValueType or CorElementType.SZArray or CorElementType.Array)
+				{
+					return GenerateUniqueVariableReference(objectValue);
+				}
+			}
+		}
+		catch
+		{
+			// If anything fails, assume no variables
+			return 0;
+		}
+
+		return 0;
+	}
+
+	private int GenerateUniqueVariableReference(CorDebugObjectValue value)
+	{
+		var reference = _variableManager.CreateReference(value);
+		return reference;
 	}
 }

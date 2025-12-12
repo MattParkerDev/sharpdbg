@@ -27,22 +27,34 @@ public partial class ManagedDebugger
 
     public (string friendlyTypeName, string value) GetCorDebugObjectValue_Value_AsString(CorDebugObjectValue corDebugObjectValue)
     {
-	    var corDebugClass = corDebugObjectValue.ExactType.Class;
-	    var module = corDebugClass.Module;
-	    var token = corDebugClass.Token;
-	    var metadataImport = module.GetMetaDataInterface().MetaDataImport;
-	    var typeDefProps = metadataImport.GetTypeDefProps(token);
-	    var typeName = typeDefProps.szTypeDef;
+	    var typeName = GetCorDebugTypeFriendlyName(corDebugObjectValue.ExactType);
 	    return (typeName, $"{{{typeName}}}");
     }
 
     public (string friendlyTypeName, string value) GetCorDebugReferenceValue_Value_AsString(CorDebugReferenceValue corDebugReferenceValue)
     {
-	    if (corDebugReferenceValue.IsNull) return ("TODO", "null");
+	    //if (corDebugReferenceValue.IsNull) return ("TODO", "null");
+	    if (corDebugReferenceValue.IsNull)
+	    {
+		    // Get the type information even though the reference is null
+		    var typeName = GetCorDebugTypeFriendlyName(corDebugReferenceValue.ExactType);
+		    return (typeName, "null");
+	    }
 	    var referencedValue = corDebugReferenceValue.Dereference();
 	    var value = GetValueForCorDebugValue(referencedValue);
 	    return value;
     }
+
+    private static string GetCorDebugTypeFriendlyName(CorDebugType corDebugType)
+	{
+	    var corDebugClass = corDebugType.Class;
+	    var module = corDebugClass.Module;
+	    var token = corDebugClass.Token;
+	    var metadataImport = module.GetMetaDataInterface().MetaDataImport;
+	    var typeDefProps = metadataImport.GetTypeDefProps(token);
+	    var typeName = typeDefProps.szTypeDef;
+	    return typeName;
+	}
 
     public (string friendlyTypeName, string value) GetCorDebugGenericValue_Value_AsString(CorDebugGenericValue corDebugGenericValue)
     {

@@ -106,7 +106,7 @@ public partial class ManagedDebugger
 		    CorElementType.R4 => "float",
 		    CorElementType.R8 => "double",
 		    CorElementType.String => "string",
-		    CorElementType.Object => "object",
+		    CorElementType.Object => "object", // Should we ever see this?
 		    CorElementType.I => "nint",
 		    CorElementType.U => "nuint",
 		    _ => throw new ArgumentOutOfRangeException(),

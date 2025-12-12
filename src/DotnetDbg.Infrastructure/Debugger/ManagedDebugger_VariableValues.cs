@@ -53,7 +53,19 @@ public partial class ManagedDebugger
 	    var metadataImport = module.GetMetaDataInterface().MetaDataImport;
 	    var typeDefProps = metadataImport.GetTypeDefProps(token);
 	    var typeName = typeDefProps.szTypeDef;
-	    return typeName;
+	    var languageAlias = ClassNameToMaybeLanguageAlias(typeName);
+	    return languageAlias;
+	}
+
+	private static string ClassNameToMaybeLanguageAlias(string className)
+	{
+		className = className switch
+		{
+			"System.String" => "string",
+			"System.Object" => "object",
+			_ => className
+		};
+		return className;
 	}
 
     public (string friendlyTypeName, string value) GetCorDebugGenericValue_Value_AsString(CorDebugGenericValue corDebugGenericValue)

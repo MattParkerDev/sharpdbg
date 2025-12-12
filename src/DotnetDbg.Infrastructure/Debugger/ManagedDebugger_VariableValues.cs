@@ -5,13 +5,13 @@ namespace DotnetDbg.Infrastructure.Debugger;
 
 public partial class ManagedDebugger
 {
-	public string GetValueForCorDebugValue(CorDebugValue corDebugValue)
+	public (string friendlyTypeName, string value) GetValueForCorDebugValue(CorDebugValue corDebugValue)
     {
-	    var value = corDebugValue switch
+	    var (friendlyTypeName, value) = corDebugValue switch
 	    {
 		    CorDebugBoxValue corDebugBoxValue => throw new NotImplementedException(),
-		    CorDebugArrayValue corDebugArrayValue => $"[{corDebugArrayValue.Count}]",
-		    CorDebugStringValue stringValue => stringValue.GetString(stringValue.Size),
+		    CorDebugArrayValue corDebugArrayValue => ("TODO[]", $"[{corDebugArrayValue.Count}]"),
+		    CorDebugStringValue stringValue => ("string", stringValue.GetString(stringValue.Size)),
 
 		    CorDebugContext corDebugContext => throw new NotImplementedException(),
 		    CorDebugObjectValue corDebugObjectValue => GetCorDebugObjectValue_Value_AsString(corDebugObjectValue),
@@ -22,10 +22,10 @@ public partial class ManagedDebugger
 		    CorDebugGenericValue corDebugGenericValue => GetCorDebugGenericValue_Value_AsString(corDebugGenericValue),  // This should be already handled by the above classes, so we should never get here
 		    _ => throw new ArgumentOutOfRangeException()
 	    };
-	    return value;
+	    return (friendlyTypeName, value);
     }
 
-    public string GetCorDebugObjectValue_Value_AsString(CorDebugObjectValue corDebugObjectValue)
+    public (string friendlyTypeName, string value) GetCorDebugObjectValue_Value_AsString(CorDebugObjectValue corDebugObjectValue)
     {
 	    var corDebugClass = corDebugObjectValue.ExactType.Class;
 	    var module = corDebugClass.Module;
@@ -33,18 +33,18 @@ public partial class ManagedDebugger
 	    var metadataImport = module.GetMetaDataInterface().MetaDataImport;
 	    var typeDefProps = metadataImport.GetTypeDefProps(token);
 	    var typeName = typeDefProps.szTypeDef;
-	    return $"{{{typeName}}}";
+	    return (typeName, $"{{{typeName}}}");
     }
 
-    public string GetCorDebugReferenceValue_Value_AsString(CorDebugReferenceValue corDebugReferenceValue)
+    public (string friendlyTypeName, string value) GetCorDebugReferenceValue_Value_AsString(CorDebugReferenceValue corDebugReferenceValue)
     {
-	    if (corDebugReferenceValue.IsNull) return "null";
+	    if (corDebugReferenceValue.IsNull) return ("TODO", "null");
 	    var referencedValue = corDebugReferenceValue.Dereference();
 	    var value = GetValueForCorDebugValue(referencedValue);
 	    return value;
     }
 
-    public string GetCorDebugGenericValue_Value_AsString(CorDebugGenericValue corDebugGenericValue)
+    public (string friendlyTypeName, string value) GetCorDebugGenericValue_Value_AsString(CorDebugGenericValue corDebugGenericValue)
     {
 	    IntPtr buffer = Marshal.AllocHGlobal(corDebugGenericValue.Size);
 	    try
@@ -79,11 +79,37 @@ public partial class ManagedDebugger
 	            CorElementType.Class => throw new NotImplementedException(),
 	            _ => throw new ArgumentOutOfRangeException()
 	        };
-	        return value;
+	        var friendlyTypeName = GetFriendlyTypeName(corDebugGenericValue.Type);
+	        return (friendlyTypeName, value);
 	    }
 	    finally
 	    {
 	        Marshal.FreeHGlobal(buffer);
 	    }
+    }
+
+    private static string GetFriendlyTypeName(CorElementType elementType)
+    {
+	    return elementType switch
+	    {
+		    CorElementType.Void => "void",
+		    CorElementType.Boolean => "bool",
+		    CorElementType.Char => "char",
+		    CorElementType. I1 => "sbyte",
+		    CorElementType.U1 => "byte",
+		    CorElementType.I2 => "short",
+		    CorElementType.U2 => "ushort",
+		    CorElementType.I4 => "int",
+		    CorElementType. U4 => "uint",
+		    CorElementType.I8 => "long",
+		    CorElementType.U8 => "ulong",
+		    CorElementType.R4 => "float",
+		    CorElementType.R8 => "double",
+		    CorElementType.String => "string",
+		    CorElementType.Object => "object",
+		    CorElementType.I => "nint",
+		    CorElementType.U => "nuint",
+		    _ => throw new ArgumentOutOfRangeException(),
+	    };
     }
 }

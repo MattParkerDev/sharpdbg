@@ -12,13 +12,12 @@ public partial class ManagedDebugger
 		{
 			var localVariableName = module.SymbolReader?.GetLocalVariableName(corDebugFunction.Token, index);
 			if (localVariableName is null) continue; // Compiler generated locals will not be found. E.g. DefaultInterpolatedStringHandler
-			var value = GetValueForCorDebugValue(localVariableCorDebugValue);
-			var typeName = GetFriendlyTypeName(localVariableCorDebugValue.Type);
+			var (friendlyTypeName, value) = GetValueForCorDebugValue(localVariableCorDebugValue);
 			var variableInfo = new VariableInfo
 			{
 				Name = localVariableName,
 				Value = value,
-				Type = typeName,
+				Type = friendlyTypeName,
 				VariablesReference = 0 // TODO: set if complex type
 			};
 			result.Add(variableInfo);
@@ -38,11 +37,12 @@ public partial class ManagedDebugger
         if (isStatic is false)
         {
 	        var implicitThisValue = corDebugIlFrame.Arguments[0];
+	        var (friendlyTypeName, value) = GetValueForCorDebugValue(implicitThisValue);
 	        var variableInfo = new VariableInfo
 	        {
 		        Name = "this", // Hardcoded - 'this' has no metadata
-		        Value = GetValueForCorDebugValue(implicitThisValue),
-		        Type = implicitThisValue.ExactType.Type.ToString(),
+		        Value = value,
+		        Type = friendlyTypeName,
 		        VariablesReference = 0 // TODO: set if complex type
 	        };
 	        result.Add(variableInfo);
@@ -56,41 +56,15 @@ public partial class ManagedDebugger
 	        var paramProps = metadataImport.GetParamProps(paramDef);
 	        var argumentName = paramProps.szName;
 	        if (argumentName is null) continue;
-	        var value = GetValueForCorDebugValue(argumentCorDebugValue);
-	        var typeName = GetFriendlyTypeName(argumentCorDebugValue.Type);
+	        var (friendlyTypeName, value) = GetValueForCorDebugValue(argumentCorDebugValue);
 	        var variableInfo = new VariableInfo
 	        {
 		        Name = argumentName,
 		        Value = value,
-		        Type = typeName,
+		        Type = friendlyTypeName,
 		        VariablesReference = 0 // TODO: set if complex type
 	        };
 	        result.Add(variableInfo);
         }
-	}
-
-	private string GetFriendlyTypeName(CorElementType elementType)
-	{
-		return elementType switch
-		{
-			CorElementType.Void => "void",
-			CorElementType.Boolean => "bool",
-			CorElementType.Char => "char",
-			CorElementType. I1 => "sbyte",
-			CorElementType.U1 => "byte",
-			CorElementType.I2 => "short",
-			CorElementType.U2 => "ushort",
-			CorElementType.I4 => "int",
-			CorElementType. U4 => "uint",
-			CorElementType.I8 => "long",
-			CorElementType.U8 => "ulong",
-			CorElementType.R4 => "float",
-			CorElementType.R8 => "double",
-			CorElementType.String => "string",
-			CorElementType.Object => "object",
-			CorElementType.I => "nint",
-			CorElementType.U => "nuint",
-			_ => throw new ArgumentOutOfRangeException(),
-		};
 	}
 }

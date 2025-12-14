@@ -251,17 +251,30 @@ public class SymbolReader : IDisposable
 		if (methodDebugInfo.SequencePointsBlob.IsNil)
 			return null;
 
-		foreach (var sp in methodDebugInfo.GetSequencePoints())
-		{
-			if (sp.IsHidden) continue;
-			if (sp.Offset != ilOffset) continue;
+		var points = methodDebugInfo.GetSequencePoints()
+			.Where(sp => sp.IsHidden is false)
+			.ToList();
 
-			var spDocument = sp.Document.IsNil ? methodDebugInfo.Document : sp.Document;
-			var document = _reader.GetDocument(spDocument);
-			var documentFilePath = _reader.GetString(document.Name);
-			return (documentFilePath, sp.StartLine, sp.EndLine, sp.StartColumn, sp.EndColumn);
-		}
-		return null;
+		// Ideally we find an exact match
+		var sequencePoint = points
+			.Where(sp => sp.Offset == ilOffset)
+			.Cast<SequencePoint?>()
+			.SingleOrDefault();
+
+	    // e.g. when stepping at the end of a method, there may be no exact match - find the closest prior sequence point of the il offset
+		sequencePoint ??= points
+			.Where(sp => sp.Offset < ilOffset)
+			.OrderByDescending(sp => sp.Offset)
+			.Cast<SequencePoint?>()
+			.FirstOrDefault();
+
+		if (sequencePoint == null) return null;
+		var sp = sequencePoint.Value;
+
+		var spDocument = sp.Document.IsNil ? methodDebugInfo.Document : sp.Document;
+		var document = _reader.GetDocument(spDocument);
+		var documentFilePath = _reader.GetString(document.Name);
+		return (documentFilePath, sp.StartLine, sp.EndLine, sp.StartColumn, sp.EndColumn);
     }
 
     public string? GetLocalVariableName(int methodToken, int localIndex)

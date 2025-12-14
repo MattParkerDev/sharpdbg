@@ -204,13 +204,23 @@ public partial class ManagedDebugger : IDisposable
         if (_threads.TryGetValue(threadId, out var thread))
         {
             var frame = thread.ActiveFrame;
-            if (frame != null)
+            if (frame is not CorDebugILFrame ilFrame) throw new InvalidOperationException("Active frame is not an IL frame");
+
+            CorDebugStepper stepper = frame.CreateStepper();
+            // we need to get the start IL Offset of the current sequence point, and the start IL Offset of the next sequence point
+            // This is our step range
+            var symbolReader = _modules[frame.Function.Module.BaseAddress].SymbolReader;
+			if (symbolReader == null) throw new InvalidOperationException("No symbol reader for module");
+			var currentIlOffset = ilFrame.IP.pnOffset;
+            var (startIlOffset, endIlOffset) = symbolReader.GetStartAndEndSequencePointIlOffsetsForIlOffset(frame.Function.Token, currentIlOffset);
+            var stepRange = new COR_DEBUG_STEP_RANGE
             {
-                var stepper = frame.CreateStepper();
-                stepper.StepRange(false, new COR_DEBUG_STEP_RANGE[0], 0);
-                IsRunning = true;
-                _rawProcess?.Continue(false);
-            }
+	            startOffset = startIlOffset,
+	            endOffset = endIlOffset
+            };
+            stepper.StepRange(false, [stepRange], 1);
+            IsRunning = true;
+            _rawProcess?.Continue(false);
         }
     }
 

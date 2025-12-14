@@ -312,6 +312,37 @@ public class SymbolReader : IDisposable
 	    return null;
     }
 
+	public (int ilStartOffset, int ilEndOffset) GetStartAndEndSequencePointIlOffsetsForIlOffset(int methodToken, int ip)
+	{
+		var methodHandle = MetadataTokens.MethodDefinitionHandle(methodToken);
+		var debugInfo = _reader.GetMethodDebugInformation(methodHandle);
+
+		if (debugInfo.SequencePointsBlob.IsNil)
+			return (0, 0);
+
+		// Get valid, ordered sequence points
+		var points = debugInfo
+			.GetSequencePoints()
+			.Where(sp => sp.StartLine != 0 && sp.IsHidden is false)
+			.OrderBy(sp => sp.Offset)
+			.Cast<SequencePoint?>()
+			.ToList();
+
+		if (points.Count is 0) return (0, 0);
+
+		// Find the last point at or before the IP
+		var startPoint = points.LastOrDefault(sp => sp!.Value.Offset <= ip) ?? points[0]!.Value;
+
+		// Find the first point after the IP
+		var endPoint = points.FirstOrDefault(sp => sp!.Value.Offset > ip);
+
+		var ilStartOffset = startPoint.Offset;
+		var ilEndOffset = endPoint?.Offset ?? ilStartOffset;
+
+		// Calling method will handle when ilEndOffset == ilStartOffset, and change it to method size
+		return (ilStartOffset, ilEndOffset);
+	}
+
     /// <summary>
     /// Get all source files referenced in the PDB
     /// </summary>

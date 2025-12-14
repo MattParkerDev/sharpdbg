@@ -207,6 +207,9 @@ public partial class ManagedDebugger : IDisposable
             if (frame is not CorDebugILFrame ilFrame) throw new InvalidOperationException("Active frame is not an IL frame");
 
             CorDebugStepper stepper = frame.CreateStepper();
+            //stepper.SetInterceptMask(CorDebugIntercept.INTERCEPT_NONE);
+            stepper.SetUnmappedStopMask(CorDebugUnmappedStop.STOP_NONE);
+            //stepper.SetJMC(true);
             // we need to get the start IL Offset of the current sequence point, and the start IL Offset of the next sequence point
             // This is our step range
             var symbolReader = _modules[frame.Function.Module.BaseAddress].SymbolReader;

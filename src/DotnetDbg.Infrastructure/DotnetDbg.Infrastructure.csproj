@@ -8,6 +8,7 @@
 
   <ItemGroup>
     <PackageReference Include="ClrDebug" Version="0.3.4" />
+    <PackageReference Include="ZLinq" Version="1.5.4" />
   </ItemGroup>
 
 </Project>

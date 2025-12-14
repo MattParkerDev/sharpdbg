@@ -1,6 +1,7 @@
 using System.Reflection.Metadata;
 using System.Reflection.Metadata.Ecma335;
 using System.Reflection.PortableExecutable;
+using ZLinq;
 
 namespace DotnetDbg.Infrastructure.Debugger;
 
@@ -252,17 +253,20 @@ public class SymbolReader : IDisposable
 			return null;
 
 		var points = methodDebugInfo.GetSequencePoints()
+			.AsValueEnumerable()
 			.Where(sp => sp.IsHidden is false)
 			.ToList();
 
 		// Ideally we find an exact match
 		var sequencePoint = points
+			.AsValueEnumerable()
 			.Where(sp => sp.Offset == ilOffset)
 			.Cast<SequencePoint?>()
 			.SingleOrDefault();
 
 	    // e.g. when stepping at the end of a method, there may be no exact match - find the closest prior sequence point of the il offset
 		sequencePoint ??= points
+			.AsValueEnumerable()
 			.Where(sp => sp.Offset < ilOffset)
 			.OrderByDescending(sp => sp.Offset)
 			.Cast<SequencePoint?>()

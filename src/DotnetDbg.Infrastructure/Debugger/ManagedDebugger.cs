@@ -213,6 +213,10 @@ public partial class ManagedDebugger : IDisposable
 			if (symbolReader == null) throw new InvalidOperationException("No symbol reader for module");
 			var currentIlOffset = ilFrame.IP.pnOffset;
             var (startIlOffset, endIlOffset) = symbolReader.GetStartAndEndSequencePointIlOffsetsForIlOffset(frame.Function.Token, currentIlOffset);
+            if (startIlOffset == endIlOffset)
+            {
+	            endIlOffset = frame.Function.ILCode.Size;
+            }
             var stepRange = new COR_DEBUG_STEP_RANGE
             {
 	            startOffset = startIlOffset,

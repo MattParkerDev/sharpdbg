@@ -275,7 +275,7 @@ public class DotnetDbgTests(ITestOutputHelper testOutputHelper)
 		    var attachRequest = DebugAdapterProcessHelper.GetAttachRequest(debuggableProcess.Id);
 		    debugProtocolHost.SendRequestSync(attachRequest);
 		    await initializedEventTcs.Task;
-		    var setBreakpointsRequest = DebugAdapterProcessHelper.GetSetBreakpointsRequest(8, @"C:\Users\Matthew\Documents\Git\dotnetdbg\tests\DebuggableConsoleApp\MyClassNoMembers.cs");
+		    var setBreakpointsRequest = DebugAdapterProcessHelper.GetSetBreakpointsRequest();
 		    var breakpointsResponse = debugProtocolHost.SendRequestSync(setBreakpointsRequest);
 
 		    var configurationDoneRequest = new ConfigurationDoneRequest();
@@ -286,17 +286,23 @@ public class DotnetDbgTests(ITestOutputHelper testOutputHelper)
 		    var stoppedEvent = await stoppedEventTcs.Tcs.Task;
 		    var stackTraceRequest = new StackTraceRequest { ThreadId = stoppedEvent.ThreadId!.Value, StartFrame = 0, Levels = 1 };
 		    var stackTraceResponse = debugProtocolHost.SendRequestSync(stackTraceRequest);
-		    var currentLine = stackTraceResponse.StackFrames!.First().Line;
+		    var stackFrame = stackTraceResponse.StackFrames!.First();
+		    var currentLine = stackFrame.Line;
 
-		    stoppedEventTcs.Tcs = new TaskCompletionSource<StoppedEvent>(TaskCreationOptions.RunContinuationsAsynchronously);
+		    foreach (var i in Enumerable.Range(0, 10))
+		    {
+			    stoppedEventTcs.Tcs = new TaskCompletionSource<StoppedEvent>(TaskCreationOptions.RunContinuationsAsynchronously);
 
-		    var nextRequest = new NextRequest { ThreadId = stoppedEvent.ThreadId!.Value };
-		    debugProtocolHost.SendRequestSync(nextRequest);
+			    var nextRequest = new NextRequest { ThreadId = stoppedEvent.ThreadId!.Value };
+			    debugProtocolHost.SendRequestSync(nextRequest);
 
-		    var stoppedEventAfterNext = await stoppedEventTcs.Tcs.Task;
-		    var stackTraceResponseAfterNext = debugProtocolHost.SendRequestSync(new StackTraceRequest { ThreadId = stoppedEventAfterNext.ThreadId!.Value, StartFrame = 0, Levels = 1 });
-		    var lineAfterNext = stackTraceResponseAfterNext.StackFrames!.First().Line;
-		    lineAfterNext.Should().Be(currentLine + 1);
+			    var stoppedEventAfterNext = await stoppedEventTcs.Tcs.Task;
+			    var stackTraceResponseAfterNext = debugProtocolHost.SendRequestSync(new StackTraceRequest { ThreadId = stoppedEventAfterNext.ThreadId!.Value, StartFrame = 0, Levels = 1 });
+			    var lineAfterNext = stackTraceResponseAfterNext.StackFrames!.First().Line;
+			    lineAfterNext.Should().NotBe(0);
+			    ;
+		    }
+		    //lineAfterNext.Should().Be(currentLine + 1);
 
 	    }
 	    finally

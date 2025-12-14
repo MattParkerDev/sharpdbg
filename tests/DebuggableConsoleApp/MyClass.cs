@@ -9,6 +9,9 @@ public class MyClass
 		var myInt = 4;
 		Console.WriteLine($"Log{_counter}");
 		_counter++;
+		int? nullableInt;
+		int? nullableIntWithVal = 4;
+		MyClass? nullableRefType;
 
 		var anotherVar = "asdf";
 	}

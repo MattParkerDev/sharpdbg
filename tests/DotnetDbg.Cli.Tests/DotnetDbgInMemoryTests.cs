@@ -73,7 +73,7 @@ public class DotnetDbgInMemoryTests(ITestOutputHelper testOutputHelper)
 		public required TaskCompletionSource<StoppedEvent> Tcs { get; set; }
 	}
     [Fact]
-    public async Task DotnetDbgCli_NextRequest_ReturnsNextLine()
+    public async Task DotnetDbgCli_InMem_NextRequest_ReturnsNextLine()
     {
 	    var startSuspended = false;
 	    var debuggableProcess = DebuggableProcessHelper.StartDebuggableProcess(startSuspended);

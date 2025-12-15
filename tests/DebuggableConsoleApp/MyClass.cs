@@ -15,4 +15,10 @@ public class MyClass
 
 		var anotherVar = "asdf";
 	}
+	private MyClass2 ClassProperty { get; set; } = new MyClass2();
+}
+
+public class MyClass2
+{
+	public string MyProperty { get; set; } = "Hello";
 }

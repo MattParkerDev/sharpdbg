@@ -578,8 +578,18 @@ public partial class ManagedDebugger : IDisposable
 
 		    var getMethod = corDebugClass.Module.GetFunctionFromToken(getMethodDef);
 		    var eval = variablesReferenceIlFrame.Chain.Thread.CreateEval();
+
+		    // Determine if the declaring class is generic and needs type arguments
+		    ICorDebugType[] typeArgs = [];
+		    // Get type parameters from the object's exact type if it's a generic type
+		    var exactType = objectValue!.ExactType;
+		    var typeParams = exactType.EnumerateTypeParameters();
+		    if (typeParams != null)
+		    {
+			    typeArgs = typeParams.Select(t => t.Raw).ToArray();
+		    }
 		    // we need to get the number of type parameters for the property getter method
-		    eval.CallParameterizedFunction(getMethod.Raw, 0, [], 0, []);
+		    eval.CallParameterizedFunction(getMethod.Raw, typeArgs.Length, typeArgs, 0, []);
 		    eval.CallParameterizedFunction(getMethod, objectValue is not null ? [objectValue] : []);
 		    variablesReferenceIlFrame.Chain.Thread.Process.Continue(false);
 

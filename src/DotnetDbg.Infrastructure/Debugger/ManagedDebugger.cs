@@ -553,6 +553,7 @@ public partial class ManagedDebugger : IDisposable
 		        var mdFieldDefs = metadataImport.EnumFields(mdTypeDef);
 		        var mdProperties = metadataImport.EnumProperties(mdTypeDef);
 		        AddFields(mdFieldDefs, metadataImport, corDebugClass, variablesReference.IlFrame, objectValue, result);
+		        //AddProperties(mdProperties, metadataImport, corDebugClass, variablesReference.IlFrame, objectValue, result);
 	        }
         }
         catch (Exception ex)
@@ -561,6 +562,60 @@ public partial class ManagedDebugger : IDisposable
         }
 
         return result;
+    }
+
+    private void AddProperties(mdProperty[] mdProperties, MetaDataImport metadataImport, CorDebugClass corDebugClass, CorDebugILFrame variablesReferenceIlFrame, CorDebugObjectValue objectValue, List<VariableInfo> result)
+    {
+	    foreach (var mdProperty in mdProperties)
+	    {
+		    var propertyProps = metadataImport.GetPropertyProps(mdProperty);
+		    var propertyName = propertyProps.szProperty;
+		    if (propertyName is null) continue;
+
+		    // Get the get method for the property
+		    var getMethodDef = propertyProps.pmdGetter;
+		    if (getMethodDef == 0) continue; // No get method
+
+		    var getMethod = corDebugClass.Module.GetFunctionFromToken(getMethodDef);
+		    var eval = variablesReferenceIlFrame.Chain.Thread.CreateEval();
+		    // we need to get the number of type parameters for the property getter method
+		    eval.CallParameterizedFunction(getMethod.Raw, 0, [], 0, []);
+		    eval.CallParameterizedFunction(getMethod, objectValue is not null ? [objectValue] : []);
+		    variablesReferenceIlFrame.Chain.Thread.Process.Continue(false);
+
+		    // Wait for the eval to complete
+		    CorDebugValue? returnValue = null;
+		    bool evalCompleted = false;
+		    void EvalCompleteHandler(object? s, EvalCompleteCorDebugManagedCallbackEventArgs e)
+		    {
+			    if (e.Eval == eval)
+			    {
+				    returnValue = e.Eval.Result;
+				    evalCompleted = true;
+			    }
+		    }
+		    _callbacks.OnEvalComplete += EvalCompleteHandler;
+
+		    while (!evalCompleted)
+		    {
+			    Thread.Sleep(10);
+			    variablesReferenceIlFrame.Chain.Thread.Process.Continue(false);
+		    }
+
+		    _callbacks.OnEvalComplete -= EvalCompleteHandler;
+
+		    if (returnValue is null) continue;
+
+		    var (friendlyTypeName, value) = GetValueForCorDebugValue(returnValue);
+		    var variableInfo = new VariableInfo
+		    {
+			    Name = propertyName,
+			    Value = value,
+			    Type = friendlyTypeName,
+			    VariablesReference = GetVariablesReference(returnValue, variablesReferenceIlFrame)
+		    };
+		    result.Add(variableInfo);
+	    }
     }
 
     private void AddFields(mdFieldDef[] mdFieldDefs, MetaDataImport metadataImport, CorDebugClass corDebugClass, CorDebugILFrame ilFrame, CorDebugObjectValue objectValue, List<VariableInfo> result)

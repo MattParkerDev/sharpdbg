@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using ClrDebug;
+using ZLinq;
 
 namespace DotnetDbg.Infrastructure.Debugger;
 
@@ -552,6 +553,10 @@ public partial class ManagedDebugger : IDisposable
 		        var metadataImport = module.GetMetaDataInterface().MetaDataImport;
 		        var mdFieldDefs = metadataImport.EnumFields(mdTypeDef);
 		        var mdProperties = metadataImport.EnumProperties(mdTypeDef);
+		        var staticFieldDefs = mdFieldDefs.AsValueEnumerable().Where(s => s.IsStatic(metadataImport)).ToArray();
+		        var nonStaticFieldDefs = mdFieldDefs.AsValueEnumerable().Except(staticFieldDefs).ToArray();
+		        var staticProperties = mdProperties.AsValueEnumerable().Where(p => p.IsStatic(metadataImport)).ToArray();
+		        var nonStaticProperties = mdProperties.AsValueEnumerable().Except(staticProperties).ToArray();
 		        AddFields(mdFieldDefs, metadataImport, corDebugClass, variablesReference.IlFrame, objectValue, result);
 		        await AddProperties(mdProperties, metadataImport, corDebugClass, variablesReference.IlFrame, objectValue, result);
 	        }

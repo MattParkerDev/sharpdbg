@@ -526,7 +526,7 @@ public partial class ManagedDebugger : IDisposable
     /// <summary>
     /// Get variables for a scope
     /// </summary>
-    public List<VariableInfo> GetVariables(int variablesReferenceInt)
+    public async Task<List<VariableInfo>> GetVariables(int variablesReferenceInt)
     {
         var result = new List<VariableInfo>();
 

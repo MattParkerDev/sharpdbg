@@ -576,22 +576,43 @@ public partial class ManagedDebugger : IDisposable
 		    var getMethodDef = propertyProps.pmdGetter;
 		    if (getMethodDef == 0) continue; // No get method
 
+		    // Get method attributes to check if it's static
+		    var getterMethodProps = metadataImport.GetMethodProps(getMethodDef);
+		    var getterAttr = getterMethodProps.pdwAttr;
+
+		    bool isStatic = (getterAttr & CorMethodAttr.mdStatic) != 0;
+
+		    // Skip instance properties if objectValue is null
+		    if (objectValue is null && !isStatic)
+			    continue;
+
 		    var getMethod = corDebugClass.Module.GetFunctionFromToken(getMethodDef);
 		    var eval = variablesReferenceIlFrame.Chain.Thread.CreateEval();
 
-		    // Determine if the declaring class is generic and needs type arguments
+		    // For parameterized function call, we need the class type (not type parameters count)
 		    ICorDebugType[] typeArgs = [];
-		    // Get type parameters from the object's exact type if it's a generic type
-		    var exactType = objectValue!.ExactType;
-		    var typeParams = exactType.EnumerateTypeParameters();
-		    if (typeParams != null)
+		    if (objectValue is not null)
 		    {
-			    typeArgs = typeParams.Select(t => t.Raw).ToArray();
+			    // Pass the exact type of the object as the type argument
+			    typeArgs = [objectValue.ExactType.Raw];
+		    }
+		    else if (isStatic)
+		    {
+			    // For static properties, get the class type
+			    var classType = corDebugClass.GetParameterizedType(CorElementType.Class, 0, []);
+			    typeArgs = [classType.Raw];
+		    }
+		    else
+		    {
+			    // Instance property but no object - skip
+			    continue;
 		    }
 
-		    // we need to get the number of type parameters for the property getter method
-		    eval.CallParameterizedFunction(getMethod.Raw, typeArgs.Length, typeArgs, 1, [objectValue.Raw]);
-		    //eval.CallFunction(getMethod.Raw, objectValue is not null ? 1 : 0, objectValue is not null ? [objectValue.Raw] : []);
+		    // Setup arguments:  for instance properties pass the object, for static pass nothing
+		    ICorDebugValue[] corDebugValues = isStatic ? [] : [objectValue!.Raw];
+		    var nArgs = corDebugValues.Length;
+
+		    eval.CallParameterizedFunction(getMethod.Raw, typeArgs.Length, typeArgs, nArgs, corDebugValues);
 
 		    // Wait for the eval to complete
 		    CorDebugValue? returnValue = null;
@@ -613,7 +634,7 @@ public partial class ManagedDebugger : IDisposable
 		    {
 			    if (e.Eval.Raw == eval.Raw)
 			    {
-				    _logger?.Invoke($"Error evaluating property '{propertyName}'");
+				    _logger?.Invoke($"Error evaluating property '{propertyName}' (Static: {isStatic})");
 				    evalCompleteTcs.SetResult(true);
 			    }
 		    }

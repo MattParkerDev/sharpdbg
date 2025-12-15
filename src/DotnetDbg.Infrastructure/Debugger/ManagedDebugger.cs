@@ -195,6 +195,7 @@ public partial class ManagedDebugger : IDisposable
         }
     }
 
+    private CorDebugStepper? _stepper;
     /// <summary>
     /// Step to the next line
     /// </summary>
@@ -205,7 +206,7 @@ public partial class ManagedDebugger : IDisposable
         {
             var frame = thread.ActiveFrame;
             if (frame is not CorDebugILFrame ilFrame) throw new InvalidOperationException("Active frame is not an IL frame");
-
+			if (_stepper is not null) throw new InvalidOperationException("A step operation is already in progress");
             CorDebugStepper stepper = frame.CreateStepper();
             //stepper.SetInterceptMask(CorDebugIntercept.INTERCEPT_NONE);
             stepper.SetUnmappedStopMask(CorDebugUnmappedStop.STOP_NONE);
@@ -227,6 +228,7 @@ public partial class ManagedDebugger : IDisposable
             };
             stepper.StepRange(false, [stepRange], 1);
             IsRunning = true;
+            _stepper = stepper;
             _rawProcess?.Continue(false);
         }
     }
@@ -731,6 +733,7 @@ public partial class ManagedDebugger : IDisposable
 	    ArgumentNullException.ThrowIfNull(breakpoint);
 	    if (breakpoint is not CorDebugFunctionBreakpoint functionBreakpoint)
 	    {
+		    _logger?.Invoke("Unknown breakpoint type hit");
 		    Continue(); // may be incorrect
 		    return;
 	    }
@@ -738,6 +741,11 @@ public partial class ManagedDebugger : IDisposable
 	    ArgumentNullException.ThrowIfNull(managedBreakpoint);
 	    var corThread = breakpointCorDebugManagedCallbackEventArgs.Thread;
         IsRunning = false;
+        if (_stepper is not null)
+        {
+	        _stepper.Deactivate();
+	        _stepper = null;
+        }
         OnStopped2?.Invoke(corThread.Id, managedBreakpoint.FilePath, managedBreakpoint.Line, "breakpoint");
     }
 
@@ -745,6 +753,9 @@ public partial class ManagedDebugger : IDisposable
     {
 	    var corThread = stepCompleteCorDebugManagedCallbackEventArgs.Thread;
         IsRunning = false;
+        var stepper = _stepper ?? throw new InvalidOperationException("No stepper found for step complete");
+		stepper.Deactivate(); // I really don't know if its necessary to deactivate the steppers once done
+		_stepper = null;
         OnStopped?.Invoke(corThread.Id, "step");
     }
 
@@ -752,6 +763,11 @@ public partial class ManagedDebugger : IDisposable
     {
         var corThread = breakCorDebugManagedCallbackEventArgs.Thread;
         IsRunning = false;
+        if (_stepper is not null)
+        {
+	        _stepper.Deactivate();
+	        _stepper = null;
+        }
         OnStopped?.Invoke(corThread.Id, "pause");
     }
 
@@ -759,6 +775,11 @@ public partial class ManagedDebugger : IDisposable
     {
 	    var corThread = exceptionCorDebugManagedCallbackEventArgs.Thread;
         IsRunning = false;
+        if (_stepper is not null)
+        {
+	        _stepper.Deactivate();
+	        _stepper = null;
+        }
         OnStopped?.Invoke(corThread.Id, "exception");
     }
 

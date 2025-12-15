@@ -18,7 +18,7 @@ public partial class ManagedDebugger
 				Name = localVariableName,
 				Value = value,
 				Type = friendlyTypeName,
-				VariablesReference = GetVariablesReference(localVariableCorDebugValue)
+				VariablesReference = GetVariablesReference(localVariableCorDebugValue, corDebugIlFrame)
 			};
 			result.Add(variableInfo);
 		}
@@ -43,7 +43,7 @@ public partial class ManagedDebugger
 		        Name = "this", // Hardcoded - 'this' has no metadata
 		        Value = value,
 		        Type = friendlyTypeName,
-		        VariablesReference = GetVariablesReference(implicitThisValue)
+		        VariablesReference = GetVariablesReference(implicitThisValue, corDebugIlFrame)
 	        };
 	        result.Add(variableInfo);
         }
@@ -62,13 +62,13 @@ public partial class ManagedDebugger
 		        Name = argumentName,
 		        Value = value,
 		        Type = friendlyTypeName,
-		        VariablesReference = GetVariablesReference(argumentCorDebugValue)
+		        VariablesReference = GetVariablesReference(argumentCorDebugValue, corDebugIlFrame)
 	        };
 	        result.Add(variableInfo);
         }
 	}
 
-	private int GetVariablesReference(CorDebugValue corDebugValue)
+	private int GetVariablesReference(CorDebugValue corDebugValue, CorDebugILFrame corDebugIlFrame)
 	{
 		try
 		{
@@ -86,7 +86,7 @@ public partial class ManagedDebugger
 				if (type is CorElementType.String) return 0;
 				if (type is CorElementType.Class or CorElementType.ValueType or CorElementType.SZArray or CorElementType.Array)
 				{
-					return GenerateUniqueVariableReference(objectValue);
+					return GenerateUniqueVariableReference(objectValue, corDebugIlFrame);
 				}
 			}
 		}
@@ -99,9 +99,10 @@ public partial class ManagedDebugger
 		return 0;
 	}
 
-	private int GenerateUniqueVariableReference(CorDebugObjectValue value)
+	private int GenerateUniqueVariableReference(CorDebugObjectValue value, CorDebugILFrame corDebugIlFrame)
 	{
-		var reference = _variableManager.CreateReference(value);
+		var variablesReference = new VariablesReference(value, corDebugIlFrame);
+		var reference = _variableManager.CreateReference(variablesReference);
 		return reference;
 	}
 }

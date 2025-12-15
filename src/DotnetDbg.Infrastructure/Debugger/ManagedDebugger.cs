@@ -526,13 +526,13 @@ public partial class ManagedDebugger : IDisposable
     /// <summary>
     /// Get variables for a scope
     /// </summary>
-    public List<VariableInfo> GetVariables(int variablesReference)
+    public List<VariableInfo> GetVariables(int variablesReferenceInt)
     {
         var result = new List<VariableInfo>();
 
-        var scope = _variableManager.GetReference<object>(variablesReference);
+        var scope = _variableManager.GetReference<object>(variablesReferenceInt);
         if (scope is null) return result;
-        if (scope is not (CorDebugILFrame or CorDebugObjectValue)) throw new InvalidOperationException("Unsupported variables reference type");
+        if (scope is not (CorDebugILFrame or VariablesReference)) throw new InvalidOperationException("Unsupported variables reference type");
 
         try
         {
@@ -543,14 +543,36 @@ public partial class ManagedDebugger : IDisposable
 		        AddArguments(ilFrame, module, corDebugFunction, result);
 		        AddLocalVariables(ilFrame, module, corDebugFunction, result);
 	        }
-	        else if (scope is CorDebugObjectValue objectValue)
+	        else if (scope is VariablesReference variablesReference)
 	        {
-
+		        var objectValue = variablesReference.ObjectValue;
+		        var corDebugClass = objectValue.Class;
+		        var module = corDebugClass.Module;
+		        var mdTypeDef = corDebugClass.Token;
+		        var metadataImport = module.GetMetaDataInterface().MetaDataImport;
+		        var mdFieldDefs = metadataImport.EnumFields(mdTypeDef);
+		        foreach (var mdFieldDef in mdFieldDefs)
+		        {
+			        var fieldProps = metadataImport.GetFieldProps(mdFieldDef);
+			        var fieldName = fieldProps.szField;
+			        if (fieldName is null) continue;
+			        var isStatic = (fieldProps.pdwAttr & CorFieldAttr.fdStatic) != 0;
+			        var fieldCorDebugValue = isStatic ? corDebugClass.GetStaticFieldValue(mdFieldDef, variablesReference.IlFrame.Raw) : objectValue.GetFieldValue(corDebugClass.Raw, mdFieldDef);
+			        var (friendlyTypeName, value) = GetValueForCorDebugValue(fieldCorDebugValue);
+			        var variableInfo = new VariableInfo
+			        {
+				        Name = fieldName,
+				        Value = value,
+				        Type = friendlyTypeName,
+				        VariablesReference = GetVariablesReference(fieldCorDebugValue, variablesReference.IlFrame)
+			        };
+			        result.Add(variableInfo);
+		        }
 	        }
         }
         catch (Exception ex)
         {
-            _logger?.Invoke($"Error getting variables: {ex.Message}");
+            _logger?.Invoke($"Error getting variables: {ex.Message}, {ex}");
         }
 
         return result;

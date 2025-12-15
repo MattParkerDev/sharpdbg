@@ -1,5 +1,8 @@
+using ClrDebug;
+
 namespace DotnetDbg.Infrastructure.Debugger;
 
+public record struct VariablesReference(CorDebugObjectValue ObjectValue, CorDebugILFrame IlFrame);
 /// <summary>
 /// Manages variable references for scopes and variables
 /// </summary>

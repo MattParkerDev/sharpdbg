@@ -558,7 +558,18 @@ public partial class ManagedDebugger : IDisposable
 		        var nonStaticFieldDefs = mdFieldDefs.AsValueEnumerable().Except(staticFieldDefs).ToArray();
 		        var staticProperties = mdProperties.AsValueEnumerable().Where(p => p.IsStatic(metadataImport)).ToArray();
 		        var nonStaticProperties = mdProperties.AsValueEnumerable().Except(staticProperties).ToArray();
-
+		        if (staticFieldDefs.Length > 0 || staticProperties.Length > 0)
+		        {
+			        var variableInfo = new VariableInfo
+			        {
+				        Name = "Static Members",
+				        Value = "",
+				        Type = "",
+				        VariablesReference = _variableManager.CreateReference(new VariablesReference(StoredReferenceKind.StaticClassVariable, objectValue, variablesReference.IlFrame))
+			        };
+			        result.Add(variableInfo);
+		        }
+		        //AddStaticMembersPseudoVariable(staticFieldDefs, staticProperties, metadataImport, corDebugClass, variablesReference.IlFrame, result);
 		        AddFields(nonStaticFieldDefs, metadataImport, corDebugClass, variablesReference.IlFrame, objectValue, result);
 		        await AddProperties(nonStaticProperties, metadataImport, corDebugClass, variablesReference.IlFrame, objectValue, result);
 	        }

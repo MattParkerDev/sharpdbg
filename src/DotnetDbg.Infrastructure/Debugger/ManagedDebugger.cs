@@ -553,7 +553,7 @@ public partial class ManagedDebugger : IDisposable
 		        var mdFieldDefs = metadataImport.EnumFields(mdTypeDef);
 		        var mdProperties = metadataImport.EnumProperties(mdTypeDef);
 		        AddFields(mdFieldDefs, metadataImport, corDebugClass, variablesReference.IlFrame, objectValue, result);
-		        //AddProperties(mdProperties, metadataImport, corDebugClass, variablesReference.IlFrame, objectValue, result);
+		        await AddProperties(mdProperties, metadataImport, corDebugClass, variablesReference.IlFrame, objectValue, result);
 	        }
         }
         catch (Exception ex)
@@ -564,7 +564,7 @@ public partial class ManagedDebugger : IDisposable
         return result;
     }
 
-    private void AddProperties(mdProperty[] mdProperties, MetaDataImport metadataImport, CorDebugClass corDebugClass, CorDebugILFrame variablesReferenceIlFrame, CorDebugObjectValue objectValue, List<VariableInfo> result)
+    private async Task AddProperties(mdProperty[] mdProperties, MetaDataImport metadataImport, CorDebugClass corDebugClass, CorDebugILFrame variablesReferenceIlFrame, CorDebugObjectValue objectValue, List<VariableInfo> result)
     {
 	    foreach (var mdProperty in mdProperties)
 	    {
@@ -588,31 +588,41 @@ public partial class ManagedDebugger : IDisposable
 		    {
 			    typeArgs = typeParams.Select(t => t.Raw).ToArray();
 		    }
+
 		    // we need to get the number of type parameters for the property getter method
-		    eval.CallParameterizedFunction(getMethod.Raw, typeArgs.Length, typeArgs, 0, []);
-		    eval.CallParameterizedFunction(getMethod, objectValue is not null ? [objectValue] : []);
-		    variablesReferenceIlFrame.Chain.Thread.Process.Continue(false);
+		    eval.CallParameterizedFunction(getMethod.Raw, typeArgs.Length, typeArgs, 0, [objectValue.Raw]);
+		    //eval.CallFunction(getMethod.Raw, objectValue is not null ? 1 : 0, objectValue is not null ? [objectValue.Raw] : []);
 
 		    // Wait for the eval to complete
 		    CorDebugValue? returnValue = null;
-		    bool evalCompleted = false;
-		    void EvalCompleteHandler(object? s, EvalCompleteCorDebugManagedCallbackEventArgs e)
+		    var evalCompleteTcs = new TaskCompletionSource<bool>();
+
+		    void OnCallbacksOnOnEvalComplete(object? s, EvalCompleteCorDebugManagedCallbackEventArgs e)
 		    {
-			    if (e.Eval == eval)
+			    if (e.Eval.Raw == eval.Raw)
 			    {
 				    returnValue = e.Eval.Result;
-				    evalCompleted = true;
+				    evalCompleteTcs.SetResult(true);
 			    }
 		    }
-		    _callbacks.OnEvalComplete += EvalCompleteHandler;
 
-		    while (!evalCompleted)
+		    _callbacks.OnEvalComplete += OnCallbacksOnOnEvalComplete;
+		    _callbacks.OnEvalException += CallbacksOnOnEvalException;
+
+		    void CallbacksOnOnEvalException(object? sender, EvalExceptionCorDebugManagedCallbackEventArgs e)
 		    {
-			    Thread.Sleep(10);
-			    variablesReferenceIlFrame.Chain.Thread.Process.Continue(false);
+			    if (e.Eval.Raw == eval.Raw)
+			    {
+				    _logger?.Invoke($"Error evaluating property '{propertyName}'");
+				    evalCompleteTcs.SetResult(true);
+			    }
 		    }
 
-		    _callbacks.OnEvalComplete -= EvalCompleteHandler;
+		    variablesReferenceIlFrame.Chain.Thread.Process.Continue(false);
+
+		    await evalCompleteTcs.Task.ConfigureAwait(false);
+		    _callbacks.OnEvalComplete -= OnCallbacksOnOnEvalComplete;
+		    _callbacks.OnEvalException -= CallbacksOnOnEvalException;
 
 		    if (returnValue is null) continue;
 

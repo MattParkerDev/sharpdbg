@@ -551,23 +551,8 @@ public partial class ManagedDebugger : IDisposable
 		        var mdTypeDef = corDebugClass.Token;
 		        var metadataImport = module.GetMetaDataInterface().MetaDataImport;
 		        var mdFieldDefs = metadataImport.EnumFields(mdTypeDef);
-		        foreach (var mdFieldDef in mdFieldDefs)
-		        {
-			        var fieldProps = metadataImport.GetFieldProps(mdFieldDef);
-			        var fieldName = fieldProps.szField;
-			        if (fieldName is null) continue;
-			        var isStatic = (fieldProps.pdwAttr & CorFieldAttr.fdStatic) != 0;
-			        var fieldCorDebugValue = isStatic ? corDebugClass.GetStaticFieldValue(mdFieldDef, variablesReference.IlFrame.Raw) : objectValue.GetFieldValue(corDebugClass.Raw, mdFieldDef);
-			        var (friendlyTypeName, value) = GetValueForCorDebugValue(fieldCorDebugValue);
-			        var variableInfo = new VariableInfo
-			        {
-				        Name = fieldName,
-				        Value = value,
-				        Type = friendlyTypeName,
-				        VariablesReference = GetVariablesReference(fieldCorDebugValue, variablesReference.IlFrame)
-			        };
-			        result.Add(variableInfo);
-		        }
+		        var mdProperties = metadataImport.EnumProperties(mdTypeDef);
+		        AddFields(mdFieldDefs, metadataImport, corDebugClass, variablesReference.IlFrame, objectValue, result);
 	        }
         }
         catch (Exception ex)
@@ -576,6 +561,27 @@ public partial class ManagedDebugger : IDisposable
         }
 
         return result;
+    }
+
+    private void AddFields(mdFieldDef[] mdFieldDefs, MetaDataImport metadataImport, CorDebugClass corDebugClass, CorDebugILFrame ilFrame, CorDebugObjectValue objectValue, List<VariableInfo> result)
+    {
+	    foreach (var mdFieldDef in mdFieldDefs)
+	    {
+		    var fieldProps = metadataImport.GetFieldProps(mdFieldDef);
+		    var fieldName = fieldProps.szField;
+		    if (fieldName is null) continue;
+		    var isStatic = (fieldProps.pdwAttr & CorFieldAttr.fdStatic) != 0;
+		    var fieldCorDebugValue = isStatic ? corDebugClass.GetStaticFieldValue(mdFieldDef, ilFrame.Raw) : objectValue.GetFieldValue(corDebugClass.Raw, mdFieldDef);
+		    var (friendlyTypeName, value) = GetValueForCorDebugValue(fieldCorDebugValue);
+		    var variableInfo = new VariableInfo
+		    {
+			    Name = fieldName,
+			    Value = value,
+			    Type = friendlyTypeName,
+			    VariablesReference = GetVariablesReference(fieldCorDebugValue, ilFrame)
+		    };
+		    result.Add(variableInfo);
+	    }
     }
 
     /// <summary>

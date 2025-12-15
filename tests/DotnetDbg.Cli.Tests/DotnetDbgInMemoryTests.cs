@@ -86,7 +86,7 @@ public class DotnetDbgInMemoryTests(ITestOutputHelper testOutputHelper)
 
 		    var debugProtocolHost = DebugAdapterProcessHelper.GetDebugProtocolHost(input, output, testOutputHelper, initializedEventTcs);
 		    var stoppedEventTcs = new TcsContainer { Tcs = new TaskCompletionSource<StoppedEvent>(TaskCreationOptions.RunContinuationsAsynchronously) };
-		    debugProtocolHost.RegisterEventType<StoppedEvent>(@event => stoppedEventTcs.Tcs.TrySetResult(@event));
+		    debugProtocolHost.RegisterEventType<StoppedEvent>(@event => stoppedEventTcs.Tcs.SetResult(@event));
 			debugProtocolHost.Run();
 		    var initializeRequest = DebugAdapterProcessHelper.GetInitializeRequest();
 		    debugProtocolHost.SendRequestSync(initializeRequest);
@@ -106,7 +106,7 @@ public class DotnetDbgInMemoryTests(ITestOutputHelper testOutputHelper)
 		    var stackTraceResponse = debugProtocolHost.SendRequestSync(stackTraceRequest);
 		    var currentLine = stackTraceResponse.StackFrames!.First().Line;
 
-		    foreach (var i in Enumerable.Range(0, 10))
+		    foreach (var i in Enumerable.Range(0, 100))
 		    {
 			    stoppedEventTcs.Tcs = new TaskCompletionSource<StoppedEvent>(TaskCreationOptions.RunContinuationsAsynchronously);
 

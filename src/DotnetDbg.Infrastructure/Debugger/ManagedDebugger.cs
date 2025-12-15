@@ -513,7 +513,7 @@ public partial class ManagedDebugger : IDisposable
         var arguments = frame.Arguments;
         if (localVariables.Length is 0 && arguments.Length is 0) return result;
 
-        var localsRef = _variableManager.CreateReference(new LocalsScope { Frame = frame });
+        var localsRef = _variableManager.CreateReference(frame);
         result.Add(new ScopeInfo
         {
 	        Name = "Locals",
@@ -532,14 +532,21 @@ public partial class ManagedDebugger : IDisposable
 
         var scope = _variableManager.GetReference<object>(variablesReference);
         if (scope is null) return result;
-        if (scope is not LocalsScope {Frame: not null} localsScope) throw new InvalidOperationException("This should never happen");
+        if (scope is not (CorDebugILFrame or CorDebugObjectValue)) throw new InvalidOperationException("Unsupported variables reference type");
 
         try
         {
-	        var corDebugFunction = localsScope.Frame.Function;
-	        var module = _modules[corDebugFunction.Module.BaseAddress];
-	        AddArguments(localsScope.Frame, module, corDebugFunction, result);
-	        AddLocalVariables(localsScope.Frame, module, corDebugFunction, result);
+	        if (scope is CorDebugILFrame ilFrame)
+	        {
+		        var corDebugFunction = ilFrame.Function;
+		        var module = _modules[corDebugFunction.Module.BaseAddress];
+		        AddArguments(ilFrame, module, corDebugFunction, result);
+		        AddLocalVariables(ilFrame, module, corDebugFunction, result);
+	        }
+	        else if (scope is CorDebugObjectValue objectValue)
+	        {
+
+	        }
         }
         catch (Exception ex)
         {

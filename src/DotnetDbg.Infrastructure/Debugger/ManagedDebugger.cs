@@ -590,7 +590,7 @@ public partial class ManagedDebugger : IDisposable
 		    }
 
 		    // we need to get the number of type parameters for the property getter method
-		    eval.CallParameterizedFunction(getMethod.Raw, typeArgs.Length, typeArgs, 0, [objectValue.Raw]);
+		    eval.CallParameterizedFunction(getMethod.Raw, typeArgs.Length, typeArgs, 1, [objectValue.Raw]);
 		    //eval.CallFunction(getMethod.Raw, objectValue is not null ? 1 : 0, objectValue is not null ? [objectValue.Raw] : []);
 
 		    // Wait for the eval to complete

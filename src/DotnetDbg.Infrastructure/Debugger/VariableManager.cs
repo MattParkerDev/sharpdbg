@@ -2,20 +2,27 @@ using ClrDebug;
 
 namespace DotnetDbg.Infrastructure.Debugger;
 
-public record struct VariablesReference(CorDebugObjectValue ObjectValue, CorDebugILFrame IlFrame);
+public enum StoredReferenceKind
+{
+	Scope,
+	StackVariable,
+	StaticClassVariable, // This reference was stored as a pseudo variable for the static members of a "StackVariable" class
+}
+
+public record struct VariablesReference(StoredReferenceKind ReferenceKind, CorDebugObjectValue? ObjectValue, CorDebugILFrame IlFrame);
 /// <summary>
 /// Manages variable references for scopes and variables
 /// </summary>
 public class VariableManager
 {
     private int _nextReference = 1;
-    private readonly Dictionary<int, object> _references = new();
+    private readonly Dictionary<int, VariablesReference> _references = new();
     private readonly Lock _lock = new();
 
     /// <summary>
     /// Create a reference for an object
     /// </summary>
-    public int CreateReference(object obj)
+    public int CreateReference(VariablesReference obj)
     {
         lock (_lock)
         {
@@ -28,13 +35,13 @@ public class VariableManager
     /// <summary>
     /// Get an object by reference
     /// </summary>
-    public T? GetReference<T>(int reference) where T : class
+    public VariablesReference? GetReference(int reference)
     {
         lock (_lock)
         {
             if (_references.TryGetValue(reference, out var obj))
             {
-                return obj as T;
+	            return obj;
             }
             return null;
         }

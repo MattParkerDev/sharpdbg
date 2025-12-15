@@ -101,7 +101,7 @@ public partial class ManagedDebugger
 
 	private int GenerateUniqueVariableReference(CorDebugObjectValue value, CorDebugILFrame corDebugIlFrame)
 	{
-		var variablesReference = new VariablesReference(value, corDebugIlFrame);
+		var variablesReference = new VariablesReference(StoredReferenceKind.StackVariable, value, corDebugIlFrame);
 		var reference = _variableManager.CreateReference(variablesReference);
 		return reference;
 	}

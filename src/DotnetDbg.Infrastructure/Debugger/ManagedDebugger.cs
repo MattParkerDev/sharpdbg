@@ -456,7 +456,7 @@ public partial class ManagedDebugger : IDisposable
                     {
                         var function = ilFrame.Function;
 
-                        var frameId = _variableManager.CreateReference(ilFrame);
+                        var frameId = _variableManager.CreateReference(new VariablesReference(StoredReferenceKind.Scope, null, ilFrame));
                         var module = _modules[function.Module.BaseAddress];
                         var line = 0;
                         var column = 0;
@@ -507,14 +507,17 @@ public partial class ManagedDebugger : IDisposable
     {
         var result = new List<ScopeInfo>();
 
-        var frame = _variableManager.GetReference<CorDebugILFrame>(frameId);
-        if (frame == null) return result;
+        var variablesReference = _variableManager.GetReference(frameId);
+        if (variablesReference is null) return result;
+        var frame = variablesReference.Value.IlFrame;
+
 
         var localVariables = frame.LocalVariables;
         var arguments = frame.Arguments;
         if (localVariables.Length is 0 && arguments.Length is 0) return result;
 
-        var localsRef = _variableManager.CreateReference(frame);
+	    // can this just be the same reference?
+        var localsRef = _variableManager.CreateReference(new  VariablesReference(StoredReferenceKind.Scope, null, frame));
         result.Add(new ScopeInfo
         {
 	        Name = "Locals",
@@ -531,20 +534,18 @@ public partial class ManagedDebugger : IDisposable
     {
         var result = new List<VariableInfo>();
 
-        var scope = _variableManager.GetReference<object>(variablesReferenceInt);
-        if (scope is null) return result;
-        if (scope is not (CorDebugILFrame or VariablesReference)) throw new InvalidOperationException("Unsupported variables reference type");
-
+        var variablesReferenceNullable = _variableManager.GetReference(variablesReferenceInt);
+        if (variablesReferenceNullable is not {} variablesReference) return result;
         try
         {
-	        if (scope is CorDebugILFrame ilFrame)
+	        if (variablesReference.ReferenceKind is StoredReferenceKind.Scope)
 	        {
-		        var corDebugFunction = ilFrame.Function;
+		        var corDebugFunction = variablesReference.IlFrame.Function;
 		        var module = _modules[corDebugFunction.Module.BaseAddress];
-		        AddArguments(ilFrame, module, corDebugFunction, result);
-		        AddLocalVariables(ilFrame, module, corDebugFunction, result);
+		        AddArguments(variablesReference.IlFrame, module, corDebugFunction, result);
+		        AddLocalVariables(variablesReference.IlFrame, module, corDebugFunction, result);
 	        }
-	        else if (scope is VariablesReference variablesReference)
+	        else if (variablesReference.ReferenceKind is StoredReferenceKind.StackVariable)
 	        {
 		        var objectValue = variablesReference.ObjectValue;
 		        var corDebugClass = objectValue.Class;
@@ -557,8 +558,9 @@ public partial class ManagedDebugger : IDisposable
 		        var nonStaticFieldDefs = mdFieldDefs.AsValueEnumerable().Except(staticFieldDefs).ToArray();
 		        var staticProperties = mdProperties.AsValueEnumerable().Where(p => p.IsStatic(metadataImport)).ToArray();
 		        var nonStaticProperties = mdProperties.AsValueEnumerable().Except(staticProperties).ToArray();
-		        AddFields(mdFieldDefs, metadataImport, corDebugClass, variablesReference.IlFrame, objectValue, result);
-		        await AddProperties(mdProperties, metadataImport, corDebugClass, variablesReference.IlFrame, objectValue, result);
+
+		        AddFields(nonStaticFieldDefs, metadataImport, corDebugClass, variablesReference.IlFrame, objectValue, result);
+		        await AddProperties(nonStaticProperties, metadataImport, corDebugClass, variablesReference.IlFrame, objectValue, result);
 	        }
         }
         catch (Exception ex)

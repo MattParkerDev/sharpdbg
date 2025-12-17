@@ -562,7 +562,7 @@ public partial class ManagedDebugger : IDisposable
 		        {
 			        var variableInfo = new VariableInfo
 			        {
-				        Name = "Static Members",
+				        Name = "Static members",
 				        Value = "",
 				        Type = "",
 				        VariablesReference = _variableManager.CreateReference(new VariablesReference(StoredReferenceKind.StaticClassVariable, objectValue, variablesReference.IlFrame))

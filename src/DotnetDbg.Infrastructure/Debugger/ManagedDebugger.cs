@@ -565,6 +565,7 @@ public partial class ManagedDebugger : IDisposable
 				        Name = "Static members",
 				        Value = "",
 				        Type = "",
+						PresentationHint = new VariablePresentationHint { Kind = PresentationHintKind.Class },
 				        VariablesReference = _variableManager.CreateReference(new VariablesReference(StoredReferenceKind.StaticClassVariable, objectValue, variablesReference.IlFrame))
 			        };
 			        result.Add(variableInfo);
@@ -855,4 +856,24 @@ public class VariableInfo
     public required string Value { get; set; }
     public required string? Type { get; set; }
     public required int VariablesReference { get; set; }
+	public VariablePresentationHint? PresentationHint { get; set; }
+}
+
+public record struct VariablePresentationHint
+{
+	public required PresentationHintKind Kind { get; set; }
+}
+
+public enum PresentationHintKind
+{
+	Property,
+	Method,
+	Class,
+	Data,
+	Event,
+	BaseClass,
+	InnerClass,
+	Interface,
+	MostDerivedClass,
+	Virtual,
 }

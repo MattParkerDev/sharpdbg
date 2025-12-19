@@ -344,6 +344,7 @@ public class DebugAdapter : DebugAdapterBase
 			    EvaluateName = v.Name,
 			    Value = v.Value,
 			    Type = v.Type,
+			    PresentationHint = v.PresentationHint?.ToDto(),
 			    VariablesReference = v.VariablesReference
 		    }).ToList();
 

@@ -3,7 +3,7 @@
 public class MyClass
 {
 	private readonly string _name = "TestName";
-	private static int _counter = 0;
+	private static int _counter = 1;
 	public void MyMethod(long myParam)
 	{
 		var myInt = 4;
@@ -16,6 +16,13 @@ public class MyClass
 		var anotherVar = "asdf";
 	}
 	private MyClass2 ClassProperty { get; set; } = new MyClass2();
+	private static int InyStaticProperty { get; set; } = 10;
+	private static MyClass2 StaticClassProperty { get; set; } = new MyClass2();
+	private static MyClass2 _staticClassField = new MyClass2();
+	private List<int> _intList = [1, 4, 8, 25];
+	private static List<int> _staticIntList = [1, 4, 8, 25];
+	private static Dictionary<MyClass2, MyClass> _fieldDictionary = [];
+	private static DateTime _utcNow = DateTime.UtcNow;
 }
 
 public class MyClass2

@@ -578,6 +578,7 @@ public partial class ManagedDebugger : IDisposable
         catch (Exception ex)
         {
             _logger?.Invoke($"Error getting variables: {ex.Message}, {ex}");
+            throw;
         }
 
         return result;

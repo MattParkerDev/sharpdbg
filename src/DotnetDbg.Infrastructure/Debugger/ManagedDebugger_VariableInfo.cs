@@ -177,9 +177,15 @@ public partial class ManagedDebugger
 		    {
 			    if (e.Eval.Raw == eval.Raw)
 			    {
-				    var exception = new EvalException($"Error evaluating property '{propertyName}' (Static: {isStatic})");
-				    _logger?.Invoke(exception.Message);
-				    evalCompleteTcs.SetException(exception);
+				    if (e.Eval.Result is null)
+				    {
+					    var exception = new EvalException($"EvalException callback error - Result is null when evaluating property '{propertyName}' (Static: {isStatic})");
+					    _logger?.Invoke(exception.Message);
+					    evalCompleteTcs.SetException(exception);
+					    return;
+				    }
+				    returnValue = e.Eval.Result;
+				    evalCompleteTcs.SetResult();
 			    }
 		    }
 

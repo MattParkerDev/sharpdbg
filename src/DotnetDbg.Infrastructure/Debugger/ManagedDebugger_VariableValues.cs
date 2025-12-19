@@ -15,7 +15,7 @@ public partial class ManagedDebugger
 
 		    CorDebugContext corDebugContext => throw new NotImplementedException(),
 		    CorDebugObjectValue corDebugObjectValue => GetCorDebugObjectValue_Value_AsString(corDebugObjectValue),
-		    CorDebugHandleValue corDebugHandleValue => throw new NotImplementedException(),
+		    //CorDebugHandleValue corDebugHandleValue => throw new NotImplementedException(), // handled by CorDebugReferenceValue
 		    CorDebugReferenceValue corDebugReferenceValue => GetCorDebugReferenceValue_Value_AsString(corDebugReferenceValue),
 
 		    CorDebugHeapValue corDebugHeapValue => throw new NotImplementedException(),

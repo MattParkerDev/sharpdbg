@@ -106,6 +106,7 @@ public partial class ManagedDebugger
 		return reference;
 	}
 
+	internal class EvalException(string message) : Exception(message);
 	private async Task AddProperties(mdProperty[] mdProperties, MetaDataImport metadataImport, CorDebugClass corDebugClass, CorDebugILFrame variablesReferenceIlFrame, CorDebugObjectValue objectValue, List<VariableInfo> result)
     {
 	    foreach (var mdProperty in mdProperties)
@@ -158,14 +159,14 @@ public partial class ManagedDebugger
 
 		    // Wait for the eval to complete
 		    CorDebugValue? returnValue = null;
-		    var evalCompleteTcs = new TaskCompletionSource<bool>();
+		    var evalCompleteTcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
 
 		    void OnCallbacksOnOnEvalComplete(object? s, EvalCompleteCorDebugManagedCallbackEventArgs e)
 		    {
 			    if (e.Eval.Raw == eval.Raw)
 			    {
 				    returnValue = e.Eval.Result;
-				    evalCompleteTcs.SetResult(true);
+				    evalCompleteTcs.SetResult();
 			    }
 		    }
 
@@ -176,16 +177,18 @@ public partial class ManagedDebugger
 		    {
 			    if (e.Eval.Raw == eval.Raw)
 			    {
-				    _logger?.Invoke($"Error evaluating property '{propertyName}' (Static: {isStatic})");
-				    evalCompleteTcs.SetResult(true);
+				    var exception = new EvalException($"Error evaluating property '{propertyName}' (Static: {isStatic})");
+				    _logger?.Invoke(exception.Message);
+				    evalCompleteTcs.SetException(exception);
 			    }
 		    }
 
 		    variablesReferenceIlFrame.Chain.Thread.Process.Continue(false);
 
-		    await evalCompleteTcs.Task.ConfigureAwait(false);
+		    await evalCompleteTcs.Task.ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing);
 		    _callbacks.OnEvalComplete -= OnCallbacksOnOnEvalComplete;
 		    _callbacks.OnEvalException -= CallbacksOnOnEvalException;
+		    await evalCompleteTcs.Task;
 
 		    if (returnValue is null) continue;
 

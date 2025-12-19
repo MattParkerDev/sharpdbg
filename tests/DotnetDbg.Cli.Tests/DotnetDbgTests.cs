@@ -245,6 +245,7 @@ public class DotnetDbgTests(ITestOutputHelper testOutputHelper)
 		    var nestedVariablesRequest = new VariablesRequest { VariablesReference = thisVariable.VariablesReference };
 		    var nestedVariablesResponse = debugProtocolHost.SendRequestSync(nestedVariablesRequest);
 		    var nestedVariables = nestedVariablesResponse.Variables;
+		    await Verify(nestedVariables)
 		    ;
 	    }
 	    finally

@@ -1,5 +1,6 @@
 using System.Threading.Channels;
 using AwesomeAssertions;
+using DotnetDbg.Cli.Tests.Helpers;
 using Microsoft.Diagnostics.NETCore.Client;
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol;
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
@@ -422,5 +423,49 @@ public class DotnetDbgTests(ITestOutputHelper testOutputHelper)
 		    process.Kill();
 		    debuggableProcess.Kill();
 	    }
+    }
+
+    [Fact]
+    public async Task DotnetDbgCli_ScopesRequest_Returns_V2()
+    {
+	    var startSuspended = false;
+
+	    var (debugProtocolHost, initializedEventTcs, stoppedEventTcs, p1, p2) = TestHelper.GetRunningDebugProtocolHost(testOutputHelper);
+	    using var _ = new ProcessKiller(p1);
+	    using var __ = new ProcessKiller(p2);
+
+	    await debugProtocolHost
+		    .WithInitializeRequest()
+		    .WithAttachRequest(p2.Id)
+		    .WaitForInitializedEvent(initializedEventTcs);
+	    debugProtocolHost
+		    .WithBreakpointsRequest()
+		    .WithConfigurationDoneRequest()
+		    .WithOptionalResumeRuntime(p2.Id, startSuspended);
+
+	    var stoppedEvent = await stoppedEventTcs.Task;
+
+	    var stackTraceRequest = new StackTraceRequest { ThreadId = stoppedEvent.ThreadId!.Value, StartFrame = 0, Levels = 1 };
+	    var stackTraceResponse = debugProtocolHost.SendRequestSync(stackTraceRequest);
+
+	    var scopesRequest = new ScopesRequest { FrameId = stackTraceResponse.StackFrames!.First().Id };
+	    var scopesResponse = debugProtocolHost.SendRequestSync(scopesRequest);
+	    scopesResponse.Scopes.Should().HaveCount(1);
+	    var scope = scopesResponse.Scopes.Single();
+
+	    List<Variable> expectedVariables =
+	    [
+		    new Variable() {Name = "this", Value = "{DebuggableConsoleApp.MyClass}", Type = "DebuggableConsoleApp.MyClass", EvaluateName = "this", VariablesReference = 2, NamedVariables = 2 },
+		    new Variable() {Name = "myParam", Value = "13", Type = "long", EvaluateName = "myParam" },
+		    new Variable() {Name = "myInt", Value = "0", Type = "int", EvaluateName = "myInt" },
+		    new Variable() {Name = "anotherVar", Value = "null", Type = "string", EvaluateName = "anotherVar" },
+	    ];
+
+	    var variablesRequest = new VariablesRequest { VariablesReference = scope.VariablesReference };
+	    var variablesResponse = debugProtocolHost.SendRequestSync(variablesRequest);
+	    var variables = variablesResponse.Variables;
+	    await Verify(variablesResponse);
+	    variables.Should().HaveCount(4);
+	    variables.Should().BeEquivalentTo(expectedVariables);
     }
 }

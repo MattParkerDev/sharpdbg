@@ -108,6 +108,27 @@ public partial class ManagedDebugger
 		return reference;
 	}
 
+	private void AddFields(mdFieldDef[] mdFieldDefs, MetaDataImport metadataImport, CorDebugClass corDebugClass, CorDebugILFrame ilFrame, CorDebugObjectValue objectValue, List<VariableInfo> result)
+	{
+		foreach (var mdFieldDef in mdFieldDefs)
+		{
+			var fieldProps = metadataImport.GetFieldProps(mdFieldDef);
+			var fieldName = fieldProps.szField;
+			if (fieldName is null) continue;
+			var isStatic = (fieldProps.pdwAttr & CorFieldAttr.fdStatic) != 0;
+			var fieldCorDebugValue = isStatic ? corDebugClass.GetStaticFieldValue(mdFieldDef, ilFrame.Raw) : objectValue.GetFieldValue(corDebugClass.Raw, mdFieldDef);
+			var (friendlyTypeName, value) = GetValueForCorDebugValue(fieldCorDebugValue);
+			var variableInfo = new VariableInfo
+			{
+				Name = fieldName,
+				Value = value,
+				Type = friendlyTypeName,
+				VariablesReference = GetVariablesReference(fieldCorDebugValue, ilFrame)
+			};
+			result.Add(variableInfo);
+		}
+	}
+
 	internal class EvalException(string message) : Exception(message);
 	private async Task AddProperties(mdProperty[] mdProperties, MetaDataImport metadataImport, CorDebugClass corDebugClass, ThreadId threadId, FrameStackDepth stackDepth, CorDebugValue corDebugValue, List<VariableInfo> result)
     {
@@ -202,27 +223,6 @@ public partial class ManagedDebugger
 		    {
 			    handleValue.Dispose();
 		    }
-	    }
-    }
-
-    private void AddFields(mdFieldDef[] mdFieldDefs, MetaDataImport metadataImport, CorDebugClass corDebugClass, CorDebugILFrame ilFrame, CorDebugObjectValue objectValue, List<VariableInfo> result)
-    {
-	    foreach (var mdFieldDef in mdFieldDefs)
-	    {
-		    var fieldProps = metadataImport.GetFieldProps(mdFieldDef);
-		    var fieldName = fieldProps.szField;
-		    if (fieldName is null) continue;
-		    var isStatic = (fieldProps.pdwAttr & CorFieldAttr.fdStatic) != 0;
-		    var fieldCorDebugValue = isStatic ? corDebugClass.GetStaticFieldValue(mdFieldDef, ilFrame.Raw) : objectValue.GetFieldValue(corDebugClass.Raw, mdFieldDef);
-		    var (friendlyTypeName, value) = GetValueForCorDebugValue(fieldCorDebugValue);
-		    var variableInfo = new VariableInfo
-		    {
-			    Name = fieldName,
-			    Value = value,
-			    Type = friendlyTypeName,
-			    VariablesReference = GetVariablesReference(fieldCorDebugValue, ilFrame)
-		    };
-		    result.Add(variableInfo);
 	    }
     }
 }

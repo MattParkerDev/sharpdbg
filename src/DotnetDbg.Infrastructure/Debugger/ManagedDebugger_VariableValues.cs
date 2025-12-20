@@ -77,12 +77,9 @@ public partial class ManagedDebugger
 	    if (genericArgs.Count > 0)
 	    {
 		    // Remove the `1, `2, etc. from the type name
-		    int backtickIndex = typeName.LastIndexOf('`');
-		    if (backtickIndex > 0)
-		    {
-			    typeName = typeName.Substring(0, backtickIndex);
-		    }
-
+		    var backtickIndex = typeName.LastIndexOf('`');
+		    if (backtickIndex is -1) throw new InvalidOperationException("Generic type name does not contain backtick");
+		    typeName = typeName[..backtickIndex];
 		    // Add generic arguments
 		    typeName = $"{typeName}<{string.Join(", ", genericArgs)}>";
 	    }

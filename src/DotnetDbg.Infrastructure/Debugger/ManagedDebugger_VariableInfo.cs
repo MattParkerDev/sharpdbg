@@ -101,28 +101,19 @@ public partial class ManagedDebugger
 
 	private int GenerateUniqueVariableReference(CorDebugValue value, CorDebugILFrame corDebugIlFrame)
 	{
-		var variablesReference = new VariablesReference(StoredReferenceKind.StackVariable, value, corDebugIlFrame);
+		var stackDepth = corDebugIlFrame.Chain.Frames.IndexOf(corDebugIlFrame);
+		var threadId = corDebugIlFrame.Chain.Thread.Id;
+		var variablesReference = new VariablesReference(StoredReferenceKind.StackVariable, value, new ThreadId(threadId), new FrameStackDepth(stackDepth));
 		var reference = _variableManager.CreateReference(variablesReference);
 		return reference;
 	}
 
 	internal class EvalException(string message) : Exception(message);
-	private async Task AddProperties(mdProperty[] mdProperties, MetaDataImport metadataImport, CorDebugClass corDebugClass, CorDebugThread thread, CorDebugILFrame variablesReferenceIlFrame, int stackDepth, CorDebugValue corDebugValue, List<VariableInfo> result)
+	private async Task AddProperties(mdProperty[] mdProperties, MetaDataImport metadataImport, CorDebugClass corDebugClass, ThreadId threadId, FrameStackDepth stackDepth, CorDebugValue corDebugValue, List<VariableInfo> result)
     {
 	    foreach (var mdProperty in mdProperties)
 	    {
-		    // We must reobtain the IlFrame if it has been neutered (We should probably just re-obtain every time, as I'm sure the exception is more expensive than just getting it again)
-		    try
-		    {
-			    _ = variablesReferenceIlFrame.Chain;
-		    }
-		    catch
-		    {
-			    // IlFrame has been neutered, we need to get it again from the stack frame
-			    //var thread = variablesReferenceIlFrame.Chain.Thread;
-			    var stackFrame = (CorDebugILFrame)thread.ActiveChain.Frames[stackDepth];
-			    variablesReferenceIlFrame = stackFrame;
-		    }
+		    var variablesReferenceIlFrame = GetFrameForThreadIdAndStackDepth(threadId, stackDepth);
 
 		    var propertyProps = metadataImport.GetPropertyProps(mdProperty);
 		    var propertyName = propertyProps.szProperty;

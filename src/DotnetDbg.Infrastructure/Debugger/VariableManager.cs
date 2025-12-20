@@ -9,7 +9,27 @@ public enum StoredReferenceKind
 	StaticClassVariable, // This reference was stored as a pseudo variable for the static members of a "StackVariable" class
 }
 
-public record struct VariablesReference(StoredReferenceKind ReferenceKind, CorDebugValue? ObjectValue, CorDebugILFrame IlFrame);
+public readonly record struct ThreadId
+{
+	public readonly int Value;
+	public ThreadId() => throw new ArgumentException("ThreadId must be initialized with a valid value");
+	public ThreadId(int value)
+	{
+		if (value <= 0) throw new ArgumentOutOfRangeException(nameof(value), "ThreadId value must be greater than zero");
+		Value = value;
+	}
+};
+public readonly record struct FrameStackDepth
+{
+	public readonly int Value;
+	public FrameStackDepth() => throw new ArgumentException("FrameStackDepth must be initialized with a valid value");
+	public FrameStackDepth(int value)
+	{
+		if (value < 0) throw new ArgumentOutOfRangeException(nameof(value), "FrameStackDepth value must be zero or greater");
+		Value = value;
+	}
+};
+public record struct VariablesReference(StoredReferenceKind ReferenceKind, CorDebugValue? ObjectValue, ThreadId ThreadId, FrameStackDepth FrameStackDepth);
 /// <summary>
 /// Manages variable references for scopes and variables
 /// </summary>

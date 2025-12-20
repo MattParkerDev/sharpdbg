@@ -444,51 +444,47 @@ public partial class ManagedDebugger : IDisposable
             var chains = thread.EnumerateChains();
             foreach (var chain in chains)
             {
-                var frames = chain.EnumerateFrames();
-                var frameList = frames.ToList();
+                var frames = chain.Frames;
 
-                var endFrame = levels.HasValue ? Math.Min(startFrame + levels.Value, frameList.Count) : frameList.Count;
-
-                for (int i = startFrame; i < endFrame; i++)
+                foreach (var (index, frame) in frames.Index())
                 {
-                    var frame = frameList[i];
-                    if (frame is CorDebugILFrame ilFrame)
-                    {
-                        var function = ilFrame.Function;
+	                if (frame is CorDebugILFrame ilFrame)
+	                {
+		                var function = ilFrame.Function;
 
-                        var frameId = _variableManager.CreateReference(new VariablesReference(StoredReferenceKind.Scope, null, ilFrame));
-                        var module = _modules[function.Module.BaseAddress];
-                        var line = 0;
-                        var column = 0;
-                        var endLine = 0;
-                        var endColumn = 0;
-                        string? sourceFilePath = null;
-                        if (module.SymbolReader is not null)
-                        {
-	                        var ilOffset = ilFrame.IP.pnOffset;
-	                        var methodToken = function.Token;
-	                        var sourceInfo = module.SymbolReader.GetSourceLocationForOffset(methodToken, ilOffset);
-	                        if (sourceInfo != null)
-	                        {
-		                        line = sourceInfo.Value.startLine;
-		                        column = sourceInfo.Value.startColumn;
-		                        endLine = sourceInfo.Value.endLine;
-		                        endColumn = sourceInfo.Value.endColumn;
-		                        sourceFilePath = sourceInfo.Value.sourceFilePath;
-	                        }
-                        }
+		                var frameId = _variableManager.CreateReference(new VariablesReference(StoredReferenceKind.Scope, null, new ThreadId(threadId), new FrameStackDepth(index)));
+		                var module = _modules[function.Module.BaseAddress];
+		                var line = 0;
+		                var column = 0;
+		                var endLine = 0;
+		                var endColumn = 0;
+		                string? sourceFilePath = null;
+		                if (module.SymbolReader is not null)
+		                {
+			                var ilOffset = ilFrame.IP.pnOffset;
+			                var methodToken = function.Token;
+			                var sourceInfo = module.SymbolReader.GetSourceLocationForOffset(methodToken, ilOffset);
+			                if (sourceInfo != null)
+			                {
+				                line = sourceInfo.Value.startLine;
+				                column = sourceInfo.Value.startColumn;
+				                endLine = sourceInfo.Value.endLine;
+				                endColumn = sourceInfo.Value.endColumn;
+				                sourceFilePath = sourceInfo.Value.sourceFilePath;
+			                }
+		                }
 
-                        result.Add(new StackFrameInfo
-                        {
-                            Id = frameId,
-                            Name = GetFunctionFormattedName(function),
-                            Line = line,
-                            EndLine =  endLine,
-                            Column = column,
-                            EndColumn =  endColumn,
-                            Source = sourceFilePath
-                        });
-                    }
+		                result.Add(new StackFrameInfo
+		                {
+			                Id = frameId,
+			                Name = GetFunctionFormattedName(function),
+			                Line = line,
+			                EndLine =  endLine,
+			                Column = column,
+			                EndColumn =  endColumn,
+			                Source = sourceFilePath
+		                });
+	                }
                 }
             }
         }
@@ -509,7 +505,7 @@ public partial class ManagedDebugger : IDisposable
 
         var variablesReference = _variableManager.GetReference(frameId);
         if (variablesReference is null) return result;
-        var frame = variablesReference.Value.IlFrame;
+        var frame = GetFrameForThreadIdAndStackDepth(variablesReference.Value.ThreadId, variablesReference.Value.FrameStackDepth);
 
 
         var localVariables = frame.LocalVariables;
@@ -517,7 +513,7 @@ public partial class ManagedDebugger : IDisposable
         if (localVariables.Length is 0 && arguments.Length is 0) return result;
 
 	    // can this just be the same reference?
-        var localsRef = _variableManager.CreateReference(new  VariablesReference(StoredReferenceKind.Scope, null, frame));
+        var localsRef = _variableManager.CreateReference(new  VariablesReference(StoredReferenceKind.Scope, null, variablesReference.Value.ThreadId, variablesReference.Value.FrameStackDepth));
         result.Add(new ScopeInfo
         {
 	        Name = "Locals",
@@ -526,6 +522,15 @@ public partial class ManagedDebugger : IDisposable
         });
         return result;
     }
+
+    private CorDebugILFrame GetFrameForThreadIdAndStackDepth(ThreadId threadId, FrameStackDepth stackDepth)
+	{
+	    // We need to re-obtain the IlFrame in case it has been neutered
+	    var thread = _process!.Threads.Single(s => s.Id == threadId.Value);
+	    var frame = thread.ActiveChain.Frames[stackDepth.Value];
+	    if (frame is not CorDebugILFrame ilFrame) throw new InvalidOperationException("Frame is not an IL frame");
+	    return ilFrame;
+	}
 
     /// <summary>
     /// Get variables for a scope
@@ -536,20 +541,18 @@ public partial class ManagedDebugger : IDisposable
 
         var variablesReferenceNullable = _variableManager.GetReference(variablesReferenceInt);
         if (variablesReferenceNullable is not {} variablesReference) return result;
+		var ilFrame = GetFrameForThreadIdAndStackDepth(variablesReference.ThreadId, variablesReference.FrameStackDepth);
         try
         {
 	        if (variablesReference.ReferenceKind is StoredReferenceKind.Scope)
 	        {
-		        var corDebugFunction = variablesReference.IlFrame.Function;
+		        var corDebugFunction = ilFrame.Function;
 		        var module = _modules[corDebugFunction.Module.BaseAddress];
-		        AddArguments(variablesReference.IlFrame, module, corDebugFunction, result);
-		        AddLocalVariables(variablesReference.IlFrame, module, corDebugFunction, result);
+		        AddArguments(ilFrame, module, corDebugFunction, result);
+		        AddLocalVariables(ilFrame, module, corDebugFunction, result);
 	        }
 	        else if (variablesReference.ReferenceKind is StoredReferenceKind.StackVariable)
 	        {
-		        // before we go neutering the ilFrame, lets determine the stack depth of this frame, so we can re-retrieve it if/when neutered
-		        var stackDepth = variablesReference.IlFrame.Chain.Frames.IndexOf(variablesReference.IlFrame);
-
 		        var objectValue = variablesReference.ObjectValue!.UnwrapDebugValueToObject();
 
 		        var corDebugClass = objectValue.Class;
@@ -570,14 +573,14 @@ public partial class ManagedDebugger : IDisposable
 				        Value = "",
 				        Type = "",
 						PresentationHint = new VariablePresentationHint { Kind = PresentationHintKind.Class },
-				        VariablesReference = _variableManager.CreateReference(new VariablesReference(StoredReferenceKind.StaticClassVariable, variablesReference.ObjectValue, variablesReference.IlFrame))
+				        VariablesReference = _variableManager.CreateReference(new VariablesReference(StoredReferenceKind.StaticClassVariable, variablesReference.ObjectValue, variablesReference.ThreadId, variablesReference.FrameStackDepth))
 			        };
 			        result.Add(variableInfo);
 		        }
 		        //AddStaticMembersPseudoVariable(staticFieldDefs, staticProperties, metadataImport, corDebugClass, variablesReference.IlFrame, result);
-		        AddFields(nonStaticFieldDefs, metadataImport, corDebugClass, variablesReference.IlFrame, objectValue, result);
+		        AddFields(nonStaticFieldDefs, metadataImport, corDebugClass, ilFrame, objectValue, result);
 		        // We need to pass the un-unwrapped reference value here, as we need to invoke CallParameterizedFunction with the correct parameters
-		        await AddProperties(nonStaticProperties, metadataImport, corDebugClass, variablesReference.IlFrame.Chain.Thread, variablesReference.IlFrame, stackDepth, variablesReference.ObjectValue!, result);
+		        await AddProperties(nonStaticProperties, metadataImport, corDebugClass, variablesReference.ThreadId, variablesReference.FrameStackDepth, variablesReference.ObjectValue!, result);
 	        }
         }
         catch (Exception ex)

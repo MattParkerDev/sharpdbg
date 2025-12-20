@@ -35,6 +35,20 @@ public partial class ManagedDebugger
     public (string friendlyTypeName, string value) GetCorDebugObjectValue_Value_AsString(CorDebugObjectValue corDebugObjectValue)
     {
 	    var typeName = GetCorDebugTypeFriendlyName(corDebugObjectValue.ExactType);
+	    if (typeName.EndsWith('?'))
+	    {
+		    var module = corDebugObjectValue.Class.Module;
+		    var metaDataImport = module.GetMetaDataInterface().MetaDataImport;
+		    var hasValueFieldDef = metaDataImport.FindField(corDebugObjectValue.Class.Token, "hasValue", 0, 0);
+		    var valueFieldDef = metaDataImport.FindField(corDebugObjectValue.Class.Token, "value", 0, 0);
+
+		    var hasValueDebugObjectValue = corDebugObjectValue.GetFieldValue(corDebugObjectValue.Class.Raw, hasValueFieldDef);
+		    var hasValueValue = GetValueForCorDebugValue(hasValueDebugObjectValue);
+		    if (hasValueValue.value is "false") return (typeName, "null");
+		    var valueValue = corDebugObjectValue.GetFieldValue(corDebugObjectValue.Class.Raw, valueFieldDef);
+		    var value = GetValueForCorDebugValue(valueValue);
+		    return (typeName, value.value);
+	    }
 	    return (typeName, $"{{{typeName}}}");
     }
 

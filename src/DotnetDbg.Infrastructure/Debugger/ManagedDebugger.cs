@@ -445,8 +445,9 @@ public partial class ManagedDebugger : IDisposable
             foreach (var chain in chains)
             {
                 var frames = chain.Frames;
+                var filterFrames = frames.AsValueEnumerable().Skip(startFrame).Take(levels ?? int.MaxValue);
 
-                foreach (var (index, frame) in frames.Index())
+                foreach (var (index, frame) in filterFrames.Index())
                 {
 	                if (frame is CorDebugILFrame ilFrame)
 	                {

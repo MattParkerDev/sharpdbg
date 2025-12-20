@@ -73,4 +73,11 @@ public static class TestHelper
 		scopesResponse = debugProtocolHost.SendRequestSync(scopesRequest);
 		return debugProtocolHost;
 	}
+
+	public static DebugProtocolHost WithVariablesRequest(this DebugProtocolHost debugProtocolHost, int variablesReference, out List<Variable> variablesResponse)
+	{
+		var variablesRequest = new VariablesRequest { VariablesReference = variablesReference };
+		variablesResponse = debugProtocolHost.SendRequestSync(variablesRequest).Variables;
+		return debugProtocolHost;
+	}
 }

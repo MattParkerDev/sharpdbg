@@ -459,10 +459,8 @@ public class DotnetDbgTests(ITestOutputHelper testOutputHelper)
 		    new() {Name = "anotherVar", Value = "null", Type = "string", EvaluateName = "anotherVar" },
 	    ];
 
-	    var variablesRequest = new VariablesRequest { VariablesReference = scope.VariablesReference };
-	    var variablesResponse = debugProtocolHost.SendRequestSync(variablesRequest);
-	    var variables = variablesResponse.Variables;
-	    //await Verify(variablesResponse);
+	    debugProtocolHost.WithVariablesRequest(scope.VariablesReference, out var variables);
+	    
 	    variables.Should().HaveCount(4);
 	    variables.Should().BeEquivalentTo(expectedVariables);
     }

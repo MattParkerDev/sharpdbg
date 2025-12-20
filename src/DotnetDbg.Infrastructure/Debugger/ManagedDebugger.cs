@@ -596,7 +596,7 @@ public partial class ManagedDebugger : IDisposable
 		        var staticFieldDefs = mdFieldDefs.AsValueEnumerable().Where(s => s.IsStatic(metadataImport)).ToArray();
 		        var staticProperties = mdProperties.AsValueEnumerable().Where(p => p.IsStatic(metadataImport)).ToArray();
 		        AddFields(staticFieldDefs, metadataImport, corDebugClass, ilFrame, objectValue, result);
-		        //await AddStaticProperties(staticProperties, metadataImport, corDebugClass, variablesReference.IlFrame.Chain.Thread, variablesReference.IlFrame, result);
+		        await AddProperties(staticProperties, metadataImport, corDebugClass, variablesReference.ThreadId, variablesReference.FrameStackDepth, variablesReference.ObjectValue!, result);
 	        }
         }
         catch (Exception ex)

@@ -582,6 +582,21 @@ public partial class ManagedDebugger : IDisposable
 		        // We need to pass the un-unwrapped reference value here, as we need to invoke CallParameterizedFunction with the correct parameters
 		        await AddProperties(nonStaticProperties, metadataImport, corDebugClass, variablesReference.ThreadId, variablesReference.FrameStackDepth, variablesReference.ObjectValue!, result);
 	        }
+	        else if (variablesReference.ReferenceKind is StoredReferenceKind.StaticClassVariable)
+	        {
+		        var objectValue = variablesReference.ObjectValue!.UnwrapDebugValueToObject();
+
+		        var corDebugClass = objectValue.Class;
+		        var module = corDebugClass.Module;
+		        var mdTypeDef = corDebugClass.Token;
+		        var metadataImport = module.GetMetaDataInterface().MetaDataImport;
+		        var mdFieldDefs = metadataImport.EnumFields(mdTypeDef);
+		        var mdProperties = metadataImport.EnumProperties(mdTypeDef);
+		        var staticFieldDefs = mdFieldDefs.AsValueEnumerable().Where(s => s.IsStatic(metadataImport)).ToArray();
+		        var staticProperties = mdProperties.AsValueEnumerable().Where(p => p.IsStatic(metadataImport)).ToArray();
+		        AddFields(staticFieldDefs, metadataImport, corDebugClass, ilFrame, objectValue, result);
+		        //await AddStaticProperties(staticProperties, metadataImport, corDebugClass, variablesReference.IlFrame.Chain.Thread, variablesReference.IlFrame, result);
+	        }
         }
         catch (Exception ex)
         {

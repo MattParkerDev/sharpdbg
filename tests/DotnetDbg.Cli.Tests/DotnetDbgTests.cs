@@ -456,6 +456,7 @@ public class DotnetDbgTests(ITestOutputHelper testOutputHelper)
 		    new() {Name = "this", Value = "{DebuggableConsoleApp.MyClass}", Type = "DebuggableConsoleApp.MyClass", EvaluateName = "this", VariablesReference = 3 },
 		    new() {Name = "myParam", Value = "13", Type = "long", EvaluateName = "myParam" },
 		    new() {Name = "myInt", Value = "4", Type = "int", EvaluateName = "myInt" },
+		    new() {Name = "enumVar", Value = "SecondValue", Type = "MyEnum", EvaluateName = "enumVar", VariablesReference = 4},
 		    new() {Name = "nullableInt", Value = "null", Type = "int?", EvaluateName = "nullableInt" },
 		    new() {Name = "nullableIntWithVal", Value = "4", Type = "int?", EvaluateName = "nullableIntWithVal" },
 		    new() {Name = "nullableRefType", Value = "null", Type = "DebuggableConsoleApp.MyClass", EvaluateName = "nullableRefType" },
@@ -464,7 +465,7 @@ public class DotnetDbgTests(ITestOutputHelper testOutputHelper)
 
 	    debugProtocolHost.WithVariablesRequest(scope.VariablesReference, out var variables);
 
-	    variables.Should().HaveCount(7);
+	    variables.Should().HaveCount(8);
 	    variables.Should().BeEquivalentTo(expectedVariables);
     }
 }

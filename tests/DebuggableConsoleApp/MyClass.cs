@@ -7,6 +7,7 @@ public class MyClass
 	public void MyMethod(long myParam)
 	{
 		var myInt = 4;
+		var enumVar = MyEnum.SecondValue;
 		Console.WriteLine($"Log{_counter}");
 		_counter++;
 		int? nullableInt;
@@ -33,4 +34,11 @@ public class MyClass
 public class MyClass2
 {
 	public string MyProperty { get; set; } = "Hello";
+}
+
+public enum MyEnum
+{
+	FirstValue,
+	SecondValue,
+	ThirdValue
 }

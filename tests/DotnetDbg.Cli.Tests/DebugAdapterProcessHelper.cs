@@ -85,7 +85,7 @@ public static class DebugAdapterProcessHelper
 		};
 	}
 
-	public static SetBreakpointsRequest GetSetBreakpointsRequest(int line = 17, string filePath = @"C:\Users\Matthew\Documents\Git\dotnetdbg\tests\DebuggableConsoleApp\MyClass.cs")
+	public static SetBreakpointsRequest GetSetBreakpointsRequest(int line = 18, string filePath = @"C:\Users\Matthew\Documents\Git\dotnetdbg\tests\DebuggableConsoleApp\MyClass.cs")
 	{
 		var debugFilePath = filePath;
 		var debugFileBreakpointLine = line;

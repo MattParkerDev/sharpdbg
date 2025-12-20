@@ -115,6 +115,7 @@ public partial class ManagedDebugger
 			var fieldProps = metadataImport.GetFieldProps(mdFieldDef);
 			var fieldName = fieldProps.szField;
 			if (fieldName is null) continue;
+			if (Extensions.IsCompilerGeneratedFieldName(fieldName)) continue;
 			var isStatic = (fieldProps.pdwAttr & CorFieldAttr.fdStatic) != 0;
 			var fieldCorDebugValue = isStatic ? corDebugClass.GetStaticFieldValue(mdFieldDef, ilFrame.Raw) : objectValue.GetFieldValue(corDebugClass.Raw, mdFieldDef);
 			var (friendlyTypeName, value) = GetValueForCorDebugValue(fieldCorDebugValue);

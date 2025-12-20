@@ -9,7 +9,7 @@ public partial class ManagedDebugger
     {
 	    var (friendlyTypeName, value) = corDebugValue switch
 	    {
-		    CorDebugBoxValue corDebugBoxValue => throw new NotImplementedException(),
+		    CorDebugBoxValue corDebugBoxValue => GetCorDebugBoxValue_Value_AsString(corDebugBoxValue),
 		    CorDebugArrayValue corDebugArrayValue => ("TODO[]", $"[{corDebugArrayValue.Count}]"),
 		    CorDebugStringValue stringValue => ("string", stringValue.GetString(stringValue.Size)),
 
@@ -24,6 +24,13 @@ public partial class ManagedDebugger
 	    };
 	    return (friendlyTypeName, value);
     }
+
+	public (string friendlyTypeName, string value) GetCorDebugBoxValue_Value_AsString(CorDebugBoxValue corDebugBoxValue)
+	{
+	    var boxedValue = corDebugBoxValue.Object;
+	    var value = GetValueForCorDebugValue(boxedValue);
+	    return value;
+	}
 
     public (string friendlyTypeName, string value) GetCorDebugObjectValue_Value_AsString(CorDebugObjectValue corDebugObjectValue)
     {

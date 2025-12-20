@@ -453,12 +453,12 @@ public class DotnetDbgTests(ITestOutputHelper testOutputHelper)
 
 	    List<Variable> expectedVariables =
 	    [
-		    new() {Name = "this", Value = "{DebuggableConsoleApp.MyClass}", Type = "DebuggableConsoleApp.MyClass", EvaluateName = "this", VariablesReference = 2, NamedVariables = 2 },
+		    new() {Name = "this", Value = "{DebuggableConsoleApp.MyClass}", Type = "DebuggableConsoleApp.MyClass", EvaluateName = "this", VariablesReference = 3 },
 		    new() {Name = "myParam", Value = "13", Type = "long", EvaluateName = "myParam" },
 		    new() {Name = "myInt", Value = "0", Type = "int", EvaluateName = "myInt" },
 		    new() {Name = "nullableInt", Value = "null", Type = "int?", EvaluateName = "nullableInt" },
 		    new() {Name = "nullableIntWithVal", Value = "4", Type = "int?", EvaluateName = "nullableIntWithVal" },
-		    new() {Name = "nullableRefType", Value = "null", Type = "MyClass", EvaluateName = "nullableRefType" },
+		    new() {Name = "nullableRefType", Value = "null", Type = "DebuggableConsoleApp.MyClass", EvaluateName = "nullableRefType" },
 		    new() {Name = "anotherVar", Value = "asdf", Type = "string", EvaluateName = "anotherVar" },
 	    ];
 

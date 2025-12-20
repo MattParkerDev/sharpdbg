@@ -53,13 +53,40 @@ public partial class ManagedDebugger
     }
 
     private static string GetCorDebugTypeFriendlyName(CorDebugType corDebugType)
-	{
+    {
+	    var primitiveName = GetFriendlyTypeName(corDebugType.Type);
+	    if (primitiveName is not null) return primitiveName;
 	    var corDebugClass = corDebugType.Class;
 	    var module = corDebugClass.Module;
 	    var token = corDebugClass.Token;
 	    var metadataImport = module.GetMetaDataInterface().MetaDataImport;
 	    var typeDefProps = metadataImport.GetTypeDefProps(token);
 	    var typeName = typeDefProps.szTypeDef;
+
+	    // Get generic type parameters
+	    var genericArgs = new List<string>();
+	    var typeParameters = corDebugType.TypeParameters;
+
+	    foreach (var typeParameter in typeParameters)
+	    {
+		    string argName = GetCorDebugTypeFriendlyName(typeParameter);
+		    genericArgs.Add(argName);
+	    }
+
+	    // Replace the backtick notation with angle brackets
+	    if (genericArgs.Count > 0)
+	    {
+		    // Remove the `1, `2, etc. from the type name
+		    int backtickIndex = typeName.LastIndexOf('`');
+		    if (backtickIndex > 0)
+		    {
+			    typeName = typeName.Substring(0, backtickIndex);
+		    }
+
+		    // Add generic arguments
+		    typeName = $"{typeName}<{string.Join(", ", genericArgs)}>";
+	    }
+
 	    var languageAlias = ClassNameToMaybeLanguageAlias(typeName);
 	    return languageAlias;
 	}
@@ -110,7 +137,7 @@ public partial class ManagedDebugger
 	            CorElementType.Class => throw new NotImplementedException(),
 	            _ => throw new ArgumentOutOfRangeException()
 	        };
-	        var friendlyTypeName = GetFriendlyTypeName(corDebugGenericValue.Type);
+	        var friendlyTypeName = GetFriendlyTypeName(corDebugGenericValue.Type) ?? throw new ArgumentOutOfRangeException();
 	        return (friendlyTypeName, value);
 	    }
 	    finally
@@ -119,7 +146,7 @@ public partial class ManagedDebugger
 	    }
     }
 
-    private static string GetFriendlyTypeName(CorElementType elementType)
+    private static string? GetFriendlyTypeName(CorElementType elementType)
     {
 	    return elementType switch
 	    {
@@ -140,7 +167,7 @@ public partial class ManagedDebugger
 		    CorElementType.Object => "object", // Should we ever see this?
 		    CorElementType.I => "nint",
 		    CorElementType.U => "nuint",
-		    _ => throw new ArgumentOutOfRangeException(),
+		    _ => null
 	    };
     }
 }

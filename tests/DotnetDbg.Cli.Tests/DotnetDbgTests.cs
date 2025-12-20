@@ -410,6 +410,11 @@ public class DotnetDbgTests(ITestOutputHelper testOutputHelper)
 		    var nestedVariablesResponse = debugProtocolHost.SendRequestSync(nestedVariablesRequest);
 
 		    var variables = nestedVariablesResponse.Variables;
+		    var staticMembersPseudoVariable = variables.Single(v => v.Name == "Static members");
+		    var staticMembersVariable = debugProtocolHost.SendRequestSync(new VariablesRequest { VariablesReference = staticMembersPseudoVariable.VariablesReference });
+		    var list = staticMembersVariable.Variables.Single(s => s.Name == "_staticIntList");
+		    var listVariables = debugProtocolHost.SendRequestSync(new VariablesRequest { VariablesReference = list.VariablesReference });
+		    ;
 		    await Verify(variables);
 	    }
 	    finally

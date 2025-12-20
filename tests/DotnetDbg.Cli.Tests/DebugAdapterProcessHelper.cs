@@ -34,7 +34,7 @@ public static class DebugAdapterProcessHelper
 		var debugProtocolHost = new DebugProtocolHost(inputStream, outputStream, false);
 		debugProtocolHost.LogMessage += (sender, args) =>
 		{
-			testOutputHelper.WriteLine($"Log [DAP Host]: {args.Message}");
+			//testOutputHelper.WriteLine($"Log [DAP Host]: {args.Message}");
 		};
 		debugProtocolHost.RegisterClientRequestType<HandshakeRequest, HandshakeArguments, HandshakeResponse>(async void (responder) =>
 		{

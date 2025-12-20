@@ -456,12 +456,15 @@ public class DotnetDbgTests(ITestOutputHelper testOutputHelper)
 		    new() {Name = "this", Value = "{DebuggableConsoleApp.MyClass}", Type = "DebuggableConsoleApp.MyClass", EvaluateName = "this", VariablesReference = 2, NamedVariables = 2 },
 		    new() {Name = "myParam", Value = "13", Type = "long", EvaluateName = "myParam" },
 		    new() {Name = "myInt", Value = "0", Type = "int", EvaluateName = "myInt" },
-		    new() {Name = "anotherVar", Value = "null", Type = "string", EvaluateName = "anotherVar" },
+		    new() {Name = "nullableInt", Value = "null", Type = "int?", EvaluateName = "nullableInt" },
+		    new() {Name = "nullableIntWithVal", Value = "4", Type = "int?", EvaluateName = "nullableIntWithVal" },
+		    new() {Name = "nullableRefType", Value = "null", Type = "MyClass", EvaluateName = "nullableRefType" },
+		    new() {Name = "anotherVar", Value = "asdf", Type = "string", EvaluateName = "anotherVar" },
 	    ];
 
 	    debugProtocolHost.WithVariablesRequest(scope.VariablesReference, out var variables);
-	    
-	    variables.Should().HaveCount(4);
+
+	    variables.Should().HaveCount(7);
 	    variables.Should().BeEquivalentTo(expectedVariables);
     }
 }

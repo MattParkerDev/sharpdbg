@@ -466,6 +466,11 @@ public class DotnetDbgTests(ITestOutputHelper testOutputHelper)
 	    debugProtocolHost.WithVariablesRequest(scope.VariablesReference, out var variables);
 
 	    variables.Should().HaveCount(8);
+	    // Temp remove once fixed
+	    debugProtocolHost.WithVariablesRequest(variables.Single(s => s.Name == "enumVar").VariablesReference, out var enumNestedVariables);
+	    debugProtocolHost.WithVariablesRequest(enumNestedVariables.Single(s => s.Name == "Static members").VariablesReference, out var enumStaticVariables);
+	    //
 	    variables.Should().BeEquivalentTo(expectedVariables);
+
     }
 }

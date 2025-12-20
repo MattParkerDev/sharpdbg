@@ -115,6 +115,8 @@ public class DotnetDbgInMemoryTests(ITestOutputHelper testOutputHelper)
 		    var nestedVariablesResponse = debugProtocolHost.SendRequestSync(nestedVariablesRequest);
 		    var nestedVariables = nestedVariablesResponse.Variables;
 		    var staticMemberVariables = debugProtocolHost.SendRequestSync(new VariablesRequest(nestedVariables.Single(s => s.Name == "Static members").VariablesReference));
+		    var staticClassProperty = staticMemberVariables.Variables.Single(v => v.Name == "StaticClassProperty");
+		    staticClassProperty.VariablesReference.Should().NotBe(0);
 		    //await Verify(nestedVariables)
 		    ;
 	    }

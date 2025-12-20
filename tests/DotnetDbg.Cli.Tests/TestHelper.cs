@@ -59,4 +59,18 @@ public static class TestHelper
 	    if (startSuspended) new DiagnosticsClient(processId).ResumeRuntime();
 		return debugProtocolHost;
 	}
+
+	public static DebugProtocolHost WithStackTraceRequest(this DebugProtocolHost debugProtocolHost, int threadId, out StackTraceResponse stackTraceResponse)
+	{
+		var stackTraceRequest = new StackTraceRequest { ThreadId = threadId, StartFrame = 0, Levels = 1 };
+		stackTraceResponse = debugProtocolHost.SendRequestSync(stackTraceRequest);
+		return debugProtocolHost;
+	}
+
+	public static DebugProtocolHost WithScopesRequest(this DebugProtocolHost debugProtocolHost, int frameId, out ScopesResponse scopesResponse)
+	{
+		var scopesRequest = new ScopesRequest { FrameId = frameId };
+		scopesResponse = debugProtocolHost.SendRequestSync(scopesRequest);
+		return debugProtocolHost;
+	}
 }

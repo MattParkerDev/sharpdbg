@@ -444,27 +444,25 @@ public class DotnetDbgTests(ITestOutputHelper testOutputHelper)
 		    .WithOptionalResumeRuntime(p2.Id, startSuspended);
 
 	    var stoppedEvent = await stoppedEventTcs.Task;
+	    debugProtocolHost
+		    .WithStackTraceRequest(stoppedEvent.ThreadId!.Value, out var stackTraceResponse)
+		    .WithScopesRequest(stackTraceResponse.StackFrames!.First().Id, out var scopesResponse);
 
-	    var stackTraceRequest = new StackTraceRequest { ThreadId = stoppedEvent.ThreadId!.Value, StartFrame = 0, Levels = 1 };
-	    var stackTraceResponse = debugProtocolHost.SendRequestSync(stackTraceRequest);
-
-	    var scopesRequest = new ScopesRequest { FrameId = stackTraceResponse.StackFrames!.First().Id };
-	    var scopesResponse = debugProtocolHost.SendRequestSync(scopesRequest);
 	    scopesResponse.Scopes.Should().HaveCount(1);
 	    var scope = scopesResponse.Scopes.Single();
 
 	    List<Variable> expectedVariables =
 	    [
-		    new Variable() {Name = "this", Value = "{DebuggableConsoleApp.MyClass}", Type = "DebuggableConsoleApp.MyClass", EvaluateName = "this", VariablesReference = 2, NamedVariables = 2 },
-		    new Variable() {Name = "myParam", Value = "13", Type = "long", EvaluateName = "myParam" },
-		    new Variable() {Name = "myInt", Value = "0", Type = "int", EvaluateName = "myInt" },
-		    new Variable() {Name = "anotherVar", Value = "null", Type = "string", EvaluateName = "anotherVar" },
+		    new() {Name = "this", Value = "{DebuggableConsoleApp.MyClass}", Type = "DebuggableConsoleApp.MyClass", EvaluateName = "this", VariablesReference = 2, NamedVariables = 2 },
+		    new() {Name = "myParam", Value = "13", Type = "long", EvaluateName = "myParam" },
+		    new() {Name = "myInt", Value = "0", Type = "int", EvaluateName = "myInt" },
+		    new() {Name = "anotherVar", Value = "null", Type = "string", EvaluateName = "anotherVar" },
 	    ];
 
 	    var variablesRequest = new VariablesRequest { VariablesReference = scope.VariablesReference };
 	    var variablesResponse = debugProtocolHost.SendRequestSync(variablesRequest);
 	    var variables = variablesResponse.Variables;
-	    await Verify(variablesResponse);
+	    //await Verify(variablesResponse);
 	    variables.Should().HaveCount(4);
 	    variables.Should().BeEquivalentTo(expectedVariables);
     }

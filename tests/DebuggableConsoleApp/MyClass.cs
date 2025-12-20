@@ -14,6 +14,7 @@ public class MyClass
 		MyClass? nullableRefType;
 
 		var anotherVar = "asdf";
+		;
 	}
 
 	//private MyClass2 get_ClassProperty() => ClassProperty;

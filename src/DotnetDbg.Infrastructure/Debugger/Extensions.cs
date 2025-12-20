@@ -57,27 +57,22 @@ public static class Extensions
 		}
 		void OnCallbacksOnOnEvalComplete(object? s, EvalCompleteCorDebugManagedCallbackEventArgs e)
 		{
-			if (e.Eval.Raw == eval.Raw)
-			{
-				returnValue = e.Eval.Result;
-				evalCompleteTcs.SetResult();
-			}
+			if (e.Eval.Raw != eval.Raw) return;
+			returnValue = e.Eval.Result;
+			evalCompleteTcs.SetResult();
 		}
 		void CallbacksOnOnEvalException(object? sender, EvalExceptionCorDebugManagedCallbackEventArgs e)
 		{
-			if (e.Eval.Raw == eval.Raw)
+			if (e.Eval.Raw != eval.Raw) return;
+			if (e.Eval.Result is null)
 			{
-				if (e.Eval.Result is null)
-				{
-					var exception =
-						new ManagedDebugger.EvalException($"EvalException callback error - Result is null");
-					evalCompleteTcs.SetException(exception);
-					return;
-				}
-
-				returnValue = e.Eval.Result;
-				evalCompleteTcs.SetResult();
+				var exception = new ManagedDebugger.EvalException($"EvalException callback error - Result is null");
+				evalCompleteTcs.SetException(exception);
+				return;
 			}
+
+			returnValue = e.Eval.Result;
+			evalCompleteTcs.SetResult();
 		}
 	}
 }

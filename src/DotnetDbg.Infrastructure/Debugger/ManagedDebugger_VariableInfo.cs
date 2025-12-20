@@ -18,7 +18,7 @@ public partial class ManagedDebugger
 				Name = localVariableName,
 				Value = value,
 				Type = friendlyTypeName,
-				VariablesReference = GetVariablesReference(localVariableCorDebugValue, corDebugIlFrame)
+				VariablesReference = GetVariablesReference(localVariableCorDebugValue, corDebugIlFrame, friendlyTypeName)
 			};
 			result.Add(variableInfo);
 		}
@@ -43,7 +43,7 @@ public partial class ManagedDebugger
 		        Name = "this", // Hardcoded - 'this' has no metadata
 		        Value = value,
 		        Type = friendlyTypeName,
-		        VariablesReference = GetVariablesReference(implicitThisValue, corDebugIlFrame)
+		        VariablesReference = GetVariablesReference(implicitThisValue, corDebugIlFrame, friendlyTypeName)
 	        };
 	        result.Add(variableInfo);
         }
@@ -62,16 +62,17 @@ public partial class ManagedDebugger
 		        Name = argumentName,
 		        Value = value,
 		        Type = friendlyTypeName,
-		        VariablesReference = GetVariablesReference(argumentCorDebugValue, corDebugIlFrame)
+		        VariablesReference = GetVariablesReference(argumentCorDebugValue, corDebugIlFrame, friendlyTypeName)
 	        };
 	        result.Add(variableInfo);
         }
 	}
 
-	private int GetVariablesReference(CorDebugValue corDebugValue, CorDebugILFrame corDebugIlFrame)
+	private int GetVariablesReference(CorDebugValue corDebugValue, CorDebugILFrame corDebugIlFrame, string friendlyTypeName)
 	{
 		try
 		{
+			if (friendlyTypeName.EndsWith('?')) return 0; // Nullable<T>
 			// Dereference if it's a reference type
 			var valueToCheck = corDebugValue;
 			if (corDebugValue is CorDebugReferenceValue { IsNull: false } refValue)
@@ -124,7 +125,7 @@ public partial class ManagedDebugger
 				Name = fieldName,
 				Value = value,
 				Type = friendlyTypeName,
-				VariablesReference = GetVariablesReference(fieldCorDebugValue, ilFrame)
+				VariablesReference = GetVariablesReference(fieldCorDebugValue, ilFrame, friendlyTypeName)
 			};
 			result.Add(variableInfo);
 		}
@@ -177,7 +178,7 @@ public partial class ManagedDebugger
 			    Name = propertyName,
 			    Value = value,
 			    Type = friendlyTypeName,
-			    VariablesReference = GetVariablesReference(returnValue, variablesReferenceIlFrame)
+			    VariablesReference = GetVariablesReference(returnValue, variablesReferenceIlFrame, friendlyTypeName)
 		    };
 		    result.Add(variableInfo);
 		    if (returnValue is CorDebugHandleValue handleValue)

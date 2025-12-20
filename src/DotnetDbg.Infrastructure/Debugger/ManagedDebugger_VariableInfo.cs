@@ -166,47 +166,7 @@ public partial class ManagedDebugger
 		    // For instance properties, pass the object; for static, pass nothing
 		    ICorDebugValue[] corDebugValues = isStatic ? [] : [corDebugValue!.Raw];
 
-			// Ensure that the object passed in corDebugValues is a CorDebugReferenceValue (when containing object is an instance class), ie must not be dereferenced
-		    eval.CallParameterizedFunction(getMethod.Raw, typeParameterArgs.Length, typeParameterArgs, corDebugValues.Length, corDebugValues);
-
-		    // Wait for the eval to complete
-		    CorDebugValue? returnValue = null;
-		    var evalCompleteTcs = new TaskCompletionSource();
-
-		    void OnCallbacksOnOnEvalComplete(object? s, EvalCompleteCorDebugManagedCallbackEventArgs e)
-		    {
-			    if (e.Eval.Raw == eval.Raw)
-			    {
-				    returnValue = e.Eval.Result;
-				    evalCompleteTcs.SetResult();
-			    }
-		    }
-
-		    _callbacks.OnEvalComplete += OnCallbacksOnOnEvalComplete;
-		    _callbacks.OnEvalException += CallbacksOnOnEvalException;
-
-		    void CallbacksOnOnEvalException(object? sender, EvalExceptionCorDebugManagedCallbackEventArgs e)
-		    {
-			    if (e.Eval.Raw == eval.Raw)
-			    {
-				    if (e.Eval.Result is null)
-				    {
-					    var exception = new EvalException($"EvalException callback error - Result is null when evaluating property '{propertyName}' (Static: {isStatic})");
-					    _logger?.Invoke(exception.Message);
-					    evalCompleteTcs.SetException(exception);
-					    return;
-				    }
-				    returnValue = e.Eval.Result;
-				    evalCompleteTcs.SetResult();
-			    }
-		    }
-
-		    variablesReferenceIlFrame.Chain.Thread.Process.Continue(false);
-
-		    await evalCompleteTcs.Task.ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing);
-		    _callbacks.OnEvalComplete -= OnCallbacksOnOnEvalComplete;
-		    _callbacks.OnEvalException -= CallbacksOnOnEvalException;
-		    await evalCompleteTcs.Task;
+			var returnValue = await eval.CallParameterizedFunctionAsync(_callbacks, getMethod, typeParameterTypes.Length, typeParameterArgs, corDebugValues.Length, corDebugValues, variablesReferenceIlFrame);
 
 		    if (returnValue is null) continue;
 		    var (friendlyTypeName, value) = GetValueForCorDebugValue(returnValue);

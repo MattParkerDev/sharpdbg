@@ -34,4 +34,48 @@ public static class Extensions
 		return false;
 	}
 
+	public static async Task<CorDebugValue?> CallParameterizedFunctionAsync(this CorDebugEval eval, CorDebugManagedCallback managedCallback, CorDebugFunction corDebugFunction, int typeParamCount, ICorDebugType[]? typeParameterArgs, int paramCount, ICorDebugValue[] corDebugValues, CorDebugILFrame ilFrame)
+	{
+		// Ensure that the object passed in corDebugValues is a CorDebugReferenceValue (when containing object is an instance class), ie must not be dereferenced
+		eval.CallParameterizedFunction(corDebugFunction.Raw, typeParamCount, typeParameterArgs, paramCount, corDebugValues);
+
+		// Wait for the eval to complete
+		CorDebugValue? returnValue = null;
+		var evalCompleteTcs = new TaskCompletionSource();
+
+		void OnCallbacksOnOnEvalComplete(object? s, EvalCompleteCorDebugManagedCallbackEventArgs e)
+		{
+			if (e.Eval.Raw == eval.Raw)
+			{
+				returnValue = e.Eval.Result;
+				evalCompleteTcs.SetResult();
+			}
+		}
+
+		managedCallback.OnEvalComplete += OnCallbacksOnOnEvalComplete;
+		managedCallback.OnEvalException += CallbacksOnOnEvalException;
+
+		void CallbacksOnOnEvalException(object? sender, EvalExceptionCorDebugManagedCallbackEventArgs e)
+		{
+			if (e.Eval.Raw == eval.Raw)
+			{
+				if (e.Eval.Result is null)
+				{
+					var exception = new ManagedDebugger.EvalException($"EvalException callback error - Result is null");
+					evalCompleteTcs.SetException(exception);
+					return;
+				}
+				returnValue = e.Eval.Result;
+				evalCompleteTcs.SetResult();
+			}
+		}
+
+		ilFrame.Chain.Thread.Process.Continue(false);
+
+		await evalCompleteTcs.Task.ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing);
+		managedCallback.OnEvalComplete -= OnCallbacksOnOnEvalComplete;
+		managedCallback.OnEvalException -= CallbacksOnOnEvalException;
+		await evalCompleteTcs.Task;
+		return returnValue;
+	}
 }

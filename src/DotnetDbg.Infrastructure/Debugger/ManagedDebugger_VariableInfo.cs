@@ -187,8 +187,10 @@ public partial class ManagedDebugger
 		    await evalCompleteTcs.Task;
 
 		    if (returnValue is null) continue;
-
+			// TODO: Dispose of the CorDebugHandleValue return value
 		    var (friendlyTypeName, value) = GetValueForCorDebugValue(returnValue);
+		    // eval neutered the frame again, and we need it to get variables for nested objects (specifically static fields/properties)
+		    variablesReferenceIlFrame = GetFrameForThreadIdAndStackDepth(threadId, stackDepth);
 		    var variableInfo = new VariableInfo
 		    {
 			    Name = propertyName,

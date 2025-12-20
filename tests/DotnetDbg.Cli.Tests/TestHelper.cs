@@ -8,7 +8,7 @@ namespace DotnetDbg.Cli.Tests;
 
 public static class TestHelper
 {
-	public static (DebugProtocolHost, TaskCompletionSource InitializedEventTcs, TaskCompletionSource<StoppedEvent>, OopOrInProcDebugAdapter DebugAdapterProcess, Process DebuggableProcess) GetRunningDebugProtocolHost(ITestOutputHelper testOutputHelper)
+	public static (DebugProtocolHost, TaskCompletionSource InitializedEventTcs, TaskCompletionSource<StoppedEvent>, OopOrInProcDebugAdapter DebugAdapterProcess, Process DebuggableProcess) GetRunningDebugProtocolHostOop(ITestOutputHelper testOutputHelper)
 	{
 	    var startSuspended = false;
 		var process = DebugAdapterProcessHelper.GetDebugAdapterProcess();

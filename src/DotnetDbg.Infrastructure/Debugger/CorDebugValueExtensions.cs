@@ -12,6 +12,10 @@ public static class CorDebugValueExtensions
 		{
 			valueToCheck = refValue.Dereference();
 		}
+		if (valueToCheck is CorDebugBoxValue boxValue) // may need to be more sophisticated/recursive
+		{
+			valueToCheck = boxValue.Object;
+		}
 		if (valueToCheck is not CorDebugObjectValue objectValue) throw new InvalidOperationException("Value is not an object value");
 		return objectValue;
 	}

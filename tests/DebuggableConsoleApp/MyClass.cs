@@ -15,9 +15,13 @@ public class MyClass
 
 		var anotherVar = "asdf";
 	}
+
+	//private MyClass2 get_ClassProperty() => ClassProperty;
 	private MyClass2 ClassProperty { get; set; } = new MyClass2();
+	private MyClass2 ClassProperty2 { get; set; } = new MyClass2();
 	private static int InyStaticProperty { get; set; } = 10;
 	private static MyClass2 StaticClassProperty { get; set; } = new MyClass2();
+	//private static MyClass2 get_StaticClassProperty() => StaticClassProperty;
 	private static MyClass2 _staticClassField = new MyClass2();
 	private List<int> _intList = [1, 4, 8, 25];
 	private static List<int> _staticIntList = [1, 4, 8, 25];

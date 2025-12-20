@@ -547,7 +547,11 @@ public partial class ManagedDebugger : IDisposable
 	        }
 	        else if (variablesReference.ReferenceKind is StoredReferenceKind.StackVariable)
 	        {
-		        var objectValue = variablesReference.ObjectValue;
+		        // before we go neutering the ilFrame, lets determine the stack depth of this frame, so we can re-retrieve it if/when neutered
+		        var stackDepth = variablesReference.IlFrame.Chain.Frames.IndexOf(variablesReference.IlFrame);
+
+		        var objectValue = variablesReference.ObjectValue!.UnwrapDebugValueToObject();
+
 		        var corDebugClass = objectValue.Class;
 		        var module = corDebugClass.Module;
 		        var mdTypeDef = corDebugClass.Token;
@@ -566,13 +570,14 @@ public partial class ManagedDebugger : IDisposable
 				        Value = "",
 				        Type = "",
 						PresentationHint = new VariablePresentationHint { Kind = PresentationHintKind.Class },
-				        VariablesReference = _variableManager.CreateReference(new VariablesReference(StoredReferenceKind.StaticClassVariable, objectValue, variablesReference.IlFrame))
+				        VariablesReference = _variableManager.CreateReference(new VariablesReference(StoredReferenceKind.StaticClassVariable, variablesReference.ObjectValue, variablesReference.IlFrame))
 			        };
 			        result.Add(variableInfo);
 		        }
 		        //AddStaticMembersPseudoVariable(staticFieldDefs, staticProperties, metadataImport, corDebugClass, variablesReference.IlFrame, result);
 		        AddFields(nonStaticFieldDefs, metadataImport, corDebugClass, variablesReference.IlFrame, objectValue, result);
-		        await AddProperties(nonStaticProperties, metadataImport, corDebugClass, variablesReference.IlFrame, objectValue, result);
+		        // We need to pass the un-unwrapped reference value here, as we need to invoke CallParameterizedFunction with the correct parameters
+		        await AddProperties(nonStaticProperties, metadataImport, corDebugClass, variablesReference.IlFrame.Chain.Thread, variablesReference.IlFrame, stackDepth, variablesReference.ObjectValue!, result);
 	        }
         }
         catch (Exception ex)

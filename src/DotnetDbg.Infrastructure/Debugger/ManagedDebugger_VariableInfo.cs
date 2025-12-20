@@ -86,7 +86,7 @@ public partial class ManagedDebugger
 				if (type is CorElementType.String) return 0;
 				if (type is CorElementType.Class or CorElementType.ValueType or CorElementType.SZArray or CorElementType.Array)
 				{
-					return GenerateUniqueVariableReference(objectValue, corDebugIlFrame);
+					return GenerateUniqueVariableReference(corDebugValue, corDebugIlFrame);
 				}
 			}
 		}
@@ -99,7 +99,7 @@ public partial class ManagedDebugger
 		return 0;
 	}
 
-	private int GenerateUniqueVariableReference(CorDebugObjectValue value, CorDebugILFrame corDebugIlFrame)
+	private int GenerateUniqueVariableReference(CorDebugValue value, CorDebugILFrame corDebugIlFrame)
 	{
 		var variablesReference = new VariablesReference(StoredReferenceKind.StackVariable, value, corDebugIlFrame);
 		var reference = _variableManager.CreateReference(variablesReference);
@@ -107,10 +107,23 @@ public partial class ManagedDebugger
 	}
 
 	internal class EvalException(string message) : Exception(message);
-	private async Task AddProperties(mdProperty[] mdProperties, MetaDataImport metadataImport, CorDebugClass corDebugClass, CorDebugILFrame variablesReferenceIlFrame, CorDebugObjectValue objectValue, List<VariableInfo> result)
+	private async Task AddProperties(mdProperty[] mdProperties, MetaDataImport metadataImport, CorDebugClass corDebugClass, CorDebugThread thread, CorDebugILFrame variablesReferenceIlFrame, int stackDepth, CorDebugValue corDebugValue, List<VariableInfo> result)
     {
 	    foreach (var mdProperty in mdProperties)
 	    {
+		    // We must reobtain the IlFrame if it has been neutered (We should probably just re-obtain every time, as I'm sure the exception is more expensive than just getting it again)
+		    try
+		    {
+			    _ = variablesReferenceIlFrame.Chain;
+		    }
+		    catch
+		    {
+			    // IlFrame has been neutered, we need to get it again from the stack frame
+			    //var thread = variablesReferenceIlFrame.Chain.Thread;
+			    var stackFrame = (CorDebugILFrame)thread.ActiveChain.Frames[stackDepth];
+			    variablesReferenceIlFrame = stackFrame;
+		    }
+
 		    var propertyProps = metadataImport.GetPropertyProps(mdProperty);
 		    var propertyName = propertyProps.szProperty;
 		    if (propertyName is null) continue;
@@ -125,41 +138,27 @@ public partial class ManagedDebugger
 
 		    bool isStatic = (getterAttr & CorMethodAttr.mdStatic) != 0;
 
-		    // Skip instance properties if objectValue is null
-		    if (objectValue is null && !isStatic)
-			    continue;
-
 		    var getMethod = corDebugClass.Module.GetFunctionFromToken(getMethodDef);
 		    var eval = variablesReferenceIlFrame.Chain.Thread.CreateEval();
 
-		    // For parameterized function call, we need the class type (not type parameters count)
-		    ICorDebugType[] typeArgs = [];
-		    if (objectValue is not null)
-		    {
-			    // Pass the exact type of the object as the type argument
-			    typeArgs = [objectValue.ExactType.Raw];
-		    }
-		    else if (isStatic)
-		    {
-			    // For static properties, get the class type
-			    var classType = corDebugClass.GetParameterizedType(CorElementType.Class, 0, []);
-			    typeArgs = [classType.Raw];
-		    }
-		    else
-		    {
-			    // Instance property but no object - skip
-			    continue;
-		    }
+		    // May not be correct, will need further testing
+		    var parameterizedContainingType = corDebugClass.GetParameterizedType(
+			    isStatic ? CorElementType.Class : (corDebugValue?.Type ?? CorElementType.Class),
+			    0,
+			    []);
 
-		    // Setup arguments:  for instance properties pass the object, for static pass nothing
-		    ICorDebugValue[] corDebugValues = isStatic ? [] : [objectValue!.Raw];
-		    var nArgs = corDebugValues.Length;
+		    var typeParameterTypes = parameterizedContainingType.TypeParameters;
+		    var typeParameterArgs = typeParameterTypes.Select(t => t.Raw).ToArray();
 
-		    eval.CallParameterizedFunction(getMethod.Raw, typeArgs.Length, typeArgs, nArgs, corDebugValues);
+		    // For instance properties, pass the object; for static, pass nothing
+		    ICorDebugValue[] corDebugValues = isStatic ? [] : [corDebugValue!.Raw];
+
+			// Ensure that the object passed in corDebugValues is a CorDebugReferenceValue (when containing object is an instance class), ie must not be dereferenced
+		    eval.CallParameterizedFunction(getMethod.Raw, typeParameterArgs.Length, typeParameterArgs, corDebugValues.Length, corDebugValues);
 
 		    // Wait for the eval to complete
 		    CorDebugValue? returnValue = null;
-		    var evalCompleteTcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+		    var evalCompleteTcs = new TaskCompletionSource();
 
 		    void OnCallbacksOnOnEvalComplete(object? s, EvalCompleteCorDebugManagedCallbackEventArgs e)
 		    {

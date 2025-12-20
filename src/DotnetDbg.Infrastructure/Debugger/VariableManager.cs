@@ -9,7 +9,7 @@ public enum StoredReferenceKind
 	StaticClassVariable, // This reference was stored as a pseudo variable for the static members of a "StackVariable" class
 }
 
-public record struct VariablesReference(StoredReferenceKind ReferenceKind, CorDebugObjectValue? ObjectValue, CorDebugILFrame IlFrame);
+public record struct VariablesReference(StoredReferenceKind ReferenceKind, CorDebugValue? ObjectValue, CorDebugILFrame IlFrame);
 /// <summary>
 /// Manages variable references for scopes and variables
 /// </summary>

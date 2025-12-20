@@ -84,6 +84,15 @@ public partial class ManagedDebugger
 		    typeName = $"{typeName}<{string.Join(", ", genericArgs)}>";
 	    }
 
+	    if (typeName.StartsWith("System.Nullable<")) // unwrap System.Nullable<int> to int?
+	    {
+		    var span = typeName.AsSpan();
+		    var openingIndex = span.IndexOf('<');
+		    var closingIndex = span.LastIndexOf('>');
+		    var underlyingType = span.Slice(openingIndex + 1, closingIndex - openingIndex - 1);
+		    typeName = $"{underlyingType}?";
+	    }
+
 	    var languageAlias = ClassNameToMaybeLanguageAlias(typeName);
 	    return languageAlias;
 	}

@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using DotnetDbg.Cli.Tests.Helpers;
 using Microsoft.Diagnostics.NETCore.Client;
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol;
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
@@ -7,7 +8,7 @@ namespace DotnetDbg.Cli.Tests;
 
 public static class TestHelper
 {
-	public static (DebugProtocolHost, TaskCompletionSource InitializedEventTcs, TaskCompletionSource<StoppedEvent>, Process DebugAdapterProcess, Process DebuggableProcess) GetRunningDebugProtocolHost(ITestOutputHelper testOutputHelper)
+	public static (DebugProtocolHost, TaskCompletionSource InitializedEventTcs, TaskCompletionSource<StoppedEvent>, OopOrInProcDebugAdapter DebugAdapterProcess, Process DebuggableProcess) GetRunningDebugProtocolHost(ITestOutputHelper testOutputHelper)
 	{
 	    var startSuspended = false;
 		var process = DebugAdapterProcessHelper.GetDebugAdapterProcess();
@@ -17,7 +18,20 @@ public static class TestHelper
 		var stoppedEventTcs = new TaskCompletionSource<StoppedEvent>(TaskCreationOptions.RunContinuationsAsynchronously);
 		debugProtocolHost.RegisterEventType<StoppedEvent>(@event => stoppedEventTcs.TrySetResult(@event));
 		debugProtocolHost.Run();
-		return (debugProtocolHost, initializedEventTcs, stoppedEventTcs, process, debuggableProcess);
+		return (debugProtocolHost, initializedEventTcs, stoppedEventTcs, new OopOrInProcDebugAdapter(process), debuggableProcess);
+	}
+
+	public static (DebugProtocolHost, TaskCompletionSource InitializedEventTcs, TaskCompletionSource<StoppedEvent>, OopOrInProcDebugAdapter DebugAdapter, Process DebuggableProcess) GetRunningDebugProtocolHostInProc(ITestOutputHelper testOutputHelper)
+	{
+		var startSuspended = false;
+		var (input, output, adapter) = InMemoryDebugAdapterHelper.GetAdapterStreams(testOutputHelper);
+		var debuggableProcess = DebuggableProcessHelper.StartDebuggableProcess(startSuspended);
+		var initializedEventTcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+		var debugProtocolHost = DebugAdapterProcessHelper.GetDebugProtocolHost(input, output, testOutputHelper, initializedEventTcs);
+		var stoppedEventTcs = new TaskCompletionSource<StoppedEvent>(TaskCreationOptions.RunContinuationsAsynchronously);
+		debugProtocolHost.RegisterEventType<StoppedEvent>(@event => stoppedEventTcs.TrySetResult(@event));
+		debugProtocolHost.Run();
+		return (debugProtocolHost, initializedEventTcs, stoppedEventTcs, new OopOrInProcDebugAdapter(adapter), debuggableProcess);
 	}
 
 	public static DebugProtocolHost WithInitializeRequest(this DebugProtocolHost debugProtocolHost)

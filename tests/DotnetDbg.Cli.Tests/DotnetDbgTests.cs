@@ -430,8 +430,8 @@ public class DotnetDbgTests(ITestOutputHelper testOutputHelper)
     {
 	    var startSuspended = false;
 
-	    var (debugProtocolHost, initializedEventTcs, stoppedEventTcs, p1, p2) = TestHelper.GetRunningDebugProtocolHost(testOutputHelper);
-	    using var _ = new ProcessKiller(p1);
+	    var (debugProtocolHost, initializedEventTcs, stoppedEventTcs, adapter, p2) = TestHelper.GetRunningDebugProtocolHost(testOutputHelper);
+	    using var _ = adapter;
 	    using var __ = new ProcessKiller(p2);
 
 	    await debugProtocolHost

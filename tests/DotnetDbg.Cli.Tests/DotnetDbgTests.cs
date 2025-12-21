@@ -469,6 +469,7 @@ public class DotnetDbgTests(ITestOutputHelper testOutputHelper)
 
 	    variables.Should().HaveCount(10);
 	    variables.Should().BeEquivalentTo(expectedVariables);
+	    debugProtocolHost.AssertStructMemberVariables(variables.Single(s => s.Name == "structVar").VariablesReference);
 	    debugProtocolHost.AssertInstanceThisInstanceVariables(variables.Single(s => s.Name == "this").VariablesReference);
 
 	    List<Variable> expectedEnumVariables =
@@ -495,6 +496,16 @@ public class DotnetDbgTests(ITestOutputHelper testOutputHelper)
 
 public static class TestExtensions
 {
+	public static void AssertStructMemberVariables(this DebugProtocolHost debugProtocolHost, int variablesReference)
+	{
+		List<Variable> expectedVariables =
+		[
+			new() { Name = "Id", EvaluateName = "Id", Value = "5", Type = "int" },
+			new() { Name = "Name", EvaluateName = "Name", Value = "StructName", Type = "string" },
+		];
+		debugProtocolHost.WithVariablesRequest(variablesReference, out var structMemberVariables);
+		structMemberVariables.Should().BeEquivalentTo(expectedVariables);
+	}
 	public static void AssertInstanceThisInstanceVariables(this DebugProtocolHost debugProtocolHost, int variablesReference)
 	{
 		List<Variable> expectedVariables =

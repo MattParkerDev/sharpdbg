@@ -466,13 +466,14 @@ public class DotnetDbgTests(ITestOutputHelper testOutputHelper)
 	    debugProtocolHost.WithVariablesRequest(scope.VariablesReference, out var variables);
 
 	    variables.Should().HaveCount(8);
+	    variables.Should().BeEquivalentTo(expectedVariables);
 
 	    List<Variable> expectedEnumVariables =
 	    [
 		    new() {Name = "Static members", Value = "", Type = "", EvaluateName = "Static members", VariablesReference = 5, PresentationHint = new VariablePresentationHint { Kind = VariablePresentationHint.KindValue.Class }},
 		    new() {Name = "value__", Value = "1", Type = "int", EvaluateName = "value__" },
 	    ];
-	    // Temp remove once fixed
+
 	    debugProtocolHost.WithVariablesRequest(variables.Single(s => s.Name == "enumVar").VariablesReference, out var enumNestedVariables);
 	    enumNestedVariables.Should().BeEquivalentTo(expectedEnumVariables);
 
@@ -485,8 +486,5 @@ public class DotnetDbgTests(ITestOutputHelper testOutputHelper)
 
 	    debugProtocolHost.WithVariablesRequest(enumNestedVariables.Single(s => s.Name == "Static members").VariablesReference, out var enumStaticVariables);
 	    enumStaticVariables.Should().BeEquivalentTo(expectedEnumStaticMemberVariables);
-	    //
-	    //variables.Should().BeEquivalentTo(expectedVariables); // TODO: Move back up
-
     }
 }

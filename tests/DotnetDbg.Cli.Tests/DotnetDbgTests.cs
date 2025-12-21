@@ -468,7 +468,7 @@ public class DotnetDbgTests(ITestOutputHelper testOutputHelper)
 
 	    variables.Should().HaveCount(9);
 	    variables.Should().BeEquivalentTo(expectedVariables);
-	    debugProtocolHost.AssertInstanceThisVariables(variables.Single(s => s.Name == "this").VariablesReference);
+	    debugProtocolHost.AssertInstanceThisInstanceVariables(variables.Single(s => s.Name == "this").VariablesReference);
 
 	    List<Variable> expectedEnumVariables =
 	    [
@@ -494,7 +494,7 @@ public class DotnetDbgTests(ITestOutputHelper testOutputHelper)
 
 public static class TestExtensions
 {
-	public static void AssertInstanceThisVariables(this DebugProtocolHost debugProtocolHost, int variablesReference)
+	public static void AssertInstanceThisInstanceVariables(this DebugProtocolHost debugProtocolHost, int variablesReference)
 	{
 		List<Variable> expectedVariables =
 		[

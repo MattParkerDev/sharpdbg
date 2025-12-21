@@ -30,6 +30,7 @@ public class MyClass
 	private static List<int> _staticIntList = [1, 4, 8, 25];
 	private static Dictionary<MyClass2, MyClass> _fieldDictionary = [];
 	private static DateTime _utcNow = DateTime.UtcNow;
+	private static DateTime? _nullableUtcNow = DateTime.UtcNow;
 }
 
 public class MyClass2

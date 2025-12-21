@@ -520,6 +520,7 @@ public static class TestExtensions
 			new() { Name = "_staticIntList", EvaluateName = "_staticIntList", Value = "{System.Collections.Generic.List<int>}", Type = "System.Collections.Generic.List<int>", VariablesReference = 11 },
 			new() { Name = "_fieldDictionary", EvaluateName = "_fieldDictionary", Value = "{System.Collections.Generic.Dictionary<DebuggableConsoleApp.MyClass2, DebuggableConsoleApp.MyClass>}", Type = "System.Collections.Generic.Dictionary<DebuggableConsoleApp.MyClass2, DebuggableConsoleApp.MyClass>", VariablesReference = 12 },
 			new() { Name = "_utcNow", EvaluateName = "_utcNow", Value = "{System.DateTime}", Type = "System.DateTime", VariablesReference = 13 },
+			new() { Name = "_nullableUtcNow", EvaluateName = "_nullableUtcNow", Value = "{System.DateTime}", Type = "System.DateTime?", VariablesReference = 14 },
 		];
 		debugProtocolHost.WithVariablesRequest(variablesReference, out var instanceThisStaticVariables);
 		instanceThisStaticVariables.Should().BeEquivalentTo(expectedVariables);

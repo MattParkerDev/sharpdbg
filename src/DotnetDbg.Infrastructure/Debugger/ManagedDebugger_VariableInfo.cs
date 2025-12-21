@@ -73,22 +73,15 @@ public partial class ManagedDebugger
 		try
 		{
 			if (friendlyTypeName.EndsWith('?')) return 0; // Nullable<T>
-			// Dereference if it's a reference type
-			var valueToCheck = corDebugValue;
-			if (corDebugValue is CorDebugReferenceValue { IsNull: false } refValue)
-			{
-				valueToCheck = refValue.Dereference();
-			}
 
-			if (valueToCheck is CorDebugObjectValue objectValue)
+			var objectValue = corDebugValue.UnwrapDebugValueToObject();
+
+			var type = objectValue.Type;
+			// Strings are objects but typically displayed as primitives
+			if (type is CorElementType.String) return 0;
+			if (type is CorElementType.Class or CorElementType.ValueType or CorElementType.SZArray or CorElementType.Array)
 			{
-				var type = objectValue.Type;
-				// Strings are objects but typically displayed as primitives
-				if (type is CorElementType.String) return 0;
-				if (type is CorElementType.Class or CorElementType.ValueType or CorElementType.SZArray or CorElementType.Array)
-				{
-					return GenerateUniqueVariableReference(corDebugValue, corDebugIlFrame);
-				}
+				return GenerateUniqueVariableReference(corDebugValue, corDebugIlFrame);
 			}
 		}
 		catch

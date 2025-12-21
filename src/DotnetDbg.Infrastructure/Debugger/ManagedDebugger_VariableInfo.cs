@@ -118,6 +118,20 @@ public partial class ManagedDebugger
 			if (fieldName is null) continue;
 			if (Extensions.IsCompilerGeneratedFieldName(fieldName)) continue;
 			var isStatic = (fieldProps.pdwAttr & CorFieldAttr.fdStatic) != 0;
+			var isLiteral = (fieldProps.pdwAttr & CorFieldAttr.fdLiteral) != 0;
+			if (isLiteral)
+			{
+				var literalValue = GetLiteralValue(fieldProps.ppValue, fieldProps.pdwCPlusTypeFlag);
+				var literalVariableInfo = new VariableInfo
+				{
+					Name = fieldName,
+					Value = literalValue.ToString()!,
+					Type = "TODO",
+					VariablesReference = 0
+				};
+				result.Add(literalVariableInfo);
+				continue;
+			}
 			var fieldCorDebugValue = isStatic ? corDebugClass.GetStaticFieldValue(mdFieldDef, ilFrame.Raw) : objectValue.GetFieldValue(corDebugClass.Raw, mdFieldDef);
 			var (friendlyTypeName, value) = GetValueForCorDebugValue(fieldCorDebugValue);
 			var variableInfo = new VariableInfo

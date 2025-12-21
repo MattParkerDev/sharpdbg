@@ -166,6 +166,25 @@ public partial class ManagedDebugger
 	    }
     }
 
+    private static object GetLiteralValue(IntPtr ppValue, CorElementType elementType)
+    {
+	    if (ppValue == IntPtr.Zero) throw new ArgumentNullException(nameof(ppValue));
+
+	    object? result = elementType switch
+	    {
+		    CorElementType.I1 => Marshal.ReadByte(ppValue),
+		    CorElementType.I2 => Marshal.ReadInt16(ppValue),
+		    CorElementType.I4 => Marshal.ReadInt32(ppValue),
+		    CorElementType.I8 => Marshal.ReadInt64(ppValue),
+		    CorElementType.U1 => Marshal.ReadByte(ppValue),
+		    CorElementType.U2 => (ushort)Marshal.ReadInt16(ppValue),
+		    CorElementType.U4 => (uint)Marshal.ReadInt32(ppValue),
+		    CorElementType.U8 => (ulong)Marshal.ReadInt64(ppValue),
+		    _ => throw new ArgumentOutOfRangeException(nameof(elementType), $"Unsupported literal type: {elementType}"),
+	    };
+	    return result;
+    }
+
     private static string? GetFriendlyTypeName(CorElementType elementType)
     {
 	    return elementType switch

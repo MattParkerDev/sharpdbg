@@ -20,7 +20,7 @@ public partial class ManagedDebugger
 
 		    CorDebugHeapValue corDebugHeapValue => throw new NotImplementedException(),
 		    CorDebugGenericValue corDebugGenericValue => GetCorDebugGenericValue_Value_AsString(corDebugGenericValue),  // This should be already handled by the above classes, so we should never get here
-		    _ => throw new ArgumentOutOfRangeException()
+		    _ => throw new ArgumentOutOfRangeException(nameof(corDebugValue))
 	    };
 	    return (friendlyTypeName, value);
     }

@@ -472,7 +472,7 @@ public class DotnetDbgTests(ITestOutputHelper testOutputHelper)
 
 	    List<Variable> expectedEnumVariables =
 	    [
-		    new() {Name = "Static members", Value = "", Type = "", EvaluateName = "Static members", VariablesReference = 6, PresentationHint = new VariablePresentationHint { Kind = VariablePresentationHint.KindValue.Class }},
+		    new() {Name = "Static members", Value = "", Type = "", EvaluateName = "Static members", VariablesReference = 10, PresentationHint = new VariablePresentationHint { Kind = VariablePresentationHint.KindValue.Class }},
 		    new() {Name = "value__", Value = "1", Type = "int", EvaluateName = "value__" },
 	    ];
 
@@ -499,7 +499,10 @@ public static class TestExtensions
 		List<Variable> expectedVariables =
 		[
 		    new() { Name = "Static members", Value = "", Type = "", EvaluateName = "Static members", VariablesReference = 6, PresentationHint = new VariablePresentationHint { Kind = VariablePresentationHint.KindValue.Class }},
-			new() { Name = "enumVar", Value = "SecondValue", Type = "DebuggableConsoleApp.MyEnum", EvaluateName = "enumVar", VariablesReference = 4},
+			new() { Name = "_name", EvaluateName = "_name", Value = "TestName", Type = "string" },
+			new() { Name = "ClassProperty", EvaluateName = "ClassProperty", Value = "{DebuggableConsoleApp.MyClass2}", Type = "DebuggableConsoleApp.MyClass2", VariablesReference = 8 },
+			new() { Name = "ClassProperty2", EvaluateName = "ClassProperty2", Value = "{DebuggableConsoleApp.MyClass2}", Type = "DebuggableConsoleApp.MyClass2", VariablesReference = 9 },
+			new() { Name = "_intList", EvaluateName = "_intList", Value = "{System.Collections.Generic.List<int>}", Type = "System.Collections.Generic.List<int>", VariablesReference = 7 },
 		];
 		debugProtocolHost.WithVariablesRequest(variablesReference, out var variables);
 		variables.Should().BeEquivalentTo(expectedVariables);

@@ -8,6 +8,7 @@ public class MyClass
 	{
 		var myInt = 4;
 		var enumVar = MyEnum.SecondValue;
+		var enumWithFlagsVar = MyEnumWithFlags.FlagValue1 | MyEnumWithFlags.FlagValue3;
 		Console.WriteLine($"Log{_counter}");
 		_counter++;
 		int? nullableInt;

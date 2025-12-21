@@ -72,9 +72,15 @@ public partial class ManagedDebugger
 	{
 		try
 		{
-			if (friendlyTypeName.EndsWith('?')) return 0; // Nullable<T>
-
 			var objectValue = corDebugValue.UnwrapDebugValueToObject();
+			var isNullableStruct = friendlyTypeName.EndsWith('?');
+			if (isNullableStruct)
+			{
+				var underlyingValueOrNull = GetUnderlyingValueOrNullFromNullableStruct(objectValue);
+				if (underlyingValueOrNull is null) return 0;
+				if (underlyingValueOrNull is not CorDebugObjectValue objValue) return 0; // underlying value is primitive
+				objectValue = objValue;
+			}
 
 			var type = objectValue.Type;
 			// Strings are objects but typically displayed as primitives
@@ -86,7 +92,7 @@ public partial class ManagedDebugger
 		}
 		catch
 		{
-			// If anything fails, assume no variables
+			// If anything fails, assume no variables // TODO: Ideally nothing throws and needs catching for perf
 			return 0;
 		}
 

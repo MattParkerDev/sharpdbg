@@ -430,7 +430,7 @@ public class DotnetDbgTests(ITestOutputHelper testOutputHelper)
     {
 	    var startSuspended = false;
 
-	    var (debugProtocolHost, initializedEventTcs, stoppedEventTcs, adapter, p2) = TestHelper.GetRunningDebugProtocolHostOop(testOutputHelper);
+	    var (debugProtocolHost, initializedEventTcs, stoppedEventTcs, adapter, p2) = TestHelper.GetRunningDebugProtocolHostInProc(testOutputHelper);
 	    using var _ = adapter;
 	    using var __ = new ProcessKiller(p2);
 
@@ -468,6 +468,7 @@ public class DotnetDbgTests(ITestOutputHelper testOutputHelper)
 
 	    variables.Should().HaveCount(9);
 	    variables.Should().BeEquivalentTo(expectedVariables);
+	    debugProtocolHost.AssertInstanceThisVariables(variables.Single(s => s.Name == "this").VariablesReference);
 
 	    List<Variable> expectedEnumVariables =
 	    [
@@ -487,5 +488,20 @@ public class DotnetDbgTests(ITestOutputHelper testOutputHelper)
 
 	    debugProtocolHost.WithVariablesRequest(enumNestedVariables.Single(s => s.Name == "Static members").VariablesReference, out var enumStaticVariables);
 	    enumStaticVariables.Should().BeEquivalentTo(expectedEnumStaticMemberVariables);
+	    // TODO: Assert that none of the variable references are the same (other than 0)
     }
+}
+
+public static class TestExtensions
+{
+	public static void AssertInstanceThisVariables(this DebugProtocolHost debugProtocolHost, int variablesReference)
+	{
+		List<Variable> expectedVariables =
+		[
+		    new() { Name = "Static members", Value = "", Type = "", EvaluateName = "Static members", VariablesReference = 6, PresentationHint = new VariablePresentationHint { Kind = VariablePresentationHint.KindValue.Class }},
+			new() { Name = "enumVar", Value = "SecondValue", Type = "DebuggableConsoleApp.MyEnum", EvaluateName = "enumVar", VariablesReference = 4},
+		];
+		debugProtocolHost.WithVariablesRequest(variablesReference, out var variables);
+		variables.Should().BeEquivalentTo(expectedVariables);
+	}
 }

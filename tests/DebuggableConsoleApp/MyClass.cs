@@ -28,6 +28,7 @@ public class MyClass
 	//private static MyClass2 get_StaticClassProperty() => StaticClassProperty;
 	private static MyClass2 _staticClassField = new MyClass2();
 	private List<int> _intList = [1, 4, 8, 25];
+	private int[] _intArray = [2, 3, 5, 7];
 	private static List<int> _staticIntList = [1, 4, 8, 25];
 	private static Dictionary<MyClass2, MyClass> _fieldDictionary = [];
 	private static DateTime _utcNow = DateTime.UtcNow;

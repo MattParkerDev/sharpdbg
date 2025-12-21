@@ -515,6 +515,7 @@ public static class TestExtensions
 			new() { Name = "ClassProperty", EvaluateName = "ClassProperty", Value = "{DebuggableConsoleApp.MyClass2}", Type = "DebuggableConsoleApp.MyClass2", VariablesReference = 9 },
 			new() { Name = "ClassProperty2", EvaluateName = "ClassProperty2", Value = "{DebuggableConsoleApp.MyClass2}", Type = "DebuggableConsoleApp.MyClass2", VariablesReference = 10 },
 			new() { Name = "_intList", EvaluateName = "_intList", Value = "{System.Collections.Generic.List<int>}", Type = "System.Collections.Generic.List<int>", VariablesReference = 8 },
+			new() { Name = "_intArray", EvaluateName = "_intArray", Value = "int[4]", Type = "int[]", VariablesReference = 8 },
 		];
 		debugProtocolHost.WithVariablesRequest(variablesReference, out var variables);
 		variables.Should().BeEquivalentTo(expectedVariables);

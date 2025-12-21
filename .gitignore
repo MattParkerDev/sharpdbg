@@ -371,3 +371,4 @@ FodyWeavers.xsd
 # Git
 .git/
 /.config/dotnet-tools.json
+.DS_Store

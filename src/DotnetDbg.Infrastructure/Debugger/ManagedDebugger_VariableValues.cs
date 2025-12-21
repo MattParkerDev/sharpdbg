@@ -42,9 +42,9 @@ public partial class ManagedDebugger
 			var valueFieldDef = metaDataImport.FindField(corDebugObjectValue.Class.Token, "value__", 0, 0);
 			var valueField = corDebugObjectValue.GetFieldValue(corDebugObjectValue.Class.Raw, valueFieldDef);
 			var value = GetValueForCorDebugValue(valueField);
-			var enumNameForValue = GetEnumNameForValue(metaDataImport, corDebugObjectValue, value.value);
-			enumNameForValue ??= value.value; // fallback to the numeric value if we can't find a name
-			return (GetCorDebugTypeFriendlyName(corDebugObjectValue.ExactType), enumNameForValue);
+
+			var enumDisplayValue = GetEnumDisplayValue(metaDataImport, corDebugObjectValue, value.value);
+			return (GetCorDebugTypeFriendlyName(corDebugObjectValue.ExactType), enumDisplayValue);
 	    }
 	    var typeName = GetCorDebugTypeFriendlyName(corDebugObjectValue.ExactType);
 	    if (typeName.EndsWith('?'))
@@ -62,6 +62,61 @@ public partial class ManagedDebugger
 		    return (typeName, value.value);
 	    }
 	    return (typeName, $"{{{typeName}}}");
+    }
+
+    private static string GetEnumDisplayValue(MetaDataImport metaDataImport, CorDebugObjectValue corDebugObjectValue, string valueAsString)
+    {
+	    var hasFlagsAttribute = metaDataImport.TryGetCustomAttributeByName(corDebugObjectValue.Class.Token, "System.FlagsAttribute", out _) is HRESULT.S_OK;
+
+	    // Fast path: exact match
+	    var exact = GetEnumNameForValue(metaDataImport, corDebugObjectValue, valueAsString);
+	    if (exact is not null) return exact;
+
+	    if (hasFlagsAttribute is false) return valueAsString;
+
+	    return GetFlagsEnumValue(metaDataImport, corDebugObjectValue, valueAsString);
+    }
+
+    private static string GetFlagsEnumValue(MetaDataImport metaDataImport, CorDebugObjectValue corDebugObjectValue, string valueAsString)
+    {
+	    if (!ulong.TryParse(valueAsString, out var enumValue))
+		    return valueAsString;
+
+	    ulong remaining = enumValue;
+
+	    // value -> name, ordered by value (ascending)
+	    var flags = new SortedDictionary<ulong, string>();
+
+	    foreach (var field in metaDataImport.EnumFields(corDebugObjectValue.Class.Token))
+	    {
+		    const CorFieldAttr requiredAttributesForEnumOption = CorFieldAttr.fdPublic | CorFieldAttr.fdStatic | CorFieldAttr.fdLiteral | CorFieldAttr.fdHasDefault;
+
+		    var fieldProps = metaDataImport.GetFieldProps(field);
+		    if ((fieldProps.pdwAttr & requiredAttributesForEnumOption) != requiredAttributesForEnumOption) continue;
+
+		    var fieldValueObj = GetLiteralValue(fieldProps.ppValue, fieldProps.pdwCPlusTypeFlag);
+
+		    ulong fieldValue = Convert.ToUInt64(fieldValueObj);
+
+		    // Zero flag is excluded from OR expressions
+		    if (fieldValue is 0) continue;
+
+		    // Exact match already handled earlier
+		    if ((fieldValue & remaining) == fieldValue)
+		    {
+			    flags[fieldValue] = fieldProps.szField;
+			    remaining &= ~fieldValue;
+		    }
+	    }
+
+	    // Only return flags if we fully decomposed the value
+	    if (flags.Count > 0 && remaining == 0)
+	    {
+		    return string.Join(" | ", flags.Values);
+	    }
+
+	    // Fallback: numeric value
+	    return enumValue.ToString();
     }
 
     private static string? GetEnumNameForValue(MetaDataImport metaDataImport, CorDebugObjectValue corDebugObjectValue, string valueAsString)

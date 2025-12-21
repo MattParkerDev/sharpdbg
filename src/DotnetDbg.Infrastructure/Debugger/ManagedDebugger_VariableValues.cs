@@ -34,6 +34,18 @@ public partial class ManagedDebugger
 
     public (string friendlyTypeName, string value) GetCorDebugObjectValue_Value_AsString(CorDebugObjectValue corDebugObjectValue)
     {
+	    var baseTypeName = GetCorDebugTypeFriendlyName(corDebugObjectValue.ExactType.Base);
+	    if (baseTypeName == "System.Enum")
+	    {
+		    var module = corDebugObjectValue.Class.Module;
+			var metaDataImport = module.GetMetaDataInterface().MetaDataImport;
+			var valueFieldDef = metaDataImport.FindField(corDebugObjectValue.Class.Token, "value__", 0, 0);
+			var valueField = corDebugObjectValue.GetFieldValue(corDebugObjectValue.Class.Raw, valueFieldDef);
+			var value = GetValueForCorDebugValue(valueField);
+			var enumNameForValue = GetEnumNameForValue(metaDataImport, corDebugObjectValue, value.value);
+			enumNameForValue ??= value.value; // fallback to the numeric value if we can't find a name
+			return (GetCorDebugTypeFriendlyName(corDebugObjectValue.ExactType), enumNameForValue);
+	    }
 	    var typeName = GetCorDebugTypeFriendlyName(corDebugObjectValue.ExactType);
 	    if (typeName.EndsWith('?'))
 	    {
@@ -51,6 +63,23 @@ public partial class ManagedDebugger
 	    }
 	    return (typeName, $"{{{typeName}}}");
     }
+
+    private static string? GetEnumNameForValue(MetaDataImport metaDataImport, CorDebugObjectValue corDebugObjectValue, string valueAsString)
+	{
+		var fields = metaDataImport.EnumFields(corDebugObjectValue.Class.Token);
+		foreach (var field in fields)
+		{
+			const CorFieldAttr requiredAttributesForEnumOption = CorFieldAttr.fdPublic | CorFieldAttr.fdStatic | CorFieldAttr.fdLiteral | CorFieldAttr.fdHasDefault;
+			var fieldProps = metaDataImport.GetFieldProps(field);
+			if ((fieldProps.pdwAttr & requiredAttributesForEnumOption) != requiredAttributesForEnumOption) continue;
+			var fieldValue = GetLiteralValue(fieldProps.ppValue, fieldProps.pdwCPlusTypeFlag);
+			if (fieldValue.ToString() == valueAsString)
+			{
+				return fieldProps.szField;
+			}
+		}
+		return null;
+	}
 
     public (string friendlyTypeName, string value) GetCorDebugReferenceValue_Value_AsString(CorDebugReferenceValue corDebugReferenceValue)
     {

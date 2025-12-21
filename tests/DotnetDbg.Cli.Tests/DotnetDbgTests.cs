@@ -456,9 +456,10 @@ public class DotnetDbgTests(ITestOutputHelper testOutputHelper)
 		    new() {Name = "this", Value = "{DebuggableConsoleApp.MyClass}", Type = "DebuggableConsoleApp.MyClass", EvaluateName = "this", VariablesReference = 3 },
 		    new() {Name = "myParam", Value = "13", Type = "long", EvaluateName = "myParam" },
 		    new() {Name = "myInt", Value = "4", Type = "int", EvaluateName = "myInt" },
-		    new() {Name = "enumVar", Value = "SecondValue", Type = "DebuggableConsoleApp.MyEnum", EvaluateName = "enumVar", VariablesReference = 4},
-		    new() {Name = "enumWithFlagsVar", Value = "FlagValue1 | FlagValue3", Type = "DebuggableConsoleApp.MyEnumWithFlags", EvaluateName = "enumWithFlagsVar", VariablesReference = 5},
+		    new() {Name = "enumVar", Value = "SecondValue", Type = "DebuggableConsoleApp.MyEnum", EvaluateName = "enumVar", VariablesReference = 4 },
+		    new() {Name = "enumWithFlagsVar", Value = "FlagValue1 | FlagValue3", Type = "DebuggableConsoleApp.MyEnumWithFlags", EvaluateName = "enumWithFlagsVar", VariablesReference = 5 },
 		    new() {Name = "nullableInt", Value = "null", Type = "int?", EvaluateName = "nullableInt" },
+		    new() {Name = "structVar", Value = "{DebuggableConsoleApp.MyStruct}", Type = "DebuggableConsoleApp.MyStruct", EvaluateName = "structVar", VariablesReference = 6 },
 		    new() {Name = "nullableIntWithVal", Value = "4", Type = "int?", EvaluateName = "nullableIntWithVal" },
 		    new() {Name = "nullableRefType", Value = "null", Type = "DebuggableConsoleApp.MyClass", EvaluateName = "nullableRefType" },
 		    new() {Name = "anotherVar", Value = "asdf", Type = "string", EvaluateName = "anotherVar" },
@@ -466,13 +467,13 @@ public class DotnetDbgTests(ITestOutputHelper testOutputHelper)
 
 	    debugProtocolHost.WithVariablesRequest(scope.VariablesReference, out var variables);
 
-	    variables.Should().HaveCount(9);
+	    variables.Should().HaveCount(10);
 	    variables.Should().BeEquivalentTo(expectedVariables);
 	    debugProtocolHost.AssertInstanceThisInstanceVariables(variables.Single(s => s.Name == "this").VariablesReference);
 
 	    List<Variable> expectedEnumVariables =
 	    [
-		    new() {Name = "Static members", Value = "", Type = "", EvaluateName = "Static members", VariablesReference = 16, PresentationHint = new VariablePresentationHint { Kind = VariablePresentationHint.KindValue.Class }},
+		    new() {Name = "Static members", Value = "", Type = "", EvaluateName = "Static members", VariablesReference = 17, PresentationHint = new VariablePresentationHint { Kind = VariablePresentationHint.KindValue.Class }},
 		    new() {Name = "value__", Value = "1", Type = "int", EvaluateName = "value__" },
 	    ];
 
@@ -498,11 +499,11 @@ public static class TestExtensions
 	{
 		List<Variable> expectedVariables =
 		[
-		    new() { Name = "Static members", Value = "", Type = "", EvaluateName = "Static members", VariablesReference = 6, PresentationHint = new VariablePresentationHint { Kind = VariablePresentationHint.KindValue.Class }},
+		    new() { Name = "Static members", Value = "", Type = "", EvaluateName = "Static members", VariablesReference = 7, PresentationHint = new VariablePresentationHint { Kind = VariablePresentationHint.KindValue.Class }},
 			new() { Name = "_name", EvaluateName = "_name", Value = "TestName", Type = "string" },
-			new() { Name = "ClassProperty", EvaluateName = "ClassProperty", Value = "{DebuggableConsoleApp.MyClass2}", Type = "DebuggableConsoleApp.MyClass2", VariablesReference = 8 },
-			new() { Name = "ClassProperty2", EvaluateName = "ClassProperty2", Value = "{DebuggableConsoleApp.MyClass2}", Type = "DebuggableConsoleApp.MyClass2", VariablesReference = 9 },
-			new() { Name = "_intList", EvaluateName = "_intList", Value = "{System.Collections.Generic.List<int>}", Type = "System.Collections.Generic.List<int>", VariablesReference = 7 },
+			new() { Name = "ClassProperty", EvaluateName = "ClassProperty", Value = "{DebuggableConsoleApp.MyClass2}", Type = "DebuggableConsoleApp.MyClass2", VariablesReference = 9 },
+			new() { Name = "ClassProperty2", EvaluateName = "ClassProperty2", Value = "{DebuggableConsoleApp.MyClass2}", Type = "DebuggableConsoleApp.MyClass2", VariablesReference = 10 },
+			new() { Name = "_intList", EvaluateName = "_intList", Value = "{System.Collections.Generic.List<int>}", Type = "System.Collections.Generic.List<int>", VariablesReference = 8 },
 		];
 		debugProtocolHost.WithVariablesRequest(variablesReference, out var variables);
 		variables.Should().BeEquivalentTo(expectedVariables);
@@ -515,12 +516,12 @@ public static class TestExtensions
 		[
 			new() { Name = "_counter", EvaluateName = "_counter", Value = "2", Type = "int" },
 			new() { Name = "InyStaticProperty", EvaluateName = "InyStaticProperty", Value = "10", Type = "int" },
-			new() { Name = "StaticClassProperty", EvaluateName = "StaticClassProperty", Value = "{DebuggableConsoleApp.MyClass2}", Type = "DebuggableConsoleApp.MyClass2", VariablesReference = 15 },
-			new() { Name = "_staticClassField", EvaluateName = "_staticClassField", Value = "{DebuggableConsoleApp.MyClass2}", Type = "DebuggableConsoleApp.MyClass2", VariablesReference = 10 },
-			new() { Name = "_staticIntList", EvaluateName = "_staticIntList", Value = "{System.Collections.Generic.List<int>}", Type = "System.Collections.Generic.List<int>", VariablesReference = 11 },
-			new() { Name = "_fieldDictionary", EvaluateName = "_fieldDictionary", Value = "{System.Collections.Generic.Dictionary<DebuggableConsoleApp.MyClass2, DebuggableConsoleApp.MyClass>}", Type = "System.Collections.Generic.Dictionary<DebuggableConsoleApp.MyClass2, DebuggableConsoleApp.MyClass>", VariablesReference = 12 },
-			new() { Name = "_utcNow", EvaluateName = "_utcNow", Value = "{System.DateTime}", Type = "System.DateTime", VariablesReference = 13 },
-			new() { Name = "_nullableUtcNow", EvaluateName = "_nullableUtcNow", Value = "{System.DateTime}", Type = "System.DateTime?", VariablesReference = 14 },
+			new() { Name = "StaticClassProperty", EvaluateName = "StaticClassProperty", Value = "{DebuggableConsoleApp.MyClass2}", Type = "DebuggableConsoleApp.MyClass2", VariablesReference = 16 },
+			new() { Name = "_staticClassField", EvaluateName = "_staticClassField", Value = "{DebuggableConsoleApp.MyClass2}", Type = "DebuggableConsoleApp.MyClass2", VariablesReference = 11 },
+			new() { Name = "_staticIntList", EvaluateName = "_staticIntList", Value = "{System.Collections.Generic.List<int>}", Type = "System.Collections.Generic.List<int>", VariablesReference = 12 },
+			new() { Name = "_fieldDictionary", EvaluateName = "_fieldDictionary", Value = "{System.Collections.Generic.Dictionary<DebuggableConsoleApp.MyClass2, DebuggableConsoleApp.MyClass>}", Type = "System.Collections.Generic.Dictionary<DebuggableConsoleApp.MyClass2, DebuggableConsoleApp.MyClass>", VariablesReference = 13 },
+			new() { Name = "_utcNow", EvaluateName = "_utcNow", Value = "{System.DateTime}", Type = "System.DateTime", VariablesReference = 14 },
+			new() { Name = "_nullableUtcNow", EvaluateName = "_nullableUtcNow", Value = "{System.DateTime}", Type = "System.DateTime?", VariablesReference = 15 },
 		];
 		debugProtocolHost.WithVariablesRequest(variablesReference, out var instanceThisStaticVariables);
 		instanceThisStaticVariables.Should().BeEquivalentTo(expectedVariables);

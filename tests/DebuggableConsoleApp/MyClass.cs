@@ -9,6 +9,7 @@ public class MyClass
 		var myInt = 4;
 		var enumVar = MyEnum.SecondValue;
 		var enumWithFlagsVar = MyEnumWithFlags.FlagValue1 | MyEnumWithFlags.FlagValue3;
+		var structVar = new MyStruct { Id = 5, Name = "StructName" };
 		Console.WriteLine($"Log{_counter}");
 		_counter++;
 		int? nullableInt;

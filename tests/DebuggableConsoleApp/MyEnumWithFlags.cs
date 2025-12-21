@@ -8,3 +8,9 @@ public enum MyEnumWithFlags
 	FlagValue2 = 2,
 	FlagValue3 = 4,
 }
+
+public struct MyStruct
+{
+	public int Id;
+	public string Name;
+}

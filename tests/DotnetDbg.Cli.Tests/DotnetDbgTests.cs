@@ -457,6 +457,7 @@ public class DotnetDbgTests(ITestOutputHelper testOutputHelper)
 		    new() {Name = "myParam", Value = "13", Type = "long", EvaluateName = "myParam" },
 		    new() {Name = "myInt", Value = "4", Type = "int", EvaluateName = "myInt" },
 		    new() {Name = "enumVar", Value = "SecondValue", Type = "DebuggableConsoleApp.MyEnum", EvaluateName = "enumVar", VariablesReference = 4},
+		    new() {Name = "enumWithFlagsVar", Value = "FlagValue1 | FlagValue3", Type = "DebuggableConsoleApp.MyEnumWithFlags", EvaluateName = "enumWithFlagsVar", VariablesReference = 5},
 		    new() {Name = "nullableInt", Value = "null", Type = "int?", EvaluateName = "nullableInt" },
 		    new() {Name = "nullableIntWithVal", Value = "4", Type = "int?", EvaluateName = "nullableIntWithVal" },
 		    new() {Name = "nullableRefType", Value = "null", Type = "DebuggableConsoleApp.MyClass", EvaluateName = "nullableRefType" },
@@ -465,12 +466,12 @@ public class DotnetDbgTests(ITestOutputHelper testOutputHelper)
 
 	    debugProtocolHost.WithVariablesRequest(scope.VariablesReference, out var variables);
 
-	    variables.Should().HaveCount(8);
+	    variables.Should().HaveCount(9);
 	    variables.Should().BeEquivalentTo(expectedVariables);
 
 	    List<Variable> expectedEnumVariables =
 	    [
-		    new() {Name = "Static members", Value = "", Type = "", EvaluateName = "Static members", VariablesReference = 5, PresentationHint = new VariablePresentationHint { Kind = VariablePresentationHint.KindValue.Class }},
+		    new() {Name = "Static members", Value = "", Type = "", EvaluateName = "Static members", VariablesReference = 6, PresentationHint = new VariablePresentationHint { Kind = VariablePresentationHint.KindValue.Class }},
 		    new() {Name = "value__", Value = "1", Type = "int", EvaluateName = "value__" },
 	    ];
 

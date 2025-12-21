@@ -27,8 +27,8 @@ public partial class ManagedDebugger
 
 	public (string friendlyTypeName, string value) GetCorDebugBoxValue_Value_AsString(CorDebugBoxValue corDebugBoxValue)
 	{
-	    var boxedValue = corDebugBoxValue.Object;
-	    var value = GetValueForCorDebugValue(boxedValue);
+	    var unboxedValue = corDebugBoxValue.Object;
+	    var value = GetValueForCorDebugValue(unboxedValue);
 	    return value;
 	}
 

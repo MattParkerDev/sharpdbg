@@ -49,20 +49,27 @@ public partial class ManagedDebugger
 	    var typeName = GetCorDebugTypeFriendlyName(corDebugObjectValue.ExactType);
 	    if (typeName.EndsWith('?'))
 	    {
-		    var module = corDebugObjectValue.Class.Module;
-		    var metaDataImport = module.GetMetaDataInterface().MetaDataImport;
-		    var hasValueFieldDef = metaDataImport.FindField(corDebugObjectValue.Class.Token, "hasValue", 0, 0);
-		    var valueFieldDef = metaDataImport.FindField(corDebugObjectValue.Class.Token, "value", 0, 0);
-
-		    var hasValueDebugObjectValue = corDebugObjectValue.GetFieldValue(corDebugObjectValue.Class.Raw, hasValueFieldDef);
-		    var hasValueValue = GetValueForCorDebugValue(hasValueDebugObjectValue);
-		    if (hasValueValue.value is "false") return (typeName, "null");
-		    var valueValue = corDebugObjectValue.GetFieldValue(corDebugObjectValue.Class.Raw, valueFieldDef);
-		    var value = GetValueForCorDebugValue(valueValue);
+		    var underlyingValueOrNull = GetUnderlyingValueOrNullFromNullableStruct(corDebugObjectValue);
+		    if (underlyingValueOrNull is null) return (typeName, "null");
+		    var value = GetValueForCorDebugValue(underlyingValueOrNull);
 		    return (typeName, value.value);
 	    }
 	    return (typeName, $"{{{typeName}}}");
     }
+
+    private CorDebugValue? GetUnderlyingValueOrNullFromNullableStruct(CorDebugObjectValue corDebugObjectValue)
+	{
+	    var module = corDebugObjectValue.Class.Module;
+	    var metaDataImport = module.GetMetaDataInterface().MetaDataImport;
+	    var hasValueFieldDef = metaDataImport.FindField(corDebugObjectValue.Class.Token, "hasValue", 0, 0);
+	    var valueFieldDef = metaDataImport.FindField(corDebugObjectValue.Class.Token, "value", 0, 0);
+
+	    var hasValueDebugObjectValue = corDebugObjectValue.GetFieldValue(corDebugObjectValue.Class.Raw, hasValueFieldDef);
+	    var hasValueValue = GetValueForCorDebugValue(hasValueDebugObjectValue);
+	    if (hasValueValue.value is "false") return null;
+	    var valueValue = corDebugObjectValue.GetFieldValue(corDebugObjectValue.Class.Raw, valueFieldDef);
+	    return valueValue;
+	}
 
     public (string friendlyTypeName, string value) GetCorDebugReferenceValue_Value_AsString(CorDebugReferenceValue corDebugReferenceValue)
     {

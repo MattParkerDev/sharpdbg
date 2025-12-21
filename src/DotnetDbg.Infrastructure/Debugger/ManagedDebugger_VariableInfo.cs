@@ -126,7 +126,7 @@ public partial class ManagedDebugger
 				{
 					Name = fieldName,
 					Value = literalValue.ToString()!,
-					Type = "TODO",
+					Type = GetFriendlyTypeName(fieldProps.pdwCPlusTypeFlag),
 					VariablesReference = 0
 				};
 				result.Add(literalVariableInfo);

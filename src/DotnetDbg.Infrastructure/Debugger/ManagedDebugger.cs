@@ -558,7 +558,24 @@ public partial class ManagedDebugger : IDisposable
 
 		        if (unwrappedDebugValue is CorDebugArrayValue arrayValue)
 		        {
-					var elementType = arrayValue.ElementType;
+			        var rank = arrayValue.Rank;
+					if (rank > 1) throw new NotImplementedException("Multidimensional arrays not yet supported");
+					var itemCount = arrayValue.Count;
+
+					foreach (var i in ValueEnumerable.Range(0, itemCount))
+					{
+						var element = arrayValue.GetElement(1, [i]);
+						var (friendlyTypeName, value) = GetValueForCorDebugValue(element);
+						var variableReference = GetVariablesReference(element, ilFrame, friendlyTypeName);
+						var variableInfo = new VariableInfo
+						{
+							Name = $"[{i}]",
+							Type = friendlyTypeName,
+							Value = value,
+							VariablesReference = variableReference
+						};
+						result.Add(variableInfo);
+					}
 		        }
 		        else if (unwrappedDebugValue is CorDebugObjectValue objectValue)
 		        {

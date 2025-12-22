@@ -57,6 +57,12 @@ public static class TestHelper
 		await initializedEventTcs.Task.WaitAsync(TestContext.Current.CancellationToken);
 		return debugProtocolHost;
 	}
+	public static async Task<StoppedEvent> WaitForStoppedEvent(this DebugProtocolHost debugProtocolHost, TcsContainer stoppedEventTcsContainer)
+	{
+		var stoppedEvent = await stoppedEventTcsContainer.Tcs.Task.WaitAsync(TestContext.Current.CancellationToken);
+		stoppedEventTcsContainer.Tcs = new TaskCompletionSource<StoppedEvent>(TaskCreationOptions.RunContinuationsAsynchronously);
+		return stoppedEvent;
+	}
 
 	public static DebugProtocolHost WithBreakpointsRequest(this DebugProtocolHost debugProtocolHost)
 	{

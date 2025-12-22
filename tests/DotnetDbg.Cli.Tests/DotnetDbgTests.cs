@@ -439,8 +439,7 @@ public class DotnetDbgTests(ITestOutputHelper testOutputHelper)
 		    .WithConfigurationDoneRequest()
 		    .WithOptionalResumeRuntime(p2.Id, startSuspended);
 
-	    var stoppedEvent = await stoppedEventTcs.Tcs.Task;
-	    stoppedEventTcs.Tcs = new TaskCompletionSource<StoppedEvent>(TaskCreationOptions.RunContinuationsAsynchronously);
+	    var stoppedEvent = await debugProtocolHost.WaitForStoppedEvent(stoppedEventTcs);
 	    debugProtocolHost
 		    .WithStackTraceRequest(stoppedEvent.ThreadId!.Value, out var stackTraceResponse)
 		    .WithScopesRequest(stackTraceResponse.StackFrames!.First().Id, out var scopesResponse);
@@ -489,9 +488,9 @@ public class DotnetDbgTests(ITestOutputHelper testOutputHelper)
 	    enumStaticVariables.Should().BeEquivalentTo(expectedEnumStaticMemberVariables);
 	    // TODO: Assert that none of the variable references are the same (other than 0)
 
-	    debugProtocolHost
-		    .WithContinueRequest();
-	    var stoppedEvent2 = await stoppedEventTcs.Tcs.Task;
+	    var stoppedEvent2 = await debugProtocolHost
+		    .WithContinueRequest()
+		    .WaitForStoppedEvent(stoppedEventTcs);
 	    debugProtocolHost
 		    .WithStackTraceRequest(stoppedEvent2.ThreadId!.Value, out var stackTraceResponse2)
 		    .WithScopesRequest(stackTraceResponse2.StackFrames!.First().Id, out var scopesResponse2)

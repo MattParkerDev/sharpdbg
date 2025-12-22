@@ -1,4 +1,5 @@
 ﻿using System.Runtime.InteropServices;
+using System.Text;
 using ClrDebug;
 
 namespace DotnetDbg.Infrastructure.Debugger;
@@ -62,10 +63,28 @@ public partial class ManagedDebugger
 		    return (typeName, value.value);
 	    }
 		var hasDebuggerTypeProxyAttribute = metaDataImport.TryGetCustomAttributeByName(corDebugObjectValue.Class.Token, "System.Diagnostics.DebuggerTypeProxyAttribute", out _) is HRESULT.S_OK;
-		var hasDebuggerDisplayAttribute = metaDataImport.TryGetCustomAttributeByName(corDebugObjectValue.Class.Token, "System.Diagnostics.DebuggerDisplayAttribute", out _) is HRESULT.S_OK;
+		var hasDebuggerDisplayAttribute = metaDataImport.TryGetCustomAttributeByName(corDebugObjectValue.Class.Token, "System.Diagnostics.DebuggerDisplayAttribute", out var debuggerDisplayAttribute) is HRESULT.S_OK;
+		if (hasDebuggerDisplayAttribute)
+		{
+			var debuggerDisplayValue = GetDebuggerDisplayValue(metaDataImport, debuggerDisplayAttribute, corDebugObjectValue);
+			return (typeName, debuggerDisplayValue);
+		}
 
 	    return (typeName, $"{{{typeName}}}");
     }
+
+    private static string GetDebuggerDisplayValue(MetaDataImport metaDataImport, GetCustomAttributeByNameResult attribute, CorDebugObjectValue corDebugObjectValue)
+    {
+	    var dataIntPtr = attribute.ppData;
+	    var byteArray = new byte[attribute.pcbData];
+	    Marshal.Copy(dataIntPtr, byteArray, 0, byteArray.Length);
+	    // Marshal.PtrToStringUTF8(dataIntPtr, attribute.pcbData) returns "[SOH][NUL][SI]Count = {Count}[NUL][NUL]"
+	    // The first 3 characters are control characters, then the string, then two NUL characters
+	    var byteSpan = byteArray.AsSpan()[3..^2];
+	    var dataAsString = Encoding.UTF8.GetString(byteSpan);
+		
+	    return dataAsString;
+	}
 
     private CorDebugValue? GetUnderlyingValueOrNullFromNullableStruct(CorDebugObjectValue corDebugObjectValue)
 	{

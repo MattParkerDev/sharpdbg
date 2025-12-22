@@ -81,8 +81,9 @@ public partial class ManagedDebugger
 	    // Marshal.PtrToStringUTF8(dataIntPtr, attribute.pcbData) returns "[SOH][NUL][SI]Count = {Count}[NUL][NUL]"
 	    // The first 3 characters are control characters, then the string, then two NUL characters
 	    var byteSpan = byteArray.AsSpan()[3..^2];
-	    var dataAsString = Encoding.UTF8.GetString(byteSpan);
-		
+	    var dataAsString = Encoding.UTF8.GetString(byteSpan); // e.g. "Count = {Count}" or "{DebuggerDisplay,nq}"
+	    // Now we need to parse the string and replace {Count} with the actual value, or just eval the expression
+
 	    return dataAsString;
 	}
 

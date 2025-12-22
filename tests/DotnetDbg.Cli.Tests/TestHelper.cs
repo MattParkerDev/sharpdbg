@@ -6,6 +6,11 @@ using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
 
 namespace DotnetDbg.Cli.Tests;
 
+public class TcsContainer
+{
+	public required TaskCompletionSource<StoppedEvent> Tcs { get; set; }
+}
+
 public static class TestHelper
 {
 	public static (DebugProtocolHost, TaskCompletionSource InitializedEventTcs, TaskCompletionSource<StoppedEvent>, OopOrInProcDebugAdapter DebugAdapterProcess, Process DebuggableProcess) GetRunningDebugProtocolHostOop(ITestOutputHelper testOutputHelper)
@@ -21,15 +26,15 @@ public static class TestHelper
 		return (debugProtocolHost, initializedEventTcs, stoppedEventTcs, new OopOrInProcDebugAdapter(process), debuggableProcess);
 	}
 
-	public static (DebugProtocolHost, TaskCompletionSource InitializedEventTcs, TaskCompletionSource<StoppedEvent>, OopOrInProcDebugAdapter DebugAdapter, Process DebuggableProcess) GetRunningDebugProtocolHostInProc(ITestOutputHelper testOutputHelper)
+	public static (DebugProtocolHost, TaskCompletionSource InitializedEventTcs, TcsContainer, OopOrInProcDebugAdapter DebugAdapter, Process DebuggableProcess) GetRunningDebugProtocolHostInProc(ITestOutputHelper testOutputHelper)
 	{
 		var startSuspended = false;
 		var (input, output, adapter) = InMemoryDebugAdapterHelper.GetAdapterStreams(testOutputHelper);
 		var debuggableProcess = DebuggableProcessHelper.StartDebuggableProcess(startSuspended);
 		var initializedEventTcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
 		var debugProtocolHost = DebugAdapterProcessHelper.GetDebugProtocolHost(input, output, testOutputHelper, initializedEventTcs);
-		var stoppedEventTcs = new TaskCompletionSource<StoppedEvent>(TaskCreationOptions.RunContinuationsAsynchronously);
-		debugProtocolHost.RegisterEventType<StoppedEvent>(@event => stoppedEventTcs.TrySetResult(@event));
+		var stoppedEventTcs = new TcsContainer { Tcs = new TaskCompletionSource<StoppedEvent>(TaskCreationOptions.RunContinuationsAsynchronously) };
+		debugProtocolHost.RegisterEventType<StoppedEvent>(@event => stoppedEventTcs.Tcs.TrySetResult(@event));
 		debugProtocolHost.Run();
 		return (debugProtocolHost, initializedEventTcs, stoppedEventTcs, new OopOrInProcDebugAdapter(adapter), debuggableProcess);
 	}
@@ -92,6 +97,13 @@ public static class TestHelper
 	{
 		var variablesRequest = new VariablesRequest { VariablesReference = variablesReference };
 		variablesResponse = debugProtocolHost.SendRequestSync(variablesRequest).Variables;
+		return debugProtocolHost;
+	}
+
+	public static DebugProtocolHost WithContinueRequest(this DebugProtocolHost debugProtocolHost)
+	{
+		var continueRequest = new ContinueRequest();
+		debugProtocolHost.SendRequestSync(continueRequest);
 		return debugProtocolHost;
 	}
 }

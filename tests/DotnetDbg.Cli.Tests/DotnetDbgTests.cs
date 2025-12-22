@@ -307,10 +307,6 @@ public class DotnetDbgTests(ITestOutputHelper testOutputHelper)
 	    }
     }
 
-    private class TcsContainer
-    {
-	    public required TaskCompletionSource<StoppedEvent> Tcs { get; set; }
-    }
     [Fact]
     public async Task DotnetDbgCli_NextRequest_ReturnsNextLine()
     {
@@ -443,7 +439,8 @@ public class DotnetDbgTests(ITestOutputHelper testOutputHelper)
 		    .WithConfigurationDoneRequest()
 		    .WithOptionalResumeRuntime(p2.Id, startSuspended);
 
-	    var stoppedEvent = await stoppedEventTcs.Task;
+	    var stoppedEvent = await stoppedEventTcs.Tcs.Task;
+	    stoppedEventTcs.Tcs = new TaskCompletionSource<StoppedEvent>(TaskCreationOptions.RunContinuationsAsynchronously);
 	    debugProtocolHost
 		    .WithStackTraceRequest(stoppedEvent.ThreadId!.Value, out var stackTraceResponse)
 		    .WithScopesRequest(stackTraceResponse.StackFrames!.First().Id, out var scopesResponse);
@@ -491,6 +488,16 @@ public class DotnetDbgTests(ITestOutputHelper testOutputHelper)
 	    debugProtocolHost.WithVariablesRequest(enumNestedVariables.Single(s => s.Name == "Static members").VariablesReference, out var enumStaticVariables);
 	    enumStaticVariables.Should().BeEquivalentTo(expectedEnumStaticMemberVariables);
 	    // TODO: Assert that none of the variable references are the same (other than 0)
+
+	    debugProtocolHost
+		    .WithContinueRequest();
+	    var stoppedEvent2 = await stoppedEventTcs.Tcs.Task;
+	    debugProtocolHost
+		    .WithStackTraceRequest(stoppedEvent2.ThreadId!.Value, out var stackTraceResponse2)
+		    .WithScopesRequest(stackTraceResponse2.StackFrames!.First().Id, out var scopesResponse2)
+		    .WithVariablesRequest(scopesResponse2.Scopes.Single().VariablesReference, out var variables2);
+	    // Assert the variables reference count resets on continue, by asserting the variables are the same as the first time
+	    variables2.Should().BeEquivalentTo(expectedVariables);
     }
 }
 

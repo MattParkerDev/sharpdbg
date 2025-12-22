@@ -49,16 +49,22 @@ public class DotnetDbgInMemoryTests(ITestOutputHelper testOutputHelper)
 
 		    List<Variable> expectedVariables =
 		    [
-			    new Variable() {Name = "this", Value = "{DebuggableConsoleApp.MyClass}", Type = "DebuggableConsoleApp.MyClass", EvaluateName = "this", VariablesReference = 2, NamedVariables = 2 },
-			    new Variable() {Name = "myInt", Value = "0", Type = "int", EvaluateName = "myInt" },
-			    new Variable() {Name = "anotherVar", Value = "null", Type = "string", EvaluateName = "anotherVar" },
-		    	new Variable() {Name = "myParam", Value = "13", Type = "long", EvaluateName = "myParam" },
+			    new() {Name = "this", Value = "{DebuggableConsoleApp.MyClass}", Type = "DebuggableConsoleApp.MyClass", EvaluateName = "this", VariablesReference = 3 },
+			    new() {Name = "myParam", Value = "13", Type = "long", EvaluateName = "myParam" },
+			    new() {Name = "myInt", Value = "4", Type = "int", EvaluateName = "myInt" },
+			    new() {Name = "enumVar", Value = "SecondValue", Type = "DebuggableConsoleApp.MyEnum", EvaluateName = "enumVar", VariablesReference = 4 },
+			    new() {Name = "enumWithFlagsVar", Value = "FlagValue1 | FlagValue3", Type = "DebuggableConsoleApp.MyEnumWithFlags", EvaluateName = "enumWithFlagsVar", VariablesReference = 5 },
+			    new() {Name = "nullableInt", Value = "null", Type = "int?", EvaluateName = "nullableInt" },
+			    new() {Name = "structVar", Value = "{DebuggableConsoleApp.MyStruct}", Type = "DebuggableConsoleApp.MyStruct", EvaluateName = "structVar", VariablesReference = 6 },
+			    new() {Name = "nullableIntWithVal", Value = "4", Type = "int?", EvaluateName = "nullableIntWithVal" },
+			    new() {Name = "nullableRefType", Value = "null", Type = "DebuggableConsoleApp.MyClass", EvaluateName = "nullableRefType" },
+			    new() {Name = "anotherVar", Value = "asdf", Type = "string", EvaluateName = "anotherVar" },
 		    ];
 
 		    var variablesRequest = new VariablesRequest { VariablesReference = scope.VariablesReference };
 		    var variablesResponse = debugProtocolHost.SendRequestSync(variablesRequest);
 		    var variables = variablesResponse.Variables;
-		    variables.Should().HaveCount(4);
+		    variables.Should().HaveCount(10);
 		    variables.Should().BeEquivalentTo(expectedVariables);
 	    }
 	    finally

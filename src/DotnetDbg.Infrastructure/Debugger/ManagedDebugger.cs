@@ -190,7 +190,6 @@ public partial class ManagedDebugger : IDisposable
 		if (_rawProcess != null)
 		{
 			IsRunning = true;
-			_variableManager.Clear();
 			_rawProcess.Continue(false);
 		}
 	}
@@ -556,7 +555,7 @@ public partial class ManagedDebugger : IDisposable
         var result = new List<VariableInfo>();
 
         var variablesReferenceNullable = _variableManager.GetReference(variablesReferenceInt);
-        if (variablesReferenceNullable is not {} variablesReference) return result;
+        if (variablesReferenceNullable is not {} variablesReference) throw new ArgumentException("Invalid variables reference");
 		var ilFrame = GetFrameForThreadIdAndStackDepth(variablesReference.ThreadId, variablesReference.FrameStackDepth);
         try
         {

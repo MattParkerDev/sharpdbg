@@ -41,11 +41,11 @@ public partial class ManagedDebugger
 
     public (string friendlyTypeName, string value) GetCorDebugObjectValue_Value_AsString(CorDebugObjectValue corDebugObjectValue)
     {
+	    var module = corDebugObjectValue.Class.Module;
+	    var metaDataImport = module.GetMetaDataInterface().MetaDataImport;
 	    var baseTypeName = GetCorDebugTypeFriendlyName(corDebugObjectValue.ExactType.Base);
 	    if (baseTypeName == "System.Enum")
 	    {
-		    var module = corDebugObjectValue.Class.Module;
-			var metaDataImport = module.GetMetaDataInterface().MetaDataImport;
 			var valueFieldDef = metaDataImport.FindField(corDebugObjectValue.Class.Token, "value__", 0, 0);
 			var valueField = corDebugObjectValue.GetFieldValue(corDebugObjectValue.Class.Raw, valueFieldDef);
 			var value = GetValueForCorDebugValue(valueField);
@@ -61,6 +61,9 @@ public partial class ManagedDebugger
 		    var value = GetValueForCorDebugValue(underlyingValueOrNull);
 		    return (typeName, value.value);
 	    }
+		var hasDebuggerTypeProxyAttribute = metaDataImport.TryGetCustomAttributeByName(corDebugObjectValue.Class.Token, "System.Diagnostics.DebuggerTypeProxyAttribute", out _) is HRESULT.S_OK;
+		var hasDebuggerDisplayAttribute = metaDataImport.TryGetCustomAttributeByName(corDebugObjectValue.Class.Token, "System.Diagnostics.DebuggerDisplayAttribute", out _) is HRESULT.S_OK;
+
 	    return (typeName, $"{{{typeName}}}");
     }
 

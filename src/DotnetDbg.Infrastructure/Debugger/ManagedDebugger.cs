@@ -554,34 +554,45 @@ public partial class ManagedDebugger : IDisposable
 	        }
 	        else if (variablesReference.ReferenceKind is StoredReferenceKind.StackVariable)
 	        {
-		        var objectValue = variablesReference.ObjectValue!.UnwrapDebugValueToObject();
+		        var unwrappedDebugValue = variablesReference.ObjectValue!.UnwrapDebugValue();
 
-		        var corDebugClass = objectValue.Class;
-		        var module = corDebugClass.Module;
-		        var mdTypeDef = corDebugClass.Token;
-		        var metadataImport = module.GetMetaDataInterface().MetaDataImport;
-		        var mdFieldDefs = metadataImport.EnumFields(mdTypeDef);
-		        var mdProperties = metadataImport.EnumProperties(mdTypeDef);
-		        var staticFieldDefs = mdFieldDefs.AsValueEnumerable().Where(s => s.IsStatic(metadataImport)).ToArray();
-		        var nonStaticFieldDefs = mdFieldDefs.AsValueEnumerable().Except(staticFieldDefs).ToArray();
-		        var staticProperties = mdProperties.AsValueEnumerable().Where(p => p.IsStatic(metadataImport)).ToArray();
-		        var nonStaticProperties = mdProperties.AsValueEnumerable().Except(staticProperties).ToArray();
-		        if (staticFieldDefs.Length > 0 || staticProperties.Length > 0)
+		        if (unwrappedDebugValue is CorDebugArrayValue arrayValue)
 		        {
-			        var variableInfo = new VariableInfo
-			        {
-				        Name = "Static members",
-				        Value = "",
-				        Type = "",
-						PresentationHint = new VariablePresentationHint { Kind = PresentationHintKind.Class },
-				        VariablesReference = _variableManager.CreateReference(new VariablesReference(StoredReferenceKind.StaticClassVariable, variablesReference.ObjectValue, variablesReference.ThreadId, variablesReference.FrameStackDepth))
-			        };
-			        result.Add(variableInfo);
+					var elementType = arrayValue.ElementType;
 		        }
-		        //AddStaticMembersPseudoVariable(staticFieldDefs, staticProperties, metadataImport, corDebugClass, variablesReference.IlFrame, result);
-		        AddFields(nonStaticFieldDefs, metadataImport, corDebugClass, ilFrame, objectValue, result);
-		        // We need to pass the un-unwrapped reference value here, as we need to invoke CallParameterizedFunction with the correct parameters
-		        await AddProperties(nonStaticProperties, metadataImport, corDebugClass, variablesReference.ThreadId, variablesReference.FrameStackDepth, variablesReference.ObjectValue!, result);
+		        else if (unwrappedDebugValue is CorDebugObjectValue objectValue)
+		        {
+			        var corDebugClass = objectValue.Class;
+			        var module = corDebugClass.Module;
+			        var mdTypeDef = corDebugClass.Token;
+			        var metadataImport = module.GetMetaDataInterface().MetaDataImport;
+			        var mdFieldDefs = metadataImport.EnumFields(mdTypeDef);
+			        var mdProperties = metadataImport.EnumProperties(mdTypeDef);
+			        var staticFieldDefs = mdFieldDefs.AsValueEnumerable().Where(s => s.IsStatic(metadataImport)).ToArray();
+			        var nonStaticFieldDefs = mdFieldDefs.AsValueEnumerable().Except(staticFieldDefs).ToArray();
+			        var staticProperties = mdProperties.AsValueEnumerable().Where(p => p.IsStatic(metadataImport)).ToArray();
+			        var nonStaticProperties = mdProperties.AsValueEnumerable().Except(staticProperties).ToArray();
+			        if (staticFieldDefs.Length > 0 || staticProperties.Length > 0)
+			        {
+				        var variableInfo = new VariableInfo
+				        {
+					        Name = "Static members",
+					        Value = "",
+					        Type = "",
+					        PresentationHint = new VariablePresentationHint { Kind = PresentationHintKind.Class },
+					        VariablesReference = _variableManager.CreateReference(new VariablesReference(StoredReferenceKind.StaticClassVariable, variablesReference.ObjectValue, variablesReference.ThreadId, variablesReference.FrameStackDepth))
+				        };
+				        result.Add(variableInfo);
+			        }
+			        //AddStaticMembersPseudoVariable(staticFieldDefs, staticProperties, metadataImport, corDebugClass, variablesReference.IlFrame, result);
+			        AddFields(nonStaticFieldDefs, metadataImport, corDebugClass, ilFrame, objectValue, result);
+			        // We need to pass the un-unwrapped reference value here, as we need to invoke CallParameterizedFunction with the correct parameters
+			        await AddProperties(nonStaticProperties, metadataImport, corDebugClass, variablesReference.ThreadId, variablesReference.FrameStackDepth, variablesReference.ObjectValue!, result);
+		        }
+		        else
+		        {
+			        throw new ArgumentOutOfRangeException(nameof(unwrappedDebugValue));
+		        }
 	        }
 	        else if (variablesReference.ReferenceKind is StoredReferenceKind.StaticClassVariable)
 	        {

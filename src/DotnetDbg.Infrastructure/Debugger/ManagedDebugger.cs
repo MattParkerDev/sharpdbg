@@ -185,6 +185,16 @@ public partial class ManagedDebugger : IDisposable
         }
     }
 
+    private void ContinueProcess()
+	{
+		if (_rawProcess != null)
+		{
+			IsRunning = true;
+			_variableManager.Clear();
+			_rawProcess.Continue(false);
+		}
+	}
+
     /// <summary>
     /// Pause execution
     /// </summary>
@@ -747,7 +757,7 @@ public partial class ManagedDebugger : IDisposable
         {
             OnStopped?.Invoke(0, "entry");
         }
-        Continue();
+        ContinueProcess();
     }
 
     private void HandleProcessExited(object? sender, ExitProcessCorDebugManagedCallbackEventArgs exitProcessCorDebugManagedCallbackEventArgs)
@@ -756,7 +766,7 @@ public partial class ManagedDebugger : IDisposable
         IsRunning = false;
         OnExited?.Invoke();
         OnTerminated?.Invoke();
-        Continue();
+        ContinueProcess();
     }
 
     private void HandleThreadCreated(object? sender, CreateThreadCorDebugManagedCallbackEventArgs createThreadCorDebugManagedCallbackEventArgs)
@@ -764,7 +774,7 @@ public partial class ManagedDebugger : IDisposable
 	    var corThread = createThreadCorDebugManagedCallbackEventArgs.Thread;
         _threads[corThread.Id] = corThread;
         OnThreadStarted?.Invoke(corThread.Id, $"Thread {corThread.Id}");
-        Continue();
+        ContinueProcess();
     }
 
     private void HandleThreadExited(object? sender, ExitThreadCorDebugManagedCallbackEventArgs exitThreadCorDebugManagedCallbackEventArgs)
@@ -772,7 +782,7 @@ public partial class ManagedDebugger : IDisposable
         var corThread = exitThreadCorDebugManagedCallbackEventArgs.Thread;
         _threads.Remove(corThread.Id);
         OnThreadExited?.Invoke(corThread.Id, $"Thread {corThread.Id}");
-        Continue();
+        ContinueProcess();
     }
 
     private void HandleModuleLoaded(object? sender, LoadModuleCorDebugManagedCallbackEventArgs loadModuleCorDebugManagedCallbackEventArgs)
@@ -815,7 +825,7 @@ public partial class ManagedDebugger : IDisposable
             TryBindPendingBreakpoints();
         }
 
-        Continue();
+        ContinueProcess();
     }
 
     private void HandleBreakpoint(object? sender, BreakpointCorDebugManagedCallbackEventArgs breakpointCorDebugManagedCallbackEventArgs)
@@ -826,7 +836,7 @@ public partial class ManagedDebugger : IDisposable
 	    if (breakpoint is not CorDebugFunctionBreakpoint functionBreakpoint)
 	    {
 		    _logger?.Invoke("Unknown breakpoint type hit");
-		    Continue(); // may be incorrect
+		    ContinueProcess(); // may be incorrect
 		    return;
 	    }
 	    var managedBreakpoint = _breakpointManager.FindByCorBreakpoint(functionBreakpoint.Raw);

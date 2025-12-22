@@ -127,10 +127,6 @@ public class DotnetDbgInMemoryTests(ITestOutputHelper testOutputHelper)
 	    }
     }
 
-	private class TcsContainer
-	{
-		public required TaskCompletionSource<StoppedEvent> Tcs { get; set; }
-	}
     [Fact]
     public async Task DotnetDbgCli_InMem_NextRequest_ReturnsNextLine()
     {

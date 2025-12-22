@@ -74,6 +74,7 @@ public partial class ManagedDebugger : IDisposable
     /// </summary>
     public void Launch(string program, string[] args, string? workingDirectory, Dictionary<string, string>? env, bool stopAtEntry)
     {
+	    throw new NotImplementedException("Launch is not implemented, use Attach instead. Use DOTNET_DefaultDiagnosticPortSuspend=1 env var to have the process wait for debugger attach, the resume it yourself after attaching with `new DiagnosticsClient(debuggableProcess.Id).ResumeRuntime()`");
         _logger?.Invoke($"Launching: {program}");
         _stopAtEntry = stopAtEntry;
 

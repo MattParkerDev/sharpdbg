@@ -175,6 +175,7 @@ public class DotnetDbgInMemoryTests(ITestOutputHelper testOutputHelper)
 			    debugProtocolHost.SendRequestSync(nextRequest);
 
 			    var stoppedEventAfterNext = await stoppedEventTcs.Tcs.Task;
+			    stoppedEventAfterNext.ThreadId.Should().Be(stoppedEvent.ThreadId);
 			    var stackTraceResponseAfterNext = debugProtocolHost.SendRequestSync(new StackTraceRequest { ThreadId = stoppedEventAfterNext.ThreadId!.Value, StartFrame = 0, Levels = 1 });
 			    var lineAfterNext = stackTraceResponseAfterNext.StackFrames!.First().Line;
 			    lineAfterNext.Should().NotBe(0);

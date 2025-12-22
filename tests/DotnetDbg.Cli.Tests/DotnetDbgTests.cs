@@ -519,6 +519,7 @@ public static class TestExtensions
 		];
 		debugProtocolHost.WithVariablesRequest(variablesReference, out var thisInstanceVariables);
 		thisInstanceVariables.Should().BeEquivalentTo(expectedVariables);
+		debugProtocolHost.AssertIntArrayVariables(thisInstanceVariables.Single(s => s.Name == "_intArray").VariablesReference);
 		debugProtocolHost.AssertInstanceThisStaticVariables(thisInstanceVariables.Single(s => s.Name == "Static members").VariablesReference);
 	}
 
@@ -537,5 +538,18 @@ public static class TestExtensions
 		];
 		debugProtocolHost.WithVariablesRequest(variablesReference, out var instanceThisStaticVariables);
 		instanceThisStaticVariables.Should().BeEquivalentTo(expectedVariables);
+	}
+
+	public static void AssertIntArrayVariables(this DebugProtocolHost debugProtocolHost, int variablesReference)
+	{
+		List<Variable> expectedVariables =
+		[
+			new() { Name = "[0]", EvaluateName = "[0]", Value = "2", Type = "int" },
+			new() { Name = "[1]", EvaluateName = "[1]", Value = "3", Type = "int" },
+			new() { Name = "[2]", EvaluateName = "[2]", Value = "5", Type = "int" },
+			new() { Name = "[3]", EvaluateName = "[3]", Value = "7", Type = "int" },
+		];
+		debugProtocolHost.WithVariablesRequest(variablesReference, out var intArrayVariables);
+		intArrayVariables.Should().BeEquivalentTo(expectedVariables);
 	}
 }

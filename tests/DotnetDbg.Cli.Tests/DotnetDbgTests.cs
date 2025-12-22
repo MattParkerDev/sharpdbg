@@ -495,7 +495,7 @@ public class DotnetDbgTests(ITestOutputHelper testOutputHelper)
 		    .WithStackTraceRequest(stoppedEvent2.ThreadId!.Value, out var stackTraceResponse2)
 		    .WithScopesRequest(stackTraceResponse2.StackFrames!.First().Id, out var scopesResponse2)
 		    .WithVariablesRequest(scopesResponse2.Scopes.Single().VariablesReference, out var variables2);
-	    // Assert the variables reference count resets on continue, by asserting the variables are the same as the first time
+	    // Assert the variables reference count resets on continue, by asserting the variables are the same as the first time (code is in a while loop)
 	    variables2.Should().BeEquivalentTo(expectedVariables);
     }
 }

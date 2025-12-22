@@ -70,9 +70,14 @@ public partial class ManagedDebugger
 
 	private int GetVariablesReference(CorDebugValue corDebugValue, CorDebugILFrame corDebugIlFrame, string friendlyTypeName)
 	{
-		try
+		var unwrappedDebugValue = corDebugValue.UnwrapDebugValue();
+		if (unwrappedDebugValue is CorDebugArrayValue arrayValue)
 		{
-			var objectValue = corDebugValue.UnwrapDebugValueToObject();
+			if (arrayValue.Count is 0) return 0;
+			return GenerateUniqueVariableReference(corDebugValue, corDebugIlFrame);
+		}
+		else if (unwrappedDebugValue is CorDebugObjectValue objectValue)
+		{
 			var isNullableStruct = friendlyTypeName.EndsWith('?');
 			if (isNullableStruct)
 			{
@@ -90,12 +95,6 @@ public partial class ManagedDebugger
 				return GenerateUniqueVariableReference(corDebugValue, corDebugIlFrame);
 			}
 		}
-		catch
-		{
-			// If anything fails, assume no variables // TODO: Ideally nothing throws and needs catching for perf
-			return 0;
-		}
-
 		return 0;
 	}
 

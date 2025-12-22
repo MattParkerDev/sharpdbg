@@ -180,6 +180,7 @@ public partial class ManagedDebugger : IDisposable
         if (_rawProcess != null)
         {
             IsRunning = true;
+            _variableManager.Clear();
             _rawProcess.Continue(false);
         }
     }
@@ -231,6 +232,7 @@ public partial class ManagedDebugger : IDisposable
             stepper.StepRange(false, [stepRange], 1);
             IsRunning = true;
             _stepper = stepper;
+            _variableManager.Clear();
             _rawProcess?.Continue(false);
         }
     }
@@ -249,6 +251,7 @@ public partial class ManagedDebugger : IDisposable
                 var stepper = frame.CreateStepper();
                 stepper.Step(true);
                 IsRunning = true;
+                _variableManager.Clear();
                 _rawProcess?.Continue(false);
             }
         }
@@ -268,6 +271,7 @@ public partial class ManagedDebugger : IDisposable
                 var stepper = frame.CreateStepper();
                 stepper.StepOut();
                 IsRunning = true;
+                _variableManager.Clear();
                 _rawProcess?.Continue(false);
             }
         }

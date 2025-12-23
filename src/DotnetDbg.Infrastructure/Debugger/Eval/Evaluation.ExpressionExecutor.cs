@@ -158,23 +158,24 @@ public partial class Evaluation
 			};
 		}
 
-		public async Task<(CorDebugValue Value, CorElementType Type)> GetOperandDataTypeByValue(CorDebugValue value)
+		public async Task<(byte[] Value, CorElementType Type)> GetOperandDataTypeByValue(CorDebugValue value)
 		{
 			var unwrapped = value.UnwrapDebugValue();
 			var elemType = unwrapped.Type;
 
-			if (elemType == CorElementType.String && value is CorDebugReferenceValue refValue && !refValue.IsNull)
-			{
-				var strValue = refValue.Dereference() as CorDebugStringValue;
-				return (value, elemType);
-			}
+			// if (elemType == CorElementType.String && value is CorDebugReferenceValue refValue && !refValue.IsNull)
+			// {
+			// 	var strValue = refValue.Dereference() as CorDebugStringValue;
+			// 	return (value, elemType);
+			// }
 
 			if (unwrapped is not CorDebugGenericValue genValue)
 			{
 				throw new ArgumentException("Value is not a primitive type");
 			}
 
-			return (unwrapped, elemType);
+			var valueAsBytes = genValue.GetValueAsBytes();
+			return (valueAsBytes, elemType);
 		}
 	}
 }

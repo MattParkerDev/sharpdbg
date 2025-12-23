@@ -1,4 +1,4 @@
-﻿using ClrDebug;
+using ClrDebug;
 
 namespace DotnetDbg.Infrastructure.Debugger;
 
@@ -13,19 +13,34 @@ public static class CorDebugValueExtensions
 		}
 		throw new InvalidOperationException("CorDebugValue is not an CorDebugObjectValue");
 	}
+
 	public static CorDebugValue UnwrapDebugValue(this CorDebugValue corDebugValue)
 	{
-		// Dereference if it's a reference type
 		var valueToCheck = corDebugValue;
 		if (valueToCheck is CorDebugReferenceValue { IsNull: false } refValue)
 		{
 			valueToCheck = refValue.Dereference();
 		}
-		if (valueToCheck is CorDebugBoxValue boxValue) // may need to be more sophisticated/recursive
+		if (valueToCheck is CorDebugBoxValue boxValue)
 		{
 			valueToCheck = boxValue.Object;
 		}
 
 		return valueToCheck;
+	}
+
+	public static CorDebugValue? GetClassFieldValue(this CorDebugObjectValue objectValue, string fieldName)
+	{
+		return null;
+	}
+
+	public static CorDebugValue? GetPropertyValue(this CorDebugObjectValue objectValue, string propertyName)
+	{
+		return null;
+	}
+
+	public static CorDebugFunction? GetPropertySetter(this CorDebugObjectValue objectValue, string propertyName)
+	{
+		return null;
 	}
 }

@@ -1,5 +1,4 @@
-﻿using System.Diagnostics;
-using System.Runtime.InteropServices;
+using System.Diagnostics;
 using System.Text;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -8,71 +7,6 @@ namespace DotnetDbg.Infrastructure.Debugger.Eval;
 
 public partial class Evaluation
 {
-	[StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
-	public struct BlittableChar
-	{
-		public char Value;
-
-		public static explicit operator BlittableChar(char value)
-		{
-			return new BlittableChar { Value = value };
-		}
-
-		public static implicit operator char (BlittableChar value)
-		{
-			return value.Value;
-		}
-	}
-
-	public struct BlittableBoolean
-	{
-		private byte byteValue;
-
-		public bool Value
-		{
-			get { return Convert.ToBoolean(byteValue); }
-			set { byteValue = Convert.ToByte(value); }
-		}
-
-		public static explicit operator BlittableBoolean(bool value)
-		{
-			return new BlittableBoolean { Value = value };
-		}
-
-		public static implicit operator bool (BlittableBoolean value)
-		{
-			return value.Value;
-		}
-	}
-
-	static void MarshalValue(object value, out int size, out IntPtr data)
-	{
-		if (value is string)
-		{
-			data = Marshal.StringToBSTR(value as string);
-			size = 0;
-		}
-		else if (value is char)
-		{
-			BlittableChar c = (BlittableChar)((char)value);
-			size = Marshal.SizeOf(c);
-			data = Marshal.AllocCoTaskMem(size);
-			Marshal.StructureToPtr(c, data, false);
-		}
-		else if (value is bool)
-		{
-			BlittableBoolean b = (BlittableBoolean)((bool)value);
-			size = Marshal.SizeOf(b);
-			data = Marshal.AllocCoTaskMem(size);
-			Marshal.StructureToPtr(b, data, false);
-		}
-		else
-		{
-			size = Marshal.SizeOf(value);
-			data = Marshal.AllocCoTaskMem(size);
-			Marshal.StructureToPtr(value, data, false);
-		}
-	}
 
 	enum ePredefinedType
 	{
@@ -243,48 +177,23 @@ public partial class Evaluation
 		{ SyntaxKind.ThisExpression,                eOpCode.ThisExpression }
 	};
 
-	internal const int S_OK = 0;
-	internal const int E_INVALIDARG = unchecked((int)0x80070057);
-
 	public abstract class ICommand
 	{
 		public eOpCode OpCode { get; protected set; }
-		protected uint Flags;
-		protected IntPtr argsStructPtr;
-		public abstract IntPtr GetStructPtr();
+		public uint Flags { get; protected set; }
 	}
 
 	public class NoOperandsCommand : ICommand
 	{
-		[StructLayout(LayoutKind.Sequential)]
-		internal struct FormatF
-		{
-			public uint Flags;
-		}
-
 		public NoOperandsCommand(SyntaxKind kind, uint flags)
 		{
 			OpCode = KindAlias[kind];
 			Flags = flags;
-			argsStructPtr = IntPtr.Zero;
-		}
-
-		~NoOperandsCommand()
-		{
-			if (argsStructPtr != IntPtr.Zero)
-				Marshal.FreeCoTaskMem(argsStructPtr);
 		}
 
 		public override IntPtr GetStructPtr()
 		{
-			if (argsStructPtr != IntPtr.Zero)
-				return argsStructPtr;
-
-			FormatF argsStruct;
-			argsStruct.Flags = Flags;
-			argsStructPtr = Marshal.AllocCoTaskMem(Marshal.SizeOf<FormatF>());
-			Marshal.StructureToPtr(argsStruct, argsStructPtr, false);
-			return argsStructPtr;
+			return IntPtr.Zero;
 		}
 
 		public override string ToString()
@@ -297,69 +206,18 @@ public partial class Evaluation
 
 	public class OneOperandCommand : ICommand
 	{
-		[StructLayout(LayoutKind.Sequential)]
-		internal struct FormatFS
-		{
-			public uint Flags;
-			public IntPtr String;
-		}
-
-		[StructLayout(LayoutKind.Sequential)]
-		internal struct FormatFI
-		{
-			public uint Flags;
-			public int Int;
-		}
-
-		dynamic Argument;
-		dynamic argsStruct;
+		public dynamic Argument;
 
 		public OneOperandCommand(SyntaxKind kind, uint flags, dynamic arg)
 		{
 			OpCode = KindAlias[kind];
 			Flags = flags;
 			Argument = arg;
-			argsStructPtr = IntPtr.Zero;
-		}
-
-		~OneOperandCommand()
-		{
-			if (argsStructPtr == IntPtr.Zero)
-				return;
-
-			if (argsStruct.GetType() == typeof(FormatFS))
-			{
-				Marshal.FreeBSTR(argsStruct.String);
-			}
-
-			Marshal.FreeCoTaskMem(argsStructPtr);
 		}
 
 		public override IntPtr GetStructPtr()
 		{
-			if (argsStructPtr != IntPtr.Zero)
-				return argsStructPtr;
-
-			if (Argument.GetType() == typeof(string) || Argument.GetType() == typeof(char))
-			{
-				argsStruct = new FormatFS();
-				argsStructPtr = Marshal.AllocCoTaskMem(Marshal.SizeOf<FormatFS>());
-				argsStruct.String = Marshal.StringToBSTR(Argument.ToString());
-			}
-			else if (Argument.GetType() == typeof(int) || Argument.GetType() == typeof(ePredefinedType))
-			{
-				argsStruct = new FormatFI();
-				argsStructPtr = Marshal.AllocCoTaskMem(Marshal.SizeOf<FormatFI>());
-				argsStruct.Int = (int)Argument; // Note, enum must be explicitly converted to int.
-			}
-			else
-			{
-				throw new NotImplementedException(Argument.GetType() + " type not implemented in OneOperandCommand!");
-			}
-
-			argsStruct.Flags = Flags;
-			Marshal.StructureToPtr(argsStruct, argsStructPtr, false);
-			return argsStructPtr;
+			return IntPtr.Zero;
 		}
 
 		public override string ToString()
@@ -372,80 +230,18 @@ public partial class Evaluation
 
 	public class TwoOperandCommand : ICommand
 	{
-		[StructLayout(LayoutKind.Sequential)]
-		internal struct FormatFIS
-		{
-			public uint Flags;
-			public int Int;
-			public IntPtr String;
-		}
-
-		[StructLayout(LayoutKind.Sequential)]
-		internal struct FormatFIP
-		{
-			public uint Flags;
-			public int Int;
-			public IntPtr Ptr;
-		}
-
-		dynamic[] Arguments;
-		dynamic argsStruct;
+		public dynamic[] Arguments;
 
 		public TwoOperandCommand(SyntaxKind kind, uint flags, params dynamic[] args)
 		{
 			OpCode = KindAlias[kind];
 			Flags = flags;
 			Arguments = args;
-			argsStructPtr = IntPtr.Zero;
-		}
-
-		~TwoOperandCommand()
-		{
-			if (argsStructPtr == IntPtr.Zero)
-				return;
-
-			if (argsStruct.GetType() == typeof(FormatFIS))
-			{
-				Marshal.FreeBSTR(argsStruct.String);
-			}
-			else if (argsStruct.GetType() == typeof(FormatFIP))
-			{
-				Marshal.FreeCoTaskMem(argsStruct.Ptr);
-			}
-
-			Marshal.FreeCoTaskMem(argsStructPtr);
 		}
 
 		public override IntPtr GetStructPtr()
 		{
-			if (argsStructPtr != IntPtr.Zero)
-				return argsStructPtr;
-
-			if (Arguments[0].GetType() == typeof(string) && Arguments[1].GetType() == typeof(int))
-			{
-				argsStruct = new FormatFIS();
-				argsStructPtr = Marshal.AllocCoTaskMem(Marshal.SizeOf<FormatFIS>());
-				argsStruct.String = Marshal.StringToBSTR(Arguments[0].ToString());
-				argsStruct.Int = (int)Arguments[1];
-			}
-			else if (Arguments[0].GetType() == typeof(ePredefinedType))
-			{
-				argsStruct = new FormatFIP();
-				argsStructPtr = Marshal.AllocCoTaskMem(Marshal.SizeOf<FormatFIP>());
-				argsStruct.Int = (int)Arguments[0]; // Note, enum must be explicitly converted to int.
-				int size = 0;
-				IntPtr data = IntPtr.Zero;
-				MarshalValue(Arguments[1], out size, out data);
-				argsStruct.Ptr = data;
-			}
-			else
-			{
-				throw new NotImplementedException(Arguments[0].GetType() + " + " + Arguments[1].GetType() + " pair not implemented in TwoOperandCommand!");
-			}
-
-			argsStruct.Flags = Flags;
-			Marshal.StructureToPtr(argsStruct, argsStructPtr, false);
-			return argsStructPtr;
+			return IntPtr.Zero;
 		}
 
 		public override string ToString()
@@ -477,135 +273,34 @@ public partial class Evaluation
 		}
 	}
 
-	/// <summary>
-	/// Generate stack machine program by expression string.
-	/// </summary>
-	/// <param name="expression">expression string</param>
-	/// <param name="stackProgram">stack machine program handle return</param>
-	/// <param name="textOutput">BSTR with text information return</param>
-	/// <returns>HResult code with execution status</returns>
-	internal static int GenerateStackMachineProgram([MarshalAs(UnmanagedType.LPWStr)] string expression, out IntPtr stackProgram, out IntPtr textOutput)
+	public static StackMachineProgram GenerateStackMachineProgram(string expression)
 	{
-		stackProgram = IntPtr.Zero;
-		textOutput = IntPtr.Zero;
+		var parseOptions = CSharpParseOptions.Default.WithKind(SourceCodeKind.Script);
+		var tree = CSharpSyntaxTree.ParseText(expression, parseOptions);
 
-		try
+		var parseErrors = tree.GetDiagnostics(tree.GetRoot());
+		var errors = new List<string>();
+		foreach (var error in parseErrors)
 		{
-			var parseOptions = CSharpParseOptions.Default.WithKind(SourceCodeKind.Script); // in order to parse individual expression
-			var tree = CSharpSyntaxTree.ParseText(expression, parseOptions);
-
-			var parseErrors = tree.GetDiagnostics(tree.GetRoot());
-			StringBuilder sbTextOutput = new StringBuilder();
-			bool errorDetected = false;
-			foreach (var error in parseErrors)
-			{
-				sbTextOutput.AppendFormat("error {0}: {1}\n", error.Id, error.GetMessage());
-				errorDetected = true;
-			}
-
-			if (errorDetected)
-			{
-				textOutput = Marshal.StringToBSTR(sbTextOutput.ToString());
-				return E_INVALIDARG;
-			}
-
-			var treeWalker = new TreeWalker();
-			treeWalker.Visit(tree.GetRoot());
-
-			if (treeWalker.ExpressionStatementCount == 1)
-			{
-#if DEBUG_STACKMACHINE
-                    textOutput = Marshal.StringToBSTR(treeWalker.GenerateDebugText());
-#endif
-				GCHandle gch = GCHandle.Alloc(treeWalker.stackMachineProgram);
-				stackProgram = GCHandle.ToIntPtr(gch);
-				return S_OK;
-			}
-			else if (treeWalker.ExpressionStatementCount > 1)
-			{
-				textOutput = Marshal.StringToBSTR("error: only one expression must be provided, expressions found: " + treeWalker.ExpressionStatementCount);
-				return E_INVALIDARG;
-			}
-			else
-			{
-				textOutput = Marshal.StringToBSTR("error: no expression found");
-				return E_INVALIDARG;
-			}
+			if (error.Severity == DiagnosticSeverity.Error)
+				errors.Add($"error {error.Id}: {error.GetMessage()}");
 		}
-		catch (Exception e)
+
+		if (errors.Count > 0)
 		{
-			textOutput = Marshal.StringToBSTR(e.GetType().ToString() + ": " + e.Message);
-			return e.HResult;
+			throw new ArgumentException(string.Join("\n", errors));
 		}
-	}
 
-	/// <summary>
-	/// Release previously allocated memory.
-	/// </summary>
-	/// <param name="StackProgram">stack machine program handle returned by GenerateStackMachineProgram()</param>
-	/// <returns></returns>
-	internal static void ReleaseStackMachineProgram(IntPtr StackProgram)
-	{
-		Debug.Assert(StackProgram != IntPtr.Zero);
-		try
+		var treeWalker = new TreeWalker();
+		treeWalker.Visit(tree.GetRoot());
+
+		if (treeWalker.ExpressionStatementCount != 1)
 		{
-			GCHandle gch = GCHandle.FromIntPtr(StackProgram);
-			gch.Free();
+			throw new ArgumentException(treeWalker.ExpressionStatementCount > 1
+				? "Only one expression must be provided"
+				: "No expression found");
 		}
-		catch
-		{
-			// suppress any exceptions and continue execution
-		}
-	}
 
-	/// <summary>
-	/// Return next stack program command and pointer to argument's structure.
-	/// Note, managed part will release Arguments unmanaged memory at object finalizer call after ReleaseStackMachineProgram() call.
-	/// Native part must not release Arguments memory, allocated by managed part in this method.
-	/// </summary>
-	/// <param name="StackProgram">stack machine program handle returned by GenerateStackMachineProgram()</param>
-	/// <param name="Command">next stack machine program command return</param>
-	/// <param name="Arguments">pointer to Arguments unmanaged memory return</param>
-	/// <param name="textOutput">BSTR with text information return</param>
-	/// <returns>HResult code with execution status</returns>
-	internal static int NextStackCommand(IntPtr StackProgram, out int Command, out IntPtr Arguments, out IntPtr textOutput)
-	{
-		Debug.Assert(StackProgram != IntPtr.Zero);
-
-		Command = 0;
-		Arguments = IntPtr.Zero;
-		textOutput = IntPtr.Zero;
-
-		try
-		{
-			GCHandle gch = GCHandle.FromIntPtr(StackProgram);
-			StackMachineProgram stackProgram = (StackMachineProgram)gch.Target;
-
-			if (stackProgram.CurrentPosition == StackMachineProgram.BeforeFirstCommand)
-			{
-				stackProgram.CurrentPosition = 0;
-			}
-			else
-			{
-				stackProgram.CurrentPosition++;
-			}
-
-			if (stackProgram.CurrentPosition >= stackProgram.Commands.Count)
-			{
-				Command = StackMachineProgram.ProgramFinished;
-			}
-			else
-			{
-				Command = (int)stackProgram.Commands[stackProgram.CurrentPosition].OpCode; // Note, enum must be explicitly converted to int.
-				Arguments = stackProgram.Commands[stackProgram.CurrentPosition].GetStructPtr();
-			}
-
-			return S_OK;
-		}
-		catch (Exception e)
-		{
-			textOutput = Marshal.StringToBSTR(e.GetType().ToString() + ": " + e.Message);
-			return e.HResult;
-		}
+		return treeWalker.stackMachineProgram;
 	}
 }

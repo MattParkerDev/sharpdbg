@@ -1,0 +1,587 @@
+using ClrDebug;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
+using System.Text;
+
+namespace DotnetDbg.Infrastructure.Debugger.Eval;
+
+public partial class Evaluation
+{
+	public class StackMachine
+	{
+		private readonly EvalData _evalData;
+		private readonly ValueCreator _valueCreator;
+		private readonly ExpressionExecutor _executor;
+		private readonly OperatorEvaluator _operatorEvaluator;
+
+		public StackMachine(EvalData evalData)
+		{
+			_evalData = evalData;
+			_valueCreator = new ValueCreator(evalData);
+			_executor = new ExpressionExecutor(evalData);
+			_operatorEvaluator = new OperatorEvaluator(evalData);
+		}
+
+		public async Task<EvaluationResult> Run(string expression)
+		{
+			var evalStack = new LinkedList<EvalStackEntry>();
+			var output = new StringBuilder();
+
+			try
+			{
+				var fixedExpression = ReplaceInternalNames(expression, false);
+				var program = GenerateStackMachineProgram(fixedExpression);
+
+				foreach (var command in program.Commands)
+				{
+					await ExecuteCommand(command, evalStack, output);
+				}
+
+				if (evalStack.Count != 1)
+				{
+					throw new InvalidOperationException("Expression evaluation did not produce a single result");
+				}
+
+				var resultValue = await _executor.GetFrontStackEntryValue(evalStack, true);
+				var setterData = evalStack.First.Value.SetterData;
+
+				return new EvaluationResult
+				{
+					Value = resultValue,
+					Editable = evalStack.First.Value.Editable && (setterData == null || setterData.SetterFunction != null),
+					SetterData = setterData
+				};
+			}
+			catch (Exception ex)
+			{
+				output.AppendLine($"error: {ex.Message}");
+				return new EvaluationResult
+				{
+					Error = output.ToString()
+				};
+			}
+		}
+
+		private async Task ExecuteCommand(ICommand command, LinkedList<EvalStackEntry> evalStack, StringBuilder output)
+		{
+			switch (command.OpCode)
+			{
+				case eOpCode.IdentifierName:
+					await IdentifierName((command as OneOperandCommand)!, evalStack);
+					break;
+
+				case eOpCode.GenericName:
+					await GenericName((command as TwoOperandCommand)!, evalStack);
+					break;
+
+				case eOpCode.InvocationExpression:
+					await InvocationExpression((command as OneOperandCommand)!, evalStack);
+					break;
+
+				case eOpCode.ElementAccessExpression:
+					await ElementAccessExpression((command as OneOperandCommand)!, evalStack);
+					break;
+
+				case eOpCode.NumericLiteralExpression:
+					await NumericLiteralExpression((command as TwoOperandCommand)!, evalStack);
+					break;
+
+				case eOpCode.StringLiteralExpression:
+					await StringLiteralExpression((command as OneOperandCommand)!, evalStack);
+					break;
+
+				case eOpCode.CharacterLiteralExpression:
+					await CharacterLiteralExpression((command as TwoOperandCommand)!, evalStack);
+					break;
+
+				case eOpCode.PredefinedType:
+					await PredefinedType((command as OneOperandCommand)!, evalStack);
+					break;
+
+				case eOpCode.SimpleMemberAccessExpression:
+					await SimpleMemberAccessExpression(command, evalStack);
+					break;
+
+				case eOpCode.QualifiedName:
+					await QualifiedName(command, evalStack);
+					break;
+
+				case eOpCode.MemberBindingExpression:
+					await MemberBindingExpression(command, evalStack);
+					break;
+
+				case eOpCode.AddExpression:
+					evalStack.First.Value.CorDebugValue = await _operatorEvaluator.CalculateTwoOperands(OperationType.AddExpression, evalStack);
+					break;
+
+				case eOpCode.SubtractExpression:
+					evalStack.First.Value.CorDebugValue = await _operatorEvaluator.CalculateTwoOperands(OperationType.SubtractExpression, evalStack);
+					break;
+
+				case eOpCode.MultiplyExpression:
+					evalStack.First.Value.CorDebugValue = await _operatorEvaluator.CalculateTwoOperands(OperationType.MultiplyExpression, evalStack);
+					break;
+
+				case eOpCode.DivideExpression:
+					evalStack.First.Value.CorDebugValue = await _operatorEvaluator.CalculateTwoOperands(OperationType.DivideExpression, evalStack);
+					break;
+
+				case eOpCode.ModuloExpression:
+					evalStack.First.Value.CorDebugValue = await _operatorEvaluator.CalculateTwoOperands(OperationType.ModuloExpression, evalStack);
+					break;
+
+				case eOpCode.LeftShiftExpression:
+					evalStack.First.Value.CorDebugValue = await _operatorEvaluator.CalculateTwoOperands(OperationType.LeftShiftExpression, evalStack);
+					break;
+
+				case eOpCode.RightShiftExpression:
+					evalStack.First.Value.CorDebugValue = await _operatorEvaluator.CalculateTwoOperands(OperationType.RightShiftExpression, evalStack);
+					break;
+
+				case eOpCode.BitwiseAndExpression:
+					evalStack.First.Value.CorDebugValue = await _operatorEvaluator.CalculateTwoOperands(OperationType.BitwiseAndExpression, evalStack);
+					break;
+
+				case eOpCode.BitwiseOrExpression:
+					evalStack.First.Value.CorDebugValue = await _operatorEvaluator.CalculateTwoOperands(OperationType.BitwiseOrExpression, evalStack);
+					break;
+
+				case eOpCode.ExclusiveOrExpression:
+					evalStack.First.Value.CorDebugValue = await _operatorEvaluator.CalculateTwoOperands(OperationType.ExclusiveOrExpression, evalStack);
+					break;
+
+				case eOpCode.LogicalAndExpression:
+					evalStack.First.Value.CorDebugValue = await _operatorEvaluator.CalculateTwoOperands(OperationType.LogicalAndExpression, evalStack);
+					break;
+
+				case eOpCode.LogicalOrExpression:
+					evalStack.First.Value.CorDebugValue = await _operatorEvaluator.CalculateTwoOperands(OperationType.LogicalOrExpression, evalStack);
+					break;
+
+				case eOpCode.EqualsExpression:
+					evalStack.First.Value.CorDebugValue = await _operatorEvaluator.CalculateTwoOperands(OperationType.EqualsExpression, evalStack);
+					break;
+
+				case eOpCode.NotEqualsExpression:
+					evalStack.First.Value.CorDebugValue = await _operatorEvaluator.CalculateTwoOperands(OperationType.NotEqualsExpression, evalStack);
+					break;
+
+				case eOpCode.LessThanExpression:
+					evalStack.First.Value.CorDebugValue = await _operatorEvaluator.CalculateTwoOperands(OperationType.LessThanExpression, evalStack);
+					break;
+
+				case eOpCode.GreaterThanExpression:
+					evalStack.First.Value.CorDebugValue = await _operatorEvaluator.CalculateTwoOperands(OperationType.GreaterThanExpression, evalStack);
+					break;
+
+				case eOpCode.LessThanOrEqualExpression:
+					evalStack.First.Value.CorDebugValue = await _operatorEvaluator.CalculateTwoOperands(OperationType.LessThanOrEqualExpression, evalStack);
+					break;
+
+				case eOpCode.GreaterThanOrEqualExpression:
+					evalStack.First.Value.CorDebugValue = await _operatorEvaluator.CalculateTwoOperands(OperationType.GreaterThanOrEqualExpression, evalStack);
+					break;
+
+				case eOpCode.UnaryPlusExpression:
+					evalStack.First.Value.CorDebugValue = await _operatorEvaluator.CalculateOneOperand(OperationType.UnaryPlusExpression, evalStack);
+					break;
+
+				case eOpCode.UnaryMinusExpression:
+					evalStack.First.Value.CorDebugValue = await _operatorEvaluator.CalculateOneOperand(OperationType.UnaryMinusExpression, evalStack);
+					break;
+
+				case eOpCode.LogicalNotExpression:
+					evalStack.First.Value.CorDebugValue = await _operatorEvaluator.CalculateOneOperand(OperationType.LogicalNotExpression, evalStack);
+					break;
+
+				case eOpCode.BitwiseNotExpression:
+					evalStack.First.Value.CorDebugValue = await _operatorEvaluator.CalculateOneOperand(OperationType.BitwiseNotExpression, evalStack);
+					break;
+
+				case eOpCode.TrueLiteralExpression:
+					evalStack.AddFirst(new EvalStackEntry { Literal = true, CorDebugValue = await _valueCreator.CreateBooleanValue(true) });
+					break;
+
+				case eOpCode.FalseLiteralExpression:
+					evalStack.AddFirst(new EvalStackEntry { Literal = true, CorDebugValue = await _valueCreator.CreateBooleanValue(false) });
+					break;
+
+				case eOpCode.NullLiteralExpression:
+					evalStack.AddFirst(new EvalStackEntry { Literal = true, CorDebugValue = await _valueCreator.CreateNullValue() });
+					break;
+
+				case eOpCode.SizeOfExpression:
+					await SizeOfExpression(evalStack);
+					break;
+
+				case eOpCode.CoalesceExpression:
+					await CoalesceExpression(evalStack);
+					break;
+
+				case eOpCode.ThisExpression:
+					evalStack.AddFirst(new EvalStackEntry { Identifiers = new List<string> { "this" }, Editable = true });
+					break;
+
+				case eOpCode.ElementBindingExpression:
+					await ElementAccessExpression((command as OneOperandCommand)!, evalStack);
+					break;
+
+				default:
+					throw new NotImplementedException($"OpCode {command.OpCode} is not implemented");
+			}
+		}
+
+		private string ReplaceInternalNames(string expression, bool restore)
+		{
+			var result = expression;
+			var internalNamesMap = new Dictionary<string, string>
+			{
+				{ "$exception", "__INTERNAL_NCDB_EXCEPTION_VARIABLE" }
+			};
+
+			foreach (var entry in internalNamesMap)
+			{
+				if (restore)
+					result = result.Replace(entry.Value, entry.Key);
+				else
+					result = result.Replace(entry.Key, entry.Value);
+			}
+
+			return result;
+		}
+
+		private Task IdentifierName(OneOperandCommand command, LinkedList<EvalStackEntry> evalStack)
+		{
+			var identifier = command.Argument as string ?? "";
+			identifier = ReplaceInternalNames(identifier, true);
+
+			evalStack.AddFirst(new EvalStackEntry
+			{
+				Identifiers = new List<string> { identifier },
+				Editable = true
+			});
+
+			return Task.CompletedTask;
+		}
+
+		private async Task GenericName(TwoOperandCommand command, LinkedList<EvalStackEntry> evalStack)
+		{
+			var argCount = command.Arguments[1] as int? ?? 0;
+			var name = command.Arguments[0] as string ?? "";
+
+			var genericTypes = new List<CorDebugType?>();
+			var generics = new StringBuilder(">");
+			genericTypes.Capacity = argCount;
+
+			for (int i = 0; i < argCount; i++)
+			{
+				var value = await _executor.GetFrontStackEntryValue(evalStack);
+				CorDebugType? type = null;
+
+				if (value is CorDebugValue2 value2)
+					type = await value2.GetExactTypeAsync();
+
+				generics.Insert(0, "," + type?.GetType().Name ?? "");
+				genericTypes.Add(type);
+				evalStack.RemoveFirst();
+			}
+
+			generics.Remove(0, 1);
+			name += "<" + generics;
+
+			evalStack.AddFirst(new EvalStackEntry
+			{
+				Identifiers = new List<string> { name },
+				GenericTypeCache = genericTypes,
+				Editable = true
+			});
+		}
+
+		private async Task InvocationExpression(OneOperandCommand command, LinkedList<EvalStackEntry> evalStack)
+		{
+			var argCount = command.Argument as int? ?? 0;
+
+			if (argCount < 0)
+				throw new ArgumentException("Invalid argument count");
+
+			var args = new List<CorDebugValue?>(argCount);
+			for (int i = argCount - 1; i >= 0; i--)
+			{
+				args.Add(await _executor.GetFrontStackEntryValue(evalStack));
+				evalStack.RemoveFirst();
+			}
+
+			var entry = evalStack.First.Value;
+			if (entry.PreventBinding)
+				return;
+
+			if (entry.Identifiers.Count == 0)
+				throw new InvalidOperationException("No method name provided");
+
+			var methodNameGenerics = entry.Identifiers.Last();
+			entry.Identifiers.RemoveAt(entry.Identifiers.Count - 1);
+
+			var methodName = methodNameGenerics;
+			var pos = methodName.IndexOf('`');
+			if (pos >= 0)
+				methodName = methodName.Substring(0, pos);
+
+			throw new NotImplementedException("Method invocation not yet fully implemented");
+		}
+
+		private async Task ElementAccessExpression(OneOperandCommand command, LinkedList<EvalStackEntry> evalStack)
+		{
+			var indexCount = command.Argument as int? ?? 0;
+
+			var indexes = new List<uint>();
+			for (int i = indexCount - 1; i >= 0; i--)
+			{
+				var indexValue = await _executor.GetFrontStackEntryValue(evalStack);
+				indexes.Insert(0, await _executor.GetElementIndex(indexValue!));
+				evalStack.RemoveFirst();
+			}
+
+			var entry = evalStack.First.Value;
+			if (entry.PreventBinding)
+				return;
+
+			var objValue = await _executor.GetFrontStackEntryValue(evalStack);
+			var realValue = await _executor.GetRealValueWithType(objValue!);
+			var elemType = await realValue.GetTypeAsync();
+
+			if (elemType == CorElementType.SZArray || elemType == CorElementType.Array)
+			{
+				throw new NotImplementedException("Array element access not yet fully implemented");
+			}
+			else
+			{
+				throw new NotImplementedException("Indexer access not yet fully implemented");
+			}
+		}
+
+		private async Task NumericLiteralExpression(TwoOperandCommand command, LinkedList<EvalStackEntry> evalStack)
+		{
+			var typeArg = command.Arguments[0] as ePredefinedType? ?? ePredefinedType.IntKeyword;
+			var value = command.Arguments[1];
+
+			var elemType = typeArg switch
+			{
+				ePredefinedType.DoubleKeyword => CorElementType.R8,
+				ePredefinedType.FloatKeyword => CorElementType.R4,
+				ePredefinedType.IntKeyword => CorElementType.I4,
+				ePredefinedType.UIntKeyword => CorElementType.U4,
+				ePredefinedType.LongKeyword => CorElementType.I8,
+				ePredefinedType.ULongKeyword => CorElementType.U8,
+				ePredefinedType.ShortKeyword => CorElementType.I2,
+				ePredefinedType.UShortKeyword => CorElementType.U2,
+				ePredefinedType.SByteKeyword => CorElementType.I1,
+				ePredefinedType.ByteKeyword => CorElementType.U1,
+				ePredefinedType.CharKeyword => CorElementType.Char,
+				ePredefinedType.DecimalKeyword => CorElementType.ValueType,
+				_ => throw new ArgumentException($"Unsupported numeric literal type: {typeArg}")
+			};
+
+			byte[]? data = null;
+			if (value != null)
+			{
+				data = value switch
+				{
+					double d => BitConverter.GetBytes(d),
+					float f => BitConverter.GetBytes(f),
+					int i => BitConverter.GetBytes(i),
+					uint ui => BitConverter.GetBytes(ui),
+					long l => BitConverter.GetBytes(l),
+					ulong ul => BitConverter.GetBytes(ul),
+					short s => BitConverter.GetBytes(s),
+					ushort us => BitConverter.GetBytes(us),
+					sbyte sb => new[] { (byte)sb },
+					byte b => new[] { b },
+					char c => BitConverter.GetBytes(c),
+					_ => throw new ArgumentException($"Unsupported numeric literal value type: {value.GetType()}")
+				};
+			}
+
+			evalStack.AddFirst(new EvalStackEntry
+			{
+				Literal = true,
+				CorDebugValue = elemType == CorElementType.ValueType && typeArg == ePredefinedType.DecimalKeyword
+					? await _valueCreator.CreateValueType(_evalData.ICorDecimalClass!, data)
+					: await _valueCreator.CreatePrimitiveValue(elemType, data)
+			});
+		}
+
+		private Task StringLiteralExpression(OneOperandCommand command, LinkedList<EvalStackEntry> evalStack)
+		{
+			var str = command.Argument as string ?? "";
+			str = ReplaceInternalNames(str, true);
+
+			evalStack.AddFirst(new EvalStackEntry
+			{
+				Literal = true,
+				CorDebugValue = _valueCreator.CreateString(str).Result
+			});
+
+			return Task.CompletedTask;
+		}
+
+		private Task CharacterLiteralExpression(TwoOperandCommand command, LinkedList<EvalStackEntry> evalStack)
+		{
+			var value = command.Arguments[1];
+			var data = value is char c ? BitConverter.GetBytes(c) : null;
+
+			evalStack.AddFirst(new EvalStackEntry
+			{
+				Literal = true,
+				CorDebugValue = _valueCreator.CreatePrimitiveValue(CorElementType.Char, data).Result
+			});
+
+			return Task.CompletedTask;
+		}
+
+		private async Task PredefinedType(OneOperandCommand command, LinkedList<EvalStackEntry> evalStack)
+		{
+			var typeArg = command.Argument as ePredefinedType? ?? ePredefinedType.IntKeyword;
+
+			var elemType = typeArg switch
+			{
+				ePredefinedType.BoolKeyword => CorElementType.Boolean,
+				ePredefinedType.ByteKeyword => CorElementType.U1,
+				ePredefinedType.CharKeyword => CorElementType.Char,
+				ePredefinedType.DoubleKeyword => CorElementType.R8,
+				ePredefinedType.FloatKeyword => CorElementType.R4,
+				ePredefinedType.IntKeyword => CorElementType.I4,
+				ePredefinedType.LongKeyword => CorElementType.I8,
+				ePredefinedType.SByteKeyword => CorElementType.I1,
+				ePredefinedType.ShortKeyword => CorElementType.I2,
+				ePredefinedType.StringKeyword => CorElementType.String,
+				ePredefinedType.UShortKeyword => CorElementType.U2,
+				ePredefinedType.UIntKeyword => CorElementType.U4,
+				ePredefinedType.ULongKeyword => CorElementType.U8,
+				ePredefinedType.DecimalKeyword => CorElementType.ValueType,
+				_ => throw new ArgumentException($"Unsupported predefined type: {typeArg}")
+			};
+
+			evalStack.AddFirst(new EvalStackEntry
+			{
+				CorDebugValue = elemType == CorElementType.ValueType && typeArg == ePredefinedType.DecimalKeyword
+					? await _valueCreator.CreateValueType(_evalData.ICorDecimalClass!, null)
+					: elemType == CorElementType.String
+						? await _valueCreator.CreateString("")
+						: await _valueCreator.CreatePrimitiveValue(elemType, null)
+			});
+		}
+
+		private Task SimpleMemberAccessExpression(ICommand command, LinkedList<EvalStackEntry> evalStack)
+		{
+			if (evalStack.Count < 2)
+				throw new InvalidOperationException("Stack underflow in SimpleMemberAccessExpression");
+
+			var identifier = evalStack.First.Value.Identifiers.FirstOrDefault() ?? "";
+			var genericTypes = evalStack.First.Value.GenericTypeCache;
+			evalStack.RemoveFirst();
+
+			if (!evalStack.First.Value.PreventBinding)
+			{
+				evalStack.First.Value.Identifiers.Add(identifier);
+				evalStack.First.Value.GenericTypeCache = genericTypes;
+			}
+
+			return Task.CompletedTask;
+		}
+
+		private Task QualifiedName(ICommand command, LinkedList<EvalStackEntry> evalStack)
+		{
+			return SimpleMemberAccessExpression(command, evalStack);
+		}
+
+		private async Task MemberBindingExpression(ICommand command, LinkedList<EvalStackEntry> evalStack)
+		{
+			if (evalStack.Count < 2)
+				throw new InvalidOperationException("Stack underflow in MemberBindingExpression");
+
+			var identifier = evalStack.First.Value.Identifiers.FirstOrDefault() ?? "";
+			evalStack.RemoveFirst();
+
+			var entry = evalStack.First.Value;
+			if (entry.PreventBinding)
+				return;
+
+			var value = await _executor.GetFrontStackEntryValue(evalStack, true);
+			entry.CorDebugValue = value;
+			entry.Identifiers.Clear();
+
+			if (value is CorDebugReferenceValue refValue && !refValue.IsNull)
+			{
+				entry.Identifiers.Add(identifier);
+			}
+			else
+			{
+				entry.PreventBinding = true;
+			}
+		}
+
+		private async Task SizeOfExpression(LinkedList<EvalStackEntry> evalStack)
+		{
+			var entry = evalStack.First.Value;
+			uint size = 0;
+
+			if (entry.CorDebugValue != null)
+			{
+				var elemType = await entry.CorDebugValue.GetTypeAsync();
+				if (elemType == CorElementType.Class)
+				{
+					var unwrapped = entry.CorDebugValue.UnwrapDebugValue();
+					size = await unwrapped.GetSizeAsync();
+				}
+				else
+				{
+					size = await entry.CorDebugValue.GetSizeAsync();
+				}
+			}
+			else
+			{
+				throw new NotImplementedException("SizeOf for types not yet fully implemented");
+			}
+
+			entry.ResetEntry();
+			entry.CorDebugValue = await _valueCreator.CreatePrimitiveValue(CorElementType.U4, BitConverter.GetBytes(size));
+		}
+
+		private async Task CoalesceExpression(LinkedList<EvalStackEntry> evalStack)
+		{
+			var rightEntry = evalStack.First.Value;
+			var rightValue = await _executor.GetFrontStackEntryValue(evalStack);
+			var realRight = await _executor.GetRealValueWithType(rightValue!);
+			evalStack.RemoveFirst();
+
+			var leftEntry = evalStack.First.Value;
+			var leftValue = await _executor.GetFrontStackEntryValue(evalStack);
+			var realLeft = await _executor.GetRealValueWithType(leftValue!);
+
+			var rightType = await realRight.GetTypeAsync();
+			var leftType = await realLeft.GetTypeAsync();
+
+			if ((rightType == CorElementType.String && leftType == CorElementType.String) ||
+				(rightType == CorElementType.Class && leftType == CorElementType.Class))
+			{
+				if (leftValue is CorDebugReferenceValue refValue && refValue.IsNull)
+				{
+					evalStack.RemoveFirst();
+					evalStack.AddFirst(rightEntry);
+				}
+			}
+			else
+			{
+				throw new ArgumentException("Operator ?? cannot be applied to operands of these types");
+			}
+		}
+	}
+
+	public class EvaluationResult
+	{
+		public CorDebugValue? Value { get; set; }
+		public bool Editable { get; set; }
+		public SetterData? SetterData { get; set; }
+		public string? Error { get; set; }
+	}
+}

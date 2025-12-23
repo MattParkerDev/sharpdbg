@@ -189,7 +189,7 @@ public partial class Evaluation
 			foreach (var methodToken in methods)
 			{
 				var methodDef = metaDataImport.GetMethodProps(methodToken);
-				if (methodDef.szMethod == opName && IsStatic(methodToken, metaDataImport))
+				if (methodDef.szMethod == opName && methodToken.IsStatic(metaDataImport))
 				{
 					var method = await objectValue.GetMethodAsync(methodToken);
 					return method;
@@ -197,12 +197,6 @@ public partial class Evaluation
 			}
 
 			return null;
-		}
-
-		private bool IsStatic(int methodToken, MetaDataImport metaDataImport)
-		{
-			var attr = metaDataImport.GetMethodAttributes(methodToken);
-			return (attr & CorMethodAttributes.Static) != 0;
 		}
 
 		private async Task<CorDebugValue> CreateValueFromPrimitiveData(byte[] data)

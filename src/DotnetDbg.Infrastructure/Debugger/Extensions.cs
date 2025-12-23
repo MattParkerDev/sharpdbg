@@ -24,6 +24,14 @@ public static class Extensions
 		return isStatic;
 	}
 
+	[MethodImpl(MethodImplOptions.AggressiveInlining)]
+	public static bool IsStatic(this mdMethodDef methodToken, MetaDataImport metaDataImport)
+	{
+		var methodProps = metaDataImport.GetMethodProps(methodToken);
+		var isStatic = (methodProps.pdwAttr & CorMethodAttr.mdStatic) != 0;
+		return isStatic;
+	}
+
 	// https://github.com/Samsung/netcoredbg/blob/8b8b22200fecdb1aec5f47af63215462d8c79a4b/src/debugger/evaluator.cpp#L695
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	public static bool IsCompilerGeneratedFieldName(string fieldName)

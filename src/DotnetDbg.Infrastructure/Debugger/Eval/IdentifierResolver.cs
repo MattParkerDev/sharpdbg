@@ -11,23 +11,24 @@ public class IdentifierResolver
 		_evalData = evalData;
 	}
 
-	public async Task<CorDebugValue?> ResolveIdentifiersAsync(
-		CorDebugValue? pInputValue,
-		List<string> identifiers,
-		out SetterData? resultSetterData)
+	public class ResolveResult
 	{
-		resultSetterData = null;
-		SetterData? inputSetterData = null;
-		CorDebugType? pResultType = null;
+		public CorDebugValue? Value { get; set; }
+		public SetterData? SetterData { get; set; }
+		public bool IsTypeResult { get; set; }
+	}
 
+	public async Task<ResolveResult> ResolveIdentifiersAsync(
+		CorDebugValue? pInputValue,
+		List<string> identifiers)
+	{
 		if (pInputValue != null && identifiers.Count == 0)
 		{
-			resultSetterData = inputSetterData;
-			return pInputValue;
+			return new ResolveResult { Value = pInputValue, SetterData = null };
 		}
 		else if (pInputValue != null)
 		{
-			return await FollowFieldsAsync(pInputValue, ValueKind.ValueIsVariable, identifiers, 0, out resultSetterData);
+			return await FollowFieldsAsync(pInputValue, ValueKind.ValueIsVariable, identifiers, 0);
 		}
 
 		int nextIdentifier = 0;
@@ -73,8 +74,8 @@ public class IdentifierResolver
 			if (identifiers[nextIdentifier] == "this")
 				nextIdentifier++;
 
-			var result = await FollowFieldsAsync(pThisValue, ValueKind.ValueIsVariable, identifiers, nextIdentifier, out resultSetterData);
-			if (result != null)
+			var result = await FollowFieldsAsync(pThisValue, ValueKind.ValueIsVariable, identifiers, nextIdentifier);
+			if (result.Value != null)
 				return result;
 		}
 
@@ -88,13 +89,13 @@ public class IdentifierResolver
 			if (methodClass == null)
 				throw new InvalidOperationException("Failed to get type and method");
 
-			var result = await FollowNestedFindValueAsync(methodClass, identifiers, out resultSetterData);
-			if (result != null)
+			var result = await FollowNestedFindValueAsync(methodClass, identifiers);
+			if (result.Value != null)
 				return result;
 
-			pResultType = await FollowNestedFindTypeAsync(methodClass, identifiers);
+			var pResultType = await FollowNestedFindTypeAsync(methodClass, identifiers);
 			if (pResultType != null)
-				throw new IdentifierResolvedToTypeException();
+				return new ResolveResult { IsTypeResult = true };
 		}
 
 		ValueKind valueKind;
@@ -102,7 +103,7 @@ public class IdentifierResolver
 		{
 			nextIdentifier++;
 			if (nextIdentifier == identifiers.Count)
-				return pResolvedValue;
+				return new ResolveResult { Value = pResolvedValue };
 
 			valueKind = ValueKind.ValueIsVariable;
 		}
@@ -111,36 +112,31 @@ public class IdentifierResolver
 			var pType = await FindTypeAsync(identifiers, ref nextIdentifier);
 			pResolvedValue = await CreateTypeObjectStaticConstructorAsync(pType);
 
-			if (pResultType != null && nextIdentifier == identifiers.Count)
-				throw new IdentifierResolvedToTypeException();
-
 			if (nextIdentifier == identifiers.Count)
 				throw new ArgumentException("Type cannot be result");
 
 			valueKind = ValueKind.ValueIsClass;
 		}
 
-		return await FollowFieldsAsync(pResolvedValue, valueKind, identifiers, nextIdentifier, out resultSetterData);
+		var finalResult = await FollowFieldsAsync(pResolvedValue, valueKind, identifiers, nextIdentifier);
+		return finalResult;
 	}
 
-	private async Task<CorDebugValue?> FollowFieldsAsync(
+	private async Task<ResolveResult> FollowFieldsAsync(
 		CorDebugValue pValue,
 		ValueKind valueKind,
 		List<string> identifiers,
-		int nextIdentifier,
-		out SetterData? resultSetterData)
+		int nextIdentifier)
 	{
-		resultSetterData = null;
-
 		if (nextIdentifier > identifiers.Count)
-			return null;
+			return new ResolveResult { Value = null };
 
 		CorDebugValue? pResultValue = pValue;
 
 		for (int i = nextIdentifier; i < identifiers.Count; i++)
 		{
 			if (string.IsNullOrEmpty(identifiers[i]))
-				return null;
+				return new ResolveResult { Value = null };
 
 			var pClassValue = pResultValue;
 			CorDebugValue? tempResultValue = null;
@@ -163,14 +159,13 @@ public class IdentifierResolver
 			});
 
 			if (tempResultValue == null)
-				return null;
+				return new ResolveResult { Value = null };
 
 			pResultValue = tempResultValue;
-			resultSetterData = tempSetterData;
 			valueKind = ValueKind.ValueIsVariable;
 		}
 
-		return pResultValue;
+		return new ResolveResult { Value = pResultValue, SetterData = null };
 	}
 
 	private async Task InternalWalkMembersAsync(
@@ -191,21 +186,15 @@ public class IdentifierResolver
 		if (pValue is CorDebugArrayValue pArrayValue)
 		{
 			var nRank = pArrayValue.GetRank();
-			var cElements = pArrayValue.GetCount();
-			var dims = new uint[nRank];
+			var cElements = pArrayValue.Count;
+			var baseIndicies = new int[nRank];
+			var ind = new int[nRank];
+			var dims = new int[nRank];
 			pArrayValue.GetDimensions(nRank, dims);
 
-			var baseIndicies = new uint[nRank];
-			var hasBaseIndicies = false;
-			pArrayValue.HasBaseIndicies(out hasBaseIndicies);
-			if (hasBaseIndicies)
-				pArrayValue.GetBaseIndicies(nRank, baseIndicies);
-
-			var ind = new uint[nRank];
-			for (uint i = 0; i < cElements; i++)
+			for (int i = 0; i < cElements; i++)
 			{
-				uint index = i;
-				await callback(null, false, $"[{IndicesToStr(ind, baseIndicies)}]", async () => pArrayValue.GetElementAtPosition(index), null);
+				await callback(null, false, $"[{IndicesToStr(ind, baseIndicies)}]", async () => pArrayValue.GetElementAtPosition(i), null);
 				IncrementIndices(ind, dims);
 			}
 			return;
@@ -226,30 +215,29 @@ public class IdentifierResolver
 		if (corElemType == CorElementType.String)
 			return;
 
-		var pClass = pType.GetClass();
+		var pClass = pType.Class;
 		if (pClass == null)
 			throw new InvalidOperationException("Failed to get class");
 
-		var pModule = pClass.GetModule();
+		var pModule = pClass.Module;
 		if (pModule == null)
 			throw new InvalidOperationException("Failed to get module");
 
 		var currentTypeDef = pClass.Token;
 
-		var mdUnknown = pModule.GetMetaDataInterface(typeof(IMetaDataImport).GUID);
-		var md = (IMetaDataImport)mdUnknown;
+		var metaDataImport = pModule.GetMetaDataInterface().MetaDataImport;
 
-		await WalkFieldsAsync(md, currentTypeDef, pClass, pObjValue, async (fieldDef, name, isStatic, getValue) =>
+		await WalkFieldsAsync(metaDataImport, currentTypeDef, pClass, pObjValue, pType, async (fieldDef, name, isStatic, getValue) =>
 		{
 			await callback(pType, isStatic, name, getValue, null);
 		});
 
-		await WalkPropertiesAsync(md, currentTypeDef, pModule, pType, pObjValue, async (propertyDef, name, isStatic, getValue, setterData) =>
+		await WalkPropertiesAsync(metaDataImport, currentTypeDef, pModule, pType, pObjValue, async (propertyDef, name, isStatic, getValue, setterData) =>
 		{
 			await callback(pType, isStatic, name, getValue, setterData);
 		});
 
-		var pBaseType = pType.GetBase();
+		var pBaseType = pType.Base;
 		if (pBaseType != null)
 		{
 			var baseTypeName = await GetTypeNameAsync(pBaseType);
@@ -262,114 +250,78 @@ public class IdentifierResolver
 	}
 
 	private async Task WalkFieldsAsync(
-		IMetaDataImport md,
-		uint currentTypeDef,
+		MetaDataImport md,
+		mdTypeDef currentTypeDef,
 		CorDebugClass pClass,
 		CorDebugObjectValue pObjectValue,
-		Func<uint, string, bool, Func<Task<CorDebugValue?>>, Task> callback)
+		CorDebugType pType,
+		Func<mdFieldDef, string, bool, Func<Task<CorDebugValue?>>, Task> callback)
 	{
-		IntPtr hEnum = IntPtr.Zero;
 		try
 		{
-			md.EnumFields(ref hEnum, currentTypeDef, null, 0, out _);
-			while (true)
-			{
-				uint[] fieldDefs = new uint[1];
-				int fetched;
-				md.EnumFields(ref hEnum, currentTypeDef, fieldDefs, 1, out fetched);
-				if (fetched == 0)
-					break;
-
-				uint fieldDef = fieldDefs[0];
-				uint pTypeDef;
-				uint nameLen;
-				char[] name = new char[1024];
-				uint fieldAttr;
-				uint[] pSigBlob = new uint[1];
-				uint sigBlobLength;
-				IntPtr pRawValue;
-				uint rawValueLength;
-
-				md.GetFieldProps(fieldDef, out pTypeDef, name, (uint)name.Length, out nameLen, out fieldAttr,
-					pSigBlob, out sigBlobLength, null, out pRawValue, out rawValueLength);
-
-				var fieldName = new string(name, 0, (int)nameLen);
-				if (!IsSynthesizedLocalName(fieldName))
-				{
-					bool isStatic = (fieldAttr & 0x10) != 0;
-
-					await callback(fieldDef, fieldName, isStatic, async () =>
-					{
-						if ((fieldAttr & 0x40) != 0)
-							throw new NotImplementedException("Literal values not implemented");
-
-						if (isStatic)
-							return pType.GetStaticFieldValue(fieldDef, _evalData.ILFrame);
-
-						return pObjectValue.GetFieldValue(pClass, fieldDef);
-					});
-				}
-			}
+			md.EnumFields(currentTypeDef).GetEnumerator();
 		}
-		finally
+		catch { }
+
+		var fieldDefs = md.EnumFields(currentTypeDef).ToArray();
+		foreach (var fieldDef in fieldDefs)
 		{
-			if (hEnum != IntPtr.Zero)
-				md.CloseEnum(hEnum);
+			var fieldProps = md.GetFieldProps(fieldDef);
+			var fieldName = fieldProps.szField;
+			if (!IsSynthesizedLocalName(fieldName))
+			{
+				bool isStatic = (fieldProps.dwAttr & CorFieldAttr.fdStatic) != 0;
+
+				await callback(fieldDef, fieldName, isStatic, async () =>
+				{
+					if ((fieldProps.dwAttr & CorFieldAttr.fdLiteral) != 0)
+						throw new NotImplementedException("Literal values not implemented");
+
+					if (isStatic)
+						return pType.GetStaticFieldValue(fieldDef, _evalData.ILFrame);
+
+					return pObjectValue.GetFieldValue(pClass.Raw, fieldDef);
+				});
+			}
 		}
 	}
 
 	private async Task WalkPropertiesAsync(
-		IMetaDataImport md,
-		uint currentTypeDef,
+		MetaDataImport md,
+		mdTypeDef currentTypeDef,
 		CorDebugModule pModule,
 		CorDebugType pType,
 		CorDebugObjectValue pObjectValue,
-		Func<uint, string, bool, Func<Task<CorDebugValue?>>, SetterData?, Task> callback)
+		Func<mdProperty, string, bool, Func<Task<CorDebugValue?>>, SetterData?, Task> callback)
 	{
-		IntPtr hEnum = IntPtr.Zero;
 		try
 		{
-			md.EnumProperties(ref hEnum, currentTypeDef, null, 0, out _);
-			while (true)
-			{
-				uint[] propertyDefs = new uint[1];
-				int fetched;
-				md.EnumProperties(ref hEnum, currentTypeDef, propertyDefs, 1, out fetched);
-				if (fetched == 0)
-					break;
-
-				uint propertyDef = propertyDefs[0];
-				uint pTypeDef;
-				uint nameLen;
-				char[] name = new char[1024];
-				uint getterAttr;
-				uint pSetter;
-				uint pGetter;
-
-				md.GetPropertyProps(propertyDef, out pTypeDef, name, (uint)name.Length, out nameLen,
-					null, null, null, null, null, null, out pSetter, out pGetter, null, 0, null);
-
-				md.GetMethodProps(pGetter, null, null, 0, null, out getterAttr, null, null, null, null);
-
-				var propertyName = new string(name, 0, (int)nameLen);
-				bool isStatic = (getterAttr & 0x10) != 0;
-
-				await callback(propertyDef, propertyName, isStatic, async () =>
-				{
-					var getterFunc = pModule.GetFunctionFromToken(pGetter);
-					var eval = _evalData.Thread.CreateEval();
-
-					if (isStatic)
-						return await eval.CallFunctionAsync(_evalData.ManagedCallback, getterFunc, pType, 0, null, _evalData.ILFrame);
-					else
-						return await eval.CallFunctionAsync(_evalData.ManagedCallback, getterFunc, pType, 1, new CorDebugValue[] { pObjectValue }, _evalData.ILFrame);
-				}, null);
-			}
+			md.EnumProperties(currentTypeDef).GetEnumerator();
 		}
-		finally
+		catch { }
+
+		var propertyDefs = md.EnumProperties(currentTypeDef).ToArray();
+		foreach (var propertyDef in propertyDefs)
 		{
-			if (hEnum != IntPtr.Zero)
-				md.CloseEnum(hEnum);
+			var propertyProps = md.GetPropertyProps(propertyDef);
+			var propertyName = propertyProps.szProperty;
+
+			if (propertyProps.mdGetter.IsNil)
+				continue;
+
+			var getterProps = md.GetMethodProps(propertyProps.mdGetter);
+			bool isStatic = (getterProps.dwAttr & CorMethodAttr.mdStatic) != 0;
+
+			await callback(propertyDef, propertyName, isStatic, async () =>
+			{
+				var getterFunc = pModule.GetFunctionFromToken(propertyProps.mdGetter);
+				var eval = _evalData.Thread.CreateEval();
+
+				if (isStatic)
+					return await eval.CallFunctionAsync(_evalData.ManagedCallback, getterFunc, pType, 0, null, _evalData.ILFrame);
+				else
+					return await eval.CallFunctionAsync(_evalData.ManagedCallback, getterFunc, pType, 1, new CorDebugValue[] { pObjectValue }, _evalData.ILFrame);
+			}, null);
 		}
 	}
 
@@ -402,13 +354,11 @@ public class IdentifierResolver
 		}
 	}
 
-	private async Task<CorDebugValue?> FollowNestedFindValueAsync(
+	private async Task<ResolveResult> FollowNestedFindValueAsync(
 		string methodClass,
-		List<string> identifiers,
-		out SetterData? resultSetterData)
+		List<string> identifiers)
 	{
-		resultSetterData = null;
-		return null;
+		return new ResolveResult { Value = null };
 	}
 
 	private async Task<CorDebugType?> FollowNestedFindTypeAsync(
@@ -426,7 +376,7 @@ public class IdentifierResolver
 	private async Task<CorDebugValue> CreateTypeObjectStaticConstructorAsync(CorDebugType pType)
 	{
 		var eval = _evalData.Thread.CreateEval();
-		var pClass = pType.GetClass();
+		var pClass = pType.Class;
 		return await eval.NewParameterizedObjectNoConstructorAsync(_evalData.ManagedCallback, pClass, 0, null, _evalData.ILFrame);
 	}
 
@@ -454,42 +404,30 @@ public class IdentifierResolver
 
 	private async Task<string> GetTypeNameAsync(CorDebugType pType)
 	{
-		var pClass = pType.GetClass();
+		var pClass = pType.Class;
 		if (pClass == null)
 			return "";
 
-		var pModule = pClass.GetModule();
-		var mdUnknown = pModule.GetMetaDataInterface(typeof(IMetaDataImport).GUID);
-		var md = (IMetaDataImport)mdUnknown;
-
-		var typeDef = pClass.Token;
-		uint nameLen;
-		char[] name = new char[1024];
-		md.GetTypeDefProps(typeDef, name, (uint)name.Length, out nameLen, null, null);
-
-		return new string(name, 0, (int)nameLen);
+		var pModule = pClass.Module;
+		var md = pModule.GetMetaDataInterface().MetaDataImport;
+		var typeDefProps = md.GetTypeDefProps(pClass.Token);
+		return typeDefProps.szTypeDef;
 	}
 
 	private async Task<string?> GetTypeAndMethodAsync(CorDebugFrame pFrame)
 	{
-		var pFunction = pFrame.GetFunction();
+		var pFunction = pFrame.Function;
 		if (pFunction == null)
 			return null;
 
-		var pClass = pFunction.GetClass();
+		var pClass = pFunction.Class;
 		if (pClass == null)
 			return null;
 
-		var pModule = pClass.GetModule();
-		var mdUnknown = pModule.GetMetaDataInterface(typeof(IMetaDataImport).GUID);
-		var md = (IMetaDataImport)mdUnknown;
-
-		var typeDef = pClass.Token;
-		uint nameLen;
-		char[] name = new char[1024];
-		md.GetTypeDefProps(typeDef, name, (uint)name.Length, out nameLen, null, null);
-
-		return new string(name, 0, (int)nameLen);
+		var pModule = pClass.Module;
+		var md = pModule.GetMetaDataInterface().MetaDataImport;
+		var typeDefProps = md.GetTypeDefProps(pClass.Token);
+		return typeDefProps.szTypeDef;
 	}
 
 	private async Task<CorDebugFrame?> GetFrameAtAsync(int frameLevel)
@@ -525,7 +463,7 @@ public class IdentifierResolver
 		return false;
 	}
 
-	private void IncrementIndices(uint[] ind, uint[] dims)
+	private void IncrementIndices(int[] ind, int[] dims)
 	{
 		int i = ind.Length - 1;
 		while (i >= 0)
@@ -538,7 +476,7 @@ public class IdentifierResolver
 		}
 	}
 
-	private string IndicesToStr(uint[] ind, uint[] @base)
+	private string IndicesToStr(int[] ind, int[] @base)
 	{
 		if (ind.Length < 1 || @base.Length != ind.Length)
 			return "";
@@ -558,5 +496,4 @@ public class IdentifierResolver
 	}
 
 	private class AbortWalkException : Exception { }
-	public class IdentifierResolvedToTypeException : Exception { }
 }

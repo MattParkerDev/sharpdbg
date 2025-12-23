@@ -88,7 +88,7 @@ public partial class Evaluation
 		public async Task<CorDebugValue> CreateString(string str)
 		{
 			var eval = _evalData.Thread.CreateEval();
-			return await eval.NewStringAsync(str);
+			return await eval.NewStringAsync(_evalData.ManagedCallback, str, _evalData.ILFrame);
 		}
 	}
 }

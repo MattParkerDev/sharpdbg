@@ -124,4 +124,45 @@ public static class Extensions
 			evalCompleteTcs.SetResult();
 		}
 	}
+
+	public static async Task<CorDebugValue> NewStringAsync(this CorDebugEval eval, CorDebugManagedCallback managedCallback, string str, CorDebugILFrame ilFrame)
+	{
+		CorDebugValue? returnValue = null;
+		var evalCompleteTcs = new TaskCompletionSource();
+		try
+		{
+			eval.NewString(str);
+
+			managedCallback.OnEvalComplete += OnCallbacksOnOnEvalComplete;
+			managedCallback.OnEvalException += CallbacksOnOnEvalException;
+
+			ilFrame.Chain.Thread.Process.Continue(false);
+			await evalCompleteTcs.Task;
+			return returnValue!;
+		}
+		finally
+		{
+			managedCallback.OnEvalComplete -= OnCallbacksOnOnEvalComplete;
+			managedCallback.OnEvalException -= CallbacksOnOnEvalException;
+		}
+		void OnCallbacksOnOnEvalComplete(object? s, EvalCompleteCorDebugManagedCallbackEventArgs e)
+		{
+			if (e.Eval.Raw != eval.Raw) return;
+			returnValue = e.Eval.Result;
+			evalCompleteTcs.SetResult();
+		}
+		void CallbacksOnOnEvalException(object? sender, EvalExceptionCorDebugManagedCallbackEventArgs e)
+		{
+			if (e.Eval.Raw != eval.Raw) return;
+			if (e.Eval.Result is null)
+			{
+				var exception = new ManagedDebugger.EvalException($"EvalException callback error - Result is null");
+				evalCompleteTcs.SetException(exception);
+				return;
+			}
+
+			returnValue = e.Eval.Result;
+			evalCompleteTcs.SetResult();
+		}
+	}
 }

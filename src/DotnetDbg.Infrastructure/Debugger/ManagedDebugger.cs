@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using ClrDebug;
+using DotnetDbg.Infrastructure.Debugger.Eval;
 using ZLinq;
 
 namespace DotnetDbg.Infrastructure.Debugger;
@@ -656,8 +657,16 @@ public partial class ManagedDebugger : IDisposable
     public (string result, string? type, int variablesReference) Evaluate(string expression, int? frameId)
     {
         _logger?.Invoke($"Evaluate: {expression}");
+        if (frameId is null or 0) throw new InvalidOperationException("Frame ID is required for evaluation");
 
-        // Simplified - proper implementation would use ICorDebugEval
+        var variablesReference = _variableManager.GetReference(frameId.Value);
+        ArgumentNullException.ThrowIfNull(variablesReference);
+        if (variablesReference.Value.ReferenceKind is not StoredReferenceKind.Scope) throw new InvalidOperationException("Frame ID does not refer to a stack frame scope");
+        var thread = _process!.Threads.Single(s => s.Id == variablesReference.Value.ThreadId.Value);
+        var ilFrame = GetFrameForThreadIdAndStackDepth(variablesReference.Value.ThreadId, variablesReference.Value.FrameStackDepth);
+        var evalData = new EvalData(thread, variablesReference.Value.FrameStackDepth.Value, _callbacks, ilFrame);
+        var stackMachine = new Evaluation.StackMachine(evalData);
+        var result = stackMachine.Run(expression);
         return ($"Evaluation not yet implemented: {expression}", "string", 0);
     }
 

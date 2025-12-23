@@ -112,4 +112,11 @@ public static class TestHelper
 		debugProtocolHost.SendRequestSync(continueRequest);
 		return debugProtocolHost;
 	}
+
+	public static DebugProtocolHost WithEvaluateRequest(this DebugProtocolHost debugProtocolHost, string expression, out EvaluateResponse evaluateResponse)
+	{
+		var evaluateRequest = new EvaluateRequest { Expression = expression, Context = EvaluateArguments.ContextValue.Repl };
+		evaluateResponse = debugProtocolHost.SendRequestSync(evaluateRequest);
+		return debugProtocolHost;
+	}
 }

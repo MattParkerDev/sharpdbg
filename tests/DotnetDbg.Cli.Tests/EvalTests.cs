@@ -1,0 +1,57 @@
+﻿using AwesomeAssertions;
+using DotnetDbg.Cli.Tests.Helpers;
+using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
+
+namespace DotnetDbg.Cli.Tests;
+
+public class EvalTests(ITestOutputHelper testOutputHelper)
+{
+	[Fact]
+    public async Task DotnetDbgCli_EvaluationRequest_Returns()
+    {
+	    var startSuspended = false;
+
+	    var (debugProtocolHost, initializedEventTcs, stoppedEventTcs, adapter, p2) = TestHelper.GetRunningDebugProtocolHostInProc(testOutputHelper);
+	    using var _ = adapter;
+	    using var __ = new ProcessKiller(p2);
+
+	    await debugProtocolHost
+		    .WithInitializeRequest()
+		    .WithAttachRequest(p2.Id)
+		    .WaitForInitializedEvent(initializedEventTcs);
+	    debugProtocolHost
+		    .WithBreakpointsRequest()
+		    .WithConfigurationDoneRequest()
+		    .WithOptionalResumeRuntime(p2.Id, startSuspended);
+
+	    var stoppedEvent = await debugProtocolHost.WaitForStoppedEvent(stoppedEventTcs);
+	    debugProtocolHost
+		    .WithStackTraceRequest(stoppedEvent.ThreadId!.Value, out var stackTraceResponse)
+		    .WithScopesRequest(stackTraceResponse.StackFrames!.First().Id, out var scopesResponse);
+
+	    scopesResponse.Scopes.Should().HaveCount(1);
+	    var scope = scopesResponse.Scopes.Single();
+
+	    List<Variable> expectedVariables =
+	    [
+		    new() {Name = "this", Value = "{DebuggableConsoleApp.MyClass}", Type = "DebuggableConsoleApp.MyClass", EvaluateName = "this", VariablesReference = 3 },
+		    new() {Name = "myParam", Value = "13", Type = "long", EvaluateName = "myParam" },
+		    new() {Name = "myInt", Value = "4", Type = "int", EvaluateName = "myInt" },
+		    new() {Name = "enumVar", Value = "SecondValue", Type = "DebuggableConsoleApp.MyEnum", EvaluateName = "enumVar", VariablesReference = 4 },
+		    new() {Name = "enumWithFlagsVar", Value = "FlagValue1 | FlagValue3", Type = "DebuggableConsoleApp.MyEnumWithFlags", EvaluateName = "enumWithFlagsVar", VariablesReference = 5 },
+		    new() {Name = "nullableInt", Value = "null", Type = "int?", EvaluateName = "nullableInt" },
+		    new() {Name = "structVar", Value = "{DebuggableConsoleApp.MyStruct}", Type = "DebuggableConsoleApp.MyStruct", EvaluateName = "structVar", VariablesReference = 6 },
+		    new() {Name = "nullableIntWithVal", Value = "4", Type = "int?", EvaluateName = "nullableIntWithVal" },
+		    new() {Name = "nullableRefType", Value = "null", Type = "DebuggableConsoleApp.MyClass", EvaluateName = "nullableRefType" },
+		    new() {Name = "anotherVar", Value = "asdf", Type = "string", EvaluateName = "anotherVar" },
+	    ];
+
+	    debugProtocolHost.WithVariablesRequest(scope.VariablesReference, out var variables);
+
+	    variables.Should().HaveCount(10);
+	    variables.Should().BeEquivalentTo(expectedVariables);
+
+	    debugProtocolHost.WithEvaluateRequest("myInt + 10", out var evaluateResponse);
+	    ;
+    }
+}

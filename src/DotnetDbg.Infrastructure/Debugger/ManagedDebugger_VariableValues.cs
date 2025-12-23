@@ -6,7 +6,7 @@ namespace DotnetDbg.Infrastructure.Debugger;
 
 public partial class ManagedDebugger
 {
-	public (string friendlyTypeName, string value) GetValueForCorDebugValue(CorDebugValue corDebugValue)
+	public static (string friendlyTypeName, string value) GetValueForCorDebugValue(CorDebugValue corDebugValue)
     {
 	    var (friendlyTypeName, value) = corDebugValue switch
 	    {
@@ -33,14 +33,14 @@ public partial class ManagedDebugger
 	    return (typeName, $"{elementName}[{corDebugArrayValue.Count}]");
 	}
 
-	public (string friendlyTypeName, string value) GetCorDebugBoxValue_Value_AsString(CorDebugBoxValue corDebugBoxValue)
+	public static (string friendlyTypeName, string value) GetCorDebugBoxValue_Value_AsString(CorDebugBoxValue corDebugBoxValue)
 	{
 	    var unboxedValue = corDebugBoxValue.Object;
 	    var value = GetValueForCorDebugValue(unboxedValue);
 	    return value;
 	}
 
-    public (string friendlyTypeName, string value) GetCorDebugObjectValue_Value_AsString(CorDebugObjectValue corDebugObjectValue)
+    public static (string friendlyTypeName, string value) GetCorDebugObjectValue_Value_AsString(CorDebugObjectValue corDebugObjectValue)
     {
 	    var module = corDebugObjectValue.Class.Module;
 	    var metaDataImport = module.GetMetaDataInterface().MetaDataImport;
@@ -87,7 +87,7 @@ public partial class ManagedDebugger
 	    return dataAsString;
 	}
 
-    private CorDebugValue? GetUnderlyingValueOrNullFromNullableStruct(CorDebugObjectValue corDebugObjectValue)
+    private static CorDebugValue? GetUnderlyingValueOrNullFromNullableStruct(CorDebugObjectValue corDebugObjectValue)
 	{
 	    var module = corDebugObjectValue.Class.Module;
 	    var metaDataImport = module.GetMetaDataInterface().MetaDataImport;
@@ -101,7 +101,7 @@ public partial class ManagedDebugger
 	    return valueValue;
 	}
 
-    public (string friendlyTypeName, string value) GetCorDebugReferenceValue_Value_AsString(CorDebugReferenceValue corDebugReferenceValue)
+    public static (string friendlyTypeName, string value) GetCorDebugReferenceValue_Value_AsString(CorDebugReferenceValue corDebugReferenceValue)
     {
 	    //if (corDebugReferenceValue.IsNull) return ("TODO", "null");
 	    if (corDebugReferenceValue.IsNull)
@@ -171,7 +171,7 @@ public partial class ManagedDebugger
 		return className;
 	}
 
-    public (string friendlyTypeName, string value) GetCorDebugGenericValue_Value_AsString(CorDebugGenericValue corDebugGenericValue)
+    public static (string friendlyTypeName, string value) GetCorDebugGenericValue_Value_AsString(CorDebugGenericValue corDebugGenericValue)
     {
 	    IntPtr buffer = Marshal.AllocHGlobal(corDebugGenericValue.Size);
 	    try

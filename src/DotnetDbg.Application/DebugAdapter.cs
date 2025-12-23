@@ -361,16 +361,26 @@ public class DebugAdapter : DebugAdapterBase
 	    }
     }
 
-    protected override EvaluateResponse HandleEvaluateRequest(EvaluateArguments arguments)
+    protected override async void HandleEvaluateRequestAsync(IRequestResponder<EvaluateArguments, EvaluateResponse> responder)
     {
-        var (result, type, variablesReference) = _debugger.Evaluate(arguments.Expression, arguments.FrameId);
+	    try
+	    {
+		    var arguments = responder.Arguments;
+		    var (result, type, variablesReference) = await _debugger.Evaluate(arguments.Expression, arguments.FrameId);
 
-        return new EvaluateResponse
-        {
-            Result = result,
-            Type = type,
-            VariablesReference = variablesReference
-        };
+		    var response = new EvaluateResponse
+		    {
+			    Result = result,
+			    Type = type,
+			    VariablesReference = variablesReference
+		    };
+		    responder.SetResponse(response);
+	    }
+	    catch (Exception ex)
+	    {
+		    _logger?.Invoke($"HandleVariablesRequestAsync failed: {ex.Message} , {ex}");
+		    responder.SetError(new ProtocolException($"Failed to get variables: {ex.Message}", ex));
+	    }
     }
 
     protected override ContinueResponse HandleContinueRequest(ContinueArguments arguments)

@@ -654,7 +654,7 @@ public partial class ManagedDebugger : IDisposable
     /// <summary>
     /// Evaluate an expression
     /// </summary>
-    public (string result, string? type, int variablesReference) Evaluate(string expression, int? frameId)
+    public async Task<(string result, string? type, int variablesReference)> Evaluate(string expression, int? frameId)
     {
         _logger?.Invoke($"Evaluate: {expression}");
         if (frameId is null or 0) throw new InvalidOperationException("Frame ID is required for evaluation");
@@ -666,8 +666,9 @@ public partial class ManagedDebugger : IDisposable
         var ilFrame = GetFrameForThreadIdAndStackDepth(variablesReference.Value.ThreadId, variablesReference.Value.FrameStackDepth);
         var evalData = new EvalData(thread, variablesReference.Value.FrameStackDepth.Value, _callbacks, ilFrame);
         var stackMachine = new Evaluation.StackMachine(evalData);
-        var result = stackMachine.Run(expression);
-        return ($"Evaluation not yet implemented: {expression}", "string", 0);
+        var result = await stackMachine.Run(expression);
+        var (friendlyTypeName, value) = GetValueForCorDebugValue(result.Value!);
+        return (value, friendlyTypeName, 0);
     }
 
     /// <summary>

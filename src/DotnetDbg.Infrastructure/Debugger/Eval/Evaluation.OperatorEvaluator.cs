@@ -47,10 +47,10 @@ public partial class Evaluation
 			evalStack.RemoveFirst();
 
 			var realValue2 = await _executor.GetRealValueWithType(value2!);
-			var elemType2 = await realValue2.GetTypeAsync();
+			var elemType2 = realValue2.Type;
 
 			var realValue1 = await _executor.GetRealValueWithType(evalStack.First.Value.CorDebugValue!);
-			var elemType1 = await realValue1.GetTypeAsync();
+			var elemType1 = realValue1.Type;
 
 			if (elemType1 == CorElementType.ValueType || elemType2 == CorElementType.ValueType ||
 				elemType1 == CorElementType.Class || elemType2 == CorElementType.Class)
@@ -91,7 +91,7 @@ public partial class Evaluation
 		{
 			var value = await _executor.GetFrontStackEntryValue(evalStack);
 			var realValue = await _executor.GetRealValueWithType(value!);
-			var elemType = await realValue.GetTypeAsync();
+			var elemType = realValue.Type;
 
 			if (elemType == CorElementType.ValueType || elemType == CorElementType.Class)
 			{
@@ -155,7 +155,7 @@ public partial class Evaluation
 			if (args == null)
 				return null;
 
-			var eval = await _evalData.Thread.CreateEvalAsync();
+			var eval = _evalData.Thread.CreateEval();
 			var evalArgs = new[] { arg1, arg2 };
 			return await eval.CallFunctionAsync(args, evalArgs);
 		}
@@ -171,7 +171,7 @@ public partial class Evaluation
 			if (args == null)
 				return null;
 
-			var eval = await _evalData.Thread.CreateEvalAsync();
+			var eval = _evalData.Thread.CreateEval();
 			return await eval.CallFunctionAsync(args, new[] { baseValue });
 		}
 
@@ -180,16 +180,16 @@ public partial class Evaluation
 			string opName,
 			int paramCount)
 		{
-			var objClass = await objectValue.GetClassAsync();
-			var module = await objClass.GetModuleAsync();
-			var metaDataImport = await module.GetMetaDataImportAsync();
-			var classToken = await objClass.GetTokenAsync();
+			var objClass = objectValue.Class;
+			var module = objClass.Module;
+			var metaDataImport = module.GetMetaDataInterface().MetaDataImport;
+			var classToken = objClass.Token;
 
-			var methods = await metaDataImport.EnumMethodsAsync(classToken);
+			var methods = metaDataImport.EnumMethods(classToken);
 			foreach (var methodToken in methods)
 			{
-				var methodDef = await metaDataImport.GetMethodPropsAsync(methodToken);
-				if (methodDef.szName == opName && IsStatic(methodToken, metaDataImport))
+				var methodDef = metaDataImport.GetMethodProps(methodToken);
+				if (methodDef.szMethod == opName && IsStatic(methodToken, metaDataImport))
 				{
 					var method = await objectValue.GetMethodAsync(methodToken);
 					return method;
@@ -199,7 +199,7 @@ public partial class Evaluation
 			return null;
 		}
 
-		private bool IsStatic(int methodToken, IMetaDataImport metaDataImport)
+		private bool IsStatic(int methodToken, MetaDataImport metaDataImport)
 		{
 			var attr = metaDataImport.GetMethodAttributes(methodToken);
 			return (attr & CorMethodAttributes.Static) != 0;

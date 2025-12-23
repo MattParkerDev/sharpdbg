@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using ClrDebug;
 
 namespace DotnetDbg.Infrastructure.Debugger.Eval;
@@ -115,7 +116,7 @@ public partial class Evaluation
 		public async Task<CorDebugValue> GetRealValueWithType(CorDebugValue value)
 		{
 			var realValue = value.UnwrapDebugValue();
-			var elemType = await realValue.GetTypeAsync();
+			var elemType = realValue.Type;
 
 			if (elemType == CorElementType.String || elemType == CorElementType.Class)
 			{
@@ -139,9 +140,9 @@ public partial class Evaluation
 				throw new ArgumentException("Index must be an integer type");
 			}
 
-			var size = await genValue.GetSizeAsync();
+			var size = genValue.Size;
 			var data = await genValue.GetValueAsync();
-			var elemType = await unwrapped.GetTypeAsync();
+			var elemType = unwrapped.Type;
 
 			return elemType switch
 			{
@@ -160,7 +161,7 @@ public partial class Evaluation
 		public async Task<(CorDebugValue Value, CorElementType Type)> GetOperandDataTypeByValue(CorDebugValue value)
 		{
 			var unwrapped = value.UnwrapDebugValue();
-			var elemType = await unwrapped.GetTypeAsync();
+			var elemType = unwrapped.Type;
 
 			if (elemType == CorElementType.String && value is CorDebugReferenceValue refValue && !refValue.IsNull)
 			{

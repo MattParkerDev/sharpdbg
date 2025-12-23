@@ -151,13 +151,12 @@ public partial class Evaluation
 			if (baseValue is not CorDebugObjectValue objectValue)
 				return null;
 
-			var args = await FindOperatorMethod(objectValue, opName, 2);
-			if (args == null)
-				return null;
+			var corDebugFunction = await FindOperatorMethod(objectValue, opName, 2);
+			if (corDebugFunction == null) return null;
 
 			var eval = _evalData.Thread.CreateEval();
-			var evalArgs = new[] { arg1, arg2 };
-			return await eval.CallFunctionAsync(args, evalArgs);
+			ICorDebugValue[] evalArgs = [arg1.Raw, arg2.Raw];
+			return await eval.CallParameterizedFunctionAsync(_evalData.ManagedCallback, corDebugFunction, 0, null, evalArgs.Length, evalArgs, _evalData.ILFrame);
 		}
 
 		private async Task<CorDebugValue?> CallUnaryOperator(

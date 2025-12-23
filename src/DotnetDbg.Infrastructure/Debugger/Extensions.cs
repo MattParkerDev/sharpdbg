@@ -1,4 +1,4 @@
-﻿using System.Runtime.CompilerServices;
+using System.Runtime.CompilerServices;
 using ClrDebug;
 
 namespace DotnetDbg.Infrastructure.Debugger;
@@ -50,6 +50,47 @@ public static class Extensions
 		{
 			// Ensure that the object passed in corDebugValues is a CorDebugReferenceValue (when containing object is an instance class), ie must not be dereferenced
 			eval.CallParameterizedFunction(corDebugFunction.Raw, typeParamCount, typeParameterArgs, paramCount, corDebugValues);
+
+			managedCallback.OnEvalComplete += OnCallbacksOnOnEvalComplete;
+			managedCallback.OnEvalException += CallbacksOnOnEvalException;
+
+			ilFrame.Chain.Thread.Process.Continue(false);
+			await evalCompleteTcs.Task;
+			return returnValue;
+		}
+		finally
+		{
+			managedCallback.OnEvalComplete -= OnCallbacksOnOnEvalComplete;
+			managedCallback.OnEvalException -= CallbacksOnOnEvalException;
+		}
+		void OnCallbacksOnOnEvalComplete(object? s, EvalCompleteCorDebugManagedCallbackEventArgs e)
+		{
+			if (e.Eval.Raw != eval.Raw) return;
+			returnValue = e.Eval.Result;
+			evalCompleteTcs.SetResult();
+		}
+		void CallbacksOnOnEvalException(object? sender, EvalExceptionCorDebugManagedCallbackEventArgs e)
+		{
+			if (e.Eval.Raw != eval.Raw) return;
+			if (e.Eval.Result is null)
+			{
+				var exception = new ManagedDebugger.EvalException($"EvalException callback error - Result is null");
+				evalCompleteTcs.SetException(exception);
+				return;
+			}
+
+			returnValue = e.Eval.Result;
+			evalCompleteTcs.SetResult();
+		}
+	}
+
+	public static async Task<CorDebugValue?> NewParameterizedObjectNoConstructorAsync(this CorDebugEval eval, CorDebugManagedCallback managedCallback, CorDebugClass pClass, int nTypeArgs, ICorDebugType[]? ppTypeArgs, CorDebugILFrame ilFrame)
+	{
+		CorDebugValue? returnValue = null;
+		var evalCompleteTcs = new TaskCompletionSource();
+		try
+		{
+			eval.NewParameterizedObjectNoConstructor(pClass.Raw, nTypeArgs, ppTypeArgs);
 
 			managedCallback.OnEvalComplete += OnCallbacksOnOnEvalComplete;
 			managedCallback.OnEvalException += CallbacksOnOnEvalException;

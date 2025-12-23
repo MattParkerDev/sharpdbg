@@ -24,7 +24,7 @@ public partial class Evaluation
 				{
 					fixed (byte* p = valueData)
 					{
-						IntPtr ptr = (IntPtr)p;
+						var ptr = (IntPtr)p;
 						genValue.SetValue(ptr);
 					}
 				}
@@ -36,14 +36,21 @@ public partial class Evaluation
 		public async Task<CorDebugValue> CreateBooleanValue(bool value)
 		{
 			var eval = _evalData.Thread.CreateEval();
-			var corValue = await eval.CreateValueAsync(CorElementType.Boolean, null);
+			var corValue = eval.CreateValue(CorElementType.Boolean, null);
 
 			if (value && corValue is CorDebugGenericValue genValue)
 			{
-				var size = await genValue.GetSizeAsync();
+				var size = genValue.Size;
 				var valueData = new byte[size];
 				valueData[0] = 1;
-				await genValue.SetValueAsync(valueData);
+				unsafe
+				{
+					fixed (byte* p = valueData)
+					{
+						var ptr = (IntPtr)p;
+						genValue.SetValue(ptr);
+					}
+				}
 			}
 
 			return corValue;
@@ -52,7 +59,7 @@ public partial class Evaluation
 		public async Task<CorDebugValue> CreateNullValue()
 		{
 			var eval = _evalData.Thread.CreateEval();
-			return await eval.CreateValueAsync(CorElementType.Class, null);
+			return eval.CreateValue(CorElementType.Class, null);
 		}
 
 		public async Task<CorDebugValue> CreateValueType(CorDebugClass valueTypeClass, byte[]? valueData)

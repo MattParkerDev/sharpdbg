@@ -72,7 +72,7 @@ public partial class Evaluation
 
 				if (unwrapped is CorDebugObjectValue objectValue)
 				{
-					var field = await objectValue.GetClassFieldValueAsync(identifier);
+					var field = objectValue.GetClassFieldValue(identifier);
 					if (field != null)
 					{
 						current = field;
@@ -80,11 +80,11 @@ public partial class Evaluation
 						continue;
 					}
 
-					var property = await objectValue.GetPropertyValueAsync(identifier);
+					var property = objectValue.GetPropertyValue(identifier);
 					if (property != null)
 					{
 						current = property;
-						currentSetterData = new SetterData { OwnerValue = current, SetterFunction = await objectValue.GetPropertySetterAsync(identifier) };
+						currentSetterData = new SetterData { OwnerValue = current, SetterFunction = objectValue.GetPropertySetter(identifier) };
 						continue;
 					}
 				}

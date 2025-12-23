@@ -276,10 +276,7 @@ public partial class Evaluation
 			for (int i = 0; i < argCount; i++)
 			{
 				var value = await _executor.GetFrontStackEntryValue(evalStack);
-				CorDebugType? type = null;
-
-				if (value is CorDebugValue2 value2)
-					type = await value2.GetExactTypeAsync();
+				CorDebugType? type = value?.ExactType;
 
 				generics.Insert(0, "," + type?.GetType().Name ?? "");
 				genericTypes.Add(type);
@@ -347,7 +344,7 @@ public partial class Evaluation
 
 			var objValue = await _executor.GetFrontStackEntryValue(evalStack);
 			var realValue = await _executor.GetRealValueWithType(objValue!);
-			var elemType = await realValue.GetTypeAsync();
+			var elemType = realValue.Type;
 
 			if (elemType == CorElementType.SZArray || elemType == CorElementType.Array)
 			{
@@ -523,19 +520,19 @@ public partial class Evaluation
 		private async Task SizeOfExpression(LinkedList<EvalStackEntry> evalStack)
 		{
 			var entry = evalStack.First.Value;
-			uint size = 0;
+			var size = 0;
 
 			if (entry.CorDebugValue != null)
 			{
-				var elemType = await entry.CorDebugValue.GetTypeAsync();
+				var elemType = entry.CorDebugValue.Type;
 				if (elemType == CorElementType.Class)
 				{
 					var unwrapped = entry.CorDebugValue.UnwrapDebugValue();
-					size = await unwrapped.GetSizeAsync();
+					size = unwrapped.Size;
 				}
 				else
 				{
-					size = await entry.CorDebugValue.GetSizeAsync();
+					size = entry.CorDebugValue.Size;
 				}
 			}
 			else
@@ -544,7 +541,7 @@ public partial class Evaluation
 			}
 
 			entry.ResetEntry();
-			entry.CorDebugValue = await _valueCreator.CreatePrimitiveValue(CorElementType.U4, BitConverter.GetBytes(size));
+			entry.CorDebugValue = await _valueCreator.CreatePrimitiveValue(CorElementType.U4, BitConverter.GetBytes((uint)size));
 		}
 
 		private async Task CoalesceExpression(LinkedList<EvalStackEntry> evalStack)
@@ -558,8 +555,8 @@ public partial class Evaluation
 			var leftValue = await _executor.GetFrontStackEntryValue(evalStack);
 			var realLeft = await _executor.GetRealValueWithType(leftValue!);
 
-			var rightType = await realRight.GetTypeAsync();
-			var leftType = await realLeft.GetTypeAsync();
+			var rightType = realRight.Type;
+			var leftType = realLeft.Type;
 
 			if ((rightType == CorElementType.String && leftType == CorElementType.String) ||
 				(rightType == CorElementType.Class && leftType == CorElementType.Class))

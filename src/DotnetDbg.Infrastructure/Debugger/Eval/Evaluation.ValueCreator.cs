@@ -35,7 +35,7 @@ public partial class Evaluation
 
 		public async Task<CorDebugValue> CreateBooleanValue(bool value)
 		{
-			var eval = await _evalData.Thread.CreateEvalAsync();
+			var eval = _evalData.Thread.CreateEval();
 			var corValue = await eval.CreateValueAsync(CorElementType.Boolean, null);
 
 			if (value && corValue is CorDebugGenericValue genValue)
@@ -51,13 +51,13 @@ public partial class Evaluation
 
 		public async Task<CorDebugValue> CreateNullValue()
 		{
-			var eval = await _evalData.Thread.CreateEvalAsync();
+			var eval = _evalData.Thread.CreateEval();
 			return await eval.CreateValueAsync(CorElementType.Class, null);
 		}
 
 		public async Task<CorDebugValue> CreateValueType(CorDebugClass valueTypeClass, byte[]? valueData)
 		{
-			var eval = await _evalData.Thread.CreateEvalAsync();
+			var eval = _evalData.Thread.CreateEval();
 
 			if (eval is CorDebugEval2 eval2)
 			{
@@ -79,7 +79,7 @@ public partial class Evaluation
 
 		public async Task<CorDebugValue> CreateString(string str)
 		{
-			var eval = await _evalData.Thread.CreateEvalAsync();
+			var eval = _evalData.Thread.CreateEval();
 			return await eval.NewStringAsync(str);
 		}
 	}

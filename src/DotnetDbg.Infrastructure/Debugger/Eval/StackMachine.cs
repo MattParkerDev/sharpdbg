@@ -257,7 +257,7 @@ public partial class Evaluation
 		}
 	}
 
-	public static global::DotnetDbg.Infrastructure.Debugger.Eval.Evaluation.StackMachineProgram GenerateStackMachineProgram(string expression)
+	public static StackMachineProgram GenerateStackMachineProgram(string expression)
 	{
 		var parseOptions = CSharpParseOptions.Default.WithKind(SourceCodeKind.Script);
 		var tree = CSharpSyntaxTree.ParseText(expression, parseOptions);
@@ -275,7 +275,7 @@ public partial class Evaluation
 			throw new ArgumentException(string.Join("\n", errors));
 		}
 
-		var treeWalker = new global::DotnetDbg.Infrastructure.Debugger.Eval.Evaluation.TreeWalker();
+		var treeWalker = new TreeWalker();
 		treeWalker.Visit(tree.GetRoot());
 
 		if (treeWalker.ExpressionStatementCount != 1)

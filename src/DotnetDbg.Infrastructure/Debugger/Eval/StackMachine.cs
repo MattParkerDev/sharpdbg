@@ -191,11 +191,6 @@ public partial class Evaluation
 			Flags = flags;
 		}
 
-		public override IntPtr GetStructPtr()
-		{
-			return IntPtr.Zero;
-		}
-
 		public override string ToString()
 		{
 			StringBuilder sb = new StringBuilder();
@@ -215,11 +210,6 @@ public partial class Evaluation
 			Argument = arg;
 		}
 
-		public override IntPtr GetStructPtr()
-		{
-			return IntPtr.Zero;
-		}
-
 		public override string ToString()
 		{
 			StringBuilder sb = new StringBuilder();
@@ -237,11 +227,6 @@ public partial class Evaluation
 			OpCode = KindAlias[kind];
 			Flags = flags;
 			Arguments = args;
-		}
-
-		public override IntPtr GetStructPtr()
-		{
-			return IntPtr.Zero;
 		}
 
 		public override string ToString()

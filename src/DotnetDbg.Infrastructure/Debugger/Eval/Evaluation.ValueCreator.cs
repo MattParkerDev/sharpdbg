@@ -15,12 +15,19 @@ public partial class Evaluation
 
 		public async Task<CorDebugValue> CreatePrimitiveValue(CorElementType type, byte[]? valueData)
 		{
-			var eval = await _evalData.Thread.CreateEvalAsync();
-			var corValue = await eval.CreateValueAsync(type, null);
+			var eval = _evalData.Thread.CreateEval();
+			var corValue = eval.CreateValue(type, null);
 
 			if (valueData != null && corValue is CorDebugGenericValue genValue)
 			{
-				await genValue.SetValueAsync(valueData);
+				unsafe
+				{
+					fixed (byte* p = valueData)
+					{
+						IntPtr ptr = (IntPtr)p;
+						genValue.SetValue(ptr);
+					}
+				}
 			}
 
 			return corValue;

@@ -141,7 +141,7 @@ public partial class Evaluation
 			}
 
 			var size = genValue.Size;
-			var data = await genValue.GetValueAsync();
+			var data = genValue.GetValueAsBytes();
 			var elemType = unwrapped.Type;
 
 			return elemType switch

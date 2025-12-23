@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using ClrDebug;
 
 namespace DotnetDbg.Infrastructure.Debugger;
@@ -27,6 +28,22 @@ public static class CorDebugValueExtensions
 		}
 
 		return valueToCheck;
+	}
+
+	public static byte[] GetValueAsBytes(this CorDebugGenericValue corDebugGenericValue)
+	{
+		IntPtr buffer = Marshal.AllocHGlobal(corDebugGenericValue.Size);
+		try
+		{
+			corDebugGenericValue.GetValue(buffer);
+			var result = new byte[corDebugGenericValue.Size];
+			Marshal.Copy(buffer, result, 0, corDebugGenericValue.Size);
+			return result;
+		}
+		finally
+		{
+			Marshal.FreeHGlobal(buffer);
+		}
 	}
 
 	public static CorDebugValue? GetClassFieldValue(this CorDebugObjectValue objectValue, string fieldName)

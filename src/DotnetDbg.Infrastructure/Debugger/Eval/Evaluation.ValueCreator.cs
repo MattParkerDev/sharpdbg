@@ -65,21 +65,18 @@ public partial class Evaluation
 		public async Task<CorDebugValue> CreateValueType(CorDebugClass valueTypeClass, byte[]? valueData)
 		{
 			var eval = _evalData.Thread.CreateEval();
+			var corValue = eval.NewParameterizedObjectNoConstructor(valueTypeClass.Raw, 0, null);
 
-			if (eval is CorDebugEval2 eval2)
+			if (valueData != null && corValue != null)
 			{
-				var corValue = await eval2.NewParameterizedObjectNoConstructorAsync(valueTypeClass, 0, null);
-
-				if (valueData != null && corValue != null)
+				var unwrapped = corValue.UnwrapDebugValue();
+				if (unwrapped is CorDebugGenericValue genValue)
 				{
-					var unwrapped = corValue.UnwrapDebugValue();
-					if (unwrapped is CorDebugGenericValue genValue)
-					{
-						await genValue.SetValueAsync(valueData);
-					}
-					return corValue;
+					await genValue.SetValueAsync(valueData);
 				}
+				return corValue;
 			}
+
 
 			throw new InvalidOperationException("Failed to create value type");
 		}

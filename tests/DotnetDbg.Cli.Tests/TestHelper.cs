@@ -13,15 +13,15 @@ public class TcsContainer
 
 public static class TestHelper
 {
-	public static (DebugProtocolHost, TaskCompletionSource InitializedEventTcs, TaskCompletionSource<StoppedEvent>, OopOrInProcDebugAdapter DebugAdapterProcess, Process DebuggableProcess) GetRunningDebugProtocolHostOop(ITestOutputHelper testOutputHelper)
+	public static (DebugProtocolHost, TaskCompletionSource InitializedEventTcs, TcsContainer StoppedEventTcs, OopOrInProcDebugAdapter DebugAdapterProcess, Process DebuggableProcess) GetRunningDebugProtocolHostOop(ITestOutputHelper testOutputHelper)
 	{
 	    var startSuspended = false;
 		var process = DebugAdapterProcessHelper.GetDebugAdapterProcess();
 		var debuggableProcess = DebuggableProcessHelper.StartDebuggableProcess(startSuspended);
 		var initializedEventTcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
 		var debugProtocolHost = DebugAdapterProcessHelper.GetDebugProtocolHost(process, testOutputHelper, initializedEventTcs);
-		var stoppedEventTcs = new TaskCompletionSource<StoppedEvent>(TaskCreationOptions.RunContinuationsAsynchronously);
-		debugProtocolHost.RegisterEventType<StoppedEvent>(@event => stoppedEventTcs.TrySetResult(@event));
+		var stoppedEventTcs = new TcsContainer { Tcs = new TaskCompletionSource<StoppedEvent>(TaskCreationOptions.RunContinuationsAsynchronously) };
+		debugProtocolHost.RegisterEventType<StoppedEvent>(@event => stoppedEventTcs.Tcs.TrySetResult(@event));
 		debugProtocolHost.Run();
 		return (debugProtocolHost, initializedEventTcs, stoppedEventTcs, new OopOrInProcDebugAdapter(process), debuggableProcess);
 	}

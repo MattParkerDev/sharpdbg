@@ -42,14 +42,16 @@ public partial class Evaluation
 			OperationType opType,
 			LinkedList<EvalStackEntry> evalStack)
 		{
-			var value2Entry = evalStack.First!;
 			var value2 = await _executor.GetFrontStackEntryValue(evalStack);
 			evalStack.RemoveFirst();
 
 			var realValue2 = await _executor.GetRealValueWithType(value2!);
 			var elemType2 = realValue2.Type;
 
-			var realValue1 = await _executor.GetRealValueWithType(evalStack.First.Value.CorDebugValue!);
+			var value1 = await _executor.GetFrontStackEntryValue(evalStack);
+			evalStack.RemoveFirst();
+
+			var realValue1 = await _executor.GetRealValueWithType(value1);
 			var elemType1 = realValue1.Type;
 
 			if (elemType1 == CorElementType.ValueType || elemType2 == CorElementType.ValueType ||

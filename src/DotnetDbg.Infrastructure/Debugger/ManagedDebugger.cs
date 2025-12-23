@@ -667,6 +667,7 @@ public partial class ManagedDebugger : IDisposable
         var evalData = new EvalData(thread, variablesReference.Value.FrameStackDepth.Value, _callbacks, ilFrame);
         var stackMachine = new Evaluation.StackMachine(evalData);
         var result = await stackMachine.Run(expression);
+        if (result.Error is not null) return (result.Error, null, 0);
         var (friendlyTypeName, value) = GetValueForCorDebugValue(result.Value!);
         return (value, friendlyTypeName, 0);
     }

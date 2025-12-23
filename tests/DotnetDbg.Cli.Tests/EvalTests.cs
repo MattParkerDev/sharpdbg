@@ -51,7 +51,7 @@ public class EvalTests(ITestOutputHelper testOutputHelper)
 	    variables.Should().HaveCount(10);
 	    variables.Should().BeEquivalentTo(expectedVariables);
 
-	    debugProtocolHost.WithEvaluateRequest("myInt + 10", out var evaluateResponse);
+	    debugProtocolHost.WithEvaluateRequest(scope.VariablesReference, "myInt + 10", out var evaluateResponse);
 	    evaluateResponse.Result.Should().Be("14");
 	    ;
     }

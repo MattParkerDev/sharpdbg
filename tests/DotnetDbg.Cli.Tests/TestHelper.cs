@@ -113,9 +113,9 @@ public static class TestHelper
 		return debugProtocolHost;
 	}
 
-	public static DebugProtocolHost WithEvaluateRequest(this DebugProtocolHost debugProtocolHost, string expression, out EvaluateResponse evaluateResponse)
+	public static DebugProtocolHost WithEvaluateRequest(this DebugProtocolHost debugProtocolHost, int frameId, string expression, out EvaluateResponse evaluateResponse)
 	{
-		var evaluateRequest = new EvaluateRequest { Expression = expression, Context = EvaluateArguments.ContextValue.Repl };
+		var evaluateRequest = new EvaluateRequest { Expression = expression, FrameId = frameId, Context = EvaluateArguments.ContextValue.Repl };
 		evaluateResponse = debugProtocolHost.SendRequestSync(evaluateRequest);
 		return debugProtocolHost;
 	}

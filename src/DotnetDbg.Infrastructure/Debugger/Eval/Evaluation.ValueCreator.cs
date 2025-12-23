@@ -70,9 +70,14 @@ public partial class Evaluation
 			if (valueData != null && corValue != null)
 			{
 				var unwrapped = corValue.UnwrapDebugValue();
-				if (unwrapped is CorDebugGenericValue genValue)
+				if (unwrapped is not CorDebugGenericValue genValue) throw new InvalidOperationException("Failed to create value type");
+				unsafe
 				{
-					await genValue.SetValueAsync(valueData);
+					fixed (byte* p = valueData)
+					{
+						var ptr = (IntPtr)p;
+						genValue.SetValue(ptr);
+					}
 				}
 				return corValue;
 			}

@@ -191,7 +191,7 @@ public partial class Evaluation
 				var methodDef = metaDataImport.GetMethodProps(methodToken);
 				if (methodDef.szMethod == opName && methodToken.IsStatic(metaDataImport))
 				{
-					var method = await objectValue.GetMethodAsync(methodToken);
+					var method = module.GetFunctionFromToken(methodToken);
 					return method;
 				}
 			}

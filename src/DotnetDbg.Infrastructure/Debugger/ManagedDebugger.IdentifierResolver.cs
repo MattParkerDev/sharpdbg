@@ -21,7 +21,6 @@ public partial class ManagedDebugger
 	private CorDebugValue ResolveIdentifier(string identifier, CorDebugThread thread, FrameStackDepth stackDepth)
 	{
 		ArgumentException.ThrowIfNullOrWhiteSpace(identifier, nameof(identifier));
-		var frame = thread.ActiveChain.Frames[stackDepth.Value];
 		// Try
 		// 1. Stack variable, e.g. local variable or argument
 		// 2. Field or property of 'this' if available (instance or static)
@@ -46,7 +45,7 @@ public partial class ManagedDebugger
 				return local;
 			}
 		}
-		
+
 		foreach (var arg in frame.Arguments)
 		{
 			if (arg.Name == identifier)

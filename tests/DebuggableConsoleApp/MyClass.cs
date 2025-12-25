@@ -4,7 +4,7 @@ public class MyClass
 {
 	private readonly string _name = "TestName";
 	private static int _counter = 1;
-	public void MyMethod(long myParam)
+	public void MyMethod(long myParam, int myIntParam)
 	{
 		var myInt = 4;
 		var enumVar = MyEnum.SecondValue;

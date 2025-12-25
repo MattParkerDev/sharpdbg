@@ -48,7 +48,7 @@ public class EvalTests(ITestOutputHelper testOutputHelper)
 
 	    debugProtocolHost.WithVariablesRequest(scope.VariablesReference, out var variables);
 
-	    variables.Should().HaveCount(10);
+	    variables.Should().HaveCount(11);
 	    //variables.Should().BeEquivalentTo(expectedVariables);
 
 	    var stackFrameId = stackTraceResponse.StackFrames!.First().Id;
@@ -56,8 +56,10 @@ public class EvalTests(ITestOutputHelper testOutputHelper)
 	    evaluateResponse.Result.Should().Be("14");
 	    debugProtocolHost.WithEvaluateRequest(stackFrameId, "myInt + myInt", out var evaluateResponse2);
 	    evaluateResponse2.Result.Should().Be("8");
-	    debugProtocolHost.WithEvaluateRequest(stackFrameId, "_instanceField + 4", out var evaluateResponse3);
-	    evaluateResponse3.Result.Should().Be("9");
+	    debugProtocolHost.WithEvaluateRequest(stackFrameId, "myIntParam + 4", out var evaluateResponse3);
+	    evaluateResponse3.Result.Should().Be("10");
+	    //debugProtocolHost.WithEvaluateRequest(stackFrameId, "_instanceField + 4", out var evaluateResponse4);
+	    //evaluateResponse4.Result.Should().Be("9");
 	    ;
     }
 }

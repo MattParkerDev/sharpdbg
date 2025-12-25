@@ -46,9 +46,19 @@ public static class CorDebugValueExtensions
 		}
 	}
 
-	public static CorDebugValue? GetClassFieldValue(this CorDebugObjectValue objectValue, string fieldName)
+	public static CorDebugValue? GetClassFieldValue(this CorDebugObjectValue objectValue, CorDebugILFrame ilFrame, string fieldName)
 	{
-		return null;
+		var corDebugClass = objectValue.Class;
+		var module = corDebugClass.Module;
+		var mdTypeDef = corDebugClass.Token;
+		var metadataImport = module.GetMetaDataInterface().MetaDataImport;
+
+		var mdFieldDef = metadataImport.EnumFieldsWithName(mdTypeDef, fieldName).SingleOrDefault();
+		if (mdFieldDef.IsNil) return null;
+		var isStatic = mdFieldDef.IsStatic(metadataImport);
+
+		var fieldCorDebugValue = isStatic ? corDebugClass.GetStaticFieldValue(mdFieldDef, ilFrame.Raw) : objectValue.GetFieldValue(corDebugClass.Raw, mdFieldDef);
+		return fieldCorDebugValue;
 	}
 
 	public static CorDebugValue? GetPropertyValue(this CorDebugObjectValue objectValue, string propertyName)

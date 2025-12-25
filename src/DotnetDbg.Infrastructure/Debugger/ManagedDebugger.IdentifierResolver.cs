@@ -7,7 +7,7 @@ public partial class ManagedDebugger
 	// e.g. localVar, or localVar.Field1.Field2, or ClassName.StaticField.SubField
 	// optionalInputValue may be provided, e.g. in the case of where the value was created in the evaluation and does not exist
 	// as a local in the stack frame.
-	public async Task<CorDebugValue> ResolveIdentifiers(List<string> identifiers, CorDebugThread thread, FrameStackDepth stackDepth, CorDebugValue? optionalInputValue)
+	public async Task<CorDebugValue> ResolveIdentifiers(List<string> identifiers, ThreadId threadId, FrameStackDepth stackDepth, CorDebugValue? optionalInputValue)
 	{
 		if (identifiers.Count is 0)
 		{
@@ -17,28 +17,32 @@ public partial class ManagedDebugger
 		var rootValue = optionalInputValue;
 		if (rootValue is null)
 		{
-			rootValue = ResolveIdentifier(identifiers[0], thread, stackDepth);
+			rootValue = ResolveIdentifier(identifiers[0], threadId, stackDepth);
 			if (rootValue is null) throw new InvalidOperationException("Identifier value is null. Even if the identifier could not be resolved, an exception should have been thrown, returned as the CorDebugValue");
 		}
 		// TODO: resolve other identifiers
 		return rootValue;
 	}
 
-	private CorDebugValue ResolveIdentifier(string identifier, CorDebugThread thread, FrameStackDepth stackDepth)
+	private CorDebugValue ResolveIdentifier(string identifier, ThreadId threadId, FrameStackDepth stackDepth)
 	{
 		ArgumentException.ThrowIfNullOrWhiteSpace(identifier, nameof(identifier));
 		// Try
 		// 1. Stack variable, e.g. local variable or argument
 		// 2. Field or property of 'this' if available (instance or static)
 		// 3. Identifier as static class name
-		var resolvedValue = ResolveIdentifierAsStackVariable(identifier, thread, stackDepth);
+		var resolvedValue = ResolveIdentifierAsStackVariable(identifier, threadId, stackDepth, out var instanceMethodImplicitThisValue);
 		if (resolvedValue is not null) return resolvedValue;
+		if (instanceMethodImplicitThisValue is not null) resolvedValue = ResolveIdentifierAsInstanceMember(identifier, threadId, stackDepth, instanceMethodImplicitThisValue);
+		if (resolvedValue is not null) return resolvedValue;
+
 		throw new InvalidOperationException($"Could not resolve identifier '{identifier}' as a stack variable.");
 	}
 
-	private CorDebugValue? ResolveIdentifierAsStackVariable(string identifier, CorDebugThread thread, FrameStackDepth stackDepth)
+	private CorDebugValue? ResolveIdentifierAsStackVariable(string identifier, ThreadId threadId, FrameStackDepth stackDepth, out CorDebugValue? instanceMethodImplicitThisValue)
 	{
-		var frame = (CorDebugILFrame)thread.ActiveChain.Frames[stackDepth.Value];
+		instanceMethodImplicitThisValue = null;
+		var frame = GetFrameForThreadIdAndStackDepth(threadId, stackDepth);
 		var corDebugFunction = frame.Function;
 		var module = _modules[corDebugFunction.Module.BaseAddress];
 
@@ -85,6 +89,23 @@ public partial class ManagedDebugger
 			}
 		}
 
+		// if we're here, we didn't find it, so lets return the 'this' argument if its a static instance, and we find it
+		if (isStatic is false)
+		{
+			instanceMethodImplicitThisValue = frame.Arguments[0];
+		}
+
 		return null;
+	}
+
+	private CorDebugValue? ResolveIdentifierAsInstanceMember(string identifier, ThreadId threadId, FrameStackDepth stackDepth, CorDebugValue instanceMethodImplicitThisValue)
+	{
+		var unwrappedThisValue = instanceMethodImplicitThisValue.UnwrapDebugValueToObject();
+		var corDebugClass = unwrappedThisValue.Class;
+		var module = corDebugClass.Module;
+		var frame = GetFrameForThreadIdAndStackDepth(threadId, stackDepth);
+		var fieldValue = unwrappedThisValue.GetClassFieldValue(frame, identifier);
+		if (fieldValue is not null) return fieldValue;
+		throw new NotImplementedException();
 	}
 }

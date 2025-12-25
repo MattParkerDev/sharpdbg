@@ -25,7 +25,7 @@ public partial class Evaluation
 
 			var entry = evalStack.First.Value;
 			SetterData? setterData = needSetterData ? entry.SetterData : null;
-			return await _debugger.ResolveIdentifiers(entry.Identifiers, _evalData.Thread, new FrameStackDepth(_evalData.FrameLevel), entry.CorDebugValue);
+			return await _debugger.ResolveIdentifiers(entry.Identifiers, new ThreadId(_evalData.Thread.Id), new FrameStackDepth(_evalData.FrameLevel), entry.CorDebugValue);
 			// return await ResolveIdentifiers(
 			// 	_evalData.Thread,
 			// 	_evalData.FrameLevel,
@@ -50,52 +50,52 @@ public partial class Evaluation
 			);
 		}
 
-		public async Task<CorDebugValue?> ResolveIdentifiers(
-			CorDebugThread thread,
-			int frameLevel,
-			CorDebugValue? baseValue,
-			SetterData? setterData,
-			List<string> identifiers)
-		{
-			if (identifiers.Count == 0)
-				return baseValue;
-
-			var current = baseValue;
-			var currentSetterData = setterData;
-
-			foreach (var identifier in identifiers)
-			{
-				if (current == null)
-				{
-					throw new ArgumentException($"The name '{identifier}' does not exist in the current context");
-				}
-
-				var unwrapped = current.UnwrapDebugValue();
-
-				if (unwrapped is CorDebugObjectValue objectValue)
-				{
-					var field = objectValue.GetClassFieldValue(identifier);
-					if (field != null)
-					{
-						current = field;
-						currentSetterData = new SetterData { OwnerValue = current };
-						continue;
-					}
-
-					var property = objectValue.GetPropertyValue(identifier);
-					if (property != null)
-					{
-						current = property;
-						currentSetterData = new SetterData { OwnerValue = current, SetterFunction = objectValue.GetPropertySetter(identifier) };
-						continue;
-					}
-				}
-
-				throw new ArgumentException($"The name '{identifier}' does not exist in the current context");
-			}
-
-			return current;
-		}
+		// public async Task<CorDebugValue?> ResolveIdentifiers(
+		// 	CorDebugThread thread,
+		// 	int frameLevel,
+		// 	CorDebugValue? baseValue,
+		// 	SetterData? setterData,
+		// 	List<string> identifiers)
+		// {
+		// 	if (identifiers.Count == 0)
+		// 		return baseValue;
+		//
+		// 	var current = baseValue;
+		// 	var currentSetterData = setterData;
+		//
+		// 	foreach (var identifier in identifiers)
+		// 	{
+		// 		if (current == null)
+		// 		{
+		// 			throw new ArgumentException($"The name '{identifier}' does not exist in the current context");
+		// 		}
+		//
+		// 		var unwrapped = current.UnwrapDebugValue();
+		//
+		// 		if (unwrapped is CorDebugObjectValue objectValue)
+		// 		{
+		// 			var field = objectValue.GetClassFieldValue(identifier);
+		// 			if (field != null)
+		// 			{
+		// 				current = field;
+		// 				currentSetterData = new SetterData { OwnerValue = current };
+		// 				continue;
+		// 			}
+		//
+		// 			var property = objectValue.GetPropertyValue(identifier);
+		// 			if (property != null)
+		// 			{
+		// 				current = property;
+		// 				currentSetterData = new SetterData { OwnerValue = current, SetterFunction = objectValue.GetPropertySetter(identifier) };
+		// 				continue;
+		// 			}
+		// 		}
+		//
+		// 		throw new ArgumentException($"The name '{identifier}' does not exist in the current context");
+		// 	}
+		//
+		// 	return current;
+		// }
 
 		public async Task<CorDebugType?> ResolveIdentifiersForType(
 			CorDebugThread thread,

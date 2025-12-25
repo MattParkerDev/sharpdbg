@@ -71,6 +71,8 @@ public class EvalTests(ITestOutputHelper testOutputHelper)
 	    evaluateResponse8.Result.Should().Be("14");
 	    debugProtocolHost.WithEvaluateRequest(stackFrameId, "IntStaticProperty + 4", out var evaluateResponse9);
 	    evaluateResponse9.Result.Should().Be("14");
+	    debugProtocolHost.WithEvaluateRequest(stackFrameId, "ClassProperty.IntField + 4", out var evaluateResponse10);
+	    evaluateResponse10.Result.Should().Be("10");
 	    ;
     }
 }

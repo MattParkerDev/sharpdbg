@@ -41,6 +41,8 @@ public class MyClass
 public class MyClass2
 {
 	public string MyProperty { get; set; } = "Hello";
+	public int IntField = 6;
+	public int IntProperty { get; set; } = 6;
 }
 
 public enum MyEnum

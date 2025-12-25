@@ -42,6 +42,23 @@ public static class Extensions
 		return false;
 	}
 
+	public static mdProperty? GetPropertyWithName(this MetaDataImport metaDataImport, mdTypeDef mdTypeDef, string propertyName)
+	{
+		var properties = metaDataImport.EnumProperties(mdTypeDef);
+
+		foreach (var property in properties)
+		{
+			if (property.IsNil) continue;
+			var propertyProps = metaDataImport.GetPropertyProps(property);
+			if (propertyProps.szProperty == propertyName)
+			{
+				return property;
+			}
+		}
+
+		return null;
+	}
+
 	public static async Task<CorDebugValue?> CallParameterizedFunctionAsync(this CorDebugEval eval, CorDebugManagedCallback managedCallback, CorDebugFunction corDebugFunction, int typeParamCount, ICorDebugType[]? typeParameterArgs, int paramCount, ICorDebugValue[] corDebugValues, CorDebugILFrame ilFrame)
 	{
 		CorDebugValue? returnValue = null;

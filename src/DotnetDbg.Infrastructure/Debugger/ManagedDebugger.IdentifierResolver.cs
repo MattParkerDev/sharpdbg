@@ -17,14 +17,14 @@ public partial class ManagedDebugger
 		var rootValue = optionalInputValue;
 		if (rootValue is null)
 		{
-			rootValue = ResolveIdentifier(identifiers[0], threadId, stackDepth);
+			rootValue = await ResolveIdentifier(identifiers[0], threadId, stackDepth);
 			if (rootValue is null) throw new InvalidOperationException("Identifier value is null. Even if the identifier could not be resolved, an exception should have been thrown, returned as the CorDebugValue");
 		}
 		// TODO: resolve other identifiers
 		return rootValue;
 	}
 
-	private CorDebugValue ResolveIdentifier(string identifier, ThreadId threadId, FrameStackDepth stackDepth)
+	private async Task<CorDebugValue> ResolveIdentifier(string identifier, ThreadId threadId, FrameStackDepth stackDepth)
 	{
 		ArgumentException.ThrowIfNullOrWhiteSpace(identifier, nameof(identifier));
 		// Try
@@ -33,7 +33,7 @@ public partial class ManagedDebugger
 		// 3. Identifier as static class name
 		var resolvedValue = ResolveIdentifierAsStackVariable(identifier, threadId, stackDepth, out var instanceMethodImplicitThisValue);
 		if (resolvedValue is not null) return resolvedValue;
-		if (instanceMethodImplicitThisValue is not null) resolvedValue = ResolveIdentifierAsMember(identifier, threadId, stackDepth, instanceMethodImplicitThisValue);
+		if (instanceMethodImplicitThisValue is not null) resolvedValue = await ResolveIdentifierAsMember(identifier, threadId, stackDepth, instanceMethodImplicitThisValue);
 		if (resolvedValue is not null) return resolvedValue;
 
 		throw new InvalidOperationException($"Could not resolve identifier '{identifier}' as a stack variable.");
@@ -98,12 +98,15 @@ public partial class ManagedDebugger
 		return null;
 	}
 
-	private CorDebugValue? ResolveIdentifierAsMember(string identifier, ThreadId threadId, FrameStackDepth stackDepth, CorDebugValue instanceMethodImplicitThisValue)
+	private async Task<CorDebugValue?> ResolveIdentifierAsMember(string identifier, ThreadId threadId, FrameStackDepth stackDepth, CorDebugValue instanceMethodImplicitThisValue)
 	{
 		var unwrappedThisValue = instanceMethodImplicitThisValue.UnwrapDebugValueToObject();
 		var frame = GetFrameForThreadIdAndStackDepth(threadId, stackDepth);
 		var fieldValue = unwrappedThisValue.GetClassFieldValue(frame, identifier);
 		if (fieldValue is not null) return fieldValue;
-		throw new NotImplementedException();
+
+		var propertyValue = await unwrappedThisValue.GetPropertyValue(frame, _callbacks, identifier);
+		if (propertyValue is not null) return propertyValue;
+		return null;
 	}
 }

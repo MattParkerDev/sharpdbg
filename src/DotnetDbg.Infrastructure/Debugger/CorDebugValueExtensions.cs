@@ -61,9 +61,41 @@ public static class CorDebugValueExtensions
 		return fieldCorDebugValue;
 	}
 
-	public static CorDebugValue? GetPropertyValue(this CorDebugObjectValue objectValue, string propertyName)
+	public static async Task<CorDebugValue?> GetPropertyValue(this CorDebugObjectValue objectValue, CorDebugILFrame ilFrame, CorDebugManagedCallback callback, string propertyName)
 	{
-		return null;
+		var corDebugClass = objectValue.Class;
+		var metadataImport = corDebugClass.Module.GetMetaDataInterface().MetaDataImport;
+		var mdProperty = metadataImport.GetPropertyWithName(corDebugClass.Token, propertyName);
+		if (mdProperty is null || mdProperty.Value.IsNil) return null;
+
+		var propertyProps = metadataImport.GetPropertyProps(mdProperty.Value);
+		// Get the get method for the property
+		var getMethodDef = propertyProps.pmdGetter;
+		if (getMethodDef == mdMethodDef.Nil) return null; // No get method
+
+		// Get method attributes to check if it's static
+		var getterMethodProps = metadataImport.GetMethodProps(getMethodDef);
+		var getterAttr = getterMethodProps.pdwAttr;
+
+		bool isStatic = (getterAttr & CorMethodAttr.mdStatic) != 0;
+
+		var getMethod = corDebugClass.Module.GetFunctionFromToken(getMethodDef);
+		var eval = ilFrame.Chain.Thread.CreateEval();
+
+		// May not be correct, will need further testing
+		var parameterizedContainingType = corDebugClass.GetParameterizedType(
+			isStatic ? CorElementType.Class : (objectValue?.Type ?? CorElementType.Class),
+			0,
+			[]);
+
+		var typeParameterTypes = parameterizedContainingType.TypeParameters;
+		var typeParameterArgs = typeParameterTypes.Select(t => t.Raw).ToArray();
+
+		// For instance properties, pass the object; for static, pass nothing
+		ICorDebugValue[] corDebugValues = isStatic ? [] : [objectValue!.Raw];
+
+		var returnValue = await eval.CallParameterizedFunctionAsync(callback, getMethod, typeParameterTypes.Length, typeParameterArgs, corDebugValues.Length, corDebugValues, ilFrame);
+		return returnValue;
 	}
 
 	public static CorDebugFunction? GetPropertySetter(this CorDebugObjectValue objectValue, string propertyName)

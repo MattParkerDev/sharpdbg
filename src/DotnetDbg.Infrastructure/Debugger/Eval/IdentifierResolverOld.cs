@@ -2,11 +2,13 @@ using ClrDebug;
 
 namespace DotnetDbg.Infrastructure.Debugger.Eval;
 
-public class IdentifierResolver
+public class IdentifierResolverOld
 {
+	// TODO: Complete rewrite of this by hand, its not that hard.
+	// Get opencode to make a list in pseudocode of how the existing Resolve Identifiers works in netcoredbg
 	private readonly EvalData _evalData;
 
-	public IdentifierResolver(EvalData evalData)
+	public IdentifierResolverOld(EvalData evalData)
 	{
 		_evalData = evalData;
 	}
@@ -109,7 +111,7 @@ public class IdentifierResolver
 		}
 		else
 		{
-			var pType = await FindTypeAsync(identifiers, ref nextIdentifier);
+			var pType = FindTypeAsync(identifiers, ref nextIdentifier);
 			pResolvedValue = await CreateTypeObjectStaticConstructorAsync(pType);
 
 			if (nextIdentifier == identifiers.Count)
@@ -185,12 +187,11 @@ public class IdentifierResolver
 
 		if (pValue is CorDebugArrayValue pArrayValue)
 		{
-			var nRank = pArrayValue.GetRank();
+			var nRank = pArrayValue.Rank;
 			var cElements = pArrayValue.Count;
-			var baseIndicies = new int[nRank];
+			var baseIndicies = pArrayValue.GetBaseIndicies(nRank);
 			var ind = new int[nRank];
-			var dims = new int[nRank];
-			pArrayValue.GetDimensions(nRank, dims);
+			var dims = pArrayValue.GetDimensions(nRank);
 
 			for (int i = 0; i < cElements; i++)
 			{
@@ -270,15 +271,15 @@ public class IdentifierResolver
 			var fieldName = fieldProps.szField;
 			if (!IsSynthesizedLocalName(fieldName))
 			{
-				bool isStatic = (fieldProps.dwAttr & CorFieldAttr.fdStatic) != 0;
+				bool isStatic = (fieldProps.pdwAttr & CorFieldAttr.fdStatic) != 0;
 
 				await callback(fieldDef, fieldName, isStatic, async () =>
 				{
-					if ((fieldProps.dwAttr & CorFieldAttr.fdLiteral) != 0)
+					if ((fieldProps.pdwAttr & CorFieldAttr.fdLiteral) != 0)
 						throw new NotImplementedException("Literal values not implemented");
 
 					if (isStatic)
-						return pType.GetStaticFieldValue(fieldDef, _evalData.ILFrame);
+						return pType.GetStaticFieldValue(fieldDef, _evalData.ILFrame.Raw);
 
 					return pObjectValue.GetFieldValue(pClass.Raw, fieldDef);
 				});
@@ -306,15 +307,15 @@ public class IdentifierResolver
 			var propertyProps = md.GetPropertyProps(propertyDef);
 			var propertyName = propertyProps.szProperty;
 
-			if (propertyProps.mdGetter.IsNil)
+			if (propertyProps.pmdGetter.IsNil)
 				continue;
 
-			var getterProps = md.GetMethodProps(propertyProps.mdGetter);
-			bool isStatic = (getterProps.dwAttr & CorMethodAttr.mdStatic) != 0;
+			var getterProps = md.GetMethodProps(propertyProps.pmdGetter);
+			bool isStatic = (getterProps.pdwAttr & CorMethodAttr.mdStatic) != 0;
 
 			await callback(propertyDef, propertyName, isStatic, async () =>
 			{
-				var getterFunc = pModule.GetFunctionFromToken(propertyProps.mdGetter);
+				var getterFunc = pModule.GetFunctionFromToken(propertyProps.pmdGetter);
 				var eval = _evalData.Thread.CreateEval();
 
 				if (isStatic)
@@ -335,21 +336,19 @@ public class IdentifierResolver
 		if (pILFrame == null)
 			return;
 
-		var pLocalsEnum = pILFrame.EnumerateLocalVariables();
-		var cLocals = pLocalsEnum.GetCount();
+		var pLocals = pILFrame.LocalVariables;
 
-		var pArgumentsEnum = pILFrame.EnumerateArguments();
-		var cArguments = pArgumentsEnum.GetCount();
+		var pArguments = pILFrame.Arguments;
 
-		for (uint i = 0; i < cLocals; i++)
+		for (var i = 0; i < pLocals.Length; i++)
 		{
-			var pLocal = await pILFrame.GetLocalVariableAsync(i);
+			var pLocal = pILFrame.GetLocalVariable(i);
 			await callback($"local{i}", async () => pLocal);
 		}
 
-		for (uint i = 0; i < cArguments; i++)
+		for (var i = 0; i < pArguments.Length; i++)
 		{
-			var pArg = await pILFrame.GetArgumentAsync(i);
+			var pArg = pILFrame.GetArgument(i);
 			await callback($"arg{i}", async () => pArg);
 		}
 	}
@@ -368,7 +367,7 @@ public class IdentifierResolver
 		return null;
 	}
 
-	private async Task<CorDebugType> FindTypeAsync(List<string> identifiers, ref int nextIdentifier)
+	private CorDebugType FindTypeAsync(List<string> identifiers, ref int nextIdentifier)
 	{
 		throw new NotImplementedException("Type lookup not implemented");
 	}

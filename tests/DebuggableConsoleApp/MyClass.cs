@@ -23,7 +23,7 @@ public class MyClass
 	//private MyClass2 get_ClassProperty() => ClassProperty;
 	private MyClass2 ClassProperty { get; set; } = new MyClass2();
 	private MyClass2 ClassProperty2 { get; set; } = new MyClass2();
-	private static int InyStaticProperty { get; set; } = 10;
+	private static int IntStaticProperty { get; set; } = 10;
 	private static MyClass2 StaticClassProperty { get; set; } = new MyClass2();
 	//private static MyClass2 get_StaticClassProperty() => StaticClassProperty;
 	private static MyClass2 _staticClassField = new MyClass2();
@@ -35,6 +35,7 @@ public class MyClass
 	private static DateTime? _nullableUtcNow = DateTime.UtcNow;
 	private int _instanceField = 5;
 	private static int _instanceStaticField = 6;
+	private int IntProperty { get; set; } = 10;
 }
 
 public class MyClass2

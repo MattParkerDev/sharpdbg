@@ -49,9 +49,10 @@ public partial class Evaluation
 			var elemType2 = realValue2.Type;
 
 			var value1 = await _executor.GetFrontStackEntryValue(evalStack);
-			evalStack.RemoveFirst();
+			// reset the first entry to hold the result
+			evalStack.First!.ValueRef = new EvalStackEntry();
 
-			var realValue1 = await _executor.GetRealValueWithType(value1);
+			var realValue1 = await _executor.GetRealValueWithType(value1!);
 			var elemType1 = realValue1.Type;
 
 			if (elemType1 == CorElementType.ValueType || elemType2 == CorElementType.ValueType ||

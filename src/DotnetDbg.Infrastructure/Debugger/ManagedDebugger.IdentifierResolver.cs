@@ -46,13 +46,39 @@ public partial class ManagedDebugger
 			}
 		}
 
-		foreach (var arg in frame.Arguments)
+		var metadataImport = module.Module.GetMetaDataInterface().MetaDataImport;
+		var methodProps = metadataImport!.GetMethodProps(corDebugFunction.Token);
+		var isStatic = (methodProps.pdwAttr & CorMethodAttr.mdStatic) != 0;
+
+		// Instance methods: Arguments[0] == "this"
+		if (!isStatic)
 		{
-			if (arg.Name == identifier)
+			if (identifier == "this")
 			{
-				return arg;
+				return frame.Arguments[0];
 			}
 		}
+
+		var skipCount = isStatic ? 0 : 1;
+
+		foreach (var (index, argumentValue) in frame.Arguments.Skip(skipCount).Index())
+		{
+			// Metadata parameter index:
+			// - Metadata index starts at 1
+			// - Does NOT include 'this'
+	        var metadataIndex = isStatic ?  index + 1 : index;
+	        // index 0 is the return value, so we add 1 to get to the arguments
+			var paramDef = metadataImport.GetParamForMethodIndex(corDebugFunction.Token, metadataIndex + 1);
+			var paramProps = metadataImport.GetParamProps(paramDef);
+			var argumentName = paramProps.szName;
+			if (argumentName is null) continue;
+
+			if (argumentName == identifier)
+			{
+				return argumentValue;
+			}
+		}
+
 		return null;
 	}
 }

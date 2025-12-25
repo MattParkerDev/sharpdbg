@@ -13,9 +13,8 @@ public partial class ManagedDebugger
 		var rootValue = optionalInputValue;
 		if (rootValue is null)
 		{
-			// Try to resolve the root identifier from the current stack frame
-			var frame = thread.ActiveChain.Frames[stackDepth.Value];
-			var localVarName = identifiers[0];
+			rootValue = ResolveIdentifier(identifiers[0], thread, stackDepth);
+			if (rootValue is null) throw new InvalidOperationException("Identifier value is null. Even if the identifier could not be resolved, an exception should have been thrown, returned as the CorDebugValue");
 		}
 	}
 

@@ -62,8 +62,13 @@ public class EvalTests(ITestOutputHelper testOutputHelper)
 	    evaluateResponse4.Result.Should().Be("9");
 	    debugProtocolHost.WithEvaluateRequest(stackFrameId, "_instanceStaticField + 4", out var evaluateResponse5);
 	    evaluateResponse5.Result.Should().Be("10");
-	    debugProtocolHost.WithEvaluateRequest(stackFrameId, "IntProperty + 4", out var evaluateResponse6);
-	    evaluateResponse6.Result.Should().Be("14");
+	    // netcoredbg currently does not support assignment via eval, and thus dotnetdbg also does not support it yet
+	    // debugProtocolHost.WithEvaluateRequest(stackFrameId, "_instanceStaticField = _instanceStaticField + 4", out var evaluateResponse6);
+	    // evaluateResponse6.Result.Should().Be("10");
+	    // debugProtocolHost.WithEvaluateRequest(stackFrameId, "_instanceStaticField", out var evaluateResponse7);
+	    // evaluateResponse7.Result.Should().Be("10");
+	    debugProtocolHost.WithEvaluateRequest(stackFrameId, "IntProperty + 4", out var evaluateResponse8);
+	    evaluateResponse8.Result.Should().Be("14");
 	    ;
     }
 }

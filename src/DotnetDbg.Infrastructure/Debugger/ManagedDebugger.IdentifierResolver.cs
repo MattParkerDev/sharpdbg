@@ -101,8 +101,6 @@ public partial class ManagedDebugger
 	private CorDebugValue? ResolveIdentifierAsInstanceMember(string identifier, ThreadId threadId, FrameStackDepth stackDepth, CorDebugValue instanceMethodImplicitThisValue)
 	{
 		var unwrappedThisValue = instanceMethodImplicitThisValue.UnwrapDebugValueToObject();
-		var corDebugClass = unwrappedThisValue.Class;
-		var module = corDebugClass.Module;
 		var frame = GetFrameForThreadIdAndStackDepth(threadId, stackDepth);
 		var fieldValue = unwrappedThisValue.GetClassFieldValue(frame, identifier);
 		if (fieldValue is not null) return fieldValue;

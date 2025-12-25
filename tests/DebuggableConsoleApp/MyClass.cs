@@ -33,6 +33,7 @@ public class MyClass
 	private static Dictionary<MyClass2, MyClass> _fieldDictionary = [];
 	private static DateTime _utcNow = DateTime.UtcNow;
 	private static DateTime? _nullableUtcNow = DateTime.UtcNow;
+	private int _instanceField = 5;
 }
 
 public class MyClass2

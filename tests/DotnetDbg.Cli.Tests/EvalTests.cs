@@ -56,7 +56,8 @@ public class EvalTests(ITestOutputHelper testOutputHelper)
 	    evaluateResponse.Result.Should().Be("14");
 	    debugProtocolHost.WithEvaluateRequest(stackFrameId, "myInt + myInt", out var evaluateResponse2);
 	    evaluateResponse2.Result.Should().Be("8");
-
+	    debugProtocolHost.WithEvaluateRequest(stackFrameId, "_instanceField + 4", out var evaluateResponse3);
+	    evaluateResponse3.Result.Should().Be("9");
 	    ;
     }
 }

@@ -105,7 +105,7 @@ public partial class ManagedDebugger
 		var fieldValue = unwrappedThisValue.GetClassFieldValue(frame, identifier);
 		if (fieldValue is not null) return fieldValue;
 
-		var propertyValue = await unwrappedThisValue.GetPropertyValue(frame, _callbacks, identifier);
+		var propertyValue = await instanceMethodImplicitThisValue.GetPropertyValue(frame, _callbacks, identifier);
 		if (propertyValue is not null) return propertyValue;
 		return null;
 	}

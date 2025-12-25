@@ -54,6 +54,9 @@ public class EvalTests(ITestOutputHelper testOutputHelper)
 	    var stackFrameId = stackTraceResponse.StackFrames!.First().Id;
 	    debugProtocolHost.WithEvaluateRequest(stackFrameId, "myInt + 10", out var evaluateResponse);
 	    evaluateResponse.Result.Should().Be("14");
+	    debugProtocolHost.WithEvaluateRequest(stackFrameId, "myInt + myInt", out var evaluateResponse2);
+	    evaluateResponse2.Result.Should().Be("8");
+
 	    ;
     }
 }

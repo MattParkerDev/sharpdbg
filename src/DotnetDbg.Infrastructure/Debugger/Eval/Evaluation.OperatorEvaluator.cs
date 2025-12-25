@@ -266,6 +266,33 @@ public partial class Evaluation
 				return BitConverter.GetBytes(result);
 			}
 
+			if (type1 == CorElementType.I4 || type2 == CorElementType.I4)
+			{
+				var i1 = BitConverter.ToInt32(data1, 0);
+				var i2 = BitConverter.ToInt32(data2, 0);
+				var result32 = opType switch
+				{
+					OperationType.AddExpression => i1 + i2,
+					OperationType.SubtractExpression => i1 - i2,
+					OperationType.MultiplyExpression => i1 * i2,
+					OperationType.DivideExpression => i1 / i2,
+					OperationType.ModuloExpression => i1 % i2,
+					OperationType.LeftShiftExpression => i1 << i2,
+					OperationType.RightShiftExpression => i1 >> i2,
+					OperationType.BitwiseAndExpression => i1 & i2,
+					OperationType.BitwiseOrExpression => i1 | i2,
+					OperationType.ExclusiveOrExpression => i1 ^ i2,
+					OperationType.EqualsExpression => i1 == i2 ? 1 : 0,
+					OperationType.NotEqualsExpression => i1 != i2 ? 1 : 0,
+					OperationType.LessThanExpression => i1 < i2 ? 1 : 0,
+					OperationType.GreaterThanExpression => i1 > i2 ? 1 : 0,
+					OperationType.LessThanOrEqualExpression => i1 <= i2 ? 1 : 0,
+					OperationType.GreaterThanOrEqualExpression => i1 >= i2 ? 1 : 0,
+					_ => throw new ArgumentException($"Unsupported operation: {opType}")
+				};
+				return BitConverter.GetBytes(result32);
+			}
+
 			var l1 = BitConverter.ToInt64(data1, 0);
 			var l2 = BitConverter.ToInt64(data2, 0);
 			var result64 = opType switch

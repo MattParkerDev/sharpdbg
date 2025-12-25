@@ -76,6 +76,7 @@ public class EvalTests(ITestOutputHelper testOutputHelper)
 	    // TODO: implment method calls
 	    // debugProtocolHost.WithEvaluateRequest(stackFrameId, "this.Get14() + 4", out var evaluateResponse11);
 	    // evaluateResponse11.Result.Should().Be("18");
+	    // TODO: Static class name as first identifier
 	    ;
     }
 }

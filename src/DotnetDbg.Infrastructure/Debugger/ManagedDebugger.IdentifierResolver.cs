@@ -16,6 +16,8 @@ public partial class ManagedDebugger
 			rootValue = ResolveIdentifier(identifiers[0], thread, stackDepth);
 			if (rootValue is null) throw new InvalidOperationException("Identifier value is null. Even if the identifier could not be resolved, an exception should have been thrown, returned as the CorDebugValue");
 		}
+		// TODO: resolve other identifiers
+		return rootValue;
 	}
 
 	private CorDebugValue ResolveIdentifier(string identifier, CorDebugThread thread, FrameStackDepth stackDepth)
@@ -27,7 +29,7 @@ public partial class ManagedDebugger
 		// 3. Identifier as static class name
 		var resolvedValue = ResolveIdentifierAsStackVariable(identifier, thread, stackDepth);
 		if (resolvedValue is not null) return resolvedValue;
-
+		throw new InvalidOperationException($"Could not resolve identifier '{identifier}' as a stack variable.");
 	}
 
 	private CorDebugValue? ResolveIdentifierAsStackVariable(string identifier, CorDebugThread thread, FrameStackDepth stackDepth)

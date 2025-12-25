@@ -89,7 +89,7 @@ public partial class ManagedDebugger
 			}
 		}
 
-		// if we're here, we didn't find it, so lets return the 'this' argument if its a static instance, and we find it
+		// if we're here, we didn't find it, so lets return the 'this' argument if it's a static instance, and we find it
 		if (isStatic is false)
 		{
 			instanceMethodImplicitThisValue = frame.Arguments[0];

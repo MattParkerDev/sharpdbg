@@ -20,7 +20,12 @@ public partial class ManagedDebugger
 			rootValue = await ResolveIdentifier(identifiers[0], threadId, stackDepth);
 			if (rootValue is null) throw new InvalidOperationException("Identifier value is null. Even if the identifier could not be resolved, an exception should have been thrown, returned as the CorDebugValue");
 		}
-		// TODO: resolve other identifiers
+
+		foreach (var identifier in identifiers.Skip(1))
+		{
+			rootValue = await ResolveIdentifierAsMember(identifier, threadId, stackDepth, rootValue!);
+		}
+		if (rootValue is null) throw new InvalidOperationException("Final resolved identifier value is null. Even if the identifier could not be resolved, an exception should have been thrown, returned as the CorDebugValue");
 		return rootValue;
 	}
 

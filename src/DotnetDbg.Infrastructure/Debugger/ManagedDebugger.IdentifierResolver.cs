@@ -33,7 +33,7 @@ public partial class ManagedDebugger
 		// 3. Identifier as static class name
 		var resolvedValue = ResolveIdentifierAsStackVariable(identifier, threadId, stackDepth, out var instanceMethodImplicitThisValue);
 		if (resolvedValue is not null) return resolvedValue;
-		if (instanceMethodImplicitThisValue is not null) resolvedValue = ResolveIdentifierAsInstanceMember(identifier, threadId, stackDepth, instanceMethodImplicitThisValue);
+		if (instanceMethodImplicitThisValue is not null) resolvedValue = ResolveIdentifierAsMember(identifier, threadId, stackDepth, instanceMethodImplicitThisValue);
 		if (resolvedValue is not null) return resolvedValue;
 
 		throw new InvalidOperationException($"Could not resolve identifier '{identifier}' as a stack variable.");
@@ -98,7 +98,7 @@ public partial class ManagedDebugger
 		return null;
 	}
 
-	private CorDebugValue? ResolveIdentifierAsInstanceMember(string identifier, ThreadId threadId, FrameStackDepth stackDepth, CorDebugValue instanceMethodImplicitThisValue)
+	private CorDebugValue? ResolveIdentifierAsMember(string identifier, ThreadId threadId, FrameStackDepth stackDepth, CorDebugValue instanceMethodImplicitThisValue)
 	{
 		var unwrappedThisValue = instanceMethodImplicitThisValue.UnwrapDebugValueToObject();
 		var frame = GetFrameForThreadIdAndStackDepth(threadId, stackDepth);

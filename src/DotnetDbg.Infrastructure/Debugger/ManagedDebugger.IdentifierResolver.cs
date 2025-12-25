@@ -7,7 +7,7 @@ public partial class ManagedDebugger
 	// e.g. localVar, or localVar.Field1.Field2, or ClassName.StaticField.SubField
 	// optionalInputValue may be provided, e.g. in the case of where the value was created in the evaluation and does not exist
 	// as a local in the stack frame.
-	private static CorDebugValue ResolveIdentifiers(List<string> identifiers, CorDebugThread thread, FrameStackDepth stackDepth, CorDebugValue? optionalInputValue)
+	private CorDebugValue ResolveIdentifiers(List<string> identifiers, CorDebugThread thread, FrameStackDepth stackDepth, CorDebugValue? optionalInputValue)
 	{
 		if (identifiers.Count is 0) throw new ArgumentException("Identifiers list cannot be empty", nameof(identifiers));
 		var rootValue = optionalInputValue;
@@ -18,7 +18,7 @@ public partial class ManagedDebugger
 		}
 	}
 
-	private static CorDebugValue ResolveIdentifier(string identifier, CorDebugThread thread, FrameStackDepth stackDepth)
+	private CorDebugValue ResolveIdentifier(string identifier, CorDebugThread thread, FrameStackDepth stackDepth)
 	{
 		ArgumentException.ThrowIfNullOrWhiteSpace(identifier, nameof(identifier));
 		var frame = thread.ActiveChain.Frames[stackDepth.Value];
@@ -26,26 +26,34 @@ public partial class ManagedDebugger
 		// 1. Stack variable, e.g. local variable or argument
 		// 2. Field or property of 'this' if available (instance or static)
 		// 3. Identifier as static class name
+		var resolvedValue = ResolveIdentifierAsStackVariable(identifier, thread, stackDepth);
+		if (resolvedValue is not null) return resolvedValue;
+
 	}
 
-	private static CorDebugValue? ResolveStaticFieldChain(CorDebugType type, List<string> fieldChain)
+	private CorDebugValue? ResolveIdentifierAsStackVariable(string identifier, CorDebugThread thread, FrameStackDepth stackDepth)
 	{
-		CorDebugType currentType = type;
-		CorDebugValue? currentValue = null;
+		var frame = (CorDebugILFrame)thread.ActiveChain.Frames[stackDepth.Value];
+		var corDebugFunction = frame.Function;
+		var module = _modules[corDebugFunction.Module.BaseAddress];
 
-		foreach (var fieldName in fieldChain)
+		foreach (var (index, local) in frame.LocalVariables.Index())
 		{
-			var field = currentType.GetFieldByName(fieldName);
-			if (field is null)
-				return null; // Field not found
-
-			currentValue = field.GetStaticValue();
-			if (currentValue is null)
-				return null; // Unable to get static value
-
-			currentType = currentValue.GetType();
+			var localVariableName = module.SymbolReader?.GetLocalVariableName(corDebugFunction.Token, index);
+			if (localVariableName is null) continue; // Compiler generated locals will not be found. E.g. DefaultInterpolatedStringHandler
+			if (localVariableName == identifier)
+			{
+				return local;
+			}
 		}
-
-		return currentValue;
+		
+		foreach (var arg in frame.Arguments)
+		{
+			if (arg.Name == identifier)
+			{
+				return arg;
+			}
+		}
+		return null;
 	}
 }

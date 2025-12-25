@@ -34,6 +34,7 @@ public class MyClass
 	private static DateTime _utcNow = DateTime.UtcNow;
 	private static DateTime? _nullableUtcNow = DateTime.UtcNow;
 	private int _instanceField = 5;
+	private static int _instanceStaticField = 6;
 }
 
 public class MyClass2

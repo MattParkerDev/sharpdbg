@@ -8,11 +8,13 @@ public partial class Evaluation
 	public class ExpressionExecutor
 	{
 		private readonly EvalData _evalData;
+		private readonly ManagedDebugger _debugger;
 		private readonly ValueCreator _valueCreator;
 
-		public ExpressionExecutor(EvalData evalData)
+		public ExpressionExecutor(EvalData evalData, ManagedDebugger debugger)
 		{
 			_evalData = evalData;
+			_debugger = debugger;
 			_valueCreator = new ValueCreator(evalData);
 		}
 
@@ -23,14 +25,14 @@ public partial class Evaluation
 
 			var entry = evalStack.First.Value;
 			SetterData? setterData = needSetterData ? entry.SetterData : null;
-
-			return await ResolveIdentifiers(
-				_evalData.Thread,
-				_evalData.FrameLevel,
-				entry.CorDebugValue,
-				setterData,
-				entry.Identifiers
-			);
+			return await _debugger.ResolveIdentifiers(entry.Identifiers, _evalData.Thread, new FrameStackDepth(_evalData.FrameLevel), entry.CorDebugValue);
+			// return await ResolveIdentifiers(
+			// 	_evalData.Thread,
+			// 	_evalData.FrameLevel,
+			// 	entry.CorDebugValue,
+			// 	setterData,
+			// 	entry.Identifiers
+			// );
 		}
 
 		public async Task<CorDebugType?> GetFrontStackEntryType(LinkedList<EvalStackEntry> evalStack)

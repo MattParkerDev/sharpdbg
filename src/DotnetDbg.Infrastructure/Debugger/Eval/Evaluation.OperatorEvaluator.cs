@@ -10,11 +10,11 @@ public partial class Evaluation
 		private readonly ValueCreator _valueCreator;
 		private readonly ExpressionExecutor _executor;
 
-		public OperatorEvaluator(EvalData evalData)
+		public OperatorEvaluator(EvalData evalData, ManagedDebugger debugger)
 		{
 			_evalData = evalData;
 			_valueCreator = new ValueCreator(evalData);
-			_executor = new ExpressionExecutor(evalData);
+			_executor = new ExpressionExecutor(evalData, debugger);
 		}
 
 		public bool SupportedByCalculationDelegateType(CorElementType elemType)

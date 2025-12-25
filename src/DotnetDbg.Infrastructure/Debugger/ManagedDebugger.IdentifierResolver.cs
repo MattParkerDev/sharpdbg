@@ -7,9 +7,13 @@ public partial class ManagedDebugger
 	// e.g. localVar, or localVar.Field1.Field2, or ClassName.StaticField.SubField
 	// optionalInputValue may be provided, e.g. in the case of where the value was created in the evaluation and does not exist
 	// as a local in the stack frame.
-	private CorDebugValue ResolveIdentifiers(List<string> identifiers, CorDebugThread thread, FrameStackDepth stackDepth, CorDebugValue? optionalInputValue)
+	public async Task<CorDebugValue> ResolveIdentifiers(List<string> identifiers, CorDebugThread thread, FrameStackDepth stackDepth, CorDebugValue? optionalInputValue)
 	{
-		if (identifiers.Count is 0) throw new ArgumentException("Identifiers list cannot be empty", nameof(identifiers));
+		if (identifiers.Count is 0)
+		{
+			if (optionalInputValue is not null) return optionalInputValue;
+			throw new ArgumentException("Identifiers list cannot be empty", nameof(identifiers));
+		}
 		var rootValue = optionalInputValue;
 		if (rootValue is null)
 		{

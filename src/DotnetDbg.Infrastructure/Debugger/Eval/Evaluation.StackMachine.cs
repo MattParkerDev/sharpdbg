@@ -14,12 +14,12 @@ public partial class Evaluation
 		private readonly ExpressionExecutor _executor;
 		private readonly OperatorEvaluator _operatorEvaluator;
 
-		public StackMachine(EvalData evalData)
+		public StackMachine(EvalData evalData, ManagedDebugger debugger)
 		{
 			_evalData = evalData;
 			_valueCreator = new ValueCreator(evalData);
-			_executor = new ExpressionExecutor(evalData);
-			_operatorEvaluator = new OperatorEvaluator(evalData);
+			_executor = new ExpressionExecutor(evalData, debugger);
+			_operatorEvaluator = new OperatorEvaluator(evalData, debugger);
 		}
 
 		public async Task<EvaluationResult> Run(string expression)

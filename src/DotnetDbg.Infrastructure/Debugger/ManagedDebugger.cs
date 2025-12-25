@@ -665,7 +665,7 @@ public partial class ManagedDebugger : IDisposable
         var thread = _process!.Threads.Single(s => s.Id == variablesReference.Value.ThreadId.Value);
         var ilFrame = GetFrameForThreadIdAndStackDepth(variablesReference.Value.ThreadId, variablesReference.Value.FrameStackDepth);
         var evalData = new EvalData(thread, variablesReference.Value.FrameStackDepth.Value, _callbacks, ilFrame);
-        var stackMachine = new Evaluation.StackMachine(evalData);
+        var stackMachine = new Evaluation.StackMachine(evalData, this);
         var result = await stackMachine.Run(expression);
         if (result.Error is not null)
         {

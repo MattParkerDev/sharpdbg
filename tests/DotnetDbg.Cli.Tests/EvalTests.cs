@@ -77,8 +77,9 @@ public class EvalTests(ITestOutputHelper testOutputHelper)
 	    // debugProtocolHost.WithEvaluateRequest(stackFrameId, "this.Get14() + 4", out var evaluateResponse11);
 	    // evaluateResponse11.Result.Should().Be("18");
 	    // TODO: Static class name as first identifier
-	    ;
 	    debugProtocolHost.WithEvaluateRequest(stackFrameId, "MyClass.IntStaticProperty + 4", out var evaluateResponse12);
 	    evaluateResponse12.Result.Should().Be("14");
+	    debugProtocolHost.WithEvaluateRequest(stackFrameId, "DebuggableConsoleApp.MyClass.IntStaticProperty + 4", out var evaluateResponse13);
+	    evaluateResponse13.Result.Should().Be("14");
     }
 }

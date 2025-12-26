@@ -32,6 +32,13 @@ public static class Extensions
 		return isStatic;
 	}
 
+	[MethodImpl(MethodImplOptions.AggressiveInlining)]
+	public static mdTypeDef? FindTypeDefByNameOrNull(this MetaDataImport metadataImport, string typeName, mdToken enclosingClass)
+	{
+		var typeToken = metadataImport.FindTypeDefByName(typeName, enclosingClass);
+		return typeToken;
+	}
+
 	// https://github.com/Samsung/netcoredbg/blob/8b8b22200fecdb1aec5f47af63215462d8c79a4b/src/debugger/evaluator.cpp#L695
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	public static bool IsCompilerGeneratedFieldName(string fieldName)

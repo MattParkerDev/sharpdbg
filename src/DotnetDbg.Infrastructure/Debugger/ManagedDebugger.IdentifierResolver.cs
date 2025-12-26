@@ -159,7 +159,7 @@ public partial class ManagedDebugger
 	private (mdTypeDef typeToken, int nextIdentifier)? FindTypeTokenInModule(CorDebugModule module, List<string> identifiers)
 	{
 		var metadataImport = module.GetMetaDataInterface().MetaDataImport;
-		var typeToken = mdTypeDef.Nil;
+		mdTypeDef? typeToken = null;
 
 		string currentTypeName = string.Empty;
 		var nextIdentifier = 0;
@@ -169,28 +169,28 @@ public partial class ManagedDebugger
 			string name = ParseGenericParams(identifiers[i]);
 			currentTypeName += (string.IsNullOrEmpty(currentTypeName) ? "" : ".") + name;
 
-			typeToken = metadataImport.FindTypeDefByName(currentTypeName, mdToken.Nil);
-			if (!typeToken.IsNil)
+			typeToken = metadataImport.FindTypeDefByNameOrNull(currentTypeName, mdToken.Nil);
+			if (typeToken is not null)
 			{
 				nextIdentifier = i + 1;
 				break;
 			}
 		}
 
-		if (typeToken.IsNil)
+		if (typeToken is null)
 			return null;
 
 		for (int j = nextIdentifier; j < identifiers.Count; j++)
 		{
 			string name = ParseGenericParams(identifiers[j]);
-			mdTypeDef classToken = metadataImport.FindTypeDefByName(name, typeToken);
+			mdTypeDef classToken = metadataImport.FindTypeDefByName(name, typeToken.Value);
 			if (classToken.IsNil)
 				break;
 			typeToken = classToken;
 			nextIdentifier = j + 1;
 		}
 
-		return (typeToken, nextIdentifier);
+		return (typeToken.Value, nextIdentifier);
 	}
 
 	private static string ParseGenericParams(string typeName)

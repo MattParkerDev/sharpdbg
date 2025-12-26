@@ -1,4 +1,4 @@
-﻿using ClrDebug;
+using ClrDebug;
 
 namespace DotnetDbg.Infrastructure.Debugger;
 
@@ -46,7 +46,7 @@ public partial class ManagedDebugger
 
 	private object? ResolveIdentifierAsStaticClass(string identifier, ThreadId threadId, FrameStackDepth stackDepth)
 	{
-		
+
 	}
 
 	private CorDebugValue? ResolveIdentifierAsStackVariable(string identifier, ThreadId threadId, FrameStackDepth stackDepth, out CorDebugValue? instanceMethodImplicitThisValue)
@@ -118,5 +118,56 @@ public partial class ManagedDebugger
 		var propertyValue = await instanceMethodImplicitThisValue.GetPropertyValue(frame, _callbacks, identifier);
 		if (propertyValue is not null) return propertyValue;
 		return null;
+	}
+
+	private bool FindTypeInModule(CorDebugModule module, List<string> identifiers, ref int nextIdentifier, out mdTypeDef typeToken)
+	{
+		var metadataImport = module.GetMetaDataInterface().MetaDataImport;
+		typeToken = mdTypeDef.Nil;
+
+		string currentTypeName = string.Empty;
+
+		for (int i = nextIdentifier; i < identifiers.Count; i++)
+		{
+			string name = ParseGenericParams(identifiers[i]);
+			currentTypeName += (string.IsNullOrEmpty(currentTypeName) ? "" : ".") + name;
+
+			typeToken = metadataImport.FindTypeDefByName(currentTypeName, mdToken.Nil);
+			if (!typeToken.IsNil)
+			{
+				nextIdentifier = i + 1;
+				break;
+			}
+		}
+
+		if (typeToken.IsNil)
+			return false;
+
+		for (int j = nextIdentifier; j < identifiers.Count; j++)
+		{
+			string name = ParseGenericParams(identifiers[j]);
+			mdTypeDef classToken = metadataImport.FindTypeDefByName(name, typeToken);
+			if (classToken.IsNil)
+				break;
+			typeToken = classToken;
+			nextIdentifier = j + 1;
+		}
+
+		return true;
+	}
+
+	private static string ParseGenericParams(string typeName)
+	{
+		int genericIndex = typeName.IndexOf('`');
+		if (genericIndex >= 0)
+		{
+			typeName = typeName.Substring(0, genericIndex);
+		}
+		int angleBracketIndex = typeName.IndexOf('<');
+		if (angleBracketIndex >= 0)
+		{
+			typeName = typeName.Substring(0, angleBracketIndex);
+		}
+		return typeName;
 	}
 }

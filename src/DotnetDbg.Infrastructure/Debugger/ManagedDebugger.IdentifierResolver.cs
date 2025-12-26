@@ -44,7 +44,7 @@ public partial class ManagedDebugger
 		if (resolvedValue is not null) return (resolvedValue, null);
 		if (instanceMethodImplicitThisValue is not null) resolvedValue = await ResolveIdentifierAsMember(firstIdentifier, threadId, stackDepth, instanceMethodImplicitThisValue);
 		if (resolvedValue is not null) return (resolvedValue, null);
-		var result = ResolveStaticClassFromIdentifiers(identifiers, threadId, stackDepth);
+		var result = await ResolveStaticClassFromIdentifiers(identifiers, threadId, stackDepth);
 		resolvedValue = result?.Value;
 		if (resolvedValue is not null) return (resolvedValue, result!.Value.NextIdentifier);
 
@@ -122,23 +122,25 @@ public partial class ManagedDebugger
 		return null;
 	}
 
-	private (CorDebugValue Value, int NextIdentifier)? ResolveStaticClassFromIdentifiers(List<string> identifiers, ThreadId threadId, FrameStackDepth stackDepth)
+	private async Task<(CorDebugValue Value, int NextIdentifier)?> ResolveStaticClassFromIdentifiers(List<string> identifiers, ThreadId threadId, FrameStackDepth stackDepth)
 	{
 		(ModuleInfo moduleInfo, mdTypeDef typeToken, int nextIdentifier)? typeTokenResult = FindTypeTokenInLoadedModules(identifiers);
 		if (typeTokenResult is null) return null;
 
 		var (module, typeToken, nextIdentifier) = typeTokenResult.Value;
 		var corDebugClass = module.Module.GetClassFromToken(typeToken);
-		var classValue = CreateTypeObjectStaticConstructor(corDebugClass, threadId, stackDepth);
+		var classValue = await CreateTypeObjectStaticConstructor(corDebugClass, threadId, stackDepth);
+		if (classValue is null) return null;
 		return (classValue, nextIdentifier);
 	}
 
-	private CorDebugValue CreateTypeObjectStaticConstructor(CorDebugClass corDebugClass, ThreadId threadId, FrameStackDepth stackDepth)
+	private async Task<CorDebugValue?> CreateTypeObjectStaticConstructor(CorDebugClass corDebugClass, ThreadId threadId, FrameStackDepth stackDepth)
 	{
 		var ilFrame = GetFrameForThreadIdAndStackDepth(threadId, stackDepth);
 		var eval = ilFrame.Chain.Thread.CreateEval();
 		// currently only working for non-generic classes
-		var test = eval.NewParameterizedObjectNoConstructorAsync(_callbacks, corDebugClass, 0, null, ilFrame);
+		var value = await eval.NewParameterizedObjectNoConstructorAsync(_callbacks, corDebugClass, 0, null, ilFrame);
+		return value;
 	}
 
 	private (ModuleInfo moduleInfo, mdTypeDef typeToken, int nextIdentifier)? FindTypeTokenInLoadedModules(List<string> identifiers)

@@ -124,12 +124,20 @@ public partial class ManagedDebugger
 
 	private (CorDebugValue Value, int NextIdentifier)? ResolveStaticClassFromIdentifiers(List<string> identifiers, ThreadId threadId, FrameStackDepth stackDepth)
 	{
-		return null;
+		(mdTypeDef typeToken, int nextIdentifier)? typeTokenResult = FindTypeTokenInLoadedModules(identifiers);
+		if (typeTokenResult is null) return null;
+
+		var (typeToken, nextIdentifier) = typeTokenResult.Value;
+		var frame = GetFrameForThreadIdAndStackDepth(threadId, stackDepth);
+		var corDebugClass = frame.Function.Module.GetClassFromToken(typeToken);
+		var classValue = CreateTypeObjectStaticConstructor(corDebugClass, threadId, stackDepth);
+		return (classValue, nextIdentifier);
 	}
 
-	private (CorDebugValue, int NextIdentifier)? GetStaticClassCorDebugValueForIdentifiers(List<string> identifiers)
+	private CorDebugValue CreateTypeObjectStaticConstructor(CorDebugClass corDebugClass, ThreadId threadId, FrameStackDepth stackDepth)
 	{
-
+		var ilFrame = GetFrameForThreadIdAndStackDepth(threadId, stackDepth);
+		
 	}
 
 	private (mdTypeDef typeToken, int nextIdentifier)? FindTypeTokenInLoadedModules(List<string> identifiers)

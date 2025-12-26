@@ -44,6 +44,11 @@ public partial class ManagedDebugger
 		throw new InvalidOperationException($"Could not resolve identifier '{identifier}' as a stack variable.");
 	}
 
+	private object? ResolveIdentifierAsStaticClass(string identifier, ThreadId threadId, FrameStackDepth stackDepth)
+	{
+		
+	}
+
 	private CorDebugValue? ResolveIdentifierAsStackVariable(string identifier, ThreadId threadId, FrameStackDepth stackDepth, out CorDebugValue? instanceMethodImplicitThisValue)
 	{
 		instanceMethodImplicitThisValue = null;

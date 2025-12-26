@@ -120,25 +120,26 @@ public partial class ManagedDebugger
 		return null;
 	}
 
-	private mdTypeDef? FindTypeInLoadedModules(List<string> identifiers, int nextIdentifier)
+	private (mdTypeDef typeToken, int nextIdentifier)? FindTypeInLoadedModules(List<string> identifiers)
 	{
 		foreach (var module in _modules.Values)
 		{
-			var (typeToken, _) = FindTypeInModule(module.Module, identifiers, nextIdentifier);
-			if (typeToken is not null)
+			var result = FindTypeInModule(module.Module, identifiers);
+			if (result is not null)
 			{
-				return typeToken;
+				return result.Value;
 			}
 		}
 		return null;
 	}
 
-	private (mdTypeDef? typeToken, int nextIdentifier) FindTypeInModule(CorDebugModule module, List<string> identifiers, int nextIdentifier)
+	private (mdTypeDef typeToken, int nextIdentifier)? FindTypeInModule(CorDebugModule module, List<string> identifiers)
 	{
 		var metadataImport = module.GetMetaDataInterface().MetaDataImport;
 		var typeToken = mdTypeDef.Nil;
 
 		string currentTypeName = string.Empty;
+		var nextIdentifier = 0;
 
 		for (int i = nextIdentifier; i < identifiers.Count; i++)
 		{
@@ -154,7 +155,7 @@ public partial class ManagedDebugger
 		}
 
 		if (typeToken.IsNil)
-			return (null, nextIdentifier);
+			return null;
 
 		for (int j = nextIdentifier; j < identifiers.Count; j++)
 		{

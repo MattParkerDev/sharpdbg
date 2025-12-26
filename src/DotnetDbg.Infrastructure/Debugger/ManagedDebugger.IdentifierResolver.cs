@@ -44,11 +44,6 @@ public partial class ManagedDebugger
 		throw new InvalidOperationException($"Could not resolve identifier '{identifier}' as a stack variable.");
 	}
 
-	private object? ResolveIdentifierAsStaticClass(string identifier, ThreadId threadId, FrameStackDepth stackDepth)
-	{
-		return null;
-	}
-
 	private CorDebugValue? ResolveIdentifierAsStackVariable(string identifier, ThreadId threadId, FrameStackDepth stackDepth, out CorDebugValue? instanceMethodImplicitThisValue)
 	{
 		instanceMethodImplicitThisValue = null;
@@ -117,6 +112,11 @@ public partial class ManagedDebugger
 
 		var propertyValue = await instanceMethodImplicitThisValue.GetPropertyValue(frame, _callbacks, identifier);
 		if (propertyValue is not null) return propertyValue;
+		return null;
+	}
+
+	private object? ResolveIdentifierAsStaticClass(string identifier, ThreadId threadId, FrameStackDepth stackDepth)
+	{
 		return null;
 	}
 

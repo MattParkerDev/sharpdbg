@@ -120,10 +120,10 @@ public partial class ManagedDebugger
 		return null;
 	}
 
-	private bool FindTypeInModule(CorDebugModule module, List<string> identifiers, ref int nextIdentifier, out mdTypeDef typeToken)
+	private mdTypeDef? FindTypeInModule(CorDebugModule module, List<string> identifiers, ref int nextIdentifier)
 	{
 		var metadataImport = module.GetMetaDataInterface().MetaDataImport;
-		typeToken = mdTypeDef.Nil;
+		var typeToken = mdTypeDef.Nil;
 
 		string currentTypeName = string.Empty;
 
@@ -141,7 +141,7 @@ public partial class ManagedDebugger
 		}
 
 		if (typeToken.IsNil)
-			return false;
+			return null;
 
 		for (int j = nextIdentifier; j < identifiers.Count; j++)
 		{
@@ -153,7 +153,7 @@ public partial class ManagedDebugger
 			nextIdentifier = j + 1;
 		}
 
-		return true;
+		return typeToken;
 	}
 
 	private static string ParseGenericParams(string typeName)

@@ -13,6 +13,7 @@ public class SymbolReader : IDisposable
 {
     private readonly MetadataReaderProvider _provider;
     private readonly MetadataReader _reader;
+    private string _path;
 
     /// <summary>
     /// Result of resolving a breakpoint location
@@ -25,10 +26,11 @@ public class SymbolReader : IDisposable
         string DocumentPath
     );
 
-    private SymbolReader(MetadataReaderProvider provider, MetadataReader reader)
+    private SymbolReader(MetadataReaderProvider provider, MetadataReader reader, string assemblyPath)
     {
         _provider = provider;
         _reader = reader;
+        _path = assemblyPath;
     }
 
     /// <summary>
@@ -127,7 +129,7 @@ public class SymbolReader : IDisposable
 
             if (codeViewData.Age == 1 && pdbId == expectedId)
             {
-                return new SymbolReader(provider, reader);
+                return new SymbolReader(provider, reader, assemblyPath);
             }
 
             // PDB doesn't match, dispose and return null
@@ -146,7 +148,7 @@ public class SymbolReader : IDisposable
         {
             var provider = peReader.ReadEmbeddedPortablePdbDebugDirectoryData(embeddedPdbEntry);
             var reader = provider.GetMetadataReader();
-            return new SymbolReader(provider, reader);
+            return new SymbolReader(provider, reader, null!);
         }
         catch
         {
@@ -283,10 +285,11 @@ public class SymbolReader : IDisposable
     }
 
     public ImmutableArray<string> GetImportedNamespaces(int methodToken)
-	{
-	    //var methodHandle = MetadataTokens.MethodDefinitionHandle(methodToken);
-	    var methodDebugHandle = MetadataTokens.MethodDebugInformationHandle(methodToken);
-	    //var methodDebugInfo = _reader.GetMethodDebugInformation(methodHandle);
+    {
+	    var handle = MetadataTokens.Handle(methodToken);
+	    if (handle.Kind is not HandleKind.MethodDefinition) throw new ArgumentException("methodToken is not a valid MethodDefinition token");
+	    var methodHandle = (MethodDefinitionHandle)handle;
+	    var methodDebugHandle = methodHandle.ToDebugInformationHandle();
 	    var namespaces = ImmutableArray.CreateBuilder<string>();
 
 	    var localScopes = _reader.GetLocalScopes(methodDebugHandle);
@@ -304,7 +307,16 @@ public class SymbolReader : IDisposable
 			    }
 		    }
 	    }
-	    // TODO: Add method's own namespace, add global namespace, ie ''
+	    // TODO: I wonder if it is faster to pass a class token of the containing class from the metadata side rather than looking it up here
+	    var methodDef = _reader.GetMethodDefinition(methodHandle);
+	    var typeDef = methodDef.GetDeclaringType();
+	    var typeDefObj = _reader.GetTypeDefinition(typeDef);
+	    var typeNamespace = _reader.GetString(typeDefObj.Namespace);
+	    if (string.IsNullOrEmpty(typeNamespace) is false && namespaces.Contains(typeNamespace) is false)
+	    {
+		    namespaces.Add(typeNamespace);
+	    }
+	    namespaces.Add(""); // global namespace
 
 	    return namespaces.ToImmutable();
 	}

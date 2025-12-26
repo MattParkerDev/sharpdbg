@@ -146,6 +146,11 @@ public partial class ManagedDebugger
 
 		var frame = GetFrameForThreadIdAndStackDepth(threadId, stackDepth);
 		var corDebugFunction = frame.Function;
+		var corDebugClass = corDebugFunction.Class;
+		var metadataImport = corDebugClass.Module.GetMetaDataInterface().MetaDataImport;
+		var props = metadataImport.GetTypeDefProps(corDebugClass.Token);
+		var namespaceName = props.szTypeDef.Contains('.') ? props.szTypeDef[..props.szTypeDef.LastIndexOf('.')] : string.Empty;
+
 		var currentModule = _modules[corDebugFunction.Module.BaseAddress];
 
 		var importedNamespaces = currentModule.SymbolReader?.GetImportedNamespaces(corDebugFunction.Token) ?? ImmutableArray<string>.Empty;

@@ -124,12 +124,11 @@ public partial class ManagedDebugger
 
 	private (CorDebugValue Value, int NextIdentifier)? ResolveStaticClassFromIdentifiers(List<string> identifiers, ThreadId threadId, FrameStackDepth stackDepth)
 	{
-		(mdTypeDef typeToken, int nextIdentifier)? typeTokenResult = FindTypeTokenInLoadedModules(identifiers);
+		(ModuleInfo moduleInfo, mdTypeDef typeToken, int nextIdentifier)? typeTokenResult = FindTypeTokenInLoadedModules(identifiers);
 		if (typeTokenResult is null) return null;
 
-		var (typeToken, nextIdentifier) = typeTokenResult.Value;
-		var frame = GetFrameForThreadIdAndStackDepth(threadId, stackDepth);
-		var corDebugClass = frame.Function.Module.GetClassFromToken(typeToken);
+		var (module, typeToken, nextIdentifier) = typeTokenResult.Value;
+		var corDebugClass = module.Module.GetClassFromToken(typeToken);
 		var classValue = CreateTypeObjectStaticConstructor(corDebugClass, threadId, stackDepth);
 		return (classValue, nextIdentifier);
 	}
@@ -137,17 +136,17 @@ public partial class ManagedDebugger
 	private CorDebugValue CreateTypeObjectStaticConstructor(CorDebugClass corDebugClass, ThreadId threadId, FrameStackDepth stackDepth)
 	{
 		var ilFrame = GetFrameForThreadIdAndStackDepth(threadId, stackDepth);
-		
+
 	}
 
-	private (mdTypeDef typeToken, int nextIdentifier)? FindTypeTokenInLoadedModules(List<string> identifiers)
+	private (ModuleInfo moduleInfo, mdTypeDef typeToken, int nextIdentifier)? FindTypeTokenInLoadedModules(List<string> identifiers)
 	{
 		foreach (var module in _modules.Values)
 		{
 			var result = FindTypeTokenInModule(module.Module, identifiers);
 			if (result is not null)
 			{
-				return result.Value;
+				return (module, result.Value.typeToken, result.Value.nextIdentifier);
 			}
 		}
 		return null;

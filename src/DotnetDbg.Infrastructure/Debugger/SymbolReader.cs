@@ -13,6 +13,7 @@ public class SymbolReader : IDisposable
 {
     private readonly MetadataReaderProvider _provider;
     private readonly MetadataReader _reader;
+    private readonly MetadataReader _peMetadataReader;
     private string _path;
 
     /// <summary>
@@ -26,10 +27,12 @@ public class SymbolReader : IDisposable
         string DocumentPath
     );
 
-    private SymbolReader(MetadataReaderProvider provider, MetadataReader reader, string assemblyPath)
+    private SymbolReader(MetadataReaderProvider provider, MetadataReader reader, MetadataReader peMetadataReader,
+	    string assemblyPath)
     {
         _provider = provider;
         _reader = reader;
+        _peMetadataReader = peMetadataReader;
         _path = assemblyPath;
     }
 
@@ -129,7 +132,8 @@ public class SymbolReader : IDisposable
 
             if (codeViewData.Age == 1 && pdbId == expectedId)
             {
-                return new SymbolReader(provider, reader, assemblyPath);
+				var peMetadataReader = peReader.GetMetadataReader();
+				return new SymbolReader(provider, reader, peMetadataReader, assemblyPath);
             }
 
             // PDB doesn't match, dispose and return null
@@ -148,7 +152,8 @@ public class SymbolReader : IDisposable
         {
             var provider = peReader.ReadEmbeddedPortablePdbDebugDirectoryData(embeddedPdbEntry);
             var reader = provider.GetMetadataReader();
-            return new SymbolReader(provider, reader, null!);
+            var peMetadataReader = peReader.GetMetadataReader();
+            return new SymbolReader(provider, reader, peMetadataReader, null!);
         }
         catch
         {
@@ -310,14 +315,14 @@ public class SymbolReader : IDisposable
 	    // TODO: I wonder if it is faster to pass a class token of the containing class from the metadata side rather than looking it up here
 	    // Also I believe this currently doesn't work, as our metadata reader is using the PDB, which doesn't have type definitions, would need to also
 	    // get the assembly metadata reader to do this properly
-	    // var methodDef = _reader.GetMethodDefinition(methodHandle);
-	    // var typeDef = methodDef.GetDeclaringType();
-	    // var typeDefObj = _reader.GetTypeDefinition(typeDef);
-	    // var typeNamespace = _reader.GetString(typeDefObj.Namespace);
-	    // if (string.IsNullOrEmpty(typeNamespace) is false && namespaces.Contains(typeNamespace) is false)
-	    // {
-		   //  namespaces.Add(typeNamespace);
-	    // }
+	    var methodDef = _peMetadataReader.GetMethodDefinition(methodHandle);
+	    var typeDef = methodDef.GetDeclaringType();
+	    var typeDefObj = _peMetadataReader.GetTypeDefinition(typeDef);
+	    var typeNamespace = _peMetadataReader.GetString(typeDefObj.Namespace);
+	    if (string.IsNullOrEmpty(typeNamespace) is false && namespaces.Contains(typeNamespace) is false)
+	    {
+		    namespaces.Add(typeNamespace);
+	    }
 	    namespaces.Add(""); // global namespace
 
 	    return namespaces.ToImmutable();

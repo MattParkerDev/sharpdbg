@@ -323,7 +323,134 @@ public partial class Evaluation
 			if (pos >= 0)
 				methodName = methodName.Substring(0, pos);
 
-			throw new NotImplementedException("Method invocation not yet fully implemented");
+			bool idsEmpty = false;
+			bool isInstance = true;
+
+			CorDebugValue? objValue;
+			CorDebugType? objType;
+
+			if (entry.CorDebugValue == null && entry.Identifiers.Count == 0)
+			{
+				idsEmpty = true;
+				objValue = await _executor.GetFrontStackEntryValue(evalStack);
+				var isStaticMethod = objValue == null;
+				objType = objValue?.Type;
+
+				if (!isStaticMethod)
+				{
+					entry.Identifiers.Add("this");
+				}
+				else
+				{
+					var corDebugFunction = _evalData.ILFrame.Function;
+					var module = corDebugFunction.Class.Module;
+					var metaDataImport = module.GetMetaDataInterface().MetaDataImport;
+					var methodProps = metaDataImport!.GetMethodProps(corDebugFunction.Token);
+					var declaringTypeDef = methodProps.pClass;
+					var typeProps = metaDataImport!.GetTypeDefProps(declaringTypeDef);
+					var className = typeProps.szTypeDef;
+					entry.Identifiers.AddRange(className.Split('.'));
+				}
+			}
+
+			objValue = await _executor.GetFrontStackEntryValue(evalStack);
+
+			if (objValue != null)
+			{
+				var elemType = objValue.UnwrapDebugValue().Type;
+
+				if (_evalData.CorElementToValueClassMap.TryGetValue(elemType, out var boxedClass))
+				{
+					var size = objValue.Size;
+					var data = objValue.UnwrapDebugValue() is CorDebugGenericValue genValue
+						? genValue.GetValueAsBytes()
+						: null;
+
+					if (data != null)
+					{
+						objValue = await _valueCreator.CreateValueType(boxedClass, data);
+					}
+				}
+
+				objType = objValue.ExactType;
+			}
+			else
+			{
+				objType = await _executor.GetFrontStackEntryType(evalStack);
+			}
+
+			if (objType == null && objValue == null) throw new InvalidOperationException("Could not resolve target type for method invocation");
+
+			CorDebugFunction? function = null;
+			bool? searchStatic = objType != null;
+
+			if (objType != null)
+			{
+				function = await FindMethodOnType(objType, methodName, args, searchStatic.Value, idsEmpty);
+			}
+
+			if (function == null)
+			{
+				throw new InvalidOperationException($"Method '{methodName}' with {args.Count} parameters not found");
+			}
+
+			var methodProps2 = function.Class.Module.GetMetaDataInterface().MetaDataImport!.GetMethodProps(function.Token);
+			isInstance = (methodProps2.pdwAttr & CorMethodAttr.mdStatic) == 0;
+
+			var typeArgsCount = entry.GenericTypeCache?.Count ?? 0;
+			var realArgsCount = args.Count + (isInstance ? 1 : 0);
+			var typeArgs = new List<ICorDebugType>(typeArgsCount);
+			var valueArgs = new List<ICorDebugValue>(realArgsCount);
+
+			if (isInstance)
+			{
+				valueArgs.Add(objValue!.Raw);
+			}
+
+			foreach (var arg in args)
+			{
+				valueArgs.Add(arg!.Raw);
+			}
+
+			if (objType != null)
+			{
+				var typeParamsEnum = objType.EnumerateTypeParameters();
+				foreach (var typeParam in typeParamsEnum)
+				{
+					typeArgs.Add(typeParam.Raw);
+				}
+			}
+
+			if (entry.GenericTypeCache != null)
+			{
+				for (int i = entry.GenericTypeCache.Count - 1; i >= 0; i--)
+				{
+					if (entry.GenericTypeCache[i] != null)
+					{
+						typeArgs.Add(entry.GenericTypeCache[i]!.Raw);
+					}
+				}
+			}
+
+			entry.ResetEntry();
+			var eval = _evalData.Thread.CreateEval();
+			var result = await eval.CallParameterizedFunctionAsync(
+				_evalData.ManagedCallback,
+				function,
+				typeArgs.Count,
+				typeArgs.Count > 0 ? typeArgs.ToArray() : null,
+				valueArgs.Count,
+				valueArgs.ToArray(),
+				_evalData.ILFrame);
+
+			if (result == null && _evalData.ICorVoidClass != null)
+			{
+				entry.CorDebugValue = await _valueCreator.CreateValueType(_evalData.ICorVoidClass, null);
+			}
+			else
+			{
+				entry.CorDebugValue = result;
+			}
 		}
 
 		private async Task ElementAccessExpression(OneOperandCommand command, LinkedList<EvalStackEntry> evalStack)

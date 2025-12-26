@@ -18,10 +18,9 @@ public partial class Evaluation
 			_valueCreator = new ValueCreator(evalData);
 		}
 
-		public async Task<CorDebugValue?> GetFrontStackEntryValue(LinkedList<EvalStackEntry> evalStack, bool needSetterData = false)
+		public async Task<CorDebugValue> GetFrontStackEntryValue(LinkedList<EvalStackEntry> evalStack, bool needSetterData = false)
 		{
-			if (evalStack.First == null)
-				return null;
+			if (evalStack.First == null) throw new InvalidOperationException("Evaluation stack is empty");
 
 			var entry = evalStack.First.Value;
 			SetterData? setterData = needSetterData ? entry.SetterData : null;

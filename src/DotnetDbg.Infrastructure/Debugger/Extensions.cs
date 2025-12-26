@@ -35,8 +35,9 @@ public static class Extensions
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	public static mdTypeDef? FindTypeDefByNameOrNull(this MetaDataImport metadataImport, string typeName, mdToken enclosingClass)
 	{
-		var typeToken = metadataImport.FindTypeDefByName(typeName, enclosingClass);
-		return typeToken;
+		var result = metadataImport.TryFindTypeDefByName(typeName, enclosingClass, out var mdTypeDef);
+		if (result is HRESULT.S_OK) return mdTypeDef;
+		return null;
 	}
 
 	// https://github.com/Samsung/netcoredbg/blob/8b8b22200fecdb1aec5f47af63215462d8c79a4b/src/debugger/evaluator.cpp#L695

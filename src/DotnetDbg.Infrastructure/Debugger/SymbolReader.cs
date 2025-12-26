@@ -59,7 +59,8 @@ public class SymbolReader : IDisposable
         try
         {
             using var peStream = File.OpenRead(assemblyPath);
-            using var peReader = new PEReader(peStream);
+            // no longer disposing via using, as the PEReader needs to stay alive while using the MetadataReader
+            var peReader = new PEReader(peStream);
 
             // Look for debug directory entries
             DebugDirectoryEntry codeViewEntry = default;
@@ -132,7 +133,7 @@ public class SymbolReader : IDisposable
 
             if (codeViewData.Age == 1 && pdbId == expectedId)
             {
-				var peMetadataReader = peReader.GetMetadataReader();
+				var peMetadataReader = peReader.GetMetadataReader(MetadataReaderOptions.None);
 				return new SymbolReader(provider, reader, peMetadataReader, assemblyPath);
             }
 
@@ -152,7 +153,7 @@ public class SymbolReader : IDisposable
         {
             var provider = peReader.ReadEmbeddedPortablePdbDebugDirectoryData(embeddedPdbEntry);
             var reader = provider.GetMetadataReader();
-            var peMetadataReader = peReader.GetMetadataReader();
+            var peMetadataReader = peReader.GetMetadataReader(MetadataReaderOptions.None);
             return new SymbolReader(provider, reader, peMetadataReader, null!);
         }
         catch
@@ -318,10 +319,11 @@ public class SymbolReader : IDisposable
 	    var methodDef = _peMetadataReader.GetMethodDefinition(methodHandle);
 	    var typeDef = methodDef.GetDeclaringType();
 	    var typeDefObj = _peMetadataReader.GetTypeDefinition(typeDef);
-	    var typeNamespace = _peMetadataReader.GetString(typeDefObj.Namespace);
-	    if (string.IsNullOrEmpty(typeNamespace) is false && namespaces.Contains(typeNamespace) is false)
+	    //var typeNamespace = _peMetadataReader.GetNamespaceDefinition(typeDefObj.NamespaceDefinition);
+	    var typeNamespaceName = _peMetadataReader.GetString(typeDefObj.Namespace);
+	    if (string.IsNullOrEmpty(typeNamespaceName) is false && namespaces.Contains(typeNamespaceName) is false)
 	    {
-		    namespaces.Add(typeNamespace);
+		    namespaces.Add(typeNamespaceName);
 	    }
 	    namespaces.Add(""); // global namespace
 

@@ -115,9 +115,14 @@ public partial class ManagedDebugger
 		return null;
 	}
 
-	private object? ResolveIdentifierAsStaticClass(string identifier, ThreadId threadId, FrameStackDepth stackDepth)
+	private object? ResolveStaticClassFromIdentifiers(List<string> identifiers, ThreadId threadId, FrameStackDepth stackDepth)
 	{
 		return null;
+	}
+
+	private CorDebugValue? GetStaticClassCorDebugValueForIdentifiers(List<string> identifiers)
+	{
+
 	}
 
 	private (mdTypeDef typeToken, int nextIdentifier)? FindTypeTokenInLoadedModules(List<string> identifiers)

@@ -128,9 +128,6 @@ public partial class ManagedDebugger
 		// First, try to resolve using imported namespaces from the current method's PDB symbols
 		var typeTokenResult = FindTypeTokenInLoadedModulesWithNamespaceHints(identifiers, threadId, stackDepth);
 
-		// Fall back to searching all modules without namespace hints
-		//typeTokenResult ??= FindTypeTokenInLoadedModules(identifiers);
-
 		if (typeTokenResult is null) return null;
 
 		var (module, typeToken, nextIdentifier) = typeTokenResult.Value;
@@ -146,11 +143,6 @@ public partial class ManagedDebugger
 
 		var frame = GetFrameForThreadIdAndStackDepth(threadId, stackDepth);
 		var corDebugFunction = frame.Function;
-		var corDebugClass = corDebugFunction.Class;
-		var metadataImport = corDebugClass.Module.GetMetaDataInterface().MetaDataImport;
-		var props = metadataImport.GetTypeDefProps(corDebugClass.Token);
-		var namespaceName = props.szTypeDef.Contains('.') ? props.szTypeDef[..props.szTypeDef.LastIndexOf('.')] : string.Empty;
-
 		var currentModule = _modules[corDebugFunction.Module.BaseAddress];
 
 		var importedNamespaces = currentModule.SymbolReader?.GetImportedNamespaces(corDebugFunction.Token) ?? ImmutableArray<string>.Empty;

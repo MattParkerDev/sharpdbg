@@ -120,6 +120,19 @@ public partial class ManagedDebugger
 		return null;
 	}
 
+	private mdTypeDef? FindTypeInLoadedModules(List<string> identifiers, ref int nextIdentifier)
+	{
+		foreach (var module in _modules.Values)
+		{
+			var typeToken = FindTypeInModule(module.Module, identifiers, ref nextIdentifier);
+			if (typeToken is not null)
+			{
+				return typeToken;
+			}
+		}
+		return null;
+	}
+
 	private mdTypeDef? FindTypeInModule(CorDebugModule module, List<string> identifiers, ref int nextIdentifier)
 	{
 		var metadataImport = module.GetMetaDataInterface().MetaDataImport;

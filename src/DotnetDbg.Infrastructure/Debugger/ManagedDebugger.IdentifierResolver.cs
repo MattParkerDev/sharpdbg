@@ -183,8 +183,8 @@ public partial class ManagedDebugger
 		for (int j = nextIdentifier; j < identifiers.Count; j++)
 		{
 			string name = ParseGenericParams(identifiers[j]);
-			mdTypeDef classToken = metadataImport.FindTypeDefByName(name, typeToken.Value);
-			if (classToken.IsNil)
+			var classToken = metadataImport.FindTypeDefByNameOrNull(name, typeToken.Value);
+			if (classToken is null)
 				break;
 			typeToken = classToken;
 			nextIdentifier = j + 1;

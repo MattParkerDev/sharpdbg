@@ -35,7 +35,7 @@ public class MyClass
 	private static DateTime? _nullableUtcNow = DateTime.UtcNow;
 	private int _instanceField = 5;
 	private static int _instanceStaticField = 6;
-	private int IntProperty { get; set; } = 10;
+	public int IntProperty { get; set; } = 10;
 	private int Get14() => 14;
 }
 

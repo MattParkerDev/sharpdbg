@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using System.Reflection.Metadata;
 using System.Reflection.Metadata.Ecma335;
 using System.Reflection.PortableExecutable;
@@ -280,6 +281,32 @@ public class SymbolReader : IDisposable
 		var documentFilePath = _reader.GetString(document.Name);
 		return (documentFilePath, sp.StartLine, sp.EndLine, sp.StartColumn, sp.EndColumn);
     }
+
+    public ImmutableArray<string> GetImportedNamespaces(int methodToken)
+	{
+	    //var methodHandle = MetadataTokens.MethodDefinitionHandle(methodToken);
+	    var methodDebugHandle = MetadataTokens.MethodDebugInformationHandle(methodToken);
+	    //var methodDebugInfo = _reader.GetMethodDebugInformation(methodHandle);
+	    var namespaces = ImmutableArray.CreateBuilder<string>();
+
+	    var localScopes = _reader.GetLocalScopes(methodDebugHandle);
+	    foreach (var scopeHandle in localScopes)
+	    {
+		    var scope = _reader.GetLocalScope(scopeHandle);
+		    var importScope = _reader.GetImportScope(scope.ImportScope);
+		    foreach (var import in importScope.GetImports())
+		    {
+			    if (import.Kind == ImportDefinitionKind.ImportNamespace)
+			    {
+				    var blobReader = _reader.GetBlobReader(import.TargetNamespace);
+				    var namespaceName = blobReader.ReadUTF8(blobReader.Length);
+				    namespaces.Add(namespaceName);
+			    }
+		    }
+	    }
+
+	    return namespaces.ToImmutable();
+	}
 
     public string? GetLocalVariableName(int methodToken, int localIndex)
     {

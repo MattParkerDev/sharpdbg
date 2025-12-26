@@ -304,6 +304,7 @@ public class SymbolReader : IDisposable
 			    }
 		    }
 	    }
+	    // TODO: Add method's own namespace, add global namespace, ie ''
 
 	    return namespaces.ToImmutable();
 	}

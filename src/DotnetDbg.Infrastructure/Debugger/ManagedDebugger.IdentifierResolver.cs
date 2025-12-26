@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using ClrDebug;
 
 namespace DotnetDbg.Infrastructure.Debugger;
@@ -124,7 +125,12 @@ public partial class ManagedDebugger
 
 	private async Task<(CorDebugValue Value, int NextIdentifier)?> ResolveStaticClassFromIdentifiers(List<string> identifiers, ThreadId threadId, FrameStackDepth stackDepth)
 	{
-		(ModuleInfo moduleInfo, mdTypeDef typeToken, int nextIdentifier)? typeTokenResult = FindTypeTokenInLoadedModules(identifiers);
+		// First, try to resolve using imported namespaces from the current method's PDB symbols
+		var typeTokenResult = FindTypeTokenInLoadedModulesWithNamespaceHints(identifiers, threadId, stackDepth);
+
+		// Fall back to searching all modules without namespace hints
+		//typeTokenResult ??= FindTypeTokenInLoadedModules(identifiers);
+
 		if (typeTokenResult is null) return null;
 
 		var (module, typeToken, nextIdentifier) = typeTokenResult.Value;
@@ -132,6 +138,21 @@ public partial class ManagedDebugger
 		var classValue = await CreateTypeObjectStaticConstructor(corDebugClass, threadId, stackDepth);
 		if (classValue is null) return null;
 		return (classValue, nextIdentifier);
+	}
+
+	private (ModuleInfo moduleInfo, mdTypeDef typeToken, int nextIdentifier)? FindTypeTokenInLoadedModulesWithNamespaceHints(List<string> identifiers, ThreadId threadId, FrameStackDepth stackDepth)
+	{
+		if (identifiers.Count == 0) return null;
+
+		var frame = GetFrameForThreadIdAndStackDepth(threadId, stackDepth);
+		var corDebugFunction = frame.Function;
+		var currentModule = _modules[corDebugFunction.Module.BaseAddress];
+
+		var importedNamespaces = currentModule.SymbolReader?.GetImportedNamespaces(corDebugFunction.Token) ?? ImmutableArray<string>.Empty;
+
+		if (importedNamespaces.Length is 0) return null;
+		var result = FindTypeTokenInLoadedModules(identifiers, importedNamespaces);
+		return result;
 	}
 
 	private async Task<CorDebugValue?> CreateTypeObjectStaticConstructor(CorDebugClass corDebugClass, ThreadId threadId, FrameStackDepth stackDepth)
@@ -143,11 +164,11 @@ public partial class ManagedDebugger
 		return value;
 	}
 
-	private (ModuleInfo moduleInfo, mdTypeDef typeToken, int nextIdentifier)? FindTypeTokenInLoadedModules(List<string> identifiers)
+	private (ModuleInfo moduleInfo, mdTypeDef typeToken, int nextIdentifier)? FindTypeTokenInLoadedModules(List<string> identifiers, ImmutableArray<string> importedNamespaces)
 	{
 		foreach (var module in _modules.Values)
 		{
-			var result = FindTypeTokenInModule(module.Module, identifiers);
+			var result = FindTypeTokenInModule(module.Module, identifiers, importedNamespaces);
 			if (result is not null)
 			{
 				return (module, result.Value.typeToken, result.Value.nextIdentifier);
@@ -156,7 +177,7 @@ public partial class ManagedDebugger
 		return null;
 	}
 
-	private (mdTypeDef typeToken, int nextIdentifier)? FindTypeTokenInModule(CorDebugModule module, List<string> identifiers)
+	private (mdTypeDef typeToken, int nextIdentifier)? FindTypeTokenInModule(CorDebugModule module, List<string> identifiers, ImmutableArray<string> importedNamespaces)
 	{
 		var metadataImport = module.GetMetaDataInterface().MetaDataImport;
 		mdTypeDef? typeToken = null;
@@ -169,7 +190,7 @@ public partial class ManagedDebugger
 			string name = ParseGenericParams(identifiers[i]);
 			currentTypeName += (string.IsNullOrEmpty(currentTypeName) ? "" : ".") + name;
 
-			typeToken = metadataImport.FindTypeDefByNameOrNull(currentTypeName, mdToken.Nil);
+			typeToken = metadataImport.FindTypeDefByNameOrNullInCandidateNamespaces(currentTypeName, mdToken.Nil, importedNamespaces);
 			if (typeToken is not null)
 			{
 				nextIdentifier = i + 1;

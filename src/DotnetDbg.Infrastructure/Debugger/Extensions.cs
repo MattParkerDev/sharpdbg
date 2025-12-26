@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using System.Runtime.CompilerServices;
 using ClrDebug;
 
@@ -37,6 +38,17 @@ public static class Extensions
 	{
 		var result = metadataImport.TryFindTypeDefByName(typeName, enclosingClass, out var mdTypeDef);
 		if (result is HRESULT.S_OK) return mdTypeDef;
+		return null;
+	}
+
+	public static mdTypeDef? FindTypeDefByNameOrNullInCandidateNamespaces(this MetaDataImport metadataImport, string typeName, mdToken enclosingClass, ImmutableArray<string> candidateNamespaces)
+	{
+		foreach (var candidateNamespace in candidateNamespaces)
+		{
+			var fullTypeName = string.IsNullOrEmpty(candidateNamespace) ? typeName : $"{candidateNamespace}.{typeName}";
+			var result = metadataImport.TryFindTypeDefByName(fullTypeName, enclosingClass, out var mdTypeDef);
+			if (result is HRESULT.S_OK) return mdTypeDef;
+		}
 		return null;
 	}
 

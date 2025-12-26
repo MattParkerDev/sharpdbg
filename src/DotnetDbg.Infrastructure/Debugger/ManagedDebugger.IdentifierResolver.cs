@@ -120,11 +120,11 @@ public partial class ManagedDebugger
 		return null;
 	}
 
-	private mdTypeDef? FindTypeInLoadedModules(List<string> identifiers, ref int nextIdentifier)
+	private mdTypeDef? FindTypeInLoadedModules(List<string> identifiers, int nextIdentifier)
 	{
 		foreach (var module in _modules.Values)
 		{
-			var typeToken = FindTypeInModule(module.Module, identifiers, ref nextIdentifier);
+			var (typeToken, _) = FindTypeInModule(module.Module, identifiers, nextIdentifier);
 			if (typeToken is not null)
 			{
 				return typeToken;
@@ -133,7 +133,7 @@ public partial class ManagedDebugger
 		return null;
 	}
 
-	private mdTypeDef? FindTypeInModule(CorDebugModule module, List<string> identifiers, ref int nextIdentifier)
+	private (mdTypeDef? typeToken, int nextIdentifier) FindTypeInModule(CorDebugModule module, List<string> identifiers, int nextIdentifier)
 	{
 		var metadataImport = module.GetMetaDataInterface().MetaDataImport;
 		var typeToken = mdTypeDef.Nil;
@@ -154,7 +154,7 @@ public partial class ManagedDebugger
 		}
 
 		if (typeToken.IsNil)
-			return null;
+			return (null, nextIdentifier);
 
 		for (int j = nextIdentifier; j < identifiers.Count; j++)
 		{
@@ -166,7 +166,7 @@ public partial class ManagedDebugger
 			nextIdentifier = j + 1;
 		}
 
-		return typeToken;
+		return (typeToken, nextIdentifier);
 	}
 
 	private static string ParseGenericParams(string typeName)

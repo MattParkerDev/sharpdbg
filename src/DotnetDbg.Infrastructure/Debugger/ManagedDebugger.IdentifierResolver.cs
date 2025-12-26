@@ -46,7 +46,7 @@ public partial class ManagedDebugger
 
 	private object? ResolveIdentifierAsStaticClass(string identifier, ThreadId threadId, FrameStackDepth stackDepth)
 	{
-
+		return null;
 	}
 
 	private CorDebugValue? ResolveIdentifierAsStackVariable(string identifier, ThreadId threadId, FrameStackDepth stackDepth, out CorDebugValue? instanceMethodImplicitThisValue)

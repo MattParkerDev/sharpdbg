@@ -17,7 +17,7 @@ public partial class ManagedDebugger
 		var rootValue = optionalInputValue;
 		if (rootValue is null)
 		{
-			rootValue = await ResolveIdentifier(identifiers[0], threadId, stackDepth);
+			rootValue = await ResolveFirstIdentifier(identifiers, threadId, stackDepth);
 			if (rootValue is null) throw new InvalidOperationException("Identifier value is null. Even if the identifier could not be resolved, an exception should have been thrown, returned as the CorDebugValue");
 		}
 
@@ -29,19 +29,22 @@ public partial class ManagedDebugger
 		return rootValue;
 	}
 
-	private async Task<CorDebugValue> ResolveIdentifier(string identifier, ThreadId threadId, FrameStackDepth stackDepth)
+	// Only takes the full list as resolving it as a static class needs to e.g. search through namespaces
+	private async Task<CorDebugValue> ResolveFirstIdentifier(List<string> identifiers, ThreadId threadId, FrameStackDepth stackDepth)
 	{
-		ArgumentException.ThrowIfNullOrWhiteSpace(identifier, nameof(identifier));
+		var firstIdentifier = identifiers[0];
+		ArgumentException.ThrowIfNullOrWhiteSpace(firstIdentifier);
 		// Try
 		// 1. Stack variable, e.g. local variable or argument
 		// 2. Field or property of 'this' if available (instance or static)
 		// 3. Identifier as static class name
-		var resolvedValue = ResolveIdentifierAsStackVariable(identifier, threadId, stackDepth, out var instanceMethodImplicitThisValue);
+		var resolvedValue = ResolveIdentifierAsStackVariable(firstIdentifier, threadId, stackDepth, out var instanceMethodImplicitThisValue);
 		if (resolvedValue is not null) return resolvedValue;
-		if (instanceMethodImplicitThisValue is not null) resolvedValue = await ResolveIdentifierAsMember(identifier, threadId, stackDepth, instanceMethodImplicitThisValue);
+		if (instanceMethodImplicitThisValue is not null) resolvedValue = await ResolveIdentifierAsMember(firstIdentifier, threadId, stackDepth, instanceMethodImplicitThisValue);
 		if (resolvedValue is not null) return resolvedValue;
+		resolvedValue = ResolveStaticClassFromIdentifiers(identifiers, threadId, stackDepth);
 
-		throw new InvalidOperationException($"Could not resolve identifier '{identifier}' as a stack variable.");
+		throw new InvalidOperationException($"Could not resolve identifier '{firstIdentifier}' as a stack variable.");
 	}
 
 	private CorDebugValue? ResolveIdentifierAsStackVariable(string identifier, ThreadId threadId, FrameStackDepth stackDepth, out CorDebugValue? instanceMethodImplicitThisValue)
@@ -115,7 +118,7 @@ public partial class ManagedDebugger
 		return null;
 	}
 
-	private object? ResolveStaticClassFromIdentifiers(List<string> identifiers, ThreadId threadId, FrameStackDepth stackDepth)
+	private CorDebugValue? ResolveStaticClassFromIdentifiers(List<string> identifiers, ThreadId threadId, FrameStackDepth stackDepth)
 	{
 		return null;
 	}

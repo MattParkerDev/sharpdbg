@@ -70,13 +70,13 @@ public partial class Evaluation
 			if (valueData != null && corValue != null)
 			{
 				var unwrapped = corValue.UnwrapDebugValue();
-				if (unwrapped is not CorDebugGenericValue genValue) throw new InvalidOperationException("Failed to create value type");
+				var unwrappedAsGeneric = unwrapped.As<CorDebugGenericValue>(); // a CorDebugObjectValue can also be a CorDebugGenericValue when it is a value class
 				unsafe
 				{
 					fixed (byte* p = valueData)
 					{
 						var ptr = (IntPtr)p;
-						genValue.SetValue(ptr);
+						unwrappedAsGeneric.SetValue(ptr);
 					}
 				}
 				return corValue;

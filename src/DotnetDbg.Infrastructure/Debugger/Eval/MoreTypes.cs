@@ -1,6 +1,6 @@
 ﻿using System.Text;
 using Microsoft.CodeAnalysis.CSharp;
-using static DotnetDbg.Infrastructure.Debugger.Eval.CompilerConstants;
+using static DotnetDbg.Infrastructure.Debugger.ExpressionEvaluator.Compiler.CompilerConstants;
 
 namespace DotnetDbg.Infrastructure.Debugger.Eval;
 

@@ -1,7 +1,7 @@
 using DotnetDbg.Infrastructure.Debugger.Eval;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
-using static DotnetDbg.Infrastructure.Debugger.Eval.CompilerConstants;
+using static DotnetDbg.Infrastructure.Debugger.ExpressionEvaluator.Compiler.CompilerConstants;
 
 namespace DotnetDbg.Infrastructure.Debugger.ExpressionEvaluator.Compiler;
 

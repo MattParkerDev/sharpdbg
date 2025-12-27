@@ -1,6 +1,7 @@
-﻿using Microsoft.CodeAnalysis.CSharp;
+﻿using DotnetDbg.Infrastructure.Debugger.Eval;
+using Microsoft.CodeAnalysis.CSharp;
 
-namespace DotnetDbg.Infrastructure.Debugger.Eval;
+namespace DotnetDbg.Infrastructure.Debugger.ExpressionEvaluator.Compiler;
 
 internal static class CompilerConstants
 {

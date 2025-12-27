@@ -81,13 +81,13 @@ public enum eOpCode
 	ThisExpression
 }
 
-public abstract class ICommand
+public abstract class CommandBase
 {
 	public eOpCode OpCode { get; protected set; }
 	public uint Flags { get; protected set; }
 }
 
-public class NoOperandsCommand : ICommand
+public class NoOperandsCommand : CommandBase
 {
 	public NoOperandsCommand(SyntaxKind kind, uint flags)
 	{
@@ -103,7 +103,7 @@ public class NoOperandsCommand : ICommand
 	}
 }
 
-public class OneOperandCommand : ICommand
+public class OneOperandCommand : CommandBase
 {
 	public dynamic Argument;
 
@@ -122,7 +122,7 @@ public class OneOperandCommand : ICommand
 	}
 }
 
-public class TwoOperandCommand : ICommand
+public class TwoOperandCommand : CommandBase
 {
 	public dynamic[] Arguments;
 

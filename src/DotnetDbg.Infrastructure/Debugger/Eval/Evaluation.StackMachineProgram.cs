@@ -5,11 +5,11 @@ using Microsoft.CodeAnalysis.CSharp;
 
 namespace DotnetDbg.Infrastructure.Debugger.Eval;
 
-public class StackMachineProgram : IEnumerable<ICommand>
+public class StackMachineProgram : IEnumerable<CommandBase>
 {
-	public List<ICommand> Commands = new List<ICommand>();
+	public List<CommandBase> Commands = new List<CommandBase>();
 
-	public IEnumerator<ICommand> GetEnumerator()
+	public IEnumerator<CommandBase> GetEnumerator()
 	{
 		return Commands.GetEnumerator();
 	}

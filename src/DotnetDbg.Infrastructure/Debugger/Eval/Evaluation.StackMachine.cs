@@ -58,7 +58,7 @@ public partial class StackMachine
 		}
 	}
 
-	private async Task ExecuteCommand(ICommand command, LinkedList<EvalStackEntry> evalStack, StringBuilder output)
+	private async Task ExecuteCommand(CommandBase command, LinkedList<EvalStackEntry> evalStack, StringBuilder output)
 	{
 		switch (command.OpCode)
 		{
@@ -606,7 +606,7 @@ public partial class StackMachine
 		});
 	}
 
-	private Task SimpleMemberAccessExpression(ICommand command, LinkedList<EvalStackEntry> evalStack)
+	private Task SimpleMemberAccessExpression(CommandBase command, LinkedList<EvalStackEntry> evalStack)
 	{
 		if (evalStack.Count < 2)
 			throw new InvalidOperationException("Stack underflow in SimpleMemberAccessExpression");
@@ -624,12 +624,12 @@ public partial class StackMachine
 		return Task.CompletedTask;
 	}
 
-	private Task QualifiedName(ICommand command, LinkedList<EvalStackEntry> evalStack)
+	private Task QualifiedName(CommandBase command, LinkedList<EvalStackEntry> evalStack)
 	{
 		return SimpleMemberAccessExpression(command, evalStack);
 	}
 
-	private async Task MemberBindingExpression(ICommand command, LinkedList<EvalStackEntry> evalStack)
+	private async Task MemberBindingExpression(CommandBase command, LinkedList<EvalStackEntry> evalStack)
 	{
 		if (evalStack.Count < 2)
 			throw new InvalidOperationException("Stack underflow in MemberBindingExpression");

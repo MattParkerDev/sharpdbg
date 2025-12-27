@@ -7,13 +7,11 @@ public class ExpressionExecutor
 {
 	private readonly EvalData _evalData;
 	private readonly ManagedDebugger _debugger;
-	private readonly ValueCreator _valueCreator;
 
 	public ExpressionExecutor(EvalData evalData, ManagedDebugger debugger)
 	{
 		_evalData = evalData;
 		_debugger = debugger;
-		_valueCreator = new ValueCreator(evalData);
 	}
 
 	public async Task<CorDebugValue> GetFrontStackEntryValue(LinkedList<EvalStackEntry> evalStack, bool needSetterData = false)

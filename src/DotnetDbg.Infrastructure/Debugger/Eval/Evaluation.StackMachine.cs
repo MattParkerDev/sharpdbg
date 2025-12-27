@@ -484,7 +484,7 @@ public partial class Evaluation
 			});
 		}
 
-		private Task StringLiteralExpression(OneOperandCommand command, LinkedList<EvalStackEntry> evalStack)
+		private async Task StringLiteralExpression(OneOperandCommand command, LinkedList<EvalStackEntry> evalStack)
 		{
 			var str = command.Argument as string ?? "";
 			str = ReplaceInternalNames(str, true);
@@ -492,10 +492,8 @@ public partial class Evaluation
 			evalStack.AddFirst(new EvalStackEntry
 			{
 				Literal = true,
-				CorDebugValue = _valueCreator.CreateString(str).Result
+				CorDebugValue = await _valueCreator.CreateString(str)
 			});
-
-			return Task.CompletedTask;
 		}
 
 		private Task CharacterLiteralExpression(TwoOperandCommand command, LinkedList<EvalStackEntry> evalStack)

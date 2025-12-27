@@ -297,3 +297,20 @@ public class ExpressionSyntaxVisitor(List<CommandBase> commands) : CSharpSyntaxW
         }
 #endif
 }
+
+public class SyntaxKindNotImplementedException : NotImplementedException
+{
+	public SyntaxKindNotImplementedException()
+	{
+	}
+
+	public SyntaxKindNotImplementedException(string message)
+		: base(message)
+	{
+	}
+
+	public SyntaxKindNotImplementedException(string message, Exception inner)
+		: base(message, inner)
+	{
+	}
+}

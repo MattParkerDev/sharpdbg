@@ -4,24 +4,7 @@ using static DotnetDbg.Infrastructure.Debugger.ExpressionEvaluator.Compiler.Comp
 
 namespace DotnetDbg.Infrastructure.Debugger.Eval;
 
-enum ePredefinedType
-{
-	BoolKeyword,
-	ByteKeyword,
-	CharKeyword,
-	DecimalKeyword,
-	DoubleKeyword,
-	FloatKeyword,
-	IntKeyword,
-	LongKeyword,
-	ObjectKeyword,
-	SByteKeyword,
-	ShortKeyword,
-	StringKeyword,
-	UShortKeyword,
-	UIntKeyword,
-	ULongKeyword
-}
+
 
 public enum eOpCode
 {

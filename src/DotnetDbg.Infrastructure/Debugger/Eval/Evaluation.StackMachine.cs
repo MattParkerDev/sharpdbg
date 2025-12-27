@@ -453,6 +453,86 @@ public partial class Evaluation
 			}
 		}
 
+		private async Task<CorDebugFunction?> FindMethodOnType(
+			CorDebugType type,
+			string methodName,
+			List<CorDebugValue?> args,
+			bool searchStatic,
+			bool idsEmpty)
+		{
+			var typeClass = type.Class;
+			var module = typeClass.Module;
+			var metaDataImport = module.GetMetaDataInterface().MetaDataImport;
+			var classToken = typeClass.Token;
+
+			var methods = metaDataImport!.EnumMethods(classToken);
+			foreach (var methodToken in methods)
+			{
+				var methodProps = metaDataImport!.GetMethodProps(methodToken);
+
+				if (methodProps.szMethod != methodName)
+					continue;
+
+				var isStatic = (methodProps.pdwAttr & CorMethodAttr.mdStatic) != 0;
+
+				if ((searchStatic && !isStatic) || (!searchStatic && isStatic && !idsEmpty))
+					continue;
+
+				var method = module.GetFunctionFromToken(methodToken);
+
+				if (await IsMethodParameterMatch(method, args))
+					return method;
+
+				var baseType = type.Base;
+				while (baseType != null)
+				{
+					var baseMethod = await FindMethodOnType(baseType, methodName, args, searchStatic, idsEmpty);
+					if (baseMethod != null)
+						return baseMethod;
+
+					baseType = baseType.Base;
+				}
+			}
+
+			return null;
+		}
+
+		private async Task<bool> IsMethodParameterMatch(CorDebugFunction method, List<CorDebugValue?> args)
+		{
+			var metaDataImport = method.Class.Module.GetMetaDataInterface().MetaDataImport;
+			var methodProps = metaDataImport!.GetMethodProps(method.Token);
+
+			var signature = methodProps.ppvSigBlob;
+			var sigReader = new CorSigReader(signature);
+			var callingConvention = sigReader.GetCallingConvention();
+
+			if (callingConvention == 5)
+				return false;
+
+			var genericParamCount = sigReader.GetGenericParamCount();
+			var paramCount = sigReader.GetParamCount();
+
+			if (paramCount != args.Count)
+				return false;
+
+			for (int i = 0; i < args.Count; i++)
+			{
+				if (!await IsTypeMatch(sigReader.GetNextParamType(), args[i]))
+					return false;
+			}
+
+			return true;
+		}
+
+		private async Task<bool> IsTypeMatch(CorElementType expectedType, CorDebugValue? actualValue)
+		{
+			if (actualValue == null)
+				return false;
+
+			var actualType = actualValue.UnwrapDebugValue().Type;
+			return actualType == expectedType;
+		}
+
 		private async Task ElementAccessExpression(OneOperandCommand command, LinkedList<EvalStackEntry> evalStack)
 		{
 			var indexCount = command.Argument as int? ?? 0;

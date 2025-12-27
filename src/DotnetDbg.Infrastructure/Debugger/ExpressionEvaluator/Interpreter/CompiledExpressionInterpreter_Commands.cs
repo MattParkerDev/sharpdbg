@@ -115,7 +115,7 @@ public partial class CompiledExpressionInterpreter
 		{
 			var elemType = objValue.UnwrapDebugValue().Type;
 
-			if (_evalData.CorElementToValueClassMap.TryGetValue(elemType, out var boxedClass))
+			if (_runtimeAssemblyPrimitiveTypeClasses.CorElementToValueClassMap.TryGetValue(elemType, out var boxedClass))
 			{
 				var size = objValue.Size;
 				var data = objValue.UnwrapDebugValue() is CorDebugGenericValue genValue
@@ -198,9 +198,9 @@ public partial class CompiledExpressionInterpreter
 			valueArgs.Count,
 			valueArgs.ToArray());
 
-		if (result == null && _evalData.ICorVoidClass != null)
+		if (result == null && _runtimeAssemblyPrimitiveTypeClasses.ICorVoidClass != null)
 		{
-			entry.CorDebugValue = await CreateValueType(_evalData.ICorVoidClass, null);
+			entry.CorDebugValue = await CreateValueType(_runtimeAssemblyPrimitiveTypeClasses.ICorVoidClass, null);
 		}
 		else
 		{
@@ -357,7 +357,7 @@ public partial class CompiledExpressionInterpreter
 		{
 			Literal = true,
 			CorDebugValue = elemType == CorElementType.ValueType && typeArg == ePredefinedType.DecimalKeyword
-				? await CreateValueType(_evalData.ICorDecimalClass!, data)
+				? await CreateValueType(_runtimeAssemblyPrimitiveTypeClasses.ICorDecimalClass!, data)
 				: await CreatePrimitiveValue(elemType, data)
 		});
 	}
@@ -419,7 +419,7 @@ public partial class CompiledExpressionInterpreter
 	private async Task<string> GetToStringResult(CorDebugValue value)
 	{
 		var unwrappedValue = value.UnwrapDebugValue();
-		if (_evalData.CorElementToValueClassMap.TryGetValue(unwrappedValue.Type, out var boxedClass))
+		if (_runtimeAssemblyPrimitiveTypeClasses.CorElementToValueClassMap.TryGetValue(unwrappedValue.Type, out var boxedClass))
 		{
 			var data = unwrappedValue is CorDebugGenericValue genValue
 				? genValue.GetValueAsBytes()
@@ -479,7 +479,7 @@ public partial class CompiledExpressionInterpreter
 		evalStack.AddFirst(new EvalStackEntry
 		{
 			CorDebugValue = elemType == CorElementType.ValueType && typeArg == ePredefinedType.DecimalKeyword
-				? await CreateValueType(_evalData.ICorDecimalClass!, null)
+				? await CreateValueType(_runtimeAssemblyPrimitiveTypeClasses.ICorDecimalClass!, null)
 				: elemType == CorElementType.String
 					? await CreateString("")
 					: await CreatePrimitiveValue(elemType, null)

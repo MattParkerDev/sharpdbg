@@ -1,4 +1,4 @@
-﻿using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 
 namespace DotnetDbg.Infrastructure.Debugger.Eval;
@@ -77,7 +77,26 @@ public partial class Evaluation
 
 					case SyntaxKind.IdentifierName:
 					case SyntaxKind.StringLiteralExpression:
+					case SyntaxKind.InterpolatedStringText:
 						stackMachineProgram.Commands.Add(new OneOperandCommand(node.Kind(), CurrentScopeFlags.Peek(), node.GetFirstToken().Value));
+						break;
+
+					case SyntaxKind.InterpolatedStringExpression:
+						int? InterpolatedStringContentCount = null;
+						foreach (var child in node.ChildNodes())
+						{
+							if (!child.IsKind(SyntaxKind.InterpolatedStringText) &&
+								!child.IsKind(SyntaxKind.Interpolation))
+								continue;
+
+							InterpolatedStringContentCount ??= 0;
+							InterpolatedStringContentCount++;
+						}
+						if (InterpolatedStringContentCount == null || InterpolatedStringContentCount < 1)
+						{
+							throw new ArgumentOutOfRangeException(node.Kind() + " must have at least one content element!");
+						}
+						stackMachineProgram.Commands.Add(new OneOperandCommand(node.Kind(), CurrentScopeFlags.Peek(), InterpolatedStringContentCount));
 						break;
 
 					case SyntaxKind.GenericName:
@@ -180,6 +199,7 @@ public partial class Evaluation
 
 					// skip, in case of stack machine program creation we don't use this kinds directly
 					case SyntaxKind.Argument:
+					case SyntaxKind.Interpolation:
 					case SyntaxKind.BracketedArgumentList:
 					case SyntaxKind.ConditionalAccessExpression:
 					case SyntaxKind.ArgumentList:

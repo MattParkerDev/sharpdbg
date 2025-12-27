@@ -1,4 +1,5 @@
-﻿using System.Text;
+﻿using System.Reflection.Metadata;
+using System.Text;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 
@@ -74,6 +75,8 @@ public partial class Evaluation
 		ElementBindingExpression,
 		NumericLiteralExpression,
 		StringLiteralExpression,
+		InterpolatedStringText,
+		InterpolatedStringExpression,
 		CharacterLiteralExpression,
 		PredefinedType,
 		QualifiedName,
@@ -130,6 +133,8 @@ public partial class Evaluation
 		{ SyntaxKind.ElementBindingExpression,      eOpCode.ElementBindingExpression },
 		{ SyntaxKind.NumericLiteralExpression,      eOpCode.NumericLiteralExpression },
 		{ SyntaxKind.StringLiteralExpression,       eOpCode.StringLiteralExpression },
+		{ SyntaxKind.InterpolatedStringText,        eOpCode.InterpolatedStringText },
+		{ SyntaxKind.InterpolatedStringExpression,  eOpCode.InterpolatedStringExpression },
 		{ SyntaxKind.CharacterLiteralExpression,    eOpCode.CharacterLiteralExpression },
 		{ SyntaxKind.PredefinedType,                eOpCode.PredefinedType },
 		{ SyntaxKind.QualifiedName,                 eOpCode.QualifiedName },

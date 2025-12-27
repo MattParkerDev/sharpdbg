@@ -69,7 +69,8 @@ public partial class Evaluation
 				case eOpCode.InvocationExpression: await InvocationExpression((command as OneOperandCommand)!, evalStack); break;
 				case eOpCode.ElementAccessExpression: await ElementAccessExpression((command as OneOperandCommand)!, evalStack); break;
 				case eOpCode.NumericLiteralExpression: await NumericLiteralExpression((command as TwoOperandCommand)!, evalStack); break;
-				case eOpCode.StringLiteralExpression: await StringLiteralExpression((command as OneOperandCommand)!, evalStack); break;
+				case eOpCode.StringLiteralExpression or eOpCode.InterpolatedStringText: await StringLiteralExpression((command as OneOperandCommand)!, evalStack); break;
+				case eOpCode.InterpolatedStringExpression: await InterpolatedStringExpression((command as OneOperandCommand)!, evalStack); break;
 				case eOpCode.CharacterLiteralExpression: await CharacterLiteralExpression((command as TwoOperandCommand)!, evalStack); break;
 				case eOpCode.PredefinedType: await PredefinedType((command as OneOperandCommand)!, evalStack); break;
 				case eOpCode.SimpleMemberAccessExpression: await SimpleMemberAccessExpression(command, evalStack); break;
@@ -335,9 +336,18 @@ public partial class Evaluation
 			string methodName,
 			List<CorDebugValue?> args,
 			bool searchStatic,
-			bool idsEmpty)
+			bool idsEmpty,
+			bool requiresBoxing = false)
 		{
-			var typeClass = type.Class;
+			// This doesn't actually solve the fact that we need a boxed value to pass into the method invocation
+			var typeClass = requiresBoxing switch
+			{
+				false => type.Class,
+				// Expect this to fail, as we don't actually populate the map lol
+				true => _evalData.CorElementToValueClassMap.GetValueOrDefault(type.Type)
+			};
+			if (typeClass is null) return null;
+
 			var module = typeClass.Module;
 			var metaDataImport = module.GetMetaDataInterface().MetaDataImport;
 			var classToken = typeClass.Token;
@@ -494,6 +504,57 @@ public partial class Evaluation
 				Literal = true,
 				CorDebugValue = await _valueCreator.CreateString(str)
 			});
+		}
+
+		private async Task InterpolatedStringExpression(OneOperandCommand command, LinkedList<EvalStackEntry> evalStack)
+		{
+			var componentCount = command.Argument as int? ?? 0;
+
+			if (componentCount < 0)
+				throw new ArgumentException("Invalid component count for interpolated string");
+
+			var stringBuilder = new StringBuilder();
+
+			for (int i = 0; i < componentCount; i++)
+			{
+				var value = await _executor.GetFrontStackEntryValue(evalStack);
+
+				if (value == null || value is CorDebugReferenceValue { IsNull: true })
+				{
+					stringBuilder.Append("null");
+				}
+				else if (value is CorDebugStringValue stringValue)
+				{
+					stringBuilder.Append(stringValue.GetString(stringValue.Size));
+				}
+				else
+				{
+					var toStringResult = await GetToStringResult(value);
+					stringBuilder.Append(toStringResult);
+				}
+
+				evalStack.RemoveFirst();
+			}
+
+			evalStack.AddFirst(new EvalStackEntry
+			{
+				Literal = true,
+				CorDebugValue = await _valueCreator.CreateString(stringBuilder.ToString())
+			});
+		}
+
+		private async Task<string> GetToStringResult(CorDebugValue value)
+		{
+			// we don't care if its a class or struct or primitive, just try to call ToString
+			var isPrimitiveRequiringBoxing = value is CorDebugGenericValue;
+			var corDebugFunction = await FindMethodOnType(value.ExactType, "ToString", [], false, true, isPrimitiveRequiringBoxing);
+			if (corDebugFunction is null) throw new InvalidOperationException("ToString method not found");
+			var eval = _evalData.Thread.CreateEval();
+			ICorDebugValue[] evalArgs = [value.Raw];
+			var result = await eval.CallParameterizedFunctionAsync(_evalData.ManagedCallback, corDebugFunction, 0, null, evalArgs.Length, evalArgs, _evalData.ILFrame);
+			if (result is not CorDebugStringValue stringValue) throw new InvalidOperationException("ToString did not return a string");
+
+			return stringValue.GetString(stringValue.Size);
 		}
 
 		private async Task CharacterLiteralExpression(TwoOperandCommand command, LinkedList<EvalStackEntry> evalStack)

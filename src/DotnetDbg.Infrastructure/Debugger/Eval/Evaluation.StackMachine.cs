@@ -505,11 +505,17 @@ public partial class Evaluation
 
 			var stringBuilder = new StringBuilder();
 
-			for (int i = 0; i < componentCount; i++)
+			var components = new CorDebugValue?[componentCount];
+			// Retrieve components in reverse order
+			for (var i = componentCount - 1; i >= 0; i--)
 			{
-				var value = await _executor.GetFrontStackEntryValue(evalStack);
-				var unwrapped = value.UnwrapDebugValue();
+				components[i] = await _executor.GetFrontStackEntryValue(evalStack);
+				evalStack.RemoveFirst();
+			}
 
+			foreach (var value in components)
+			{
+				var unwrapped = value.UnwrapDebugValue();
 				if (unwrapped == null || unwrapped is CorDebugReferenceValue { IsNull: true })
 				{
 					stringBuilder.Append("null");
@@ -523,8 +529,6 @@ public partial class Evaluation
 					var toStringResult = await GetToStringResult(value);
 					stringBuilder.Append(toStringResult);
 				}
-
-				evalStack.RemoveFirst();
 			}
 
 			evalStack.AddFirst(new EvalStackEntry

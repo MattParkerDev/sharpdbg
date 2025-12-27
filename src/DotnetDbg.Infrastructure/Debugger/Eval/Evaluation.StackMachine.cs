@@ -179,10 +179,10 @@ public partial class Evaluation
 			if (argCount < 0)
 				throw new ArgumentException("Invalid argument count");
 
-			var args = new List<CorDebugValue?>(argCount);
-			for (int i = argCount - 1; i >= 0; i--)
+			var args = new CorDebugValue?[argCount];
+			for (var i = argCount - 1; i >= 0; i--)
 			{
-				args.Add(await _executor.GetFrontStackEntryValue(evalStack));
+				args[i] = await _executor.GetFrontStackEntryValue(evalStack);
 				evalStack.RemoveFirst();
 			}
 
@@ -269,14 +269,14 @@ public partial class Evaluation
 
 			if (function == null)
 			{
-				throw new InvalidOperationException($"Method '{methodName}' with {args.Count} parameters not found");
+				throw new InvalidOperationException($"Method '{methodName}' with {args.Length} parameters not found");
 			}
 
 			var methodProps2 = function.Class.Module.GetMetaDataInterface().MetaDataImport!.GetMethodProps(function.Token);
 			isInstance = (methodProps2.pdwAttr & CorMethodAttr.mdStatic) == 0;
 
 			var typeArgsCount = entry.GenericTypeCache?.Count ?? 0;
-			var realArgsCount = args.Count + (isInstance ? 1 : 0);
+			var realArgsCount = args.Length + (isInstance ? 1 : 0);
 			var typeArgs = new List<ICorDebugType>(typeArgsCount);
 			var valueArgs = new List<ICorDebugValue>(realArgsCount);
 
@@ -333,7 +333,7 @@ public partial class Evaluation
 		private async Task<CorDebugFunction?> FindMethodOnType(
 			CorDebugType type,
 			string methodName,
-			List<CorDebugValue?> args,
+			CorDebugValue?[] args,
 			bool searchStatic,
 			bool idsEmpty)
 		{
@@ -374,7 +374,7 @@ public partial class Evaluation
 			return null;
 		}
 
-		private bool IsMethodParameterMatch(CorDebugFunction method, List<CorDebugValue? > args)
+		private bool IsMethodParameterMatch(CorDebugFunction method, CorDebugValue?[] args)
 		{
 			var metaDataImport = method. Class.Module.GetMetaDataInterface().MetaDataImport;
 
@@ -385,11 +385,11 @@ public partial class Evaluation
 			var parameterTypes = ParseMethodSignatureWithMetadata(methodProps.ppvSigBlob, methodProps.pcbSigBlob);
 
 			// Compare parameter count
-			if (parameterTypes.Count != args.Count)
+			if (parameterTypes.Count != args.Length)
 				return false;
 
 			// Compare each parameter type
-			for (var i = 0; i < args.Count; i++)
+			for (var i = 0; i < args.Length; i++)
 			{
 				if (args[i] == null)
 					continue;

@@ -451,6 +451,7 @@ public class DotnetDbgTests(ITestOutputHelper testOutputHelper)
 	    [
 		    new() {Name = "this", Value = "{DebuggableConsoleApp.MyClass}", Type = "DebuggableConsoleApp.MyClass", EvaluateName = "this", VariablesReference = 3 },
 		    new() {Name = "myParam", Value = "13", Type = "long", EvaluateName = "myParam" },
+		    new() {Name = "myIntParam", Value = "6", Type = "int", EvaluateName = "myIntParam" },
 		    new() {Name = "myInt", Value = "4", Type = "int", EvaluateName = "myInt" },
 		    new() {Name = "enumVar", Value = "SecondValue", Type = "DebuggableConsoleApp.MyEnum", EvaluateName = "enumVar", VariablesReference = 4 },
 		    new() {Name = "enumWithFlagsVar", Value = "FlagValue1 | FlagValue3", Type = "DebuggableConsoleApp.MyEnumWithFlags", EvaluateName = "enumWithFlagsVar", VariablesReference = 5 },
@@ -463,7 +464,7 @@ public class DotnetDbgTests(ITestOutputHelper testOutputHelper)
 
 	    debugProtocolHost.WithVariablesRequest(scope.VariablesReference, out var variables);
 
-	    variables.Should().HaveCount(10);
+	    variables.Should().HaveCount(11);
 	    variables.Should().BeEquivalentTo(expectedVariables);
 	    debugProtocolHost.AssertStructMemberVariables(variables.Single(s => s.Name == "structVar").VariablesReference);
 	    debugProtocolHost.AssertInstanceThisInstanceVariables(variables.Single(s => s.Name == "this").VariablesReference);

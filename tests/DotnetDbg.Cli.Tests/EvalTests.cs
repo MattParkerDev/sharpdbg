@@ -90,7 +90,9 @@ public class EvalTests(ITestOutputHelper testOutputHelper)
 	    //evaluateResponse17.Result.Should().Be("14");
 	    debugProtocolHost.WithEvaluateRequest(stackFrameId, "IntProperty.ToString()", out var evaluateResponse18);
 	    evaluateResponse18.Result.Should().Be("10");
-	    //debugProtocolHost.WithEvaluateRequest(stackFrameId, "$\"Count = {IntProperty}\"", out var evaluateResponse19);
-	    //evaluateResponse19.Result.Should().Be("Count = 4");
+	    debugProtocolHost.WithEvaluateRequest(stackFrameId, "this.TestMethod(4, \"asdf\")", out var evaluateResponse19);
+	    evaluateResponse19.Result.Should().Be("8");
+	    //debugProtocolHost.WithEvaluateRequest(stackFrameId, "$\"Count = {IntProperty}\"", out var evaluateResponse20);
+	    //evaluateResponse20.Result.Should().Be("Count = 4");
     }
 }

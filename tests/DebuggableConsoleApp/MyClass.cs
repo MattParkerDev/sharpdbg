@@ -39,6 +39,7 @@ public class MyClass
 	private int Get14() => 14;
 	private int DoubleNumber(int number) => number * 2;
 	private float DoubleNumber(float number) => number * 2;
+	private int TestMethod(int myInt, string myString) => myInt + myString.Length;
 }
 
 public class MyClass2

@@ -668,9 +668,9 @@ public partial class ManagedDebugger : IDisposable
         var runtimeAssemblyPrimitiveTypeClasses = new RuntimeAssemblyPrimitiveTypeClasses(CorElementToValueClassMap, CorVoidClass, CorDecimalClass);
         var evalData = new EvalData(thread, variablesReference.Value.ThreadId, variablesReference.Value.FrameStackDepth);
 
-        var interpreter = new CompiledExpressionInterpreter(runtimeAssemblyPrimitiveTypeClasses, _callbacks);
+        var interpreter = new CompiledExpressionInterpreter(runtimeAssemblyPrimitiveTypeClasses, _callbacks, this);
         var compiledExpression = ExpressionCompiler.Compile(expression);
-        var evalContext = new CompiledExpressionEvaluationContext { Debugger = this, EvalData = evalData };
+        var evalContext = new CompiledExpressionEvaluationContext { EvalData = evalData };
         var result = await interpreter.Interpret(compiledExpression, evalContext);
 
         if (result.Error is not null)

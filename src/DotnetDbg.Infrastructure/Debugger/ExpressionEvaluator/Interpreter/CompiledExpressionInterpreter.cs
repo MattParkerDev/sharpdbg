@@ -4,10 +4,10 @@ using DotnetDbg.Infrastructure.Debugger.ExpressionEvaluator.Compiler;
 
 namespace DotnetDbg.Infrastructure.Debugger.ExpressionEvaluator.Interpreter;
 
-public partial class CompiledExpressionInterpreter(RuntimeAssemblyPrimitiveTypeClasses runtimeAssemblyPrimitiveTypeClasses, CorDebugManagedCallback debuggerManagedCallback)
+public partial class CompiledExpressionInterpreter(RuntimeAssemblyPrimitiveTypeClasses runtimeAssemblyPrimitiveTypeClasses, CorDebugManagedCallback debuggerManagedCallback, ManagedDebugger debugger)
 {
 	private EvalData _evalData;
-	private ManagedDebugger _debugger;
+	private readonly ManagedDebugger _debugger = debugger;
 	private readonly CorDebugManagedCallback _debuggerManagedCallback = debuggerManagedCallback;
 	private readonly RuntimeAssemblyPrimitiveTypeClasses _runtimeAssemblyPrimitiveTypeClasses = runtimeAssemblyPrimitiveTypeClasses;
 
@@ -21,7 +21,6 @@ public partial class CompiledExpressionInterpreter(RuntimeAssemblyPrimitiveTypeC
 	{
 		// TODO: CompiledExpressionEvaluationContext should probably be passed to e.g. ExecuteCommand instead of storing these as fields
 		_evalData = context.EvalData;
-		_debugger = context.Debugger;
 		var evalStack = new LinkedList<EvalStackEntry>();
 		var output = new StringBuilder();
 

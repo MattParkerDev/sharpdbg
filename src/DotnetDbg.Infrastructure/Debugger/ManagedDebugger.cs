@@ -541,7 +541,7 @@ public partial class ManagedDebugger : IDisposable
         return result;
     }
 
-    private CorDebugILFrame GetFrameForThreadIdAndStackDepth(ThreadId threadId, FrameStackDepth stackDepth)
+    internal CorDebugILFrame GetFrameForThreadIdAndStackDepth(ThreadId threadId, FrameStackDepth stackDepth)
 	{
 	    // We need to re-obtain the IlFrame in case it has been neutered
 	    var thread = _process!.Threads.Single(s => s.Id == threadId.Value);
@@ -665,9 +665,8 @@ public partial class ManagedDebugger : IDisposable
         ArgumentNullException.ThrowIfNull(variablesReference);
         if (variablesReference.Value.ReferenceKind is not StoredReferenceKind.Scope) throw new InvalidOperationException("Frame ID does not refer to a stack frame scope");
         var thread = _process!.Threads.Single(s => s.Id == variablesReference.Value.ThreadId.Value);
-        var ilFrame = GetFrameForThreadIdAndStackDepth(variablesReference.Value.ThreadId, variablesReference.Value.FrameStackDepth);
         var runtimeAssemblyPrimitiveTypeClasses = new RuntimeAssemblyPrimitiveTypeClasses(CorElementToValueClassMap, CorVoidClass, CorDecimalClass);
-        var evalData = new EvalData(thread, variablesReference.Value.FrameStackDepth, ilFrame);
+        var evalData = new EvalData(thread, variablesReference.Value.ThreadId, variablesReference.Value.FrameStackDepth);
 
         var interpreter = new CompiledExpressionInterpreter(runtimeAssemblyPrimitiveTypeClasses, _callbacks);
         var compiledExpression = ExpressionCompiler.Compile(expression);

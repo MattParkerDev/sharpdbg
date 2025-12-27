@@ -19,12 +19,12 @@ public class EvalData
 {
 	public CorDebugThread Thread { get; set; }
 	public FrameStackDepth StackDepth { get; set; }
-	public CorDebugILFrame ILFrame { get; set; }
+	public ThreadId ThreadId { get; set; }
 
-	public EvalData(CorDebugThread thread, FrameStackDepth stackDepth, CorDebugILFrame ilFrame)
+	public EvalData(CorDebugThread thread, ThreadId threadId, FrameStackDepth stackDepth)
 	{
 		Thread = thread;
+		ThreadId = threadId;
 		StackDepth = stackDepth;
-		ILFrame = ilFrame;
 	}
 }

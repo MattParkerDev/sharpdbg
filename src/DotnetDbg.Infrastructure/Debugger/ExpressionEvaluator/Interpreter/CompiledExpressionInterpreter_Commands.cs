@@ -98,7 +98,8 @@ public partial class CompiledExpressionInterpreter
 			}
 			else
 			{
-				var corDebugFunction = _evalData.ILFrame.Function;
+				var ilFrame = _debugger.GetFrameForThreadIdAndStackDepth(_evalData.ThreadId, _evalData.StackDepth);
+				var corDebugFunction = ilFrame.Function;
 				var module = corDebugFunction.Class.Module;
 				var metaDataImport = module.GetMetaDataInterface().MetaDataImport;
 				var methodProps = metaDataImport!.GetMethodProps(corDebugFunction.Token);

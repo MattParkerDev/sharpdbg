@@ -1,10 +1,11 @@
+using DotnetDbg.Infrastructure.Debugger.Eval;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using static DotnetDbg.Infrastructure.Debugger.Eval.EvalConstants;
 
-namespace DotnetDbg.Infrastructure.Debugger.Eval;
+namespace DotnetDbg.Infrastructure.Debugger.ExpressionEvaluator.Compiler;
 
-public class TreeWalker : CSharpSyntaxWalker
+public class ExpressionSyntaxVisitor(List<CommandBase> commands) : CSharpSyntaxWalker
 {
 	bool ExpressionStatementBody = false;
 	public int ExpressionStatementCount = 0;
@@ -22,7 +23,7 @@ public class TreeWalker : CSharpSyntaxWalker
 	static readonly uint defaultScopeFlags = flagUnchecked;
 	Stack<uint> CurrentScopeFlags = new Stack<uint>();
 
-	public StackMachineProgram stackMachineProgram = new StackMachineProgram();
+	private readonly List<CommandBase> _commands = commands;
 
 	public override void Visit(SyntaxNode? node)
 	{
@@ -77,7 +78,7 @@ public class TreeWalker : CSharpSyntaxWalker
 				case SyntaxKind.IdentifierName:
 				case SyntaxKind.StringLiteralExpression:
 				case SyntaxKind.InterpolatedStringText:
-					stackMachineProgram.Commands.Add(new OneOperandCommand(node.Kind(), CurrentScopeFlags.Peek(), node.GetFirstToken().Value));
+					_commands.Add(new OneOperandCommand(node.Kind(), CurrentScopeFlags.Peek(), node.GetFirstToken().Value));
 					break;
 
 				case SyntaxKind.InterpolatedStringExpression:
@@ -95,7 +96,7 @@ public class TreeWalker : CSharpSyntaxWalker
 					{
 						throw new ArgumentOutOfRangeException(node.Kind() + " must have at least one content element!");
 					}
-					stackMachineProgram.Commands.Add(new OneOperandCommand(node.Kind(), CurrentScopeFlags.Peek(), InterpolatedStringContentCount));
+					_commands.Add(new OneOperandCommand(node.Kind(), CurrentScopeFlags.Peek(), InterpolatedStringContentCount));
 					break;
 
 				case SyntaxKind.GenericName:
@@ -126,7 +127,7 @@ public class TreeWalker : CSharpSyntaxWalker
 					{
 						throw new ArgumentOutOfRangeException(node.Kind() + " must have at least one type!");
 					}
-					stackMachineProgram.Commands.Add(new TwoOperandCommand(node.Kind(), CurrentScopeFlags.Peek(), node.GetFirstToken().Value, GenericNameArgs));
+					_commands.Add(new TwoOperandCommand(node.Kind(), CurrentScopeFlags.Peek(), node.GetFirstToken().Value, GenericNameArgs));
 					break;
 
 				case SyntaxKind.InvocationExpression:
@@ -156,7 +157,7 @@ public class TreeWalker : CSharpSyntaxWalker
 					{
 						throw new ArgumentOutOfRangeException(node.Kind() + " must have at least one argument!");
 					}
-					stackMachineProgram.Commands.Add(new OneOperandCommand(node.Kind(), CurrentScopeFlags.Peek(), ArgsCount));
+					_commands.Add(new OneOperandCommand(node.Kind(), CurrentScopeFlags.Peek(), ArgsCount));
 					break;
 
 				case SyntaxKind.ElementAccessExpression:
@@ -184,16 +185,16 @@ public class TreeWalker : CSharpSyntaxWalker
 					{
 						throw new ArgumentOutOfRangeException(node.Kind() + " must have at least one argument!");
 					}
-					stackMachineProgram.Commands.Add(new OneOperandCommand(node.Kind(), CurrentScopeFlags.Peek(), ElementAccessArgs));
+					_commands.Add(new OneOperandCommand(node.Kind(), CurrentScopeFlags.Peek(), ElementAccessArgs));
 					break;
 
 				case SyntaxKind.NumericLiteralExpression:
 				case SyntaxKind.CharacterLiteralExpression: // 1 wchar
-					stackMachineProgram.Commands.Add(new TwoOperandCommand(node.Kind(), CurrentScopeFlags.Peek(), TypeAlias[node.GetFirstToken().Value.GetType()], node.GetFirstToken().Value));
+					_commands.Add(new TwoOperandCommand(node.Kind(), CurrentScopeFlags.Peek(), TypeAlias[node.GetFirstToken().Value.GetType()], node.GetFirstToken().Value));
 					break;
 
 				case SyntaxKind.PredefinedType:
-					stackMachineProgram.Commands.Add(new OneOperandCommand(node.Kind(), CurrentScopeFlags.Peek(), TypeKindAlias[node.GetFirstToken().Kind()]));
+					_commands.Add(new OneOperandCommand(node.Kind(), CurrentScopeFlags.Peek(), TypeKindAlias[node.GetFirstToken().Kind()]));
 					break;
 
 				// skip, in case of stack machine program creation we don't use this kinds directly
@@ -258,7 +259,7 @@ public class TreeWalker : CSharpSyntaxWalker
 /*
                     case SyntaxKind.TypeOfExpression:
 */
-					stackMachineProgram.Commands.Add(new NoOperandsCommand(node.Kind(), CurrentScopeFlags.Peek()));
+					_commands.Add(new NoOperandsCommand(node.Kind(), CurrentScopeFlags.Peek()));
 					break;
 
 				default:
@@ -288,7 +289,7 @@ public class TreeWalker : CSharpSyntaxWalker
             }
             sb.Append("=======================================\n");
             sb.Append("Stack machine commands:\n");
-            foreach (var command in stackMachineProgram.Commands)
+            foreach (var command in Commands)
             {
                 sb.AppendFormat("    {0}\n", command.ToString());
             }

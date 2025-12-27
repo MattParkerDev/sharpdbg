@@ -18,13 +18,6 @@ public partial class StackMachine
 		_operatorEvaluator = new OperatorEvaluator(evalData, debugger);
 	}
 
-	public async Task<EvaluationResult> Run(string expression)
-	{
-		var fixedExpression = ReplaceInternalNames(expression, false);
-		var program = StackMachineProgram.GenerateStackMachineProgram(fixedExpression);
-		return await Run(program.Commands);
-	}
-
 	public async Task<EvaluationResult> Run(List<CommandBase> instructions)
 	{
 		var evalStack = new LinkedList<EvalStackEntry>();

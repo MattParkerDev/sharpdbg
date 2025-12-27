@@ -314,8 +314,6 @@ public class SymbolReader : IDisposable
 		    }
 	    }
 	    // TODO: I wonder if it is faster to pass a class token of the containing class from the metadata side rather than looking it up here
-	    // Also I believe this currently doesn't work, as our metadata reader is using the PDB, which doesn't have type definitions, would need to also
-	    // get the assembly metadata reader to do this properly
 	    var methodDef = _peMetadataReader.GetMethodDefinition(methodHandle);
 	    var typeDef = methodDef.GetDeclaringType();
 	    var typeDefObj = _peMetadataReader.GetTypeDefinition(typeDef);

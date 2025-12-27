@@ -198,9 +198,9 @@ public partial class CompiledExpressionInterpreter
 			valueArgs.Count,
 			valueArgs.ToArray());
 
-		if (result == null && _runtimeAssemblyPrimitiveTypeClasses.ICorVoidClass != null)
+		if (result == null && _runtimeAssemblyPrimitiveTypeClasses.CorVoidClass != null)
 		{
-			entry.CorDebugValue = await CreateValueType(_runtimeAssemblyPrimitiveTypeClasses.ICorVoidClass, null);
+			entry.CorDebugValue = await CreateValueType(_runtimeAssemblyPrimitiveTypeClasses.CorVoidClass, null);
 		}
 		else
 		{
@@ -357,7 +357,7 @@ public partial class CompiledExpressionInterpreter
 		{
 			Literal = true,
 			CorDebugValue = elemType == CorElementType.ValueType && typeArg == ePredefinedType.DecimalKeyword
-				? await CreateValueType(_runtimeAssemblyPrimitiveTypeClasses.ICorDecimalClass!, data)
+				? await CreateValueType(_runtimeAssemblyPrimitiveTypeClasses.CorDecimalClass!, data)
 				: await CreatePrimitiveValue(elemType, data)
 		});
 	}
@@ -479,7 +479,7 @@ public partial class CompiledExpressionInterpreter
 		evalStack.AddFirst(new EvalStackEntry
 		{
 			CorDebugValue = elemType == CorElementType.ValueType && typeArg == ePredefinedType.DecimalKeyword
-				? await CreateValueType(_runtimeAssemblyPrimitiveTypeClasses.ICorDecimalClass!, null)
+				? await CreateValueType(_runtimeAssemblyPrimitiveTypeClasses.CorDecimalClass!, null)
 				: elemType == CorElementType.String
 					? await CreateString("")
 					: await CreatePrimitiveValue(elemType, null)

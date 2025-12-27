@@ -11,8 +11,8 @@ public class CompiledExpressionEvaluationContext
 public class RuntimeAssemblyPrimitiveTypeClasses(Dictionary<CorElementType, CorDebugClass> corElementToValueClassMap, CorDebugClass? corVoidClass, CorDebugClass? corDecimalClass)
 {
 	public Dictionary<CorElementType, CorDebugClass> CorElementToValueClassMap { get; set; } = corElementToValueClassMap;
-	public CorDebugClass? ICorVoidClass { get; set; } = corVoidClass;
-	public CorDebugClass? ICorDecimalClass { get; set; } = corDecimalClass;
+	public CorDebugClass? CorVoidClass { get; set; } = corVoidClass;
+	public CorDebugClass? CorDecimalClass { get; set; } = corDecimalClass;
 }
 
 public class EvalData

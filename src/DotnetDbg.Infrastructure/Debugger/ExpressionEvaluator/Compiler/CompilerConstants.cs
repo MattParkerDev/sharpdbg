@@ -2,7 +2,7 @@
 
 namespace DotnetDbg.Infrastructure.Debugger.Eval;
 
-internal static class EvalConstants
+internal static class CompilerConstants
 {
 	public static readonly Dictionary<Type, ePredefinedType> TypeAlias = new Dictionary<Type, ePredefinedType>
 	{

@@ -667,14 +667,10 @@ public partial class ManagedDebugger : IDisposable
         ArgumentNullException.ThrowIfNull(variablesReference);
         if (variablesReference.Value.ReferenceKind is not StoredReferenceKind.Scope) throw new InvalidOperationException("Frame ID does not refer to a stack frame scope");
         var thread = _process!.Threads.Single(s => s.Id == variablesReference.Value.ThreadId.Value);
-        if (_expressionInterpreter is null)
-        {
-			var runtimeAssemblyPrimitiveTypeClasses = new RuntimeAssemblyPrimitiveTypeClasses(CorElementToValueClassMap, CorVoidClass, CorDecimalClass);
-			_expressionInterpreter = new CompiledExpressionInterpreter(runtimeAssemblyPrimitiveTypeClasses, _callbacks, this);
-        }
 
         var compiledExpression = ExpressionCompiler.Compile(expression);
         var evalContext = new CompiledExpressionEvaluationContext(thread, variablesReference.Value.ThreadId, variablesReference.Value.FrameStackDepth);
+        ArgumentNullException.ThrowIfNull(_expressionInterpreter);
         var result = await _expressionInterpreter.Interpret(compiledExpression, evalContext);
 
         if (result.Error is not null)
@@ -845,6 +841,9 @@ public partial class ManagedDebugger : IDisposable
         {
 	        // we need to map value classes to primitive types to allow evaluation to invoke methods on them
 	        MapRuntimePrimitiveTypesToCorDebugClass(corModule);
+	        // We can now initialize the expression interpreter, and assume that modules will be loaded before any stop event is allowed to be returned
+	        var runtimeAssemblyPrimitiveTypeClasses = new RuntimeAssemblyPrimitiveTypeClasses(CorElementToValueClassMap, CorVoidClass, CorDecimalClass);
+	        _expressionInterpreter = new CompiledExpressionInterpreter(runtimeAssemblyPrimitiveTypeClasses, _callbacks, this);
         }
 
         // Fire the module loaded event

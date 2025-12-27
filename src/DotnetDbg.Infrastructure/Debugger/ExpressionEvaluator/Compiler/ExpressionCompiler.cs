@@ -1,4 +1,5 @@
 ﻿using DotnetDbg.Infrastructure.Debugger.Eval;
+using DotnetDbg.Infrastructure.Debugger.ExpressionEvaluator.Interpreter;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 
@@ -8,7 +9,7 @@ public static class ExpressionCompiler
 {
 	public static CompiledExpression Compile(string expression)
 	{
-		var fixedExpression = StackMachineLegacy.ReplaceInternalNames(expression, false);
+		var fixedExpression = CompiledExpressionInterpreter.ReplaceInternalNames(expression, false);
 		var instructions = CompileInternal(fixedExpression);
 		var compiledExpression = new CompiledExpression(instructions);
 		return compiledExpression;

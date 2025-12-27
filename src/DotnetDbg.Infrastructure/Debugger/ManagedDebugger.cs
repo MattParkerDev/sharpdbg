@@ -2,6 +2,9 @@ using System.Diagnostics;
 using System.Runtime.InteropServices;
 using ClrDebug;
 using DotnetDbg.Infrastructure.Debugger.Eval;
+using DotnetDbg.Infrastructure.Debugger.ExpressionEvaluator;
+using DotnetDbg.Infrastructure.Debugger.ExpressionEvaluator.Compiler;
+using DotnetDbg.Infrastructure.Debugger.ExpressionEvaluator.Interpreter;
 using ZLinq;
 
 namespace DotnetDbg.Infrastructure.Debugger;
@@ -665,8 +668,12 @@ public partial class ManagedDebugger : IDisposable
         var thread = _process!.Threads.Single(s => s.Id == variablesReference.Value.ThreadId.Value);
         var ilFrame = GetFrameForThreadIdAndStackDepth(variablesReference.Value.ThreadId, variablesReference.Value.FrameStackDepth);
         var evalData = new EvalData(thread, variablesReference.Value.FrameStackDepth.Value, _callbacks, ilFrame, CorElementToValueClassMap, CorVoidClass, CorDecimalClass);
-        var stackMachine = new StackMachine(evalData, this);
-        var result = await stackMachine.Run(expression);
+
+        var interpreter = new CompiledExpressionInterpreter();
+        var compiledExpression = ExpressionCompiler.Compile(expression);
+        var evalContext = new CompiledExpressionEvaluationContext { Debugger = this, EvalData = evalData };
+        var result = await interpreter.Interpret(compiledExpression, evalContext);
+
         if (result.Error is not null)
         {
 	        _logger?.Invoke($"Evaluation error: {result.Error}");

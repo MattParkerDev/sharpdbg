@@ -20,17 +20,21 @@ public partial class StackMachine
 
 	public async Task<EvaluationResult> Run(string expression)
 	{
+		var fixedExpression = ReplaceInternalNames(expression, false);
+		var program = StackMachineProgram.GenerateStackMachineProgram(fixedExpression);
+		return await Run(program.Commands);
+	}
+
+	public async Task<EvaluationResult> Run(List<CommandBase> instructions)
+	{
 		var evalStack = new LinkedList<EvalStackEntry>();
 		var output = new StringBuilder();
 
 		try
 		{
-			var fixedExpression = ReplaceInternalNames(expression, false);
-			var program = StackMachineProgram.GenerateStackMachineProgram(fixedExpression);
-
-			foreach (var command in program.Commands)
+			foreach (var instruction in instructions)
 			{
-				await ExecuteCommand(command, evalStack, output);
+				await ExecuteCommand(instruction, evalStack, output);
 			}
 
 			if (evalStack.Count != 1)
@@ -107,7 +111,7 @@ public partial class StackMachine
 		}
 	}
 
-	private string ReplaceInternalNames(string expression, bool restore)
+	internal static string ReplaceInternalNames(string expression, bool restore)
 	{
 		var result = expression;
 		var internalNamesMap = new Dictionary<string, string>

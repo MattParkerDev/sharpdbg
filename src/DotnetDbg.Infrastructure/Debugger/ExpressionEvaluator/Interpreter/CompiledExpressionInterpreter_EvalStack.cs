@@ -21,19 +21,16 @@ public partial class CompiledExpressionInterpreter
 		var entry = evalStack.First.Value;
 
 		return await ResolveIdentifiersForType(
-			_evalData.Thread,
-			_evalData.FrameLevel,
 			entry.CorDebugValue,
 			entry.Identifiers
 		);
 	}
 
 	public async Task<CorDebugType?> ResolveIdentifiersForType(
-		CorDebugThread thread,
-		int frameLevel,
 		CorDebugValue? baseValue,
 		List<string> identifiers)
 	{
+		// TODO: implement type resolution?
 		if (identifiers.Count == 0)
 			return null;
 

@@ -335,18 +335,9 @@ public partial class Evaluation
 			string methodName,
 			List<CorDebugValue?> args,
 			bool searchStatic,
-			bool idsEmpty,
-			bool requiresBoxing = false)
+			bool idsEmpty)
 		{
-			// This doesn't actually solve the fact that we need a boxed value to pass into the method invocation
-			var typeClass = requiresBoxing switch
-			{
-				false => type.Class,
-				// Expect this to fail, as we don't actually populate the map lol
-				true => _evalData.CorElementToValueClassMap.GetValueOrDefault(type.Type)
-			};
-			if (typeClass is null) return null;
-
+			var typeClass = type.Class;
 			var module = typeClass.Module;
 			var metaDataImport = module.GetMetaDataInterface().MetaDataImport;
 			var classToken = typeClass.Token;
@@ -517,12 +508,13 @@ public partial class Evaluation
 			for (int i = 0; i < componentCount; i++)
 			{
 				var value = await _executor.GetFrontStackEntryValue(evalStack);
+				var unwrapped = value.UnwrapDebugValue();
 
-				if (value == null || value is CorDebugReferenceValue { IsNull: true })
+				if (unwrapped == null || unwrapped is CorDebugReferenceValue { IsNull: true })
 				{
 					stringBuilder.Append("null");
 				}
-				else if (value is CorDebugStringValue stringValue)
+				else if (unwrapped is CorDebugStringValue stringValue)
 				{
 					stringBuilder.Append(stringValue.GetString(stringValue.Size));
 				}
@@ -544,14 +536,25 @@ public partial class Evaluation
 
 		private async Task<string> GetToStringResult(CorDebugValue value)
 		{
-			// we don't care if its a class or struct or primitive, just try to call ToString
-			var isPrimitiveRequiringBoxing = value is CorDebugGenericValue;
-			var corDebugFunction = await FindMethodOnType(value.ExactType, "ToString", [], false, true, isPrimitiveRequiringBoxing);
+			var unwrappedValue = value.UnwrapDebugValue();
+			if (_evalData.CorElementToValueClassMap.TryGetValue(unwrappedValue.Type, out var boxedClass))
+			{
+				var data = unwrappedValue is CorDebugGenericValue genValue
+					? genValue.GetValueAsBytes()
+					: null;
+
+				if (data != null)
+				{
+					value = await _valueCreator.CreateValueType(boxedClass, data);
+				}
+			}
+			var corDebugFunction = await FindMethodOnType(value.ExactType, "ToString", [], false, true);
 			if (corDebugFunction is null) throw new InvalidOperationException("ToString method not found");
 			var eval = _evalData.Thread.CreateEval();
 			ICorDebugValue[] evalArgs = [value.Raw];
 			var result = await eval.CallParameterizedFunctionAsync(_evalData.ManagedCallback, corDebugFunction, 0, null, evalArgs.Length, evalArgs);
-			if (result is not CorDebugStringValue stringValue) throw new InvalidOperationException("ToString did not return a string");
+			var unwrappedResult = result!.UnwrapDebugValue();
+			if (unwrappedResult is not CorDebugStringValue stringValue) throw new InvalidOperationException("ToString did not return a string");
 
 			return stringValue.GetString(stringValue.Size);
 		}

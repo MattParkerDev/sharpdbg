@@ -4,7 +4,7 @@ namespace DotnetDbg.Infrastructure.Debugger.ExpressionEvaluator.Interpreter;
 
 public partial class CompiledExpressionInterpreter
 {
-	public async Task<CorDebugValue> GetFrontStackEntryValue(LinkedList<EvalStackEntry> evalStack, bool needSetterData = false)
+	private async Task<CorDebugValue> GetFrontStackEntryValue(LinkedList<EvalStackEntry> evalStack, bool needSetterData = false)
 	{
 		if (evalStack.First == null) throw new InvalidOperationException("Evaluation stack is empty");
 
@@ -13,7 +13,7 @@ public partial class CompiledExpressionInterpreter
 		return await _debugger.ResolveIdentifiers(entry.Identifiers, new ThreadId(_context.Thread.Id), _context.StackDepth, entry.CorDebugValue);
 	}
 
-	public async Task<CorDebugType?> GetFrontStackEntryType(LinkedList<EvalStackEntry> evalStack)
+	private async Task<CorDebugType?> GetFrontStackEntryType(LinkedList<EvalStackEntry> evalStack)
 	{
 		if (evalStack.First == null)
 			return null;
@@ -26,7 +26,7 @@ public partial class CompiledExpressionInterpreter
 		);
 	}
 
-	public async Task<CorDebugType?> ResolveIdentifiersForType(
+	private async Task<CorDebugType?> ResolveIdentifiersForType(
 		CorDebugValue? baseValue,
 		List<string> identifiers)
 	{
@@ -43,7 +43,7 @@ public partial class CompiledExpressionInterpreter
 		throw new ArgumentException($"The type or namespace name '{typeName}' couldn't be found");
 	}
 
-	public async Task<CorDebugValue> GetRealValueWithType(CorDebugValue value)
+	private async Task<CorDebugValue> GetRealValueWithType(CorDebugValue value)
 	{
 		var realValue = value.UnwrapDebugValue();
 		var elemType = realValue.Type;
@@ -56,7 +56,7 @@ public partial class CompiledExpressionInterpreter
 		return realValue;
 	}
 
-	public async Task<uint> GetElementIndex(CorDebugValue indexValue)
+	private async Task<uint> GetElementIndex(CorDebugValue indexValue)
 	{
 		var unwrapped = indexValue.UnwrapDebugValue();
 
@@ -88,7 +88,7 @@ public partial class CompiledExpressionInterpreter
 		};
 	}
 
-	public async Task<(byte[] Value, CorElementType Type)> GetOperandDataTypeByValue(CorDebugValue value)
+	private async Task<(byte[] Value, CorElementType Type)> GetOperandDataTypeByValue(CorDebugValue value)
 	{
 		var unwrapped = value.UnwrapDebugValue();
 		var elemType = unwrapped.Type;

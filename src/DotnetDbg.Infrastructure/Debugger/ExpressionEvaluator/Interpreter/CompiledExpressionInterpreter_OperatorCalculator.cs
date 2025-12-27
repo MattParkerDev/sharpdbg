@@ -4,7 +4,7 @@ namespace DotnetDbg.Infrastructure.Debugger.ExpressionEvaluator.Interpreter;
 
 public partial class CompiledExpressionInterpreter
 {
-	public bool SupportedByCalculationDelegateType(CorElementType elemType)
+	private bool SupportedByCalculationDelegateType(CorElementType elemType)
 	{
 		return elemType switch
 		{
@@ -25,7 +25,7 @@ public partial class CompiledExpressionInterpreter
 		};
 	}
 
-	public async Task<CorDebugValue> CalculateTwoOperands(
+	private async Task<CorDebugValue> CalculateTwoOperands(
 		OperationType opType,
 		LinkedList<EvalStackEntry> evalStack)
 	{
@@ -75,7 +75,7 @@ public partial class CompiledExpressionInterpreter
 		return await CalculatePrimitiveOperands(opType, realValue1, realValue2, evalStack);
 	}
 
-	public async Task<CorDebugValue> CalculateOneOperand(
+	private async Task<CorDebugValue> CalculateOneOperand(
 		OperationType opType,
 		LinkedList<EvalStackEntry> evalStack)
 	{

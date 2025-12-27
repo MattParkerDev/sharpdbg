@@ -65,7 +65,7 @@ public partial class Evaluation
 		public async Task<CorDebugValue> CreateValueType(CorDebugClass valueTypeClass, byte[]? valueData)
 		{
 			var eval = _evalData.Thread.CreateEval();
-			var corValue = await eval.NewParameterizedObjectNoConstructorAsync(_evalData.ManagedCallback, valueTypeClass, 0, null, _evalData.ILFrame);
+			var corValue = await eval.NewParameterizedObjectNoConstructorAsync(_evalData.ManagedCallback, valueTypeClass, 0, null);
 
 			if (valueData != null && corValue != null)
 			{

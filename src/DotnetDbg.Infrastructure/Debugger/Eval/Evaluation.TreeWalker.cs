@@ -25,7 +25,7 @@ public partial class Evaluation
 
 		public StackMachineProgram stackMachineProgram = new StackMachineProgram();
 
-		public override void Visit(SyntaxNode node)
+		public override void Visit(SyntaxNode? node)
 		{
 			if (Microsoft.CodeAnalysis.CSharpExtensions.IsKind(node, SyntaxKind.ExpressionStatement))
 			{
@@ -46,7 +46,7 @@ public partial class Evaluation
 					CurrentScopeFlags.Push(CurrentScopeFlags.Peek());
 				}
 
-				switch (node.Kind())
+				switch (node?.Kind())
 				{
 					case SyntaxKind.UncheckedExpression:
 						CurrentScopeFlags.Push((CurrentScopeFlags.Pop() & maskChecked) | flagUnchecked);

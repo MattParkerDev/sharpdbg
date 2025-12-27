@@ -1,4 +1,5 @@
 ﻿using System.Text;
+using ClrDebug;
 using DotnetDbg.Infrastructure.Debugger.Eval;
 
 namespace DotnetDbg.Infrastructure.Debugger.ExpressionEvaluator.Interpreter;
@@ -119,4 +120,12 @@ public partial class CompiledExpressionInterpreter
 
 		return result;
 	}
+}
+
+public class EvaluationResult
+{
+	public CorDebugValue? Value { get; set; }
+	public bool Editable { get; set; }
+	public SetterData? SetterData { get; set; }
+	public string? Error { get; set; }
 }

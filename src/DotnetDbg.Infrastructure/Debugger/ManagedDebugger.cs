@@ -653,6 +653,8 @@ public partial class ManagedDebugger : IDisposable
         return result;
     }
 
+    private CompiledExpressionInterpreter? _expressionInterpreter;
+
     /// <summary>
     /// Evaluate an expression
     /// </summary>
@@ -665,12 +667,15 @@ public partial class ManagedDebugger : IDisposable
         ArgumentNullException.ThrowIfNull(variablesReference);
         if (variablesReference.Value.ReferenceKind is not StoredReferenceKind.Scope) throw new InvalidOperationException("Frame ID does not refer to a stack frame scope");
         var thread = _process!.Threads.Single(s => s.Id == variablesReference.Value.ThreadId.Value);
-        var runtimeAssemblyPrimitiveTypeClasses = new RuntimeAssemblyPrimitiveTypeClasses(CorElementToValueClassMap, CorVoidClass, CorDecimalClass);
+        if (_expressionInterpreter is null)
+        {
+			var runtimeAssemblyPrimitiveTypeClasses = new RuntimeAssemblyPrimitiveTypeClasses(CorElementToValueClassMap, CorVoidClass, CorDecimalClass);
+			_expressionInterpreter = new CompiledExpressionInterpreter(runtimeAssemblyPrimitiveTypeClasses, _callbacks, this);
+        }
 
-        var interpreter = new CompiledExpressionInterpreter(runtimeAssemblyPrimitiveTypeClasses, _callbacks, this);
         var compiledExpression = ExpressionCompiler.Compile(expression);
         var evalContext = new CompiledExpressionEvaluationContext(thread, variablesReference.Value.ThreadId, variablesReference.Value.FrameStackDepth);
-        var result = await interpreter.Interpret(compiledExpression, evalContext);
+        var result = await _expressionInterpreter.Interpret(compiledExpression, evalContext);
 
         if (result.Error is not null)
         {

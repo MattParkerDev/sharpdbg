@@ -6,14 +6,12 @@ namespace DotnetDbg.Infrastructure.Debugger.Eval;
 public partial class StackMachineLegacy
 {
 	private readonly EvalData _evalData;
-	private readonly ValueCreator _valueCreator;
 	private readonly ManagedDebugger _debugger;
 
 	public StackMachineLegacy(EvalData evalData, ManagedDebugger debugger)
 	{
 		_evalData = evalData;
 		_debugger = debugger;
-		_valueCreator = new ValueCreator(evalData);
 	}
 
 	public async Task<EvaluationResult> Run(List<CommandBase> instructions)

@@ -10,9 +10,9 @@ public class CompiledExpressionEvaluationContext
 
 public class RuntimeAssemblyPrimitiveTypeClasses(Dictionary<CorElementType, CorDebugClass> corElementToValueClassMap, CorDebugClass? corVoidClass, CorDebugClass? corDecimalClass)
 {
-	public Dictionary<CorElementType, CorDebugClass> CorElementToValueClassMap { get; set; } = corElementToValueClassMap;
-	public CorDebugClass? CorVoidClass { get; set; } = corVoidClass;
-	public CorDebugClass? CorDecimalClass { get; set; } = corDecimalClass;
+	public Dictionary<CorElementType, CorDebugClass> CorElementToValueClassMap { get; } = corElementToValueClassMap;
+	public CorDebugClass? CorVoidClass { get; } = corVoidClass;
+	public CorDebugClass? CorDecimalClass { get; } = corDecimalClass;
 }
 
 public class EvalData

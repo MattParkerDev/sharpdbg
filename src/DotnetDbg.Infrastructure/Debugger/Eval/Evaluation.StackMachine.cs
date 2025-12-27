@@ -1,3 +1,4 @@
+using System.Reflection.Metadata;
 using ClrDebug;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -7,7 +8,7 @@ namespace DotnetDbg.Infrastructure.Debugger.Eval;
 
 public partial class Evaluation
 {
-	public class StackMachine
+	public partial class StackMachine
 	{
 		private readonly EvalData _evalData;
 		private readonly ValueCreator _valueCreator;
@@ -382,7 +383,7 @@ public partial class Evaluation
 			if (objType == null && objValue == null) throw new InvalidOperationException("Could not resolve target type for method invocation");
 
 			CorDebugFunction? function = null;
-			bool? searchStatic = objType != null;
+			bool? searchStatic = objType is null;
 
 			if (objType != null)
 			{
@@ -480,7 +481,7 @@ public partial class Evaluation
 
 				var method = module.GetFunctionFromToken(methodToken);
 
-				if (await IsMethodParameterMatch(method, args))
+				if (IsMethodParameterMatch(method, args))
 					return method;
 
 				var baseType = type.Base;
@@ -497,22 +498,33 @@ public partial class Evaluation
 			return null;
 		}
 
-		private async Task<bool> IsMethodParameterMatch(CorDebugFunction method, List<CorDebugValue?> args)
+		private bool IsMethodParameterMatch(CorDebugFunction method, List<CorDebugValue? > args)
 		{
-			var metaDataImport = method.Class.Module.GetMetaDataInterface().MetaDataImport;
-			var paramCount = 0;
+			var metaDataImport = method. Class.Module.GetMetaDataInterface().MetaDataImport;
 
+			// Get the method signature blob
 			var methodProps = metaDataImport.GetMethodProps(method.Token);
-			
-			var parameters = metaDataImport.EnumParams(method.Token);
-			foreach (var paramToken in parameters)
-			{
-				var paramProps = metaDataImport.GetParamProps(paramToken);
 
-				//paramCount++;
+			// Parse the signature using System.Reflection.Metadata
+			var parameterTypes = ParseMethodSignatureWithMetadata(methodProps.ppvSigBlob, methodProps.pcbSigBlob);
+
+			// Compare parameter count
+			if (parameterTypes.Count != args.Count)
+				return false;
+
+			// Compare each parameter type
+			for (var i = 0; i < args.Count; i++)
+			{
+				if (args[i] == null)
+					continue;
+
+				var argType = args[i].ExactType?. Type ??  args[i].Type; // Get the actual type
+
+				if (!IsTypeMatch(parameterTypes[i], argType, args[i]))
+					return false;
 			}
 
-			return paramCount == args.Count;
+			return true;
 		}
 
 		private async Task ElementAccessExpression(OneOperandCommand command, LinkedList<EvalStackEntry> evalStack)

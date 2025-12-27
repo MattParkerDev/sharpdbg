@@ -2,19 +2,8 @@ using ClrDebug;
 
 namespace DotnetDbg.Infrastructure.Debugger.Eval;
 
-public class OperatorEvaluator
+public partial class StackMachineLegacy
 {
-	private readonly EvalData _evalData;
-	private readonly ValueCreator _valueCreator;
-	private readonly ExpressionExecutor _executor;
-
-	public OperatorEvaluator(EvalData evalData, ManagedDebugger debugger)
-	{
-		_evalData = evalData;
-		_valueCreator = new ValueCreator(evalData);
-		_executor = new ExpressionExecutor(evalData, debugger);
-	}
-
 	public bool SupportedByCalculationDelegateType(CorElementType elemType)
 	{
 		return elemType switch
@@ -40,17 +29,17 @@ public class OperatorEvaluator
 		OperationType opType,
 		LinkedList<EvalStackEntry> evalStack)
 	{
-		var value2 = await _executor.GetFrontStackEntryValue(evalStack);
+		var value2 = await GetFrontStackEntryValue(evalStack);
 		evalStack.RemoveFirst();
 
-		var realValue2 = await _executor.GetRealValueWithType(value2!);
+		var realValue2 = await GetRealValueWithType(value2!);
 		var elemType2 = realValue2.Type;
 
-		var value1 = await _executor.GetFrontStackEntryValue(evalStack);
+		var value1 = await GetFrontStackEntryValue(evalStack);
 		// reset the first entry to hold the result
 		evalStack.First!.ValueRef = new EvalStackEntry();
 
-		var realValue1 = await _executor.GetRealValueWithType(value1!);
+		var realValue1 = await GetRealValueWithType(value1!);
 		var elemType1 = realValue1.Type;
 
 		if (elemType1 == CorElementType.ValueType || elemType2 == CorElementType.ValueType ||
@@ -90,8 +79,8 @@ public class OperatorEvaluator
 		OperationType opType,
 		LinkedList<EvalStackEntry> evalStack)
 	{
-		var value = await _executor.GetFrontStackEntryValue(evalStack);
-		var realValue = await _executor.GetRealValueWithType(value!);
+		var value = await GetFrontStackEntryValue(evalStack);
+		var realValue = await GetRealValueWithType(value!);
 		var elemType = realValue.Type;
 
 		if (elemType == CorElementType.ValueType || elemType == CorElementType.Class)
@@ -119,8 +108,8 @@ public class OperatorEvaluator
 		CorDebugValue value2,
 		LinkedList<EvalStackEntry> evalStack)
 	{
-		var (data1, type1) = await _executor.GetOperandDataTypeByValue(value1);
-		var (data2, type2) = await _executor.GetOperandDataTypeByValue(value2);
+		var (data1, type1) = await GetOperandDataTypeByValue(value1);
+		var (data2, type2) = await GetOperandDataTypeByValue(value2);
 
 		var resultData = CalculatePrimitive(type1, type2, opType, data1, data2);
 		var result = await CreateValueFromPrimitiveData(resultData);
@@ -134,7 +123,7 @@ public class OperatorEvaluator
 		CorDebugValue value,
 		LinkedList<EvalStackEntry> evalStack)
 	{
-		var (data, type) = await _executor.GetOperandDataTypeByValue(value);
+		var (data, type) = await GetOperandDataTypeByValue(value);
 
 		var resultData = CalculatePrimitiveUnary(type, opType, data);
 		var result = await CreateValueFromPrimitiveData(resultData);

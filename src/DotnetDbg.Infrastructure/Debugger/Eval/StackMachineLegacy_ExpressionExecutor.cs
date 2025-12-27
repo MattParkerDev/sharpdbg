@@ -1,19 +1,9 @@
-using System.Runtime.InteropServices;
 using ClrDebug;
 
 namespace DotnetDbg.Infrastructure.Debugger.Eval;
 
-public class ExpressionExecutor
+public partial class StackMachineLegacy
 {
-	private readonly EvalData _evalData;
-	private readonly ManagedDebugger _debugger;
-
-	public ExpressionExecutor(EvalData evalData, ManagedDebugger debugger)
-	{
-		_evalData = evalData;
-		_debugger = debugger;
-	}
-
 	public async Task<CorDebugValue> GetFrontStackEntryValue(LinkedList<EvalStackEntry> evalStack, bool needSetterData = false)
 	{
 		if (evalStack.First == null) throw new InvalidOperationException("Evaluation stack is empty");

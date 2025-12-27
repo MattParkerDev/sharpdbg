@@ -7,15 +7,13 @@ public partial class StackMachineLegacy
 {
 	private readonly EvalData _evalData;
 	private readonly ValueCreator _valueCreator;
-	private readonly ExpressionExecutor _executor;
-	private readonly OperatorEvaluator _operatorEvaluator;
+	private readonly ManagedDebugger _debugger;
 
 	public StackMachineLegacy(EvalData evalData, ManagedDebugger debugger)
 	{
 		_evalData = evalData;
+		_debugger = debugger;
 		_valueCreator = new ValueCreator(evalData);
-		_executor = new ExpressionExecutor(evalData, debugger);
-		_operatorEvaluator = new OperatorEvaluator(evalData, debugger);
 	}
 
 	public async Task<EvaluationResult> Run(List<CommandBase> instructions)
@@ -35,7 +33,7 @@ public partial class StackMachineLegacy
 				throw new InvalidOperationException("Expression evaluation did not produce a single result");
 			}
 
-			var resultValue = await _executor.GetFrontStackEntryValue(evalStack, true);
+			var resultValue = await GetFrontStackEntryValue(evalStack, true);
 			var setterData = evalStack.First.Value.SetterData;
 
 			return new EvaluationResult
@@ -71,28 +69,28 @@ public partial class StackMachineLegacy
 			case eOpCode.SimpleMemberAccessExpression: await SimpleMemberAccessExpression(command, evalStack); break;
 			case eOpCode.QualifiedName: await QualifiedName(command, evalStack); break;
 			case eOpCode.MemberBindingExpression: await MemberBindingExpression(command, evalStack); break;
-			case eOpCode.AddExpression: evalStack.First.Value.CorDebugValue = await _operatorEvaluator.CalculateTwoOperands(OperationType.AddExpression, evalStack); break;
-			case eOpCode.SubtractExpression: evalStack.First.Value.CorDebugValue = await _operatorEvaluator.CalculateTwoOperands(OperationType.SubtractExpression, evalStack); break;
-			case eOpCode.MultiplyExpression: evalStack.First.Value.CorDebugValue = await _operatorEvaluator.CalculateTwoOperands(OperationType.MultiplyExpression, evalStack); break;
-			case eOpCode.DivideExpression: evalStack.First.Value.CorDebugValue = await _operatorEvaluator.CalculateTwoOperands(OperationType.DivideExpression, evalStack); break;
-			case eOpCode.ModuloExpression: evalStack.First.Value.CorDebugValue = await _operatorEvaluator.CalculateTwoOperands(OperationType.ModuloExpression, evalStack); break;
-			case eOpCode.LeftShiftExpression: evalStack.First.Value.CorDebugValue = await _operatorEvaluator.CalculateTwoOperands(OperationType.LeftShiftExpression, evalStack); break;
-			case eOpCode.RightShiftExpression: evalStack.First.Value.CorDebugValue = await _operatorEvaluator.CalculateTwoOperands(OperationType.RightShiftExpression, evalStack); break;
-			case eOpCode.BitwiseAndExpression: evalStack.First.Value.CorDebugValue = await _operatorEvaluator.CalculateTwoOperands(OperationType.BitwiseAndExpression, evalStack); break;
-			case eOpCode.BitwiseOrExpression: evalStack.First.Value.CorDebugValue = await _operatorEvaluator.CalculateTwoOperands(OperationType.BitwiseOrExpression, evalStack); break;
-			case eOpCode.ExclusiveOrExpression: evalStack.First.Value.CorDebugValue = await _operatorEvaluator.CalculateTwoOperands(OperationType.ExclusiveOrExpression, evalStack); break;
-			case eOpCode.LogicalAndExpression: evalStack.First.Value.CorDebugValue = await _operatorEvaluator.CalculateTwoOperands(OperationType.LogicalAndExpression, evalStack); break;
-			case eOpCode.LogicalOrExpression: evalStack.First.Value.CorDebugValue = await _operatorEvaluator.CalculateTwoOperands(OperationType.LogicalOrExpression, evalStack); break;
-			case eOpCode.EqualsExpression: evalStack.First.Value.CorDebugValue = await _operatorEvaluator.CalculateTwoOperands(OperationType.EqualsExpression, evalStack); break;
-			case eOpCode.NotEqualsExpression: evalStack.First.Value.CorDebugValue = await _operatorEvaluator.CalculateTwoOperands(OperationType.NotEqualsExpression, evalStack); break;
-			case eOpCode.LessThanExpression: evalStack.First.Value.CorDebugValue = await _operatorEvaluator.CalculateTwoOperands(OperationType.LessThanExpression, evalStack); break;
-			case eOpCode.GreaterThanExpression: evalStack.First.Value.CorDebugValue = await _operatorEvaluator.CalculateTwoOperands(OperationType.GreaterThanExpression, evalStack); break;
-			case eOpCode.LessThanOrEqualExpression: evalStack.First.Value.CorDebugValue = await _operatorEvaluator.CalculateTwoOperands(OperationType.LessThanOrEqualExpression, evalStack); break;
-			case eOpCode.GreaterThanOrEqualExpression: evalStack.First.Value.CorDebugValue = await _operatorEvaluator.CalculateTwoOperands(OperationType.GreaterThanOrEqualExpression, evalStack); break;
-			case eOpCode.UnaryPlusExpression: evalStack.First.Value.CorDebugValue = await _operatorEvaluator.CalculateOneOperand(OperationType.UnaryPlusExpression, evalStack); break;
-			case eOpCode.UnaryMinusExpression: evalStack.First.Value.CorDebugValue = await _operatorEvaluator.CalculateOneOperand(OperationType.UnaryMinusExpression, evalStack); break;
-			case eOpCode.LogicalNotExpression: evalStack.First.Value.CorDebugValue = await _operatorEvaluator.CalculateOneOperand(OperationType.LogicalNotExpression, evalStack); break;
-			case eOpCode.BitwiseNotExpression: evalStack.First.Value.CorDebugValue = await _operatorEvaluator.CalculateOneOperand(OperationType.BitwiseNotExpression, evalStack); break;
+			case eOpCode.AddExpression: evalStack.First.Value.CorDebugValue = await CalculateTwoOperands(OperationType.AddExpression, evalStack); break;
+			case eOpCode.SubtractExpression: evalStack.First.Value.CorDebugValue = await CalculateTwoOperands(OperationType.SubtractExpression, evalStack); break;
+			case eOpCode.MultiplyExpression: evalStack.First.Value.CorDebugValue = await CalculateTwoOperands(OperationType.MultiplyExpression, evalStack); break;
+			case eOpCode.DivideExpression: evalStack.First.Value.CorDebugValue = await CalculateTwoOperands(OperationType.DivideExpression, evalStack); break;
+			case eOpCode.ModuloExpression: evalStack.First.Value.CorDebugValue = await CalculateTwoOperands(OperationType.ModuloExpression, evalStack); break;
+			case eOpCode.LeftShiftExpression: evalStack.First.Value.CorDebugValue = await CalculateTwoOperands(OperationType.LeftShiftExpression, evalStack); break;
+			case eOpCode.RightShiftExpression: evalStack.First.Value.CorDebugValue = await CalculateTwoOperands(OperationType.RightShiftExpression, evalStack); break;
+			case eOpCode.BitwiseAndExpression: evalStack.First.Value.CorDebugValue = await CalculateTwoOperands(OperationType.BitwiseAndExpression, evalStack); break;
+			case eOpCode.BitwiseOrExpression: evalStack.First.Value.CorDebugValue = await CalculateTwoOperands(OperationType.BitwiseOrExpression, evalStack); break;
+			case eOpCode.ExclusiveOrExpression: evalStack.First.Value.CorDebugValue = await CalculateTwoOperands(OperationType.ExclusiveOrExpression, evalStack); break;
+			case eOpCode.LogicalAndExpression: evalStack.First.Value.CorDebugValue = await CalculateTwoOperands(OperationType.LogicalAndExpression, evalStack); break;
+			case eOpCode.LogicalOrExpression: evalStack.First.Value.CorDebugValue = await CalculateTwoOperands(OperationType.LogicalOrExpression, evalStack); break;
+			case eOpCode.EqualsExpression: evalStack.First.Value.CorDebugValue = await CalculateTwoOperands(OperationType.EqualsExpression, evalStack); break;
+			case eOpCode.NotEqualsExpression: evalStack.First.Value.CorDebugValue = await CalculateTwoOperands(OperationType.NotEqualsExpression, evalStack); break;
+			case eOpCode.LessThanExpression: evalStack.First.Value.CorDebugValue = await CalculateTwoOperands(OperationType.LessThanExpression, evalStack); break;
+			case eOpCode.GreaterThanExpression: evalStack.First.Value.CorDebugValue = await CalculateTwoOperands(OperationType.GreaterThanExpression, evalStack); break;
+			case eOpCode.LessThanOrEqualExpression: evalStack.First.Value.CorDebugValue = await CalculateTwoOperands(OperationType.LessThanOrEqualExpression, evalStack); break;
+			case eOpCode.GreaterThanOrEqualExpression: evalStack.First.Value.CorDebugValue = await CalculateTwoOperands(OperationType.GreaterThanOrEqualExpression, evalStack); break;
+			case eOpCode.UnaryPlusExpression: evalStack.First.Value.CorDebugValue = await CalculateOneOperand(OperationType.UnaryPlusExpression, evalStack); break;
+			case eOpCode.UnaryMinusExpression: evalStack.First.Value.CorDebugValue = await CalculateOneOperand(OperationType.UnaryMinusExpression, evalStack); break;
+			case eOpCode.LogicalNotExpression: evalStack.First.Value.CorDebugValue = await CalculateOneOperand(OperationType.LogicalNotExpression, evalStack); break;
+			case eOpCode.BitwiseNotExpression: evalStack.First.Value.CorDebugValue = await CalculateOneOperand(OperationType.BitwiseNotExpression, evalStack); break;
 			case eOpCode.TrueLiteralExpression: evalStack.AddFirst(new EvalStackEntry { Literal = true, CorDebugValue = await _valueCreator.CreateBooleanValue(true) }); break;
 			case eOpCode.FalseLiteralExpression: evalStack.AddFirst(new EvalStackEntry { Literal = true, CorDebugValue = await _valueCreator.CreateBooleanValue(false) }); break;
 			case eOpCode.NullLiteralExpression: evalStack.AddFirst(new EvalStackEntry { Literal = true, CorDebugValue = await _valueCreator.CreateNullValue() }); break;
@@ -148,7 +146,7 @@ public partial class StackMachineLegacy
 
 		for (int i = 0; i < argCount; i++)
 		{
-			var value = await _executor.GetFrontStackEntryValue(evalStack);
+			var value = await GetFrontStackEntryValue(evalStack);
 			CorDebugType? type = value?.ExactType;
 
 			generics.Insert(0, "," + type?.GetType().Name ?? "");
@@ -177,7 +175,7 @@ public partial class StackMachineLegacy
 		var args = new CorDebugValue?[argCount];
 		for (var i = argCount - 1; i >= 0; i--)
 		{
-			args[i] = await _executor.GetFrontStackEntryValue(evalStack);
+			args[i] = await GetFrontStackEntryValue(evalStack);
 			evalStack.RemoveFirst();
 		}
 
@@ -205,7 +203,7 @@ public partial class StackMachineLegacy
 		if (entry.CorDebugValue == null && entry.Identifiers.Count == 0)
 		{
 			idsEmpty = true;
-			objValue = await _executor.GetFrontStackEntryValue(evalStack);
+			objValue = await GetFrontStackEntryValue(evalStack);
 			var isStaticMethod = objValue == null;
 			objType = objValue?.ExactType;
 
@@ -226,7 +224,7 @@ public partial class StackMachineLegacy
 			}
 		}
 
-		objValue = await _executor.GetFrontStackEntryValue(evalStack);
+		objValue = await GetFrontStackEntryValue(evalStack);
 
 		if (objValue != null)
 		{
@@ -249,7 +247,7 @@ public partial class StackMachineLegacy
 		}
 		else
 		{
-			objType = await _executor.GetFrontStackEntryType(evalStack);
+			objType = await GetFrontStackEntryType(evalStack);
 		}
 
 		if (objType == null && objValue == null) throw new InvalidOperationException("Could not resolve target type for method invocation");
@@ -405,8 +403,8 @@ public partial class StackMachineLegacy
 		var indexes = new List<uint>();
 		for (int i = indexCount - 1; i >= 0; i--)
 		{
-			var indexValue = await _executor.GetFrontStackEntryValue(evalStack);
-			indexes.Insert(0, await _executor.GetElementIndex(indexValue!));
+			var indexValue = await GetFrontStackEntryValue(evalStack);
+			indexes.Insert(0, await GetElementIndex(indexValue!));
 			evalStack.RemoveFirst();
 		}
 
@@ -414,8 +412,8 @@ public partial class StackMachineLegacy
 		if (entry.PreventBinding)
 			return;
 
-		var objValue = await _executor.GetFrontStackEntryValue(evalStack);
-		var realValue = await _executor.GetRealValueWithType(objValue!);
+		var objValue = await GetFrontStackEntryValue(evalStack);
+		var realValue = await GetRealValueWithType(objValue!);
 		var elemType = realValue.Type;
 
 		if (elemType == CorElementType.SZArray || elemType == CorElementType.Array)
@@ -504,7 +502,7 @@ public partial class StackMachineLegacy
 		// Retrieve components in reverse order
 		for (var i = componentCount - 1; i >= 0; i--)
 		{
-			components[i] = await _executor.GetFrontStackEntryValue(evalStack);
+			components[i] = await GetFrontStackEntryValue(evalStack);
 			evalStack.RemoveFirst();
 		}
 
@@ -638,7 +636,7 @@ public partial class StackMachineLegacy
 		if (entry.PreventBinding)
 			return;
 
-		var value = await _executor.GetFrontStackEntryValue(evalStack, true);
+		var value = await GetFrontStackEntryValue(evalStack, true);
 		entry.CorDebugValue = value;
 		entry.Identifiers.Clear();
 
@@ -682,13 +680,13 @@ public partial class StackMachineLegacy
 	private async Task CoalesceExpression(LinkedList<EvalStackEntry> evalStack)
 	{
 		var rightEntry = evalStack.First.Value;
-		var rightValue = await _executor.GetFrontStackEntryValue(evalStack);
-		var realRight = await _executor.GetRealValueWithType(rightValue!);
+		var rightValue = await GetFrontStackEntryValue(evalStack);
+		var realRight = await GetRealValueWithType(rightValue!);
 		evalStack.RemoveFirst();
 
 		var leftEntry = evalStack.First.Value;
-		var leftValue = await _executor.GetFrontStackEntryValue(evalStack);
-		var realLeft = await _executor.GetRealValueWithType(leftValue!);
+		var leftValue = await GetFrontStackEntryValue(evalStack);
+		var realLeft = await GetRealValueWithType(leftValue!);
 
 		var rightType = realRight.Type;
 		var leftType = realLeft.Type;

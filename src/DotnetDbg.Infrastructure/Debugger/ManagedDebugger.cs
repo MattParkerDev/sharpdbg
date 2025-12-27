@@ -830,6 +830,12 @@ public partial class ManagedDebugger : IDisposable
         var moduleInfo = new ModuleInfo(corModule, modulePath, symbolReader);
         _modules[baseAddress] = moduleInfo;
 
+        if (corModule.Name is "System.Private.CoreLib.dll")
+        {
+	        // we need to map value classes to primitive types to allow evaluation to invoke methods on them
+	        MapRuntimePrimitiveTypesToCorDebugClass(corModule);
+        }
+
         // Fire the module loaded event
         OnModuleLoaded?.Invoke(modulePath, Path.GetFileName(modulePath), modulePath);
 

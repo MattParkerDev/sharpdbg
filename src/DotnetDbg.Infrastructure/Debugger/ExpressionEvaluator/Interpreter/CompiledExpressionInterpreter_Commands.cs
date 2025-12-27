@@ -191,7 +191,7 @@ public partial class CompiledExpressionInterpreter
 		entry.ResetEntry();
 		var eval = _evalData.Thread.CreateEval();
 		var result = await eval.CallParameterizedFunctionAsync(
-			_evalData.ManagedCallback,
+			_debuggerManagedCallback,
 			function,
 			typeArgs.Count,
 			typeArgs.Count > 0 ? typeArgs.ToArray() : null,
@@ -434,7 +434,7 @@ public partial class CompiledExpressionInterpreter
 		if (corDebugFunction is null) throw new InvalidOperationException("ToString method not found");
 		var eval = _evalData.Thread.CreateEval();
 		ICorDebugValue[] evalArgs = [value.Raw];
-		var result = await eval.CallParameterizedFunctionAsync(_evalData.ManagedCallback, corDebugFunction, 0, null, evalArgs.Length, evalArgs);
+		var result = await eval.CallParameterizedFunctionAsync(_debuggerManagedCallback, corDebugFunction, 0, null, evalArgs.Length, evalArgs);
 		var unwrappedResult = result!.UnwrapDebugValue();
 		if (unwrappedResult is not CorDebugStringValue stringValue) throw new InvalidOperationException("ToString did not return a string");
 

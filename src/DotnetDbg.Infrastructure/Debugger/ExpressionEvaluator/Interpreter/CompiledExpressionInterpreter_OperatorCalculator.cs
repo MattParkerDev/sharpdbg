@@ -146,7 +146,7 @@ public partial class CompiledExpressionInterpreter
 
 		var eval = _evalData.Thread.CreateEval();
 		ICorDebugValue[] evalArgs = [arg1.Raw, arg2.Raw];
-		return await eval.CallParameterizedFunctionAsync(_evalData.ManagedCallback, corDebugFunction, 0, null, evalArgs.Length, evalArgs);
+		return await eval.CallParameterizedFunctionAsync(_debuggerManagedCallback, corDebugFunction, 0, null, evalArgs.Length, evalArgs);
 	}
 
 	private async Task<CorDebugValue?> CallUnaryOperator(
@@ -162,7 +162,7 @@ public partial class CompiledExpressionInterpreter
 
 		var eval = _evalData.Thread.CreateEval();
 		ICorDebugValue[] evalArgs = [baseValue.Raw];
-		return await eval.CallParameterizedFunctionAsync(_evalData.ManagedCallback, corDebugFunction, 0, null, evalArgs.Length, evalArgs);
+		return await eval.CallParameterizedFunctionAsync(_debuggerManagedCallback, corDebugFunction, 0, null, evalArgs.Length, evalArgs);
 	}
 
 	private async Task<CorDebugFunction?> FindOperatorMethod(

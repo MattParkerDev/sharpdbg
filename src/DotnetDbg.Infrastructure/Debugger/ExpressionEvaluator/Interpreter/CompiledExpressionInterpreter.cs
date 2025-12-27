@@ -4,10 +4,11 @@ using DotnetDbg.Infrastructure.Debugger.ExpressionEvaluator.Compiler;
 
 namespace DotnetDbg.Infrastructure.Debugger.ExpressionEvaluator.Interpreter;
 
-public partial class CompiledExpressionInterpreter(RuntimeAssemblyPrimitiveTypeClasses runtimeAssemblyPrimitiveTypeClasses)
+public partial class CompiledExpressionInterpreter(RuntimeAssemblyPrimitiveTypeClasses runtimeAssemblyPrimitiveTypeClasses, CorDebugManagedCallback debuggerManagedCallback)
 {
 	private EvalData _evalData;
 	private ManagedDebugger _debugger;
+	private readonly CorDebugManagedCallback _debuggerManagedCallback = debuggerManagedCallback;
 	private readonly RuntimeAssemblyPrimitiveTypeClasses _runtimeAssemblyPrimitiveTypeClasses = runtimeAssemblyPrimitiveTypeClasses;
 
 	public async Task<EvaluationResult> Interpret(CompiledExpression compiledExpression, CompiledExpressionEvaluationContext context)

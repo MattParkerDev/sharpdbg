@@ -19,14 +19,12 @@ public class EvalData
 {
 	public CorDebugThread Thread { get; set; }
 	public int FrameLevel { get; set; }
-	public CorDebugManagedCallback ManagedCallback { get; set; }
 	public CorDebugILFrame ILFrame { get; set; }
 
-	public EvalData(CorDebugThread thread, int frameLevel, CorDebugManagedCallback managedCallback, CorDebugILFrame ilFrame)
+	public EvalData(CorDebugThread thread, int frameLevel, CorDebugILFrame ilFrame)
 	{
 		Thread = thread;
 		FrameLevel = frameLevel;
-		ManagedCallback = managedCallback;
 		ILFrame = ilFrame;
 	}
 }

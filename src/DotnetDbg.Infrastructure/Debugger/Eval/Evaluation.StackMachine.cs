@@ -502,12 +502,14 @@ public partial class Evaluation
 			var metaDataImport = method.Class.Module.GetMetaDataInterface().MetaDataImport;
 			var paramCount = 0;
 
-			var parameters = metaDataImport!.EnumParams(method.Token);
+			var methodProps = metaDataImport.GetMethodProps(method.Token);
+			
+			var parameters = metaDataImport.EnumParams(method.Token);
 			foreach (var paramToken in parameters)
 			{
-				
+				var paramProps = metaDataImport.GetParamProps(paramToken);
 
-				paramCount++;
+				//paramCount++;
 			}
 
 			return paramCount == args.Count;

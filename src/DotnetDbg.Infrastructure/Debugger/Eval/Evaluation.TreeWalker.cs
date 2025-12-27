@@ -27,7 +27,8 @@ public partial class Evaluation
 
 		public override void Visit(SyntaxNode? node)
 		{
-			if (Microsoft.CodeAnalysis.CSharpExtensions.IsKind(node, SyntaxKind.ExpressionStatement))
+			if (node is null) throw new ArgumentNullException(nameof(node));
+			if (node.IsKind(SyntaxKind.ExpressionStatement))
 			{
 				ExpressionStatementCount++;
 				ExpressionStatementBody = true;
@@ -46,7 +47,7 @@ public partial class Evaluation
 					CurrentScopeFlags.Push(CurrentScopeFlags.Peek());
 				}
 
-				switch (node?.Kind())
+				switch (node.Kind())
 				{
 					case SyntaxKind.UncheckedExpression:
 						CurrentScopeFlags.Push((CurrentScopeFlags.Pop() & maskChecked) | flagUnchecked);

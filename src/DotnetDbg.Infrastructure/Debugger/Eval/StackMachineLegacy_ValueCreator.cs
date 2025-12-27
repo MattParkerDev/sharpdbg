@@ -2,15 +2,8 @@ using ClrDebug;
 
 namespace DotnetDbg.Infrastructure.Debugger.Eval;
 
-public class ValueCreator
+public partial class StackMachineLegacy
 {
-	private readonly EvalData _evalData;
-
-	public ValueCreator(EvalData evalData)
-	{
-		_evalData = evalData;
-	}
-
 	public async Task<CorDebugValue> CreatePrimitiveValue(CorElementType type, byte[]? valueData)
 	{
 		var eval = _evalData.Thread.CreateEval();

@@ -91,9 +91,9 @@ public partial class StackMachineLegacy
 			case eOpCode.UnaryMinusExpression: evalStack.First.Value.CorDebugValue = await CalculateOneOperand(OperationType.UnaryMinusExpression, evalStack); break;
 			case eOpCode.LogicalNotExpression: evalStack.First.Value.CorDebugValue = await CalculateOneOperand(OperationType.LogicalNotExpression, evalStack); break;
 			case eOpCode.BitwiseNotExpression: evalStack.First.Value.CorDebugValue = await CalculateOneOperand(OperationType.BitwiseNotExpression, evalStack); break;
-			case eOpCode.TrueLiteralExpression: evalStack.AddFirst(new EvalStackEntry { Literal = true, CorDebugValue = await _valueCreator.CreateBooleanValue(true) }); break;
-			case eOpCode.FalseLiteralExpression: evalStack.AddFirst(new EvalStackEntry { Literal = true, CorDebugValue = await _valueCreator.CreateBooleanValue(false) }); break;
-			case eOpCode.NullLiteralExpression: evalStack.AddFirst(new EvalStackEntry { Literal = true, CorDebugValue = await _valueCreator.CreateNullValue() }); break;
+			case eOpCode.TrueLiteralExpression: evalStack.AddFirst(new EvalStackEntry { Literal = true, CorDebugValue = await CreateBooleanValue(true) }); break;
+			case eOpCode.FalseLiteralExpression: evalStack.AddFirst(new EvalStackEntry { Literal = true, CorDebugValue = await CreateBooleanValue(false) }); break;
+			case eOpCode.NullLiteralExpression: evalStack.AddFirst(new EvalStackEntry { Literal = true, CorDebugValue = await CreateNullValue() }); break;
 			case eOpCode.SizeOfExpression: await SizeOfExpression(evalStack); break;
 			case eOpCode.CoalesceExpression: await CoalesceExpression(evalStack); break;
 			case eOpCode.ThisExpression: evalStack.AddFirst(new EvalStackEntry { Identifiers = ["this"], Editable = true }); break;
@@ -239,7 +239,7 @@ public partial class StackMachineLegacy
 
 				if (data != null)
 				{
-					objValue = await _valueCreator.CreateValueType(boxedClass, data);
+					objValue = await CreateValueType(boxedClass, data);
 				}
 			}
 
@@ -315,7 +315,7 @@ public partial class StackMachineLegacy
 
 		if (result == null && _evalData.ICorVoidClass != null)
 		{
-			entry.CorDebugValue = await _valueCreator.CreateValueType(_evalData.ICorVoidClass, null);
+			entry.CorDebugValue = await CreateValueType(_evalData.ICorVoidClass, null);
 		}
 		else
 		{
@@ -472,8 +472,8 @@ public partial class StackMachineLegacy
 		{
 			Literal = true,
 			CorDebugValue = elemType == CorElementType.ValueType && typeArg == ePredefinedType.DecimalKeyword
-				? await _valueCreator.CreateValueType(_evalData.ICorDecimalClass!, data)
-				: await _valueCreator.CreatePrimitiveValue(elemType, data)
+				? await CreateValueType(_evalData.ICorDecimalClass!, data)
+				: await CreatePrimitiveValue(elemType, data)
 		});
 	}
 
@@ -485,7 +485,7 @@ public partial class StackMachineLegacy
 		evalStack.AddFirst(new EvalStackEntry
 		{
 			Literal = true,
-			CorDebugValue = await _valueCreator.CreateString(str)
+			CorDebugValue = await CreateString(str)
 		});
 	}
 
@@ -527,7 +527,7 @@ public partial class StackMachineLegacy
 		evalStack.AddFirst(new EvalStackEntry
 		{
 			Literal = true,
-			CorDebugValue = await _valueCreator.CreateString(stringBuilder.ToString())
+			CorDebugValue = await CreateString(stringBuilder.ToString())
 		});
 	}
 
@@ -542,7 +542,7 @@ public partial class StackMachineLegacy
 
 			if (data != null)
 			{
-				value = await _valueCreator.CreateValueType(boxedClass, data);
+				value = await CreateValueType(boxedClass, data);
 			}
 		}
 		var corDebugFunction = await FindMethodOnType(value.ExactType, "ToString", [], false, true);
@@ -564,7 +564,7 @@ public partial class StackMachineLegacy
 		evalStack.AddFirst(new EvalStackEntry
 		{
 			Literal = true,
-			CorDebugValue = await _valueCreator.CreatePrimitiveValue(CorElementType.Char, data)
+			CorDebugValue = await CreatePrimitiveValue(CorElementType.Char, data)
 		});
 	}
 
@@ -594,10 +594,10 @@ public partial class StackMachineLegacy
 		evalStack.AddFirst(new EvalStackEntry
 		{
 			CorDebugValue = elemType == CorElementType.ValueType && typeArg == ePredefinedType.DecimalKeyword
-				? await _valueCreator.CreateValueType(_evalData.ICorDecimalClass!, null)
+				? await CreateValueType(_evalData.ICorDecimalClass!, null)
 				: elemType == CorElementType.String
-					? await _valueCreator.CreateString("")
-					: await _valueCreator.CreatePrimitiveValue(elemType, null)
+					? await CreateString("")
+					: await CreatePrimitiveValue(elemType, null)
 		});
 	}
 
@@ -674,7 +674,7 @@ public partial class StackMachineLegacy
 		}
 
 		entry.ResetEntry();
-		entry.CorDebugValue = await _valueCreator.CreatePrimitiveValue(CorElementType.U4, BitConverter.GetBytes((uint)size));
+		entry.CorDebugValue = await CreatePrimitiveValue(CorElementType.U4, BitConverter.GetBytes((uint)size));
 	}
 
 	private async Task CoalesceExpression(LinkedList<EvalStackEntry> evalStack)

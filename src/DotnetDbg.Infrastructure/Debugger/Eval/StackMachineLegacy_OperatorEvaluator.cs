@@ -192,13 +192,13 @@ public partial class StackMachineLegacy
 	private async Task<CorDebugValue> CreateValueFromPrimitiveData(byte[] data)
 	{
 		if (data.Length == 1)
-			return await _valueCreator.CreatePrimitiveValue(CorElementType.U1, data);
+			return await CreatePrimitiveValue(CorElementType.U1, data);
 		if (data.Length == 2)
-			return await _valueCreator.CreatePrimitiveValue(CorElementType.I2, data);
+			return await CreatePrimitiveValue(CorElementType.I2, data);
 		if (data.Length == 4)
-			return await _valueCreator.CreatePrimitiveValue(CorElementType.I4, data);
+			return await CreatePrimitiveValue(CorElementType.I4, data);
 		if (data.Length == 8)
-			return await _valueCreator.CreatePrimitiveValue(CorElementType.I8, data);
+			return await CreatePrimitiveValue(CorElementType.I8, data);
 
 		throw new ArgumentException("Unknown primitive data size");
 	}

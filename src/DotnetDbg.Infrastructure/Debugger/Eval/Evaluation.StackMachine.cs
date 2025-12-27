@@ -334,7 +334,7 @@ public partial class Evaluation
 				idsEmpty = true;
 				objValue = await _executor.GetFrontStackEntryValue(evalStack);
 				var isStaticMethod = objValue == null;
-				objType = objValue?.Type;
+				objType = objValue?.ExactType;
 
 				if (!isStaticMethod)
 				{

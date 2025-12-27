@@ -3,14 +3,14 @@ using System.Text;
 
 namespace DotnetDbg.Infrastructure.Debugger.Eval;
 
-public partial class StackMachine
+public partial class StackMachineLegacy
 {
 	private readonly EvalData _evalData;
 	private readonly ValueCreator _valueCreator;
 	private readonly ExpressionExecutor _executor;
 	private readonly OperatorEvaluator _operatorEvaluator;
 
-	public StackMachine(EvalData evalData, ManagedDebugger debugger)
+	public StackMachineLegacy(EvalData evalData, ManagedDebugger debugger)
 	{
 		_evalData = evalData;
 		_valueCreator = new ValueCreator(evalData);

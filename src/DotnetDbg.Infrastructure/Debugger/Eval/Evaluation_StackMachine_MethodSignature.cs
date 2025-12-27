@@ -3,7 +3,7 @@ using ClrDebug;
 
 namespace DotnetDbg.Infrastructure.Debugger.Eval;
 
-public partial class StackMachine
+public partial class StackMachineLegacy
 {
 	private List<TypeInfo> ParseMethodSignatureWithMetadata(IntPtr ppvSigBlob, int pcbSigBlob)
 	{

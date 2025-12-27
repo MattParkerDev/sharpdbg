@@ -6,7 +6,7 @@ public class CompiledExpressionInterpreter
 {
 	public async Task<EvaluationResult> Interpret(CompiledExpression compiledExpression, CompiledExpressionEvaluationContext context)
 	{
-		var old = new StackMachine(context.EvalData, context.Debugger);
+		var old = new StackMachineLegacy(context.EvalData, context.Debugger);
 		var result = await old.Run(compiledExpression.Instructions);
 		return result;
 	}

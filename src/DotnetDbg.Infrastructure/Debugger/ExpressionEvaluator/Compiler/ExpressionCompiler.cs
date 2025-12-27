@@ -8,7 +8,7 @@ public static class ExpressionCompiler
 {
 	public static CompiledExpression Compile(string expression)
 	{
-		var fixedExpression = StackMachine.ReplaceInternalNames(expression, false);
+		var fixedExpression = StackMachineLegacy.ReplaceInternalNames(expression, false);
 		var instructions = CompileInternal(fixedExpression);
 		var compiledExpression = new CompiledExpression(instructions);
 		return compiledExpression;

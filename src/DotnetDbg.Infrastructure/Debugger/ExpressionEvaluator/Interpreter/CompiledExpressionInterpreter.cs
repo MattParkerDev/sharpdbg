@@ -25,7 +25,7 @@ public partial class CompiledExpressionInterpreter
 		{
 			foreach (var instruction in compiledExpression.Instructions)
 			{
-				await ExecuteCommand(instruction, evalStack, output);
+				await ExecuteCommand(instruction, evalStack);
 			}
 
 			if (evalStack.Count != 1)
@@ -53,7 +53,7 @@ public partial class CompiledExpressionInterpreter
 		}
 	}
 
-	private async Task ExecuteCommand(CommandBase command, LinkedList<EvalStackEntry> evalStack, StringBuilder output)
+	private async Task ExecuteCommand(CommandBase command, LinkedList<EvalStackEntry> evalStack)
 	{
 		switch (command.OpCode)
 		{

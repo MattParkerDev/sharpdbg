@@ -664,7 +664,7 @@ public partial class ManagedDebugger : IDisposable
         if (variablesReference.Value.ReferenceKind is not StoredReferenceKind.Scope) throw new InvalidOperationException("Frame ID does not refer to a stack frame scope");
         var thread = _process!.Threads.Single(s => s.Id == variablesReference.Value.ThreadId.Value);
         var ilFrame = GetFrameForThreadIdAndStackDepth(variablesReference.Value.ThreadId, variablesReference.Value.FrameStackDepth);
-        var evalData = new EvalData(thread, variablesReference.Value.FrameStackDepth.Value, _callbacks, ilFrame);
+        var evalData = new EvalData(thread, variablesReference.Value.FrameStackDepth.Value, _callbacks, ilFrame, CorElementToValueClassMap, CorVoidClass, CorDecimalClass);
         var stackMachine = new Evaluation.StackMachine(evalData, this);
         var result = await stackMachine.Run(expression);
         if (result.Error is not null)
@@ -803,6 +803,7 @@ public partial class ManagedDebugger : IDisposable
     {
         var corModule = loadModuleCorDebugManagedCallbackEventArgs.Module;
         var modulePath = corModule.Name;
+        var moduleName = Path.GetFileName(modulePath);
         var baseAddress = (long)corModule.BaseAddress;
 
         _logger?.Invoke($"Module loaded: {modulePath} at 0x{baseAddress:X}");
@@ -814,23 +815,23 @@ public partial class ManagedDebugger : IDisposable
             symbolReader = SymbolReader.TryLoad(modulePath);
             if (symbolReader != null)
             {
-                _logger?.Invoke($"  Symbols loaded for {Path.GetFileName(modulePath)}");
+                _logger?.Invoke($"  Symbols loaded for {moduleName}");
             }
             else
             {
-                _logger?.Invoke($"  No symbols found for {Path.GetFileName(modulePath)}");
+                _logger?.Invoke($"  No symbols found for {moduleName}");
             }
         }
         catch (Exception ex)
         {
-            _logger?.Invoke($"  Error loading symbols for {Path.GetFileName(modulePath)}: {ex.Message}");
+            _logger?.Invoke($"  Error loading symbols for {moduleName}: {ex.Message}");
         }
 
         // Store module info
         var moduleInfo = new ModuleInfo(corModule, modulePath, symbolReader);
         _modules[baseAddress] = moduleInfo;
 
-        if (corModule.Name is "System.Private.CoreLib.dll")
+        if (moduleName is "System.Private.CoreLib.dll")
         {
 	        // we need to map value classes to primitive types to allow evaluation to invoke methods on them
 	        MapRuntimePrimitiveTypesToCorDebugClass(corModule);

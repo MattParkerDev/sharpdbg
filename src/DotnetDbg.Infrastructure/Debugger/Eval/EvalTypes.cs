@@ -95,21 +95,24 @@ public class SetterData
 
 	public class EvalData
 	{
-		public CorDebugThread Thread { get; set; } = null!;
+		public CorDebugThread Thread { get; set; }
 		public int FrameLevel { get; set; }
 		//public int EvalFlags { get; set; }
-		public Dictionary<CorElementType, CorDebugClass> CorElementToValueClassMap { get; set; } = new();
+		public Dictionary<CorElementType, CorDebugClass> CorElementToValueClassMap { get; set; }
 		public CorDebugClass? ICorVoidClass { get; set; }
 		public CorDebugClass? ICorDecimalClass { get; set; }
-		public CorDebugManagedCallback ManagedCallback { get; set; } = null!;
-		public CorDebugILFrame ILFrame { get; set; } = null!;
+		public CorDebugManagedCallback ManagedCallback { get; set; }
+		public CorDebugILFrame ILFrame { get; set; }
 
-		public EvalData(CorDebugThread thread, int frameLevel, CorDebugManagedCallback managedCallback, CorDebugILFrame ilFrame)
+		public EvalData(CorDebugThread thread, int frameLevel, CorDebugManagedCallback managedCallback, CorDebugILFrame ilFrame, Dictionary<CorElementType, CorDebugClass> corElementToValueClassMap, CorDebugClass? corVoidClass, CorDebugClass? corDecimalClass)
 		{
 			Thread = thread;
 			FrameLevel = frameLevel;
 			//EvalFlags = evalFlags;
 			ManagedCallback = managedCallback;
 			ILFrame = ilFrame;
+			CorElementToValueClassMap = corElementToValueClassMap;
+			ICorVoidClass = corVoidClass;
+			ICorDecimalClass = corDecimalClass;
 		}
 	}

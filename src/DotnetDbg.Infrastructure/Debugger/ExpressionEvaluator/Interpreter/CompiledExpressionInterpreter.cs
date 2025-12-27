@@ -16,6 +16,7 @@ public partial class CompiledExpressionInterpreter
 
 	private async Task<EvaluationResult> InterpretInternal(CompiledExpression compiledExpression, CompiledExpressionEvaluationContext context)
 	{
+		// TODO: CompiledExpressionEvaluationContext should probably be passed to e.g. ExecuteCommand instead of storing these as fields
 		_evalData = context.EvalData;
 		_debugger = context.Debugger;
 		var evalStack = new LinkedList<EvalStackEntry>();

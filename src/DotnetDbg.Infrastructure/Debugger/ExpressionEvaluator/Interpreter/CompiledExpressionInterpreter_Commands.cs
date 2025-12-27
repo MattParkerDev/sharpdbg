@@ -98,7 +98,7 @@ public partial class CompiledExpressionInterpreter
 			}
 			else
 			{
-				var ilFrame = _debugger.GetFrameForThreadIdAndStackDepth(_evalData.ThreadId, _evalData.StackDepth);
+				var ilFrame = _debugger.GetFrameForThreadIdAndStackDepth(_context.ThreadId, _context.StackDepth);
 				var corDebugFunction = ilFrame.Function;
 				var module = corDebugFunction.Class.Module;
 				var metaDataImport = module.GetMetaDataInterface().MetaDataImport;
@@ -190,7 +190,7 @@ public partial class CompiledExpressionInterpreter
 		}
 
 		entry.ResetEntry();
-		var eval = _evalData.Thread.CreateEval();
+		var eval = _context.Thread.CreateEval();
 		var result = await eval.CallParameterizedFunctionAsync(
 			_debuggerManagedCallback,
 			function,
@@ -433,7 +433,7 @@ public partial class CompiledExpressionInterpreter
 		}
 		var corDebugFunction = await FindMethodOnType(value.ExactType, "ToString", [], false, true);
 		if (corDebugFunction is null) throw new InvalidOperationException("ToString method not found");
-		var eval = _evalData.Thread.CreateEval();
+		var eval = _context.Thread.CreateEval();
 		ICorDebugValue[] evalArgs = [value.Raw];
 		var result = await eval.CallParameterizedFunctionAsync(_debuggerManagedCallback, corDebugFunction, 0, null, evalArgs.Length, evalArgs);
 		var unwrappedResult = result!.UnwrapDebugValue();

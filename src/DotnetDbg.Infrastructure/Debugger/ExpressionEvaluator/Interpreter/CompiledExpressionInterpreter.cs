@@ -6,7 +6,7 @@ namespace DotnetDbg.Infrastructure.Debugger.ExpressionEvaluator.Interpreter;
 
 public partial class CompiledExpressionInterpreter(RuntimeAssemblyPrimitiveTypeClasses runtimeAssemblyPrimitiveTypeClasses, CorDebugManagedCallback debuggerManagedCallback, ManagedDebugger debugger)
 {
-	private EvalData _evalData;
+	private CompiledExpressionEvaluationContext _context;
 	private readonly ManagedDebugger _debugger = debugger;
 	private readonly CorDebugManagedCallback _debuggerManagedCallback = debuggerManagedCallback;
 	private readonly RuntimeAssemblyPrimitiveTypeClasses _runtimeAssemblyPrimitiveTypeClasses = runtimeAssemblyPrimitiveTypeClasses;
@@ -20,7 +20,7 @@ public partial class CompiledExpressionInterpreter(RuntimeAssemblyPrimitiveTypeC
 	private async Task<EvaluationResult> InterpretInternal(CompiledExpression compiledExpression, CompiledExpressionEvaluationContext context)
 	{
 		// TODO: CompiledExpressionEvaluationContext should probably be passed to e.g. ExecuteCommand instead of storing these as fields
-		_evalData = context.EvalData;
+		_context = context;
 		var evalStack = new LinkedList<EvalStackEntry>();
 		var output = new StringBuilder();
 

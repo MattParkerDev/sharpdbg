@@ -144,7 +144,7 @@ public partial class CompiledExpressionInterpreter
 		var corDebugFunction = await FindOperatorMethod(objectValue, opName, 2);
 		if (corDebugFunction == null) return null;
 
-		var eval = _evalData.Thread.CreateEval();
+		var eval = _context.Thread.CreateEval();
 		ICorDebugValue[] evalArgs = [arg1.Raw, arg2.Raw];
 		return await eval.CallParameterizedFunctionAsync(_debuggerManagedCallback, corDebugFunction, 0, null, evalArgs.Length, evalArgs);
 	}
@@ -160,7 +160,7 @@ public partial class CompiledExpressionInterpreter
 		if (corDebugFunction == null)
 			return null;
 
-		var eval = _evalData.Thread.CreateEval();
+		var eval = _context.Thread.CreateEval();
 		ICorDebugValue[] evalArgs = [baseValue.Raw];
 		return await eval.CallParameterizedFunctionAsync(_debuggerManagedCallback, corDebugFunction, 0, null, evalArgs.Length, evalArgs);
 	}

@@ -6,7 +6,7 @@ public partial class CompiledExpressionInterpreter
 {
 	public async Task<CorDebugValue> CreatePrimitiveValue(CorElementType type, byte[]? valueData)
 	{
-		var eval = _evalData.Thread.CreateEval();
+		var eval = _context.Thread.CreateEval();
 		var corValue = eval.CreateValue(type, null);
 
 		if (valueData != null && corValue is CorDebugGenericValue genValue)
@@ -26,7 +26,7 @@ public partial class CompiledExpressionInterpreter
 
 	public async Task<CorDebugValue> CreateBooleanValue(bool value)
 	{
-		var eval = _evalData.Thread.CreateEval();
+		var eval = _context.Thread.CreateEval();
 		var corValue = eval.CreateValue(CorElementType.Boolean, null);
 
 		if (value && corValue is CorDebugGenericValue genValue)
@@ -49,13 +49,13 @@ public partial class CompiledExpressionInterpreter
 
 	public async Task<CorDebugValue> CreateNullValue()
 	{
-		var eval = _evalData.Thread.CreateEval();
+		var eval = _context.Thread.CreateEval();
 		return eval.CreateValue(CorElementType.Class, null);
 	}
 
 	public async Task<CorDebugValue> CreateValueType(CorDebugClass valueTypeClass, byte[]? valueData)
 	{
-		var eval = _evalData.Thread.CreateEval();
+		var eval = _context.Thread.CreateEval();
 		var corValue = await eval.NewParameterizedObjectNoConstructorAsync(_debuggerManagedCallback, valueTypeClass, 0, null);
 
 		if (valueData != null && corValue != null)
@@ -78,7 +78,7 @@ public partial class CompiledExpressionInterpreter
 
 	public async Task<CorDebugValue> CreateString(string str)
 	{
-		var eval = _evalData.Thread.CreateEval();
+		var eval = _context.Thread.CreateEval();
 		return await eval.NewStringAsync(_debuggerManagedCallback, str);
 	}
 }

@@ -18,13 +18,13 @@ public class RuntimeAssemblyPrimitiveTypeClasses(Dictionary<CorElementType, CorD
 public class EvalData
 {
 	public CorDebugThread Thread { get; set; }
-	public int FrameLevel { get; set; }
+	public FrameStackDepth StackDepth { get; set; }
 	public CorDebugILFrame ILFrame { get; set; }
 
-	public EvalData(CorDebugThread thread, int frameLevel, CorDebugILFrame ilFrame)
+	public EvalData(CorDebugThread thread, FrameStackDepth stackDepth, CorDebugILFrame ilFrame)
 	{
 		Thread = thread;
-		FrameLevel = frameLevel;
+		StackDepth = stackDepth;
 		ILFrame = ilFrame;
 	}
 }

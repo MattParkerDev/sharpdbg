@@ -667,7 +667,7 @@ public partial class ManagedDebugger : IDisposable
         var thread = _process!.Threads.Single(s => s.Id == variablesReference.Value.ThreadId.Value);
         var ilFrame = GetFrameForThreadIdAndStackDepth(variablesReference.Value.ThreadId, variablesReference.Value.FrameStackDepth);
         var runtimeAssemblyPrimitiveTypeClasses = new RuntimeAssemblyPrimitiveTypeClasses(CorElementToValueClassMap, CorVoidClass, CorDecimalClass);
-        var evalData = new EvalData(thread, variablesReference.Value.FrameStackDepth.Value, ilFrame);
+        var evalData = new EvalData(thread, variablesReference.Value.FrameStackDepth, ilFrame);
 
         var interpreter = new CompiledExpressionInterpreter(runtimeAssemblyPrimitiveTypeClasses, _callbacks);
         var compiledExpression = ExpressionCompiler.Compile(expression);

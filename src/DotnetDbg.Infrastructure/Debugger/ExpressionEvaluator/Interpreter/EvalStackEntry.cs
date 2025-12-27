@@ -38,3 +38,9 @@ public class EvalStackEntry
 		No
 	}
 }
+
+public class SetterData
+{
+	public CorDebugValue? OwnerValue { get; set; }
+	public CorDebugFunction? SetterFunction { get; set; }
+}

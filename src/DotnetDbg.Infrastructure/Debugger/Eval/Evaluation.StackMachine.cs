@@ -1,7 +1,4 @@
-using System.Reflection.Metadata;
 using ClrDebug;
-using Microsoft.CodeAnalysis;
-using Microsoft.CodeAnalysis.CSharp;
 using System.Text;
 
 namespace DotnetDbg.Infrastructure.Debugger.Eval;
@@ -67,168 +64,47 @@ public partial class Evaluation
 		{
 			switch (command.OpCode)
 			{
-				case eOpCode.IdentifierName:
-					await IdentifierName((command as OneOperandCommand)!, evalStack);
-					break;
-
-				case eOpCode.GenericName:
-					await GenericName((command as TwoOperandCommand)!, evalStack);
-					break;
-
-				case eOpCode.InvocationExpression:
-					await InvocationExpression((command as OneOperandCommand)!, evalStack);
-					break;
-
-				case eOpCode.ElementAccessExpression:
-					await ElementAccessExpression((command as OneOperandCommand)!, evalStack);
-					break;
-
-				case eOpCode.NumericLiteralExpression:
-					await NumericLiteralExpression((command as TwoOperandCommand)!, evalStack);
-					break;
-
-				case eOpCode.StringLiteralExpression:
-					await StringLiteralExpression((command as OneOperandCommand)!, evalStack);
-					break;
-
-				case eOpCode.CharacterLiteralExpression:
-					await CharacterLiteralExpression((command as TwoOperandCommand)!, evalStack);
-					break;
-
-				case eOpCode.PredefinedType:
-					await PredefinedType((command as OneOperandCommand)!, evalStack);
-					break;
-
-				case eOpCode.SimpleMemberAccessExpression:
-					await SimpleMemberAccessExpression(command, evalStack);
-					break;
-
-				case eOpCode.QualifiedName:
-					await QualifiedName(command, evalStack);
-					break;
-
-				case eOpCode.MemberBindingExpression:
-					await MemberBindingExpression(command, evalStack);
-					break;
-
-				case eOpCode.AddExpression:
-					evalStack.First.Value.CorDebugValue = await _operatorEvaluator.CalculateTwoOperands(OperationType.AddExpression, evalStack);
-					break;
-
-				case eOpCode.SubtractExpression:
-					evalStack.First.Value.CorDebugValue = await _operatorEvaluator.CalculateTwoOperands(OperationType.SubtractExpression, evalStack);
-					break;
-
-				case eOpCode.MultiplyExpression:
-					evalStack.First.Value.CorDebugValue = await _operatorEvaluator.CalculateTwoOperands(OperationType.MultiplyExpression, evalStack);
-					break;
-
-				case eOpCode.DivideExpression:
-					evalStack.First.Value.CorDebugValue = await _operatorEvaluator.CalculateTwoOperands(OperationType.DivideExpression, evalStack);
-					break;
-
-				case eOpCode.ModuloExpression:
-					evalStack.First.Value.CorDebugValue = await _operatorEvaluator.CalculateTwoOperands(OperationType.ModuloExpression, evalStack);
-					break;
-
-				case eOpCode.LeftShiftExpression:
-					evalStack.First.Value.CorDebugValue = await _operatorEvaluator.CalculateTwoOperands(OperationType.LeftShiftExpression, evalStack);
-					break;
-
-				case eOpCode.RightShiftExpression:
-					evalStack.First.Value.CorDebugValue = await _operatorEvaluator.CalculateTwoOperands(OperationType.RightShiftExpression, evalStack);
-					break;
-
-				case eOpCode.BitwiseAndExpression:
-					evalStack.First.Value.CorDebugValue = await _operatorEvaluator.CalculateTwoOperands(OperationType.BitwiseAndExpression, evalStack);
-					break;
-
-				case eOpCode.BitwiseOrExpression:
-					evalStack.First.Value.CorDebugValue = await _operatorEvaluator.CalculateTwoOperands(OperationType.BitwiseOrExpression, evalStack);
-					break;
-
-				case eOpCode.ExclusiveOrExpression:
-					evalStack.First.Value.CorDebugValue = await _operatorEvaluator.CalculateTwoOperands(OperationType.ExclusiveOrExpression, evalStack);
-					break;
-
-				case eOpCode.LogicalAndExpression:
-					evalStack.First.Value.CorDebugValue = await _operatorEvaluator.CalculateTwoOperands(OperationType.LogicalAndExpression, evalStack);
-					break;
-
-				case eOpCode.LogicalOrExpression:
-					evalStack.First.Value.CorDebugValue = await _operatorEvaluator.CalculateTwoOperands(OperationType.LogicalOrExpression, evalStack);
-					break;
-
-				case eOpCode.EqualsExpression:
-					evalStack.First.Value.CorDebugValue = await _operatorEvaluator.CalculateTwoOperands(OperationType.EqualsExpression, evalStack);
-					break;
-
-				case eOpCode.NotEqualsExpression:
-					evalStack.First.Value.CorDebugValue = await _operatorEvaluator.CalculateTwoOperands(OperationType.NotEqualsExpression, evalStack);
-					break;
-
-				case eOpCode.LessThanExpression:
-					evalStack.First.Value.CorDebugValue = await _operatorEvaluator.CalculateTwoOperands(OperationType.LessThanExpression, evalStack);
-					break;
-
-				case eOpCode.GreaterThanExpression:
-					evalStack.First.Value.CorDebugValue = await _operatorEvaluator.CalculateTwoOperands(OperationType.GreaterThanExpression, evalStack);
-					break;
-
-				case eOpCode.LessThanOrEqualExpression:
-					evalStack.First.Value.CorDebugValue = await _operatorEvaluator.CalculateTwoOperands(OperationType.LessThanOrEqualExpression, evalStack);
-					break;
-
-				case eOpCode.GreaterThanOrEqualExpression:
-					evalStack.First.Value.CorDebugValue = await _operatorEvaluator.CalculateTwoOperands(OperationType.GreaterThanOrEqualExpression, evalStack);
-					break;
-
-				case eOpCode.UnaryPlusExpression:
-					evalStack.First.Value.CorDebugValue = await _operatorEvaluator.CalculateOneOperand(OperationType.UnaryPlusExpression, evalStack);
-					break;
-
-				case eOpCode.UnaryMinusExpression:
-					evalStack.First.Value.CorDebugValue = await _operatorEvaluator.CalculateOneOperand(OperationType.UnaryMinusExpression, evalStack);
-					break;
-
-				case eOpCode.LogicalNotExpression:
-					evalStack.First.Value.CorDebugValue = await _operatorEvaluator.CalculateOneOperand(OperationType.LogicalNotExpression, evalStack);
-					break;
-
-				case eOpCode.BitwiseNotExpression:
-					evalStack.First.Value.CorDebugValue = await _operatorEvaluator.CalculateOneOperand(OperationType.BitwiseNotExpression, evalStack);
-					break;
-
-				case eOpCode.TrueLiteralExpression:
-					evalStack.AddFirst(new EvalStackEntry { Literal = true, CorDebugValue = await _valueCreator.CreateBooleanValue(true) });
-					break;
-
-				case eOpCode.FalseLiteralExpression:
-					evalStack.AddFirst(new EvalStackEntry { Literal = true, CorDebugValue = await _valueCreator.CreateBooleanValue(false) });
-					break;
-
-				case eOpCode.NullLiteralExpression:
-					evalStack.AddFirst(new EvalStackEntry { Literal = true, CorDebugValue = await _valueCreator.CreateNullValue() });
-					break;
-
-				case eOpCode.SizeOfExpression:
-					await SizeOfExpression(evalStack);
-					break;
-
-				case eOpCode.CoalesceExpression:
-					await CoalesceExpression(evalStack);
-					break;
-
-				case eOpCode.ThisExpression:
-					evalStack.AddFirst(new EvalStackEntry { Identifiers = new List<string> { "this" }, Editable = true });
-					break;
-
-				case eOpCode.ElementBindingExpression:
-					await ElementAccessExpression((command as OneOperandCommand)!, evalStack);
-					break;
-
-				default:
-					throw new NotImplementedException($"OpCode {command.OpCode} is not implemented");
+				case eOpCode.IdentifierName: await IdentifierName((command as OneOperandCommand)!, evalStack); break;
+				case eOpCode.GenericName: await GenericName((command as TwoOperandCommand)!, evalStack); break;
+				case eOpCode.InvocationExpression: await InvocationExpression((command as OneOperandCommand)!, evalStack); break;
+				case eOpCode.ElementAccessExpression: await ElementAccessExpression((command as OneOperandCommand)!, evalStack); break;
+				case eOpCode.NumericLiteralExpression: await NumericLiteralExpression((command as TwoOperandCommand)!, evalStack); break;
+				case eOpCode.StringLiteralExpression: await StringLiteralExpression((command as OneOperandCommand)!, evalStack); break;
+				case eOpCode.CharacterLiteralExpression: await CharacterLiteralExpression((command as TwoOperandCommand)!, evalStack); break;
+				case eOpCode.PredefinedType: await PredefinedType((command as OneOperandCommand)!, evalStack); break;
+				case eOpCode.SimpleMemberAccessExpression: await SimpleMemberAccessExpression(command, evalStack); break;
+				case eOpCode.QualifiedName: await QualifiedName(command, evalStack); break;
+				case eOpCode.MemberBindingExpression: await MemberBindingExpression(command, evalStack); break;
+				case eOpCode.AddExpression: evalStack.First.Value.CorDebugValue = await _operatorEvaluator.CalculateTwoOperands(OperationType.AddExpression, evalStack); break;
+				case eOpCode.SubtractExpression: evalStack.First.Value.CorDebugValue = await _operatorEvaluator.CalculateTwoOperands(OperationType.SubtractExpression, evalStack); break;
+				case eOpCode.MultiplyExpression: evalStack.First.Value.CorDebugValue = await _operatorEvaluator.CalculateTwoOperands(OperationType.MultiplyExpression, evalStack); break;
+				case eOpCode.DivideExpression: evalStack.First.Value.CorDebugValue = await _operatorEvaluator.CalculateTwoOperands(OperationType.DivideExpression, evalStack); break;
+				case eOpCode.ModuloExpression: evalStack.First.Value.CorDebugValue = await _operatorEvaluator.CalculateTwoOperands(OperationType.ModuloExpression, evalStack); break;
+				case eOpCode.LeftShiftExpression: evalStack.First.Value.CorDebugValue = await _operatorEvaluator.CalculateTwoOperands(OperationType.LeftShiftExpression, evalStack); break;
+				case eOpCode.RightShiftExpression: evalStack.First.Value.CorDebugValue = await _operatorEvaluator.CalculateTwoOperands(OperationType.RightShiftExpression, evalStack); break;
+				case eOpCode.BitwiseAndExpression: evalStack.First.Value.CorDebugValue = await _operatorEvaluator.CalculateTwoOperands(OperationType.BitwiseAndExpression, evalStack); break;
+				case eOpCode.BitwiseOrExpression: evalStack.First.Value.CorDebugValue = await _operatorEvaluator.CalculateTwoOperands(OperationType.BitwiseOrExpression, evalStack); break;
+				case eOpCode.ExclusiveOrExpression: evalStack.First.Value.CorDebugValue = await _operatorEvaluator.CalculateTwoOperands(OperationType.ExclusiveOrExpression, evalStack); break;
+				case eOpCode.LogicalAndExpression: evalStack.First.Value.CorDebugValue = await _operatorEvaluator.CalculateTwoOperands(OperationType.LogicalAndExpression, evalStack); break;
+				case eOpCode.LogicalOrExpression: evalStack.First.Value.CorDebugValue = await _operatorEvaluator.CalculateTwoOperands(OperationType.LogicalOrExpression, evalStack); break;
+				case eOpCode.EqualsExpression: evalStack.First.Value.CorDebugValue = await _operatorEvaluator.CalculateTwoOperands(OperationType.EqualsExpression, evalStack); break;
+				case eOpCode.NotEqualsExpression: evalStack.First.Value.CorDebugValue = await _operatorEvaluator.CalculateTwoOperands(OperationType.NotEqualsExpression, evalStack); break;
+				case eOpCode.LessThanExpression: evalStack.First.Value.CorDebugValue = await _operatorEvaluator.CalculateTwoOperands(OperationType.LessThanExpression, evalStack); break;
+				case eOpCode.GreaterThanExpression: evalStack.First.Value.CorDebugValue = await _operatorEvaluator.CalculateTwoOperands(OperationType.GreaterThanExpression, evalStack); break;
+				case eOpCode.LessThanOrEqualExpression: evalStack.First.Value.CorDebugValue = await _operatorEvaluator.CalculateTwoOperands(OperationType.LessThanOrEqualExpression, evalStack); break;
+				case eOpCode.GreaterThanOrEqualExpression: evalStack.First.Value.CorDebugValue = await _operatorEvaluator.CalculateTwoOperands(OperationType.GreaterThanOrEqualExpression, evalStack); break;
+				case eOpCode.UnaryPlusExpression: evalStack.First.Value.CorDebugValue = await _operatorEvaluator.CalculateOneOperand(OperationType.UnaryPlusExpression, evalStack); break;
+				case eOpCode.UnaryMinusExpression: evalStack.First.Value.CorDebugValue = await _operatorEvaluator.CalculateOneOperand(OperationType.UnaryMinusExpression, evalStack); break;
+				case eOpCode.LogicalNotExpression: evalStack.First.Value.CorDebugValue = await _operatorEvaluator.CalculateOneOperand(OperationType.LogicalNotExpression, evalStack); break;
+				case eOpCode.BitwiseNotExpression: evalStack.First.Value.CorDebugValue = await _operatorEvaluator.CalculateOneOperand(OperationType.BitwiseNotExpression, evalStack); break;
+				case eOpCode.TrueLiteralExpression: evalStack.AddFirst(new EvalStackEntry { Literal = true, CorDebugValue = await _valueCreator.CreateBooleanValue(true) }); break;
+				case eOpCode.FalseLiteralExpression: evalStack.AddFirst(new EvalStackEntry { Literal = true, CorDebugValue = await _valueCreator.CreateBooleanValue(false) }); break;
+				case eOpCode.NullLiteralExpression: evalStack.AddFirst(new EvalStackEntry { Literal = true, CorDebugValue = await _valueCreator.CreateNullValue() }); break;
+				case eOpCode.SizeOfExpression: await SizeOfExpression(evalStack); break;
+				case eOpCode.CoalesceExpression: await CoalesceExpression(evalStack); break;
+				case eOpCode.ThisExpression: evalStack.AddFirst(new EvalStackEntry { Identifiers = ["this"], Editable = true }); break;
+				case eOpCode.ElementBindingExpression: await ElementAccessExpression((command as OneOperandCommand)!, evalStack); break;
+				default: throw new NotImplementedException($"OpCode {command.OpCode} is not implemented");
 			}
 		}
 

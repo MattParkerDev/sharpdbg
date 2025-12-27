@@ -3,126 +3,123 @@ using ClrDebug;
 
 namespace DotnetDbg.Infrastructure.Debugger.Eval;
 
-public partial class Evaluation
+public class ExpressionExecutor
 {
-	public class ExpressionExecutor
+	private readonly EvalData _evalData;
+	private readonly ManagedDebugger _debugger;
+	private readonly ValueCreator _valueCreator;
+
+	public ExpressionExecutor(EvalData evalData, ManagedDebugger debugger)
 	{
-		private readonly EvalData _evalData;
-		private readonly ManagedDebugger _debugger;
-		private readonly ValueCreator _valueCreator;
+		_evalData = evalData;
+		_debugger = debugger;
+		_valueCreator = new ValueCreator(evalData);
+	}
 
-		public ExpressionExecutor(EvalData evalData, ManagedDebugger debugger)
+	public async Task<CorDebugValue> GetFrontStackEntryValue(LinkedList<EvalStackEntry> evalStack, bool needSetterData = false)
+	{
+		if (evalStack.First == null) throw new InvalidOperationException("Evaluation stack is empty");
+
+		var entry = evalStack.First.Value;
+		SetterData? setterData = needSetterData ? entry.SetterData : null;
+		return await _debugger.ResolveIdentifiers(entry.Identifiers, new ThreadId(_evalData.Thread.Id), new FrameStackDepth(_evalData.FrameLevel), entry.CorDebugValue);
+	}
+
+	public async Task<CorDebugType?> GetFrontStackEntryType(LinkedList<EvalStackEntry> evalStack)
+	{
+		if (evalStack.First == null)
+			return null;
+
+		var entry = evalStack.First.Value;
+
+		return await ResolveIdentifiersForType(
+			_evalData.Thread,
+			_evalData.FrameLevel,
+			entry.CorDebugValue,
+			entry.Identifiers
+		);
+	}
+
+	public async Task<CorDebugType?> ResolveIdentifiersForType(
+		CorDebugThread thread,
+		int frameLevel,
+		CorDebugValue? baseValue,
+		List<string> identifiers)
+	{
+		if (identifiers.Count == 0)
+			return null;
+
+		if (baseValue != null)
 		{
-			_evalData = evalData;
-			_debugger = debugger;
-			_valueCreator = new ValueCreator(evalData);
+			throw new ArgumentException($"'{string.Join(".", identifiers)}' is a variable but is used like a type");
 		}
 
-		public async Task<CorDebugValue> GetFrontStackEntryValue(LinkedList<EvalStackEntry> evalStack, bool needSetterData = false)
-		{
-			if (evalStack.First == null) throw new InvalidOperationException("Evaluation stack is empty");
+		var typeName = string.Join(".", identifiers);
+		throw new ArgumentException($"The type or namespace name '{typeName}' couldn't be found");
+	}
 
-			var entry = evalStack.First.Value;
-			SetterData? setterData = needSetterData ? entry.SetterData : null;
-			return await _debugger.ResolveIdentifiers(entry.Identifiers, new ThreadId(_evalData.Thread.Id), new FrameStackDepth(_evalData.FrameLevel), entry.CorDebugValue);
+	public async Task<CorDebugValue> GetRealValueWithType(CorDebugValue value)
+	{
+		var realValue = value.UnwrapDebugValue();
+		var elemType = realValue.Type;
+
+		if (elemType == CorElementType.String || elemType == CorElementType.Class)
+		{
+			return value;
 		}
 
-		public async Task<CorDebugType?> GetFrontStackEntryType(LinkedList<EvalStackEntry> evalStack)
+		return realValue;
+	}
+
+	public async Task<uint> GetElementIndex(CorDebugValue indexValue)
+	{
+		var unwrapped = indexValue.UnwrapDebugValue();
+
+		if (unwrapped is CorDebugReferenceValue refValue && refValue.IsNull)
 		{
-			if (evalStack.First == null)
-				return null;
-
-			var entry = evalStack.First.Value;
-
-			return await ResolveIdentifiersForType(
-				_evalData.Thread,
-				_evalData.FrameLevel,
-				entry.CorDebugValue,
-				entry.Identifiers
-			);
+			throw new ArgumentException("Index cannot be null");
 		}
 
-		public async Task<CorDebugType?> ResolveIdentifiersForType(
-			CorDebugThread thread,
-			int frameLevel,
-			CorDebugValue? baseValue,
-			List<string> identifiers)
+		if (unwrapped is not CorDebugGenericValue genValue)
 		{
-			if (identifiers.Count == 0)
-				return null;
-
-			if (baseValue != null)
-			{
-				throw new ArgumentException($"'{string.Join(".", identifiers)}' is a variable but is used like a type");
-			}
-
-			var typeName = string.Join(".", identifiers);
-			throw new ArgumentException($"The type or namespace name '{typeName}' couldn't be found");
+			throw new ArgumentException("Index must be an integer type");
 		}
 
-		public async Task<CorDebugValue> GetRealValueWithType(CorDebugValue value)
+		var size = genValue.Size;
+		var data = genValue.GetValueAsBytes();
+		var elemType = unwrapped.Type;
+
+		return elemType switch
 		{
-			var realValue = value.UnwrapDebugValue();
-			var elemType = realValue.Type;
+			CorElementType.I1 => unchecked((uint)(sbyte)data[0]),
+			CorElementType.U1 => data[0],
+			CorElementType.I2 => unchecked((uint)BitConverter.ToInt16(data, 0)),
+			CorElementType.U2 => BitConverter.ToUInt16(data, 0),
+			CorElementType.I4 => unchecked((uint)BitConverter.ToInt32(data, 0)),
+			CorElementType.U4 => BitConverter.ToUInt32(data, 0),
+			CorElementType.I8 => unchecked((uint)BitConverter.ToInt64(data, 0)),
+			CorElementType.U8 => unchecked((uint)BitConverter.ToUInt64(data, 0)),
+			_ => throw new ArgumentException("Invalid index type")
+		};
+	}
 
-			if (elemType == CorElementType.String || elemType == CorElementType.Class)
-			{
-				return value;
-			}
+	public async Task<(byte[] Value, CorElementType Type)> GetOperandDataTypeByValue(CorDebugValue value)
+	{
+		var unwrapped = value.UnwrapDebugValue();
+		var elemType = unwrapped.Type;
 
-			return realValue;
+		// if (elemType == CorElementType.String && value is CorDebugReferenceValue refValue && !refValue.IsNull)
+		// {
+		// 	var strValue = refValue.Dereference() as CorDebugStringValue;
+		// 	return (value, elemType);
+		// }
+
+		if (unwrapped is not CorDebugGenericValue genValue)
+		{
+			throw new ArgumentException("Value is not a primitive type");
 		}
 
-		public async Task<uint> GetElementIndex(CorDebugValue indexValue)
-		{
-			var unwrapped = indexValue.UnwrapDebugValue();
-
-			if (unwrapped is CorDebugReferenceValue refValue && refValue.IsNull)
-			{
-				throw new ArgumentException("Index cannot be null");
-			}
-
-			if (unwrapped is not CorDebugGenericValue genValue)
-			{
-				throw new ArgumentException("Index must be an integer type");
-			}
-
-			var size = genValue.Size;
-			var data = genValue.GetValueAsBytes();
-			var elemType = unwrapped.Type;
-
-			return elemType switch
-			{
-				CorElementType.I1 => unchecked((uint)(sbyte)data[0]),
-				CorElementType.U1 => data[0],
-				CorElementType.I2 => unchecked((uint)BitConverter.ToInt16(data, 0)),
-				CorElementType.U2 => BitConverter.ToUInt16(data, 0),
-				CorElementType.I4 => unchecked((uint)BitConverter.ToInt32(data, 0)),
-				CorElementType.U4 => BitConverter.ToUInt32(data, 0),
-				CorElementType.I8 => unchecked((uint)BitConverter.ToInt64(data, 0)),
-				CorElementType.U8 => unchecked((uint)BitConverter.ToUInt64(data, 0)),
-				_ => throw new ArgumentException("Invalid index type")
-			};
-		}
-
-		public async Task<(byte[] Value, CorElementType Type)> GetOperandDataTypeByValue(CorDebugValue value)
-		{
-			var unwrapped = value.UnwrapDebugValue();
-			var elemType = unwrapped.Type;
-
-			// if (elemType == CorElementType.String && value is CorDebugReferenceValue refValue && !refValue.IsNull)
-			// {
-			// 	var strValue = refValue.Dereference() as CorDebugStringValue;
-			// 	return (value, elemType);
-			// }
-
-			if (unwrapped is not CorDebugGenericValue genValue)
-			{
-				throw new ArgumentException("Value is not a primitive type");
-			}
-
-			var valueAsBytes = genValue.GetValueAsBytes();
-			return (valueAsBytes, elemType);
-		}
+		var valueAsBytes = genValue.GetValueAsBytes();
+		return (valueAsBytes, elemType);
 	}
 }

@@ -162,7 +162,7 @@ public static class Extensions
 		}
 	}
 
-	public static async Task<CorDebugValue> NewStringAsync(this CorDebugEval eval, CorDebugManagedCallback managedCallback, string str, CorDebugILFrame ilFrame)
+	public static async Task<CorDebugValue> NewStringAsync(this CorDebugEval eval, CorDebugManagedCallback managedCallback, string str)
 	{
 		CorDebugValue? returnValue = null;
 		var evalCompleteTcs = new TaskCompletionSource();
@@ -173,7 +173,7 @@ public static class Extensions
 			managedCallback.OnEvalComplete += OnCallbacksOnOnEvalComplete;
 			managedCallback.OnEvalException += CallbacksOnOnEvalException;
 
-			ilFrame.Chain.Thread.Process.Continue(false);
+			eval.Thread.Process.Continue(false);
 			await evalCompleteTcs.Task;
 			return returnValue!;
 		}

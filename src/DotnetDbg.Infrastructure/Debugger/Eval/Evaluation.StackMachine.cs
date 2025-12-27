@@ -134,7 +134,7 @@ public partial class Evaluation
 
 			evalStack.AddFirst(new EvalStackEntry
 			{
-				Identifiers = new List<string> { identifier },
+				Identifiers = [identifier],
 				Editable = true
 			});
 
@@ -496,7 +496,7 @@ public partial class Evaluation
 			});
 		}
 
-		private Task CharacterLiteralExpression(TwoOperandCommand command, LinkedList<EvalStackEntry> evalStack)
+		private async Task CharacterLiteralExpression(TwoOperandCommand command, LinkedList<EvalStackEntry> evalStack)
 		{
 			var value = command.Arguments[1];
 			var data = value is char c ? BitConverter.GetBytes(c) : null;
@@ -504,10 +504,8 @@ public partial class Evaluation
 			evalStack.AddFirst(new EvalStackEntry
 			{
 				Literal = true,
-				CorDebugValue = _valueCreator.CreatePrimitiveValue(CorElementType.Char, data).Result
+				CorDebugValue = await _valueCreator.CreatePrimitiveValue(CorElementType.Char, data)
 			});
-
-			return Task.CompletedTask;
 		}
 
 		private async Task PredefinedType(OneOperandCommand command, LinkedList<EvalStackEntry> evalStack)

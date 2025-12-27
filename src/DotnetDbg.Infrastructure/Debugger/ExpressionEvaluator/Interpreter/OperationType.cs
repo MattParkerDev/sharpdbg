@@ -1,23 +1,4 @@
-using ClrDebug;
-
-namespace DotnetDbg.Infrastructure.Debugger.Eval;
-
-public enum BasicTypes
-{
-	TypeBoolean = 1,
-	TypeByte,
-	TypeSByte,
-	TypeChar,
-	TypeDouble,
-	TypeSingle,
-	TypeInt32,
-	TypeUInt32,
-	TypeInt64,
-	TypeUInt64,
-	TypeInt16,
-	TypeUInt16,
-	TypeString
-}
+namespace DotnetDbg.Infrastructure.Debugger.ExpressionEvaluator.Interpreter;
 
 public enum OperationType
 {

@@ -500,37 +500,17 @@ public partial class Evaluation
 		private async Task<bool> IsMethodParameterMatch(CorDebugFunction method, List<CorDebugValue?> args)
 		{
 			var metaDataImport = method.Class.Module.GetMetaDataInterface().MetaDataImport;
-			var methodProps = metaDataImport!.GetMethodProps(method.Token);
+			var paramCount = 0;
 
-			var signature = methodProps.ppvSigBlob;
-			var sigReader = new CorSigReader(signature);
-			var callingConvention = sigReader.GetCallingConvention();
-
-			if (callingConvention == 5)
-				return false;
-
-			var genericParamCount = sigReader.GetGenericParamCount();
-			var paramCount = sigReader.GetParamCount();
-
-			if (paramCount != args.Count)
-				return false;
-
-			for (int i = 0; i < args.Count; i++)
+			var parameters = metaDataImport!.EnumParams(method.Token);
+			foreach (var paramToken in parameters)
 			{
-				if (!await IsTypeMatch(sigReader.GetNextParamType(), args[i]))
-					return false;
+				
+
+				paramCount++;
 			}
 
-			return true;
-		}
-
-		private async Task<bool> IsTypeMatch(CorElementType expectedType, CorDebugValue? actualValue)
-		{
-			if (actualValue == null)
-				return false;
-
-			var actualType = actualValue.UnwrapDebugValue().Type;
-			return actualType == expectedType;
+			return paramCount == args.Count;
 		}
 
 		private async Task ElementAccessExpression(OneOperandCommand command, LinkedList<EvalStackEntry> evalStack)

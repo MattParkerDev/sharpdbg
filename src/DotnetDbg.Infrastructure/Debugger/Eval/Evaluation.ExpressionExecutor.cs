@@ -25,13 +25,6 @@ public partial class Evaluation
 			var entry = evalStack.First.Value;
 			SetterData? setterData = needSetterData ? entry.SetterData : null;
 			return await _debugger.ResolveIdentifiers(entry.Identifiers, new ThreadId(_evalData.Thread.Id), new FrameStackDepth(_evalData.FrameLevel), entry.CorDebugValue);
-			// return await ResolveIdentifiers(
-			// 	_evalData.Thread,
-			// 	_evalData.FrameLevel,
-			// 	entry.CorDebugValue,
-			// 	setterData,
-			// 	entry.Identifiers
-			// );
 		}
 
 		public async Task<CorDebugType?> GetFrontStackEntryType(LinkedList<EvalStackEntry> evalStack)

@@ -1,5 +1,4 @@
-﻿using DotnetDbg.Infrastructure.Debugger.Eval;
-using DotnetDbg.Infrastructure.Debugger.ExpressionEvaluator.Interpreter;
+﻿using DotnetDbg.Infrastructure.Debugger.ExpressionEvaluator.Interpreter;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 

@@ -1,5 +1,4 @@
 using ClrDebug;
-using DotnetDbg.Infrastructure.Debugger.Eval;
 
 namespace DotnetDbg.Infrastructure.Debugger.ExpressionEvaluator.Interpreter;
 

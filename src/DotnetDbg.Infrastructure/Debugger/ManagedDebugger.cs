@@ -1,7 +1,6 @@
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using ClrDebug;
-using DotnetDbg.Infrastructure.Debugger.Eval;
 using DotnetDbg.Infrastructure.Debugger.ExpressionEvaluator;
 using DotnetDbg.Infrastructure.Debugger.ExpressionEvaluator.Compiler;
 using DotnetDbg.Infrastructure.Debugger.ExpressionEvaluator.Interpreter;

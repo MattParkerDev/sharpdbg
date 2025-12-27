@@ -318,8 +318,7 @@ public partial class Evaluation
 				typeArgs.Count,
 				typeArgs.Count > 0 ? typeArgs.ToArray() : null,
 				valueArgs.Count,
-				valueArgs.ToArray(),
-				_evalData.ILFrame);
+				valueArgs.ToArray());
 
 			if (result == null && _evalData.ICorVoidClass != null)
 			{
@@ -551,7 +550,7 @@ public partial class Evaluation
 			if (corDebugFunction is null) throw new InvalidOperationException("ToString method not found");
 			var eval = _evalData.Thread.CreateEval();
 			ICorDebugValue[] evalArgs = [value.Raw];
-			var result = await eval.CallParameterizedFunctionAsync(_evalData.ManagedCallback, corDebugFunction, 0, null, evalArgs.Length, evalArgs, _evalData.ILFrame);
+			var result = await eval.CallParameterizedFunctionAsync(_evalData.ManagedCallback, corDebugFunction, 0, null, evalArgs.Length, evalArgs);
 			if (result is not CorDebugStringValue stringValue) throw new InvalidOperationException("ToString did not return a string");
 
 			return stringValue.GetString(stringValue.Size);

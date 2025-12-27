@@ -79,7 +79,7 @@ public static class Extensions
 		return null;
 	}
 
-	public static async Task<CorDebugValue?> CallParameterizedFunctionAsync(this CorDebugEval eval, CorDebugManagedCallback managedCallback, CorDebugFunction corDebugFunction, int typeParamCount, ICorDebugType[]? typeParameterArgs, int paramCount, ICorDebugValue[] corDebugValues, CorDebugILFrame ilFrame)
+	public static async Task<CorDebugValue?> CallParameterizedFunctionAsync(this CorDebugEval eval, CorDebugManagedCallback managedCallback, CorDebugFunction corDebugFunction, int typeParamCount, ICorDebugType[]? typeParameterArgs, int paramCount, ICorDebugValue[] corDebugValues)
 	{
 		CorDebugValue? returnValue = null;
 		var evalCompleteTcs = new TaskCompletionSource();
@@ -91,7 +91,7 @@ public static class Extensions
 			managedCallback.OnEvalComplete += OnCallbacksOnOnEvalComplete;
 			managedCallback.OnEvalException += CallbacksOnOnEvalException;
 
-			ilFrame.Chain.Thread.Process.Continue(false);
+			eval.Thread.Process.Continue(false);
 			await evalCompleteTcs.Task;
 			return returnValue;
 		}

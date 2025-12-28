@@ -46,7 +46,8 @@ public class ExpressionSyntaxVisitor(List<CommandBase> commands) : CSharpSyntaxW
 				CurrentScopeFlags.Push(CurrentScopeFlags.Peek());
 			}
 
-			switch (node.Kind())
+			var nodeSyntaxKind = node.Kind();
+			switch (nodeSyntaxKind)
 			{
 				case SyntaxKind.UncheckedExpression:
 					CurrentScopeFlags.Push((CurrentScopeFlags.Pop() & maskChecked) | flagUnchecked);
@@ -68,7 +69,7 @@ public class ExpressionSyntaxVisitor(List<CommandBase> commands) : CSharpSyntaxW
 #if DEBUG_STACKMACHINE
             CurrentNodeDepth--;
 #endif
-			switch (node.Kind())
+			switch (nodeSyntaxKind)
 			{
 				/*
 				DefaultExpression - should not be in expression AST
@@ -77,7 +78,7 @@ public class ExpressionSyntaxVisitor(List<CommandBase> commands) : CSharpSyntaxW
 				case SyntaxKind.IdentifierName:
 				case SyntaxKind.StringLiteralExpression:
 				case SyntaxKind.InterpolatedStringText:
-					_commands.Add(new OneOperandCommand(node.Kind(), CurrentScopeFlags.Peek(), node.GetFirstToken().Value));
+					_commands.Add(new OneOperandCommand(nodeSyntaxKind, CurrentScopeFlags.Peek(), node.GetFirstToken().Value));
 					break;
 
 				case SyntaxKind.InterpolatedStringExpression:
@@ -93,9 +94,9 @@ public class ExpressionSyntaxVisitor(List<CommandBase> commands) : CSharpSyntaxW
 					}
 					if (InterpolatedStringContentCount == null || InterpolatedStringContentCount < 1)
 					{
-						throw new ArgumentOutOfRangeException(node.Kind() + " must have at least one content element!");
+						throw new ArgumentOutOfRangeException(nodeSyntaxKind + " must have at least one content element!");
 					}
-					_commands.Add(new OneOperandCommand(node.Kind(), CurrentScopeFlags.Peek(), InterpolatedStringContentCount));
+					_commands.Add(new OneOperandCommand(nodeSyntaxKind, CurrentScopeFlags.Peek(), InterpolatedStringContentCount));
 					break;
 
 				case SyntaxKind.GenericName:
@@ -124,9 +125,9 @@ public class ExpressionSyntaxVisitor(List<CommandBase> commands) : CSharpSyntaxW
 					}
 					if (GenericNameArgs == null || (GenericNameArgs < 1 && !OmittedTypeArg))
 					{
-						throw new ArgumentOutOfRangeException(node.Kind() + " must have at least one type!");
+						throw new ArgumentOutOfRangeException(nodeSyntaxKind + " must have at least one type!");
 					}
-					_commands.Add(new TwoOperandCommand(node.Kind(), CurrentScopeFlags.Peek(), node.GetFirstToken().Value, GenericNameArgs));
+					_commands.Add(new TwoOperandCommand(nodeSyntaxKind, CurrentScopeFlags.Peek(), node.GetFirstToken().Value, GenericNameArgs));
 					break;
 
 				case SyntaxKind.InvocationExpression:
@@ -154,9 +155,9 @@ public class ExpressionSyntaxVisitor(List<CommandBase> commands) : CSharpSyntaxW
 					}
 					if (ArgsCount == null)
 					{
-						throw new ArgumentOutOfRangeException(node.Kind() + " must have at least one argument!");
+						throw new ArgumentOutOfRangeException(nodeSyntaxKind + " must have at least one argument!");
 					}
-					_commands.Add(new OneOperandCommand(node.Kind(), CurrentScopeFlags.Peek(), ArgsCount));
+					_commands.Add(new OneOperandCommand(nodeSyntaxKind, CurrentScopeFlags.Peek(), ArgsCount));
 					break;
 
 				case SyntaxKind.ElementAccessExpression:
@@ -182,18 +183,18 @@ public class ExpressionSyntaxVisitor(List<CommandBase> commands) : CSharpSyntaxW
 					}
 					if (ElementAccessArgs == null)
 					{
-						throw new ArgumentOutOfRangeException(node.Kind() + " must have at least one argument!");
+						throw new ArgumentOutOfRangeException(nodeSyntaxKind + " must have at least one argument!");
 					}
-					_commands.Add(new OneOperandCommand(node.Kind(), CurrentScopeFlags.Peek(), ElementAccessArgs));
+					_commands.Add(new OneOperandCommand(nodeSyntaxKind, CurrentScopeFlags.Peek(), ElementAccessArgs));
 					break;
 
 				case SyntaxKind.NumericLiteralExpression:
 				case SyntaxKind.CharacterLiteralExpression: // 1 wchar
-					_commands.Add(new TwoOperandCommand(node.Kind(), CurrentScopeFlags.Peek(), TypeAlias[node.GetFirstToken().Value.GetType()], node.GetFirstToken().Value));
+					_commands.Add(new TwoOperandCommand(nodeSyntaxKind, CurrentScopeFlags.Peek(), TypeAlias[node.GetFirstToken().Value.GetType()], node.GetFirstToken().Value));
 					break;
 
 				case SyntaxKind.PredefinedType:
-					_commands.Add(new OneOperandCommand(node.Kind(), CurrentScopeFlags.Peek(), TypeKindAlias[node.GetFirstToken().Kind()]));
+					_commands.Add(new OneOperandCommand(nodeSyntaxKind, CurrentScopeFlags.Peek(), TypeKindAlias[node.GetFirstToken().Kind()]));
 					break;
 
 				// skip, in case of stack machine program creation we don't use this kinds directly
@@ -258,11 +259,11 @@ public class ExpressionSyntaxVisitor(List<CommandBase> commands) : CSharpSyntaxW
 /*
                     case SyntaxKind.TypeOfExpression:
 */
-					_commands.Add(new NoOperandsCommand(node.Kind(), CurrentScopeFlags.Peek()));
+					_commands.Add(new NoOperandsCommand(nodeSyntaxKind, CurrentScopeFlags.Peek()));
 					break;
 
 				default:
-					throw new SyntaxKindNotImplementedException($"ExpressionSyntaxVisitor: {node.Kind()} not implemented!");
+					throw new SyntaxKindNotImplementedException($"ExpressionSyntaxVisitor: {nodeSyntaxKind} not implemented!");
 			}
 
 			CurrentScopeFlags.Pop();

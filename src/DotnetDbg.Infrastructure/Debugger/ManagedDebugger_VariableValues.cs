@@ -89,18 +89,22 @@ public partial class ManagedDebugger
 		    var value = GetValueForCorDebugValue(underlyingValueOrNull);
 		    return (typeName, value.value, false);
 	    }
-		var hasDebuggerTypeProxyAttribute = metaDataImport.TryGetCustomAttributeByName(corDebugObjectValue.Class.Token, "System.Diagnostics.DebuggerTypeProxyAttribute", out _) is HRESULT.S_OK;
+		var hasDebuggerTypeProxyAttribute = metaDataImport.TryGetCustomAttributeByName(corDebugObjectValue.Class.Token, "System.Diagnostics.DebuggerTypeProxyAttribute", out var debuggerTypeProxyAttribute) is HRESULT.S_OK;
 		var hasDebuggerDisplayAttribute = metaDataImport.TryGetCustomAttributeByName(corDebugObjectValue.Class.Token, "System.Diagnostics.DebuggerDisplayAttribute", out var debuggerDisplayAttribute) is HRESULT.S_OK;
+		if (hasDebuggerTypeProxyAttribute)
+		{
+			var debugProxyTypeName = GetCustomAttributeResultString(debuggerTypeProxyAttribute);
+		}
 		if (hasDebuggerDisplayAttribute)
 		{
-			var debuggerDisplayValue = GetUnevaluatedDebuggerDisplayString(debuggerDisplayAttribute, corDebugObjectValue);
+			var debuggerDisplayValue = GetCustomAttributeResultString(debuggerDisplayAttribute);
 			return (typeName, debuggerDisplayValue, true);
 		}
 
 	    return (typeName, $"{{{typeName}}}", false);
     }
 
-    private static string GetUnevaluatedDebuggerDisplayString(GetCustomAttributeByNameResult attribute, CorDebugObjectValue corDebugObjectValue)
+    private static string GetCustomAttributeResultString(GetCustomAttributeByNameResult attribute)
     {
 	    var dataIntPtr = attribute.ppData;
 	    var byteArray = new byte[attribute.pcbData];

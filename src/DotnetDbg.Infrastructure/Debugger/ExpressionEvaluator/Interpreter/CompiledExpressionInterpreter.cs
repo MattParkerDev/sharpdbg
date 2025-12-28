@@ -20,7 +20,7 @@ public partial class CompiledExpressionInterpreter(RuntimeAssemblyPrimitiveTypeC
 
 	private async Task<EvaluationResult> InterpretInternal(CompiledExpression compiledExpression, CompiledExpressionEvaluationContext context)
 	{
-		// TODO: CompiledExpressionEvaluationContext should probably be passed to e.g. ExecuteCommand instead of storing these as fields
+		// TODO: CompiledExpressionEvaluationContext should probably be passed to e.g. ExecuteCommand instead of storing this as a field
 		_context = context;
 		var evalStack = new LinkedList<EvalStackEntry>();
 		var output = new StringBuilder();

@@ -8,18 +8,20 @@ public partial class ManagedDebugger
 	// e.g. localVar, or localVar.Field1.Field2, or ClassName.StaticField.SubField
 	// optionalInputValue may be provided, e.g. in the case of where the value was created in the evaluation and does not exist
 	// as a local in the stack frame.
-	public async Task<CorDebugValue> ResolveIdentifiers(List<string> identifiers, ThreadId threadId, FrameStackDepth stackDepth, CorDebugValue? optionalInputValue)
+	public async Task<CorDebugValue> ResolveIdentifiers(List<string> identifiers, ThreadId threadId, FrameStackDepth stackDepth, CorDebugValue? optionalInputValue, CorDebugValue? optionalRootValue)
 	{
 		if (identifiers.Count is 0)
 		{
 			if (optionalInputValue is not null) return optionalInputValue;
 			throw new ArgumentException("Identifiers list cannot be empty", nameof(identifiers));
 		}
+		if (optionalInputValue is not null && optionalRootValue is not null) throw new ArgumentException("Cannot provide both an input value and a root value");
+
 		var rootValue = optionalInputValue;
 		int? nextIdentifier = null;
 		if (rootValue is null)
 		{
-			(rootValue, nextIdentifier) = await ResolveFirstIdentifier(identifiers, threadId, stackDepth);
+			(rootValue, nextIdentifier) = await ResolveFirstIdentifier(identifiers, threadId, stackDepth, optionalRootValue);
 			if (rootValue is null) throw new InvalidOperationException("Identifier value is null. Even if the identifier could not be resolved, an exception should have been thrown, returned as the CorDebugValue");
 		}
 
@@ -33,7 +35,8 @@ public partial class ManagedDebugger
 
 	// Only takes the full list as resolving it as a static class needs to e.g. search through namespaces
 	// We must return the next identifier index to process after the static class name
-	private async Task<(CorDebugValue Value, int? NextIdentifier)> ResolveFirstIdentifier(List<string> identifiers, ThreadId threadId, FrameStackDepth stackDepth)
+	// An optional root value is supplied if the identifiers should be resolved against it only, e.g. for DebuggerDisplay expressions
+	private async Task<(CorDebugValue Value, int? NextIdentifier)> ResolveFirstIdentifier(List<string> identifiers, ThreadId threadId, FrameStackDepth stackDepth, CorDebugValue? optionalRootValue)
 	{
 		var firstIdentifier = identifiers[0];
 		ArgumentException.ThrowIfNullOrWhiteSpace(firstIdentifier);
@@ -41,7 +44,10 @@ public partial class ManagedDebugger
 		// 1. Stack variable, e.g. local variable or argument
 		// 2. Field or property of 'this' if available (instance or static)
 		// 3. Identifier as static class name
-		var resolvedValue = ResolveIdentifierAsStackVariable(firstIdentifier, threadId, stackDepth, out var instanceMethodImplicitThisValue);
+		CorDebugValue? resolvedValue = null;
+		CorDebugValue? instanceMethodImplicitThisValue = optionalRootValue;
+
+		if (optionalRootValue is null) resolvedValue = ResolveIdentifierAsStackVariable(firstIdentifier, threadId, stackDepth, out instanceMethodImplicitThisValue);
 		if (resolvedValue is not null) return (resolvedValue, null);
 		if (instanceMethodImplicitThisValue is not null) resolvedValue = await ResolveIdentifierAsMember(firstIdentifier, threadId, stackDepth, instanceMethodImplicitThisValue);
 		if (resolvedValue is not null) return (resolvedValue, null);

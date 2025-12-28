@@ -10,7 +10,14 @@ public partial class CompiledExpressionInterpreter
 
 		var entry = evalStack.First.Value;
 		SetterData? setterData = needSetterData ? entry.SetterData : null;
-		return await _debugger.ResolveIdentifiers(entry.Identifiers, _context.ThreadId, _context.StackDepth, entry.CorDebugValue);
+		CorDebugValue? optionalRootValue = null;
+		if (_context.RootValue is not null && entry.CorDebugValue is null)
+		{
+			if (entry.CorDebugValue is not null) throw new InvalidOperationException("Both root value and entry value are set");
+			optionalRootValue = _context.RootValue;
+			_context.RootValue = null;
+		}
+		return await _debugger.ResolveIdentifiers(entry.Identifiers, _context.ThreadId, _context.StackDepth, entry.CorDebugValue, optionalRootValue);
 	}
 
 	private async Task<CorDebugType?> GetFrontStackEntryType(LinkedList<EvalStackEntry> evalStack)

@@ -11,19 +11,19 @@ public partial class ManagedDebugger
 	public async Task<(string friendlyTypeName, string value)> GetValueForCorDebugValueAsync(CorDebugValue corDebugValue, ThreadId threadId, FrameStackDepth frameStackDepth)
 	{
 		var (friendlyTypeName, value, valueRequiresDebuggerDisplayEval) = GetValueForCorDebugValue(corDebugValue);
-		// if (valueRequiresDebuggerDisplayEval)
-		// {
-		// 	var compiledExpression = ExpressionCompiler.Compile($"$\"{value}\"");
-		// 	var thread = _process!.GetThread(threadId.Value);
-		// 	var evalContext = new CompiledExpressionEvaluationContext(thread, threadId, frameStackDepth, corDebugValue);
-		// 	var result = await _expressionInterpreter!.Interpret(compiledExpression, evalContext);
-		// 	if (result.Error is not null)
-		// 	{
-		// 		_logger?.Invoke($"Evaluation error: {result.Error}");
-		// 		return (friendlyTypeName, result.Error);
-		// 	}
-		// 	(_, value, _) = GetValueForCorDebugValue(result.Value!);
-		// }
+		if (valueRequiresDebuggerDisplayEval)
+		{
+			var compiledExpression = ExpressionCompiler.Compile($"$\"{value}\"");
+			var thread = _process!.GetThread(threadId.Value);
+			var evalContext = new CompiledExpressionEvaluationContext(thread, threadId, frameStackDepth, corDebugValue);
+			var result = await _expressionInterpreter!.Interpret(compiledExpression, evalContext);
+			if (result.Error is not null)
+			{
+				_logger?.Invoke($"Evaluation error: {result.Error}");
+				return (friendlyTypeName, result.Error);
+			}
+			(_, value, _) = GetValueForCorDebugValue(result.Value!);
+		}
 		return (friendlyTypeName, value);
 	}
 

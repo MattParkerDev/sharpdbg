@@ -66,7 +66,7 @@ public class ExpressionSyntaxVisitor(List<CommandBase> commands) : CSharpSyntaxW
 			// Note, we should setup flags before and parse Kinds after this call.
 			base.Visit(node);
 #if DEBUG_STACKMACHINE
-                CurrentNodeDepth--;
+            CurrentNodeDepth--;
 #endif
 			switch (node.Kind())
 			{

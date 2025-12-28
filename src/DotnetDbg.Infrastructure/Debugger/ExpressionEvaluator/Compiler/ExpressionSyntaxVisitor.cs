@@ -56,11 +56,11 @@ public class ExpressionSyntaxVisitor(List<CommandBase> commands) : CSharpSyntaxW
 					break;
 			}
 #if DEBUG_STACKMACHINE
-                CurrentNodeDepth++;
+            CurrentNodeDepth++;
 
-                // Gather AST data for DebugText.
-                var indents = new String(' ', CurrentNodeDepth * 4);
-                ST.Add(indents + node.Kind() + " --- " + node.ToString());
+            // Gather AST data for DebugText.
+            var indents = new String(' ', CurrentNodeDepth * 4);
+            ST.Add(indents + node.Kind() + " --- " + node.ToString());
 #endif
 			// Visit nested Kinds in proper order.
 			// Note, we should setup flags before and parse Kinds after this call.

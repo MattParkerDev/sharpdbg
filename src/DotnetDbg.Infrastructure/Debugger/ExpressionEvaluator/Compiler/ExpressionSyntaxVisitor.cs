@@ -23,6 +23,8 @@ public class ExpressionSyntaxVisitor(List<CommandBase> commands) : CSharpSyntaxW
 	Stack<uint> CurrentScopeFlags = new Stack<uint>();
 
 	private readonly List<CommandBase> _commands = commands;
+	// [DebuggerDisplay("{DebuggerDisplay,nq}")] - skips 'nq'
+	private readonly bool _isDebuggerDisplayExpressionSkipInterpolationAlignmentClause = false;
 
 	public override void Visit(SyntaxNode? node)
 	{
@@ -65,7 +67,9 @@ public class ExpressionSyntaxVisitor(List<CommandBase> commands) : CSharpSyntaxW
 #endif
 			// Visit nested Kinds in proper order.
 			// Note, we should setup flags before and parse Kinds after this call.
-			base.Visit(node);
+			if (nodeSyntaxKind is SyntaxKind.InterpolationAlignmentClause && _isDebuggerDisplayExpressionSkipInterpolationAlignmentClause) { } // skip
+			else base.Visit(node);
+
 #if DEBUG_STACKMACHINE
             CurrentNodeDepth--;
 #endif
@@ -197,6 +201,9 @@ public class ExpressionSyntaxVisitor(List<CommandBase> commands) : CSharpSyntaxW
 					_commands.Add(new OneOperandCommand(nodeSyntaxKind, CurrentScopeFlags.Peek(), TypeKindAlias[node.GetFirstToken().Kind()]));
 					break;
 
+				case SyntaxKind.InterpolationAlignmentClause: // We have skipped visiting its children, but we still need to handle (ignore) the node here.
+					if (_isDebuggerDisplayExpressionSkipInterpolationAlignmentClause) break;
+					goto default;
 				// skip, in case of stack machine program creation we don't use this kinds directly
 				case SyntaxKind.Argument:
 				case SyntaxKind.Interpolation:

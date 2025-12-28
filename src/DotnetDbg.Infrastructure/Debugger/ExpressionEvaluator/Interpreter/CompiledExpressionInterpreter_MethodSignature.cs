@@ -124,7 +124,7 @@ public partial class CompiledExpressionInterpreter
 		return typeInfo;
 	}
 
-	private bool IsTypeMatch(TypeInfo paramType, CorElementType argType, CorDebugValue argValue)
+	private static bool IsTypeMatch(TypeInfo paramType, CorElementType argType, CorDebugValue argValue)
 	{
 		// Map SignatureTypeCode to CorElementType for comparison
 		var expectedCorType = SignatureTypeCodeToCorElementType(paramType.TypeCode);
@@ -149,7 +149,7 @@ public partial class CompiledExpressionInterpreter
 		return false;
 	}
 
-	private CorElementType SignatureTypeCodeToCorElementType(SignatureTypeCode typeCode)
+	private static CorElementType SignatureTypeCodeToCorElementType(SignatureTypeCode typeCode)
 	{
 		return typeCode switch
 		{

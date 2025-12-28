@@ -521,11 +521,11 @@ public static class TestExtensions
 			new() { Name = "_name", EvaluateName = "_name", Value = "TestName", Type = "string" },
 			new() { Name = "ClassProperty", EvaluateName = "ClassProperty", Value = "{DebuggableConsoleApp.MyClass2}", Type = "DebuggableConsoleApp.MyClass2", VariablesReference = 11 },
 			new() { Name = "ClassProperty2", EvaluateName = "ClassProperty2", Value = "{DebuggableConsoleApp.MyClass2}", Type = "DebuggableConsoleApp.MyClass2", VariablesReference = 12 },
-			new() { Name = "_intList", EvaluateName = "_intList", Value = "Count = {Count}", Type = "System.Collections.Generic.List<int>", VariablesReference = 8 },
+			new() { Name = "_intList", EvaluateName = "_intList", Value = "Count = 4", Type = "System.Collections.Generic.List<int>", VariablesReference = 8 },
 			new() { Name = "_intArray", EvaluateName = "_intArray", Value = "int[4]", Type = "int[]", VariablesReference = 9 },
 			new() { Name = "_instanceField", EvaluateName = "_instanceField", Value = "5", Type = "int" },
 			new() { Name = "IntProperty", EvaluateName = "IntProperty", Value = "10", Type = "int" },
-			new() { Name = "_classWithDebugDisplay", EvaluateName = "_classWithDebugDisplay", Value = "IntProperty = {IntProperty}", Type = "DebuggableConsoleApp.ClassWithDebugDisplay", VariablesReference = 10 },
+			new() { Name = "_classWithDebugDisplay", EvaluateName = "_classWithDebugDisplay", Value = "IntProperty = 14", Type = "DebuggableConsoleApp.ClassWithDebugDisplay", VariablesReference = 10 },
 		];
 		debugProtocolHost.WithVariablesRequest(variablesReference, out var thisInstanceVariables);
 		thisInstanceVariables.Should().BeEquivalentTo(expectedVariables);
@@ -541,8 +541,8 @@ public static class TestExtensions
 			new() { Name = "IntStaticProperty", EvaluateName = "IntStaticProperty", Value = "10", Type = "int" },
 			new() { Name = "StaticClassProperty", EvaluateName = "StaticClassProperty", Value = "{DebuggableConsoleApp.MyClass2}", Type = "DebuggableConsoleApp.MyClass2", VariablesReference = 18 },
 			new() { Name = "_staticClassField", EvaluateName = "_staticClassField", Value = "{DebuggableConsoleApp.MyClass2}", Type = "DebuggableConsoleApp.MyClass2", VariablesReference = 13 },
-			new() { Name = "_staticIntList", EvaluateName = "_staticIntList", Value = "Count = {Count}", Type = "System.Collections.Generic.List<int>", VariablesReference = 14 },
-			new() { Name = "_fieldDictionary", EvaluateName = "_fieldDictionary", Value = "Count = {Count}", Type = "System.Collections.Generic.Dictionary<DebuggableConsoleApp.MyClass2, DebuggableConsoleApp.MyClass>", VariablesReference = 15 },
+			new() { Name = "_staticIntList", EvaluateName = "_staticIntList", Value = "Count = 4", Type = "System.Collections.Generic.List<int>", VariablesReference = 14 },
+			new() { Name = "_fieldDictionary", EvaluateName = "_fieldDictionary", Value = "Count = 0", Type = "System.Collections.Generic.Dictionary<DebuggableConsoleApp.MyClass2, DebuggableConsoleApp.MyClass>", VariablesReference = 15 },
 			new() { Name = "_utcNow", EvaluateName = "_utcNow", Value = "{System.DateTime}", Type = "System.DateTime", VariablesReference = 16 },
 			new() { Name = "_nullableUtcNow", EvaluateName = "_nullableUtcNow", Value = "{System.DateTime}", Type = "System.DateTime?", VariablesReference = 17 },
 			new() { Name = "_instanceStaticField", EvaluateName = "_instanceStaticField", Value = "6", Type = "int" },

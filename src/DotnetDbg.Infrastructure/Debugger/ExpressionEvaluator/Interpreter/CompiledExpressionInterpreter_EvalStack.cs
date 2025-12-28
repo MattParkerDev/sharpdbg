@@ -10,7 +10,7 @@ public partial class CompiledExpressionInterpreter
 
 		var entry = evalStack.First.Value;
 		SetterData? setterData = needSetterData ? entry.SetterData : null;
-		return await _debugger.ResolveIdentifiers(entry.Identifiers, new ThreadId(_context.Thread.Id), _context.StackDepth, entry.CorDebugValue);
+		return await _debugger.ResolveIdentifiers(entry.Identifiers, _context.ThreadId, _context.StackDepth, entry.CorDebugValue);
 	}
 
 	private async Task<CorDebugType?> GetFrontStackEntryType(LinkedList<EvalStackEntry> evalStack)

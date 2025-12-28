@@ -2,7 +2,7 @@
 
 namespace DebuggableConsoleApp;
 
-[DebuggerDisplay("IntProperty = {IntProperty}")]
+[DebuggerDisplay("IntProperty = {IntProperty,nq}")]
 public class ClassWithDebugDisplay
 {
 	public int IntProperty { get; set; } = 14;

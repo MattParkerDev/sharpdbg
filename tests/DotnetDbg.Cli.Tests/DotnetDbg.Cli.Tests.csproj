@@ -34,6 +34,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\DotnetDbg.Cli\DotnetDbg.Cli.csproj" />
+	  <!-- ensure the project we are debugging is up to date -->
+    <ProjectReference Include="..\DebuggableConsoleApp\DebuggableConsoleApp.csproj" ReferenceOutputAssembly="false" />
   </ItemGroup>
 
 </Project>

@@ -79,6 +79,18 @@ public static class Extensions
 		return null;
 	}
 
+	public static async Task<CorDebugValue?> CallParameterlessInstanceMethodAsync(this CorDebugEval eval, CorDebugManagedCallback managedCallback, CorDebugFunction corDebugFunction, CorDebugValue corDebugValue)
+	{
+		const bool isStatic = false;
+
+		var typeParameterArgs = corDebugValue.ExactType.TypeParameters.Select(t => t.Raw).ToArray();
+
+		// For instance properties, pass the object; for static, pass nothing. Must pass the original CorDebugReferenceValue, not the dereferenced one.
+		ICorDebugValue[] corDebugValues = isStatic ? [] : [corDebugValue!.Raw];
+		var result = await eval.CallParameterizedFunctionAsync(managedCallback, corDebugFunction, typeParameterArgs.Length, typeParameterArgs, corDebugValues.Length, corDebugValues);
+		return result;
+	}
+
 	public static async Task<CorDebugValue?> CallParameterizedFunctionAsync(this CorDebugEval eval, CorDebugManagedCallback managedCallback, CorDebugFunction corDebugFunction, int typeParamCount, ICorDebugType[]? typeParameterArgs, int paramCount, ICorDebugValue[] corDebugValues)
 	{
 		CorDebugValue? returnValue = null;

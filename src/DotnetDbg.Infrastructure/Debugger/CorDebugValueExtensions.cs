@@ -84,10 +84,7 @@ public static class CorDebugValueExtensions
 		var eval = ilFrame.Chain.Thread.CreateEval();
 
 		// May not be correct, will need further testing
-		var parameterizedContainingType = corDebugClass.GetParameterizedType(
-			isStatic ? CorElementType.Class : (objectValue?.Type ?? CorElementType.Class),
-			0,
-			[]);
+		var parameterizedContainingType = objectValue.ExactType;
 
 		var typeParameterTypes = parameterizedContainingType.TypeParameters;
 		var typeParameterArgs = typeParameterTypes.Select(t => t.Raw).ToArray();

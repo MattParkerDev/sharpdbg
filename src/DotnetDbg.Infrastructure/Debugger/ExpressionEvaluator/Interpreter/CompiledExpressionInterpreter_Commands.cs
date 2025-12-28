@@ -438,12 +438,12 @@ public partial class CompiledExpressionInterpreter
 		var corDebugFunction = await FindMethodOnType(value.ExactType, "ToString", [], false, true);
 		if (corDebugFunction is null) throw new InvalidOperationException("ToString method not found");
 		var eval = _context.Thread.CreateEval();
-		ICorDebugValue[] evalArgs = [value.Raw];
-		var result = await eval.CallParameterizedFunctionAsync(_debuggerManagedCallback, corDebugFunction, 0, null, evalArgs.Length, evalArgs);
+		var result = await eval.CallParameterlessInstanceMethodAsync(_debuggerManagedCallback, corDebugFunction, value);
 		var unwrappedResult = result!.UnwrapDebugValue();
 		if (unwrappedResult is not CorDebugStringValue stringValue) throw new InvalidOperationException("ToString did not return a string");
 
-		return stringValue.GetString(stringValue.Size);
+		var stringResult = stringValue.GetString(stringValue.Size);
+		return stringResult;
 	}
 
 	private async Task CharacterLiteralExpression(TwoOperandCommand command, LinkedList<EvalStackEntry> evalStack)

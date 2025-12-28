@@ -262,7 +262,7 @@ public class ExpressionSyntaxVisitor(List<CommandBase> commands) : CSharpSyntaxW
 					break;
 
 				default:
-					throw new SyntaxKindNotImplementedException(node.Kind() + " not implemented!");
+					throw new SyntaxKindNotImplementedException($"ExpressionSyntaxVisitor: {node.Kind()} not implemented!");
 			}
 
 			CurrentScopeFlags.Pop();

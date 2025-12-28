@@ -33,7 +33,7 @@ public partial class ManagedDebugger
 	    {
 		    CorDebugBoxValue corDebugBoxValue => GetCorDebugBoxValue_Value_AsString(corDebugBoxValue),
 		    CorDebugArrayValue corDebugArrayValue => Get_CorDebugArrayValue_AsString(corDebugArrayValue),
-		    CorDebugStringValue stringValue => ("string", stringValue.GetString(stringValue.Size), false),
+		    CorDebugStringValue stringValue => Get_CorDebugStringValue_AsString(stringValue),
 
 		    CorDebugContext corDebugContext => throw new NotImplementedException(),
 		    CorDebugObjectValue corDebugObjectValue => GetCorDebugObjectValue_Value_AsString(corDebugObjectValue),
@@ -46,6 +46,12 @@ public partial class ManagedDebugger
 	    };
 	    return (friendlyTypeName, value, valueRequiresDebuggerDisplayEval);
     }
+
+	private static (string friendlyTypeName, string value, bool valueRequiresDebuggerDisplayEval) Get_CorDebugStringValue_AsString(CorDebugStringValue corDebugStringValue)
+	{
+		var text = corDebugStringValue.GetStringWithoutBug(corDebugStringValue.Length + 1);
+		return ("string", text, false);
+	}
 
 	public static (string friendlyTypeName, string value, bool valueRequiresDebuggerDisplayEval) Get_CorDebugArrayValue_AsString(CorDebugArrayValue corDebugArrayValue)
 	{

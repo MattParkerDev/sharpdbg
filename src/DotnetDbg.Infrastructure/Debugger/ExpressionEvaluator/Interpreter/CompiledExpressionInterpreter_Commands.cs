@@ -405,7 +405,7 @@ public partial class CompiledExpressionInterpreter
 			}
 			else if (unwrapped is CorDebugStringValue stringValue)
 			{
-				stringBuilder.Append(stringValue.GetString(stringValue.Size));
+				stringBuilder.Append(stringValue.GetString(stringValue.Length + 1));
 			}
 			else
 			{
@@ -442,7 +442,7 @@ public partial class CompiledExpressionInterpreter
 		var unwrappedResult = result!.UnwrapDebugValue();
 		if (unwrappedResult is not CorDebugStringValue stringValue) throw new InvalidOperationException("ToString did not return a string");
 
-		var stringResult = stringValue.GetString(stringValue.Size);
+		var stringResult = stringValue.GetString(stringValue.Length + 1);
 		return stringResult;
 	}
 

@@ -30,6 +30,29 @@ public static class CorDebugValueExtensions
 		return valueToCheck;
 	}
 
+	/// <summary>
+	/// Use this until https://github.com/lordmilko/ClrDebug/pull/20 is resolved
+	/// </summary>
+	public static string GetStringWithoutBug(this CorDebugStringValue corDebugStringValue, int cchString)
+	{
+		TryGetString(corDebugStringValue, cchString, out var szStringResult).ThrowOnNotOK();
+		return szStringResult;
+	}
+
+	private static HRESULT TryGetString(CorDebugStringValue corDebugStringValue, int cchString, out string szStringResult)
+	{
+		char[] chArray = new char[cchString];
+		int pcchString;
+		int num = (int) corDebugStringValue.Raw.GetString(cchString, out pcchString, chArray);
+		if (num == 0)
+		{
+			szStringResult = ClrDebug.Extensions.CreateString(chArray, pcchString + 1);
+			return (HRESULT) num;
+		}
+		szStringResult = (string) null;
+		return (HRESULT) num;
+	}
+
 	public static byte[] GetValueAsBytes(this CorDebugGenericValue corDebugGenericValue)
 	{
 		IntPtr buffer = Marshal.AllocHGlobal(corDebugGenericValue.Size);

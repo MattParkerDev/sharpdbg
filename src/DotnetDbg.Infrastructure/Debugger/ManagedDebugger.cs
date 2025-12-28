@@ -566,8 +566,8 @@ public partial class ManagedDebugger : IDisposable
 	        {
 		        var corDebugFunction = ilFrame.Function;
 		        var module = _modules[corDebugFunction.Module.BaseAddress];
-		        AddArguments(ilFrame, module, corDebugFunction, result);
-		        AddLocalVariables(ilFrame, module, corDebugFunction, result);
+		        await AddArguments(module, corDebugFunction, result, variablesReference.ThreadId, variablesReference.FrameStackDepth);
+		        await AddLocalVariables(module, corDebugFunction, result, variablesReference.ThreadId, variablesReference.FrameStackDepth);
 	        }
 	        else if (variablesReference.ReferenceKind is StoredReferenceKind.StackVariable)
 	        {
@@ -579,11 +579,11 @@ public partial class ManagedDebugger : IDisposable
 					if (rank > 1) throw new NotImplementedException("Multidimensional arrays not yet supported");
 					var itemCount = arrayValue.Count;
 
-					foreach (var i in ValueEnumerable.Range(0, itemCount))
+					foreach (var i in Enumerable.Range(0, itemCount))
 					{
 						var element = arrayValue.GetElement(1, [i]);
-						var (friendlyTypeName, value) = GetValueForCorDebugValue(element);
-						var variableReference = GetVariablesReference(element, ilFrame, friendlyTypeName);
+						var (friendlyTypeName, value) = await GetValueForCorDebugValueAsync(element, variablesReference.ThreadId, variablesReference.FrameStackDepth);
+						var variableReference = GetVariablesReference(element, friendlyTypeName, variablesReference.ThreadId, variablesReference.FrameStackDepth);
 						var variableInfo = new VariableInfo
 						{
 							Name = $"[{i}]",
@@ -619,7 +619,7 @@ public partial class ManagedDebugger : IDisposable
 				        result.Add(variableInfo);
 			        }
 			        //AddStaticMembersPseudoVariable(staticFieldDefs, staticProperties, metadataImport, corDebugClass, variablesReference.IlFrame, result);
-			        AddFields(nonStaticFieldDefs, metadataImport, corDebugClass, ilFrame, objectValue, result);
+			        await AddFields(nonStaticFieldDefs, metadataImport, corDebugClass, objectValue, result, variablesReference.ThreadId, variablesReference.FrameStackDepth);
 			        // We need to pass the un-unwrapped reference value here, as we need to invoke CallParameterizedFunction with the correct parameters
 			        await AddProperties(nonStaticProperties, metadataImport, corDebugClass, variablesReference.ThreadId, variablesReference.FrameStackDepth, variablesReference.ObjectValue!, result);
 		        }
@@ -640,7 +640,7 @@ public partial class ManagedDebugger : IDisposable
 		        var mdProperties = metadataImport.EnumProperties(mdTypeDef);
 		        var staticFieldDefs = mdFieldDefs.AsValueEnumerable().Where(s => s.IsStatic(metadataImport)).ToArray();
 		        var staticProperties = mdProperties.AsValueEnumerable().Where(p => p.IsStatic(metadataImport)).ToArray();
-		        AddFields(staticFieldDefs, metadataImport, corDebugClass, ilFrame, objectValue, result);
+		        await AddFields(staticFieldDefs, metadataImport, corDebugClass, objectValue, result, variablesReference.ThreadId, variablesReference.FrameStackDepth);
 		        await AddProperties(staticProperties, metadataImport, corDebugClass, variablesReference.ThreadId, variablesReference.FrameStackDepth, variablesReference.ObjectValue!, result);
 	        }
         }
@@ -678,7 +678,7 @@ public partial class ManagedDebugger : IDisposable
 	        _logger?.Invoke($"Evaluation error: {result.Error}");
 	        return (result.Error, null, 0);
         }
-        var (friendlyTypeName, value) = GetValueForCorDebugValue(result.Value!);
+        var (friendlyTypeName, value) = await GetValueForCorDebugValueAsync(result.Value!, variablesReference.Value.ThreadId, variablesReference.Value.FrameStackDepth);
         return (value, friendlyTypeName, 0);
     }
 

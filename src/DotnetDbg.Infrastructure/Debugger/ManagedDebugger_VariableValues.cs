@@ -1,18 +1,39 @@
 ﻿using System.Runtime.InteropServices;
 using System.Text;
 using ClrDebug;
+using DotnetDbg.Infrastructure.Debugger.ExpressionEvaluator;
+using DotnetDbg.Infrastructure.Debugger.ExpressionEvaluator.Compiler;
 
 namespace DotnetDbg.Infrastructure.Debugger;
 
 public partial class ManagedDebugger
 {
-	public static (string friendlyTypeName, string value) GetValueForCorDebugValue(CorDebugValue corDebugValue)
+	public async Task<(string friendlyTypeName, string value)> GetValueForCorDebugValueAsync(CorDebugValue corDebugValue, ThreadId threadId, FrameStackDepth frameStackDepth)
+	{
+		var (friendlyTypeName, value, valueRequiresDebuggerDisplayEval) = GetValueForCorDebugValue(corDebugValue);
+		// if (valueRequiresDebuggerDisplayEval)
+		// {
+		// 	var compiledExpression = ExpressionCompiler.Compile($"$\"{value}\"");
+		// 	var thread = _process!.GetThread(threadId.Value);
+		// 	var evalContext = new CompiledExpressionEvaluationContext(thread, threadId, frameStackDepth, corDebugValue);
+		// 	var result = await _expressionInterpreter!.Interpret(compiledExpression, evalContext);
+		// 	if (result.Error is not null)
+		// 	{
+		// 		_logger?.Invoke($"Evaluation error: {result.Error}");
+		// 		return (friendlyTypeName, result.Error);
+		// 	}
+		// 	(_, value, _) = GetValueForCorDebugValue(result.Value!);
+		// }
+		return (friendlyTypeName, value);
+	}
+
+	private static (string friendlyTypeName, string value, bool valueRequiresDebuggerDisplayEval) GetValueForCorDebugValue(CorDebugValue corDebugValue)
     {
-	    var (friendlyTypeName, value) = corDebugValue switch
+	    var (friendlyTypeName, value, valueRequiresDebuggerDisplayEval) = corDebugValue switch
 	    {
 		    CorDebugBoxValue corDebugBoxValue => GetCorDebugBoxValue_Value_AsString(corDebugBoxValue),
 		    CorDebugArrayValue corDebugArrayValue => Get_CorDebugArrayValue_AsString(corDebugArrayValue),
-		    CorDebugStringValue stringValue => ("string", stringValue.GetString(stringValue.Size)),
+		    CorDebugStringValue stringValue => ("string", stringValue.GetString(stringValue.Size), false),
 
 		    CorDebugContext corDebugContext => throw new NotImplementedException(),
 		    CorDebugObjectValue corDebugObjectValue => GetCorDebugObjectValue_Value_AsString(corDebugObjectValue),
@@ -23,24 +44,24 @@ public partial class ManagedDebugger
 		    CorDebugGenericValue corDebugGenericValue => GetCorDebugGenericValue_Value_AsString(corDebugGenericValue),  // This should be already handled by the above classes, so we should never get here
 		    _ => throw new ArgumentOutOfRangeException(nameof(corDebugValue))
 	    };
-	    return (friendlyTypeName, value);
+	    return (friendlyTypeName, value, valueRequiresDebuggerDisplayEval);
     }
 
-	public static (string friendlyTypeName, string value) Get_CorDebugArrayValue_AsString(CorDebugArrayValue corDebugArrayValue)
+	public static (string friendlyTypeName, string value, bool valueRequiresDebuggerDisplayEval) Get_CorDebugArrayValue_AsString(CorDebugArrayValue corDebugArrayValue)
 	{
 		var elementName = GetFriendlyTypeName(corDebugArrayValue.ElementType);
 		var typeName = $"{elementName}[]";
-	    return (typeName, $"{elementName}[{corDebugArrayValue.Count}]");
+	    return (typeName, $"{elementName}[{corDebugArrayValue.Count}]", false);
 	}
 
-	public static (string friendlyTypeName, string value) GetCorDebugBoxValue_Value_AsString(CorDebugBoxValue corDebugBoxValue)
+	public static (string friendlyTypeName, string value, bool valueRequiresDebuggerDisplayEval) GetCorDebugBoxValue_Value_AsString(CorDebugBoxValue corDebugBoxValue)
 	{
 	    var unboxedValue = corDebugBoxValue.Object;
 	    var value = GetValueForCorDebugValue(unboxedValue);
 	    return value;
 	}
 
-    public static (string friendlyTypeName, string value) GetCorDebugObjectValue_Value_AsString(CorDebugObjectValue corDebugObjectValue)
+    public static (string friendlyTypeName, string value, bool valueRequiresDebuggerDisplayEval) GetCorDebugObjectValue_Value_AsString(CorDebugObjectValue corDebugObjectValue)
     {
 	    var module = corDebugObjectValue.Class.Module;
 	    var metaDataImport = module.GetMetaDataInterface().MetaDataImport;
@@ -52,28 +73,28 @@ public partial class ManagedDebugger
 			var value = GetValueForCorDebugValue(valueField);
 
 			var enumDisplayValue = GetEnumDisplayValue(metaDataImport, corDebugObjectValue, value.value);
-			return (GetCorDebugTypeFriendlyName(corDebugObjectValue.ExactType), enumDisplayValue);
+			return (GetCorDebugTypeFriendlyName(corDebugObjectValue.ExactType), enumDisplayValue, false);
 	    }
 	    var typeName = GetCorDebugTypeFriendlyName(corDebugObjectValue.ExactType);
 	    if (typeName.EndsWith('?'))
 	    {
 		    var underlyingValueOrNull = GetUnderlyingValueOrNullFromNullableStruct(corDebugObjectValue);
-		    if (underlyingValueOrNull is null) return (typeName, "null");
+		    if (underlyingValueOrNull is null) return (typeName, "null", false);
 		    var value = GetValueForCorDebugValue(underlyingValueOrNull);
-		    return (typeName, value.value);
+		    return (typeName, value.value, false);
 	    }
 		var hasDebuggerTypeProxyAttribute = metaDataImport.TryGetCustomAttributeByName(corDebugObjectValue.Class.Token, "System.Diagnostics.DebuggerTypeProxyAttribute", out _) is HRESULT.S_OK;
 		var hasDebuggerDisplayAttribute = metaDataImport.TryGetCustomAttributeByName(corDebugObjectValue.Class.Token, "System.Diagnostics.DebuggerDisplayAttribute", out var debuggerDisplayAttribute) is HRESULT.S_OK;
 		if (hasDebuggerDisplayAttribute)
 		{
-			var debuggerDisplayValue = GetDebuggerDisplayValue(metaDataImport, debuggerDisplayAttribute, corDebugObjectValue);
-			return (typeName, debuggerDisplayValue);
+			var debuggerDisplayValue = GetUnevaluatedDebuggerDisplayString(debuggerDisplayAttribute, corDebugObjectValue);
+			return (typeName, debuggerDisplayValue, true);
 		}
 
-	    return (typeName, $"{{{typeName}}}");
+	    return (typeName, $"{{{typeName}}}", false);
     }
 
-    private static string GetDebuggerDisplayValue(MetaDataImport metaDataImport, GetCustomAttributeByNameResult attribute, CorDebugObjectValue corDebugObjectValue)
+    private static string GetUnevaluatedDebuggerDisplayString(GetCustomAttributeByNameResult attribute, CorDebugObjectValue corDebugObjectValue)
     {
 	    var dataIntPtr = attribute.ppData;
 	    var byteArray = new byte[attribute.pcbData];
@@ -83,7 +104,6 @@ public partial class ManagedDebugger
 	    var byteSpan = byteArray.AsSpan()[3..^2];
 	    var dataAsString = Encoding.UTF8.GetString(byteSpan); // e.g. "Count = {Count}" or "{DebuggerDisplay,nq}"
 	    // Now we need to parse the string and replace {Count} with the actual value, or just eval the expression
-
 	    return dataAsString;
 	}
 
@@ -101,14 +121,14 @@ public partial class ManagedDebugger
 	    return valueValue;
 	}
 
-    public static (string friendlyTypeName, string value) GetCorDebugReferenceValue_Value_AsString(CorDebugReferenceValue corDebugReferenceValue)
+    public static (string friendlyTypeName, string value, bool valueRequiresDebuggerDisplayEval) GetCorDebugReferenceValue_Value_AsString(CorDebugReferenceValue corDebugReferenceValue)
     {
 	    //if (corDebugReferenceValue.IsNull) return ("TODO", "null");
 	    if (corDebugReferenceValue.IsNull)
 	    {
 		    // Get the type information even though the reference is null
 		    var typeName = GetCorDebugTypeFriendlyName(corDebugReferenceValue.ExactType);
-		    return (typeName, "null");
+		    return (typeName, "null", false);
 	    }
 	    var referencedValue = corDebugReferenceValue.Dereference();
 	    var value = GetValueForCorDebugValue(referencedValue);
@@ -171,7 +191,7 @@ public partial class ManagedDebugger
 		return className;
 	}
 
-    public static (string friendlyTypeName, string value) GetCorDebugGenericValue_Value_AsString(CorDebugGenericValue corDebugGenericValue)
+    public static (string friendlyTypeName, string value, bool valueRequiresDebuggerDisplayEval) GetCorDebugGenericValue_Value_AsString(CorDebugGenericValue corDebugGenericValue)
     {
 	    IntPtr buffer = Marshal.AllocHGlobal(corDebugGenericValue.Size);
 	    try
@@ -207,7 +227,7 @@ public partial class ManagedDebugger
 	            _ => throw new ArgumentOutOfRangeException()
 	        };
 	        var friendlyTypeName = GetFriendlyTypeName(corDebugGenericValue.Type) ?? throw new ArgumentOutOfRangeException();
-	        return (friendlyTypeName, value);
+	        return (friendlyTypeName, value, false);
 	    }
 	    finally
 	    {

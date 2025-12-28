@@ -5,27 +5,29 @@ namespace DotnetDbg.Infrastructure.Debugger;
 
 public partial class ManagedDebugger
 {
-	private void AddLocalVariables(CorDebugILFrame corDebugIlFrame, ModuleInfo module, CorDebugFunction corDebugFunction, List<VariableInfo> result)
+	private async Task AddLocalVariables(ModuleInfo module, CorDebugFunction corDebugFunction, List<VariableInfo> result, ThreadId threadId, FrameStackDepth stackDepth)
 	{
+		var corDebugIlFrame = GetFrameForThreadIdAndStackDepth(threadId, stackDepth);
 		if (corDebugIlFrame.LocalVariables.Length is 0) return;
 		foreach (var (index, localVariableCorDebugValue) in corDebugIlFrame.LocalVariables.Index())
 		{
 			var localVariableName = module.SymbolReader?.GetLocalVariableName(corDebugFunction.Token, index);
 			if (localVariableName is null) continue; // Compiler generated locals will not be found. E.g. DefaultInterpolatedStringHandler
-			var (friendlyTypeName, value) = GetValueForCorDebugValue(localVariableCorDebugValue);
+			var (friendlyTypeName, value) = await GetValueForCorDebugValueAsync(localVariableCorDebugValue, threadId, stackDepth);
 			var variableInfo = new VariableInfo
 			{
 				Name = localVariableName,
 				Value = value,
 				Type = friendlyTypeName,
-				VariablesReference = GetVariablesReference(localVariableCorDebugValue, corDebugIlFrame, friendlyTypeName)
+				VariablesReference = GetVariablesReference(localVariableCorDebugValue, friendlyTypeName, threadId, stackDepth)
 			};
 			result.Add(variableInfo);
 		}
 	}
 
-	private void AddArguments(CorDebugILFrame corDebugIlFrame, ModuleInfo module, CorDebugFunction corDebugFunction, List<VariableInfo> result)
+	private async Task AddArguments(ModuleInfo module, CorDebugFunction corDebugFunction, List<VariableInfo> result, ThreadId threadId, FrameStackDepth stackDepth)
 	{
+		var corDebugIlFrame = GetFrameForThreadIdAndStackDepth(threadId, stackDepth);
 		if (corDebugIlFrame.Arguments.Length is 0) return;
         var metadataImport = module.Module.GetMetaDataInterface().MetaDataImport;
 
@@ -37,13 +39,13 @@ public partial class ManagedDebugger
         if (isStatic is false)
         {
 	        var implicitThisValue = corDebugIlFrame.Arguments[0];
-	        var (friendlyTypeName, value) = GetValueForCorDebugValue(implicitThisValue);
+	        var (friendlyTypeName, value) = await GetValueForCorDebugValueAsync(implicitThisValue, threadId, stackDepth);
 	        var variableInfo = new VariableInfo
 	        {
 		        Name = "this", // Hardcoded - 'this' has no metadata
 		        Value = value,
 		        Type = friendlyTypeName,
-		        VariablesReference = GetVariablesReference(implicitThisValue, corDebugIlFrame, friendlyTypeName)
+		        VariablesReference = GetVariablesReference(implicitThisValue, friendlyTypeName, threadId, stackDepth)
 	        };
 	        result.Add(variableInfo);
         }
@@ -56,25 +58,25 @@ public partial class ManagedDebugger
 	        var paramProps = metadataImport.GetParamProps(paramDef);
 	        var argumentName = paramProps.szName;
 	        if (argumentName is null) continue;
-	        var (friendlyTypeName, value) = GetValueForCorDebugValue(argumentCorDebugValue);
+	        var (friendlyTypeName, value) = await GetValueForCorDebugValueAsync(argumentCorDebugValue, threadId, stackDepth);
 	        var variableInfo = new VariableInfo
 	        {
 		        Name = argumentName,
 		        Value = value,
 		        Type = friendlyTypeName,
-		        VariablesReference = GetVariablesReference(argumentCorDebugValue, corDebugIlFrame, friendlyTypeName)
+		        VariablesReference = GetVariablesReference(argumentCorDebugValue, friendlyTypeName, threadId, stackDepth)
 	        };
 	        result.Add(variableInfo);
         }
 	}
 
-	private int GetVariablesReference(CorDebugValue corDebugValue, CorDebugILFrame corDebugIlFrame, string friendlyTypeName)
+	private int GetVariablesReference(CorDebugValue corDebugValue, string friendlyTypeName, ThreadId threadId, FrameStackDepth stackDepth)
 	{
 		var unwrappedDebugValue = corDebugValue.UnwrapDebugValue();
 		if (unwrappedDebugValue is CorDebugArrayValue arrayValue)
 		{
 			if (arrayValue.Count is 0) return 0;
-			return GenerateUniqueVariableReference(corDebugValue, corDebugIlFrame);
+			return GenerateUniqueVariableReference(corDebugValue, threadId, stackDepth);
 		}
 		else if (unwrappedDebugValue is CorDebugObjectValue objectValue)
 		{
@@ -92,22 +94,20 @@ public partial class ManagedDebugger
 			if (type is CorElementType.String) return 0;
 			if (type is CorElementType.Class or CorElementType.ValueType or CorElementType.SZArray or CorElementType.Array)
 			{
-				return GenerateUniqueVariableReference(corDebugValue, corDebugIlFrame);
+				return GenerateUniqueVariableReference(corDebugValue, threadId, stackDepth);
 			}
 		}
 		return 0;
 	}
 
-	private int GenerateUniqueVariableReference(CorDebugValue value, CorDebugILFrame corDebugIlFrame)
+	private int GenerateUniqueVariableReference(CorDebugValue value, ThreadId threadId, FrameStackDepth stackDepth)
 	{
-		var stackDepth = corDebugIlFrame.Chain.Frames.IndexOf(corDebugIlFrame);
-		var threadId = corDebugIlFrame.Chain.Thread.Id;
-		var variablesReference = new VariablesReference(StoredReferenceKind.StackVariable, value, new ThreadId(threadId), new FrameStackDepth(stackDepth));
+		var variablesReference = new VariablesReference(StoredReferenceKind.StackVariable, value, threadId, stackDepth);
 		var reference = _variableManager.CreateReference(variablesReference);
 		return reference;
 	}
 
-	private void AddFields(mdFieldDef[] mdFieldDefs, MetaDataImport metadataImport, CorDebugClass corDebugClass, CorDebugILFrame ilFrame, CorDebugObjectValue objectValue, List<VariableInfo> result)
+	private async Task AddFields(mdFieldDef[] mdFieldDefs, MetaDataImport metadataImport, CorDebugClass corDebugClass, CorDebugObjectValue objectValue, List<VariableInfo> result, ThreadId threadId, FrameStackDepth stackDepth)
 	{
 		foreach (var mdFieldDef in mdFieldDefs)
 		{
@@ -130,14 +130,14 @@ public partial class ManagedDebugger
 				result.Add(literalVariableInfo);
 				continue;
 			}
-			var fieldCorDebugValue = isStatic ? corDebugClass.GetStaticFieldValue(mdFieldDef, ilFrame.Raw) : objectValue.GetFieldValue(corDebugClass.Raw, mdFieldDef);
-			var (friendlyTypeName, value) = GetValueForCorDebugValue(fieldCorDebugValue);
+			var fieldCorDebugValue = isStatic ? corDebugClass.GetStaticFieldValue(mdFieldDef, GetFrameForThreadIdAndStackDepth(threadId, stackDepth).Raw) : objectValue.GetFieldValue(corDebugClass.Raw, mdFieldDef);
+			var (friendlyTypeName, value) = await GetValueForCorDebugValueAsync(fieldCorDebugValue, threadId, stackDepth);
 			var variableInfo = new VariableInfo
 			{
 				Name = fieldName,
 				Value = value,
 				Type = friendlyTypeName,
-				VariablesReference = GetVariablesReference(fieldCorDebugValue, ilFrame, friendlyTypeName)
+				VariablesReference = GetVariablesReference(fieldCorDebugValue, friendlyTypeName, threadId, stackDepth)
 			};
 			result.Add(variableInfo);
 		}
@@ -182,15 +182,13 @@ public partial class ManagedDebugger
 			var returnValue = await eval.CallParameterizedFunctionAsync(_callbacks, getMethod, typeParameterTypes.Length, typeParameterArgs, corDebugValues.Length, corDebugValues);
 
 		    if (returnValue is null) continue;
-		    var (friendlyTypeName, value) = GetValueForCorDebugValue(returnValue);
-		    // eval neutered the frame again, and we need it to get variables for nested objects (specifically static fields/properties)
-		    variablesReferenceIlFrame = GetFrameForThreadIdAndStackDepth(threadId, stackDepth);
+		    var (friendlyTypeName, value) = await GetValueForCorDebugValueAsync(returnValue, threadId, stackDepth);
 		    var variableInfo = new VariableInfo
 		    {
 			    Name = propertyName,
 			    Value = value,
 			    Type = friendlyTypeName,
-			    VariablesReference = GetVariablesReference(returnValue, variablesReferenceIlFrame, friendlyTypeName)
+			    VariablesReference = GetVariablesReference(returnValue, friendlyTypeName, threadId, stackDepth)
 		    };
 		    result.Add(variableInfo);
 		    if (returnValue is CorDebugHandleValue handleValue)

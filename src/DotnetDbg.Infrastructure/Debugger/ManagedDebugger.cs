@@ -786,7 +786,6 @@ public partial class ManagedDebugger : IDisposable
         IsRunning = false;
         OnExited?.Invoke();
         OnTerminated?.Invoke();
-        ContinueProcess();
     }
 
     private void HandleThreadCreated(object? sender, CreateThreadCorDebugManagedCallbackEventArgs createThreadCorDebugManagedCallbackEventArgs)

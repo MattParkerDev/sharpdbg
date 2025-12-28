@@ -5,7 +5,7 @@ namespace DotnetDbg.Infrastructure.Debugger.ExpressionEvaluator.Interpreter;
 
 public partial class CompiledExpressionInterpreter
 {
-	private List<TypeInfo> ParseMethodSignatureWithMetadata(IntPtr ppvSigBlob, int pcbSigBlob)
+	private static List<TypeInfo> ParseMethodSignatureWithMetadata(IntPtr ppvSigBlob, int pcbSigBlob)
 	{
 		var parameters = new List<TypeInfo>();
 
@@ -50,7 +50,7 @@ public partial class CompiledExpressionInterpreter
 		public List<TypeInfo> GenericArguments { get; set; } // For generic types
 	}
 
-	private TypeInfo DecodeType(ref BlobReader reader)
+	private static TypeInfo DecodeType(ref BlobReader reader)
 	{
 		var typeInfo = new TypeInfo();
 		var typeCode = reader.ReadSignatureTypeCode();

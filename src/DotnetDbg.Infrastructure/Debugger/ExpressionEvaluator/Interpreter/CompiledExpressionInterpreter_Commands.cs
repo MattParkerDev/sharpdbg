@@ -213,7 +213,7 @@ public partial class CompiledExpressionInterpreter
 		}
 	}
 
-	private async Task<CorDebugFunction?> FindMethodOnType(
+	private static async Task<CorDebugFunction?> FindMethodOnType(
 		CorDebugType type,
 		string methodName,
 		CorDebugValue?[] args,
@@ -257,7 +257,7 @@ public partial class CompiledExpressionInterpreter
 		return null;
 	}
 
-	private bool IsMethodParameterMatch(CorDebugFunction method, CorDebugValue?[] args)
+	private static bool IsMethodParameterMatch(CorDebugFunction method, CorDebugValue?[] args)
 	{
 		var metaDataImport = method. Class.Module.GetMetaDataInterface().MetaDataImport;
 

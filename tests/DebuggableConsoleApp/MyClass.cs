@@ -10,7 +10,7 @@ public class MyClass
 		var enumVar = MyEnum.SecondValue;
 		var enumWithFlagsVar = MyEnumWithFlags.FlagValue1 | MyEnumWithFlags.FlagValue3;
 		var structVar = new MyStruct { Id = 5, Name = "StructName" };
-		Console.WriteLine($"Log{_counter}");
+		Console.WriteLine($"Log{_counter:D}");
 		_counter++;
 		int? nullableInt;
 		int? nullableIntWithVal = 4;
@@ -19,6 +19,7 @@ public class MyClass
 		var anotherVar = "asdf";
 		;
 	}
+	//private const int nq = -1;
 
 	//private MyClass2 get_ClassProperty() => ClassProperty;
 	private MyClass2 ClassProperty { get; set; } = new MyClass2();
@@ -36,6 +37,7 @@ public class MyClass
 	private int _instanceField = 5;
 	private static int _instanceStaticField = 6;
 	public int IntProperty { get; set; } = 10;
+	private ClassWithDebugDisplay _classWithDebugDisplay = new ClassWithDebugDisplay();
 	private int Get14() => 14;
 	private int DoubleNumber(int number) => number * 2;
 	private float DoubleNumber(float number) => number * 2;

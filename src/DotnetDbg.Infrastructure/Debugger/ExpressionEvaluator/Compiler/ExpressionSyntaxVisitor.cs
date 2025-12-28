@@ -4,7 +4,7 @@ using static DotnetDbg.Infrastructure.Debugger.ExpressionEvaluator.Compiler.Comp
 
 namespace DotnetDbg.Infrastructure.Debugger.ExpressionEvaluator.Compiler;
 
-public class ExpressionSyntaxVisitor(List<CommandBase> commands) : CSharpSyntaxWalker
+public class ExpressionSyntaxVisitor(List<CommandBase> commands, bool isDebuggerDisplayExpressionSkipInterpolationAlignmentClause) : CSharpSyntaxWalker
 {
 	bool ExpressionStatementBody = false;
 	public int ExpressionStatementCount = 0;
@@ -24,7 +24,7 @@ public class ExpressionSyntaxVisitor(List<CommandBase> commands) : CSharpSyntaxW
 
 	private readonly List<CommandBase> _commands = commands;
 	// [DebuggerDisplay("{DebuggerDisplay,nq}")] - skips 'nq'
-	private readonly bool _isDebuggerDisplayExpressionSkipInterpolationAlignmentClause = false;
+	private readonly bool _isDebuggerDisplayExpressionSkipInterpolationAlignmentClause = isDebuggerDisplayExpressionSkipInterpolationAlignmentClause;
 
 	public override void Visit(SyntaxNode? node)
 	{

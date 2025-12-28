@@ -13,7 +13,7 @@ public partial class ManagedDebugger
 		var (friendlyTypeName, value, valueRequiresDebuggerDisplayEval) = GetValueForCorDebugValue(corDebugValue);
 		if (valueRequiresDebuggerDisplayEval)
 		{
-			var compiledExpression = ExpressionCompiler.Compile($"$\"{value}\"");
+			var compiledExpression = ExpressionCompiler.Compile($"$\"{value}\"", true);
 			var thread = _process!.GetThread(threadId.Value);
 			var evalContext = new CompiledExpressionEvaluationContext(thread, threadId, frameStackDepth, corDebugValue);
 			var result = await _expressionInterpreter!.Interpret(compiledExpression, evalContext);

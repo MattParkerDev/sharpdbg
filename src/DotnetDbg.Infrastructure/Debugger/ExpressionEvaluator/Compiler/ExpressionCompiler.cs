@@ -6,15 +6,15 @@ namespace DotnetDbg.Infrastructure.Debugger.ExpressionEvaluator.Compiler;
 
 public static class ExpressionCompiler
 {
-	public static CompiledExpression Compile(string expression)
+	public static CompiledExpression Compile(string expression, bool isDebuggerDisplayExpression)
 	{
 		var fixedExpression = CompiledExpressionInterpreter.ReplaceInternalNames(expression, false);
-		var instructions = CompileInternal(fixedExpression);
+		var instructions = CompileInternal(fixedExpression, isDebuggerDisplayExpression);
 		var compiledExpression = new CompiledExpression(instructions);
 		return compiledExpression;
 	}
 
-	private static List<CommandBase> CompileInternal(string expression)
+	private static List<CommandBase> CompileInternal(string expression, bool isDebuggerDisplayExpression)
 	{
 		var parseOptions = CSharpParseOptions.Default.WithKind(SourceCodeKind.Script);
 		var tree = CSharpSyntaxTree.ParseText(expression, parseOptions);
@@ -33,7 +33,8 @@ public static class ExpressionCompiler
 		}
 
 		var instructions = new List<CommandBase>();
-		var treeWalker = new ExpressionSyntaxVisitor(instructions);
+		var treeWalker = new ExpressionSyntaxVisitor(instructions, isDebuggerDisplayExpression);
+
 		treeWalker.Visit(tree.GetRoot());
 
 		if (treeWalker.ExpressionStatementCount != 1)

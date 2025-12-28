@@ -668,7 +668,7 @@ public partial class ManagedDebugger : IDisposable
         if (variablesReference.Value.ReferenceKind is not StoredReferenceKind.Scope) throw new InvalidOperationException("Frame ID does not refer to a stack frame scope");
         var thread = _process!.Threads.Single(s => s.Id == variablesReference.Value.ThreadId.Value);
 
-        var compiledExpression = ExpressionCompiler.Compile(expression);
+        var compiledExpression = ExpressionCompiler.Compile(expression, false);
         var evalContext = new CompiledExpressionEvaluationContext(thread, variablesReference.Value.ThreadId, variablesReference.Value.FrameStackDepth);
         ArgumentNullException.ThrowIfNull(_expressionInterpreter);
         var result = await _expressionInterpreter.Interpret(compiledExpression, evalContext);

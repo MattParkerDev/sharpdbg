@@ -86,8 +86,8 @@ public class EvalTests(ITestOutputHelper testOutputHelper)
 	    debugProtocolHost.WithEvaluateRequest(stackFrameId, "this.DoubleNumber(4f)", out var evaluateResponse16);
 	    evaluateResponse16.Result.Should().Be("8");
 	    // TODO: Fix
-	    //debugProtocolHost.WithEvaluateRequest(stackFrameId, "Get14()", out var evaluateResponse17);
-	    //evaluateResponse17.Result.Should().Be("14");
+	    debugProtocolHost.WithEvaluateRequest(stackFrameId, "Get14()", out var evaluateResponse17);
+	    evaluateResponse17.Result.Should().Be("14");
 	    debugProtocolHost.WithEvaluateRequest(stackFrameId, "IntProperty.ToString()", out var evaluateResponse18);
 	    evaluateResponse18.Result.Should().Be("10");
 	    debugProtocolHost.WithEvaluateRequest(stackFrameId, "this.TestMethod(4, \"asdf\")", out var evaluateResponse19);

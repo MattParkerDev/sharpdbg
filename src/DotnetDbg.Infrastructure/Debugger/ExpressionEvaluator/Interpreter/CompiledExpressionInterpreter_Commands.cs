@@ -88,16 +88,20 @@ public partial class CompiledExpressionInterpreter
 		if (entry.CorDebugValue == null && entry.Identifiers.Count == 0)
 		{
 			idsEmpty = true;
+			// We don't know if this is a static or instance method, but it's fine to add "this", as if the method is not
+			// found as an instance method, it will continue and search for static methods
+			entry.Identifiers.Add("this");
 			objValue = await GetFrontStackEntryValue(evalStack);
 			var isStaticMethod = objValue == null;
 			objType = objValue?.ExactType;
 
 			if (!isStaticMethod)
 			{
-				entry.Identifiers.Add("this");
+				//entry.Identifiers.Add("this");
 			}
 			else
 			{
+				throw new NotImplementedException("I don't think this is ever hit?");
 				var ilFrame = _debugger.GetFrameForThreadIdAndStackDepth(_context.ThreadId, _context.StackDepth);
 				var corDebugFunction = ilFrame.Function;
 				var module = corDebugFunction.Class.Module;

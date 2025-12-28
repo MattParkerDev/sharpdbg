@@ -619,7 +619,7 @@ public partial class ManagedDebugger : IDisposable
 				        result.Add(variableInfo);
 			        }
 			        //AddStaticMembersPseudoVariable(staticFieldDefs, staticProperties, metadataImport, corDebugClass, variablesReference.IlFrame, result);
-			        await AddFields(nonStaticFieldDefs, metadataImport, corDebugClass, objectValue, result, variablesReference.ThreadId, variablesReference.FrameStackDepth);
+			        await AddFields(nonStaticFieldDefs, metadataImport, corDebugClass, variablesReference.ObjectValue, result, variablesReference.ThreadId, variablesReference.FrameStackDepth);
 			        // We need to pass the un-unwrapped reference value here, as we need to invoke CallParameterizedFunction with the correct parameters
 			        await AddProperties(nonStaticProperties, metadataImport, corDebugClass, variablesReference.ThreadId, variablesReference.FrameStackDepth, variablesReference.ObjectValue!, result);
 		        }

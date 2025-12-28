@@ -107,7 +107,7 @@ public partial class ManagedDebugger
 		return reference;
 	}
 
-	private async Task AddFields(mdFieldDef[] mdFieldDefs, MetaDataImport metadataImport, CorDebugClass corDebugClass, CorDebugObjectValue objectValue, List<VariableInfo> result, ThreadId threadId, FrameStackDepth stackDepth)
+	private async Task AddFields(mdFieldDef[] mdFieldDefs, MetaDataImport metadataImport, CorDebugClass corDebugClass, CorDebugValue corDebugValue, List<VariableInfo> result, ThreadId threadId, FrameStackDepth stackDepth)
 	{
 		foreach (var mdFieldDef in mdFieldDefs)
 		{
@@ -130,6 +130,8 @@ public partial class ManagedDebugger
 				result.Add(literalVariableInfo);
 				continue;
 			}
+
+			var objectValue = corDebugValue.UnwrapDebugValueToObject();
 			var fieldCorDebugValue = isStatic ? corDebugClass.GetStaticFieldValue(mdFieldDef, GetFrameForThreadIdAndStackDepth(threadId, stackDepth).Raw) : objectValue.GetFieldValue(corDebugClass.Raw, mdFieldDef);
 			var (friendlyTypeName, value) = await GetValueForCorDebugValueAsync(fieldCorDebugValue, threadId, stackDepth);
 			var variableInfo = new VariableInfo

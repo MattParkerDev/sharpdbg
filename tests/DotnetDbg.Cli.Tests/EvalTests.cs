@@ -98,5 +98,12 @@ public class EvalTests(ITestOutputHelper testOutputHelper)
 	    evaluateResponse21.Result.Should().Be("IntProperty = 14");
 	    debugProtocolHost.WithEvaluateRequest(stackFrameId, "_classWithDebugDisplay", out var evaluateResponse22);
 	    evaluateResponse22.Result.Should().Be("IntProperty = 14");
+	    debugProtocolHost.WithEvaluateRequest(stackFrameId, "$\"{_instanceField}\"", out var evaluateResponse23);
+	    evaluateResponse23.Result.Should().Be("5");
+	    debugProtocolHost.WithEvaluateRequest(stackFrameId, "_intList", out var evaluateResponse24);
+	    evaluateResponse24.Result.Should().Be("Count = 4");
+	    debugProtocolHost.WithEvaluateRequest(stackFrameId, "$\"Count = {_intList.Count}\"", out var evaluateResponse25);
+	    evaluateResponse25.Result.Should().Be("Count = 4");
+
     }
 }

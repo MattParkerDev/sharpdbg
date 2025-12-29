@@ -633,9 +633,10 @@ public partial class ManagedDebugger : IDisposable
 	    if (rank > 1) throw new NotImplementedException("Multidimensional arrays not yet supported");
 	    var itemCount = arrayValue.Count;
 
-	    foreach (var i in Enumerable.Range(0, itemCount))
+	    // Get the elements first, as the CorDebugArrayValue arrayValue may get neutered during 'await GetValueForCorDebugValueAsync' below, if any evals are required
+	    var elements = ValueEnumerable.Range(0, itemCount).Select(i => arrayValue.GetElement(1, [i])).ToArray();
+	    foreach (var (i, element) in elements.Index())
 	    {
-		    var element = arrayValue.GetElement(1, [i]);
 		    var (friendlyTypeName, value, debuggerProxyInstance) = await GetValueForCorDebugValueAsync(element, threadId, stackDepth);
 		    var variableReference = GetVariablesReference(element, friendlyTypeName, threadId, stackDepth, debuggerProxyInstance);
 		    var variableInfo = new VariableInfo

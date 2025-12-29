@@ -528,6 +528,8 @@ public static class TestExtensions
 			new() { Name = "_classWithDebugDisplay", EvaluateName = "_classWithDebugDisplay", Value = "IntProperty = 14", Type = "DebuggableConsoleApp.ClassWithDebugDisplay", VariablesReference = 10 },
 			new() { Name = "_myClassWithGeneric", EvaluateName = "_myClassWithGeneric", Value = "{DebuggableConsoleApp.MyClassWithGeneric<int>}", Type = "DebuggableConsoleApp.MyClassWithGeneric<int>", VariablesReference = 11 },
 			new() { Name = "_intDictionary", EvaluateName = "_intDictionary", Value = "Count = 3", Type = "System.Collections.Generic.Dictionary<int, int>", VariablesReference = 12 },
+			new() { Name = "FieldFromBase", EvaluateName = "FieldFromBase", Value = "42", Type = "int" },
+			new() { Name = "PropertyFromBase", EvaluateName = "PropertyFromBase", Value = "84", Type = "int" },
 		];
 		debugProtocolHost.WithVariablesRequest(variablesReference, out var thisInstanceVariables);
 		thisInstanceVariables.Should().BeEquivalentTo(expectedVariables);

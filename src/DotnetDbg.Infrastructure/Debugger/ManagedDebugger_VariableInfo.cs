@@ -138,9 +138,9 @@ public partial class ManagedDebugger
 	    await AddProperties(nonStaticProperties, metadataImport, corDebugClass, variablesReference.ThreadId, variablesReference.FrameStackDepth, corDebugValue, result);
     }
 
-	private async Task AddMembers(CorDebugValue corDebugValue, CorDebugObjectValue dereferencedObjectValue, VariablesReference variablesReference, List<VariableInfo> result)
+	private async Task AddMembers(CorDebugValue corDebugValue, CorDebugType corDebugType, VariablesReference variablesReference, List<VariableInfo> result)
     {
-	    var corDebugClass = dereferencedObjectValue.Class;
+	    var corDebugClass = corDebugType.Class;
 	    var module = corDebugClass.Module;
 	    var mdTypeDef = corDebugClass.Token;
 	    var metadataImport = module.GetMetaDataInterface().MetaDataImport;
@@ -166,6 +166,13 @@ public partial class ManagedDebugger
 	    await AddFields(nonStaticFieldDefs, metadataImport, corDebugClass, corDebugValue, result, variablesReference.ThreadId, variablesReference.FrameStackDepth);
 	    // We need to pass the un-unwrapped reference value here, as we need to invoke CallParameterizedFunction with the correct parameters
 	    await AddProperties(nonStaticProperties, metadataImport, corDebugClass, variablesReference.ThreadId, variablesReference.FrameStackDepth, corDebugValue, result);
+
+	    // Handle members on base types recursively
+	    var baseType = corDebugType.Base;
+	    if (baseType is null) return;
+	    var baseTypeName = GetCorDebugTypeFriendlyName(baseType);
+	    if (baseTypeName is "System.Object" or "System.ValueType" or "System.Enum") return;
+		await AddMembers(corDebugValue, baseType, variablesReference, result);
     }
 
 	private async Task AddFields(mdFieldDef[] mdFieldDefs, MetaDataImport metadataImport, CorDebugClass corDebugClass, CorDebugValue corDebugValue, List<VariableInfo> result, ThreadId threadId, FrameStackDepth stackDepth)

@@ -595,7 +595,7 @@ public partial class ManagedDebugger : IDisposable
 		        }
 		        else if (unwrappedDebugValue is CorDebugObjectValue objectValue)
 		        {
-			        await AddMembers(variablesReference.ObjectValue!, objectValue, variablesReference, result);
+			        await AddMembers(variablesReference.ObjectValue!, objectValue.ExactType, variablesReference, result);
 		        }
 		        else
 		        {

@@ -1,6 +1,6 @@
 ﻿namespace DebuggableConsoleApp;
 
-public class MyClass
+public class MyClass : MyClassBase
 {
 	private readonly string _name = "TestName";
 	private static int _counter = 1;

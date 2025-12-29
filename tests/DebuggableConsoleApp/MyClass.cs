@@ -39,6 +39,7 @@ public class MyClass
 	public int IntProperty { get; set; } = 10;
 	private ClassWithDebugDisplay _classWithDebugDisplay = new ClassWithDebugDisplay();
 	private MyClassWithGeneric<int> _myClassWithGeneric = new MyClassWithGeneric<int> { GenericItems = [42], GenericItemsField = [43]};
+	private Dictionary<int, int> _intDictionary = new Dictionary<int, int>() { {1, 10}, {2, 20}, {3, 30} };
 	private int Get14() => 14;
 	private int DoubleNumber(int number) => number * 2;
 	private float DoubleNumber(float number) => number * 2;

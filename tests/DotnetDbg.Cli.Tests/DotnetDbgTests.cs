@@ -471,7 +471,7 @@ public class DotnetDbgTests(ITestOutputHelper testOutputHelper)
 
 	    List<Variable> expectedEnumVariables =
 	    [
-		    new() {Name = "Static members", Value = "", Type = "", EvaluateName = "Static members", VariablesReference = 21, PresentationHint = new VariablePresentationHint { Kind = VariablePresentationHint.KindValue.Class }},
+		    new() {Name = "Static members", Value = "", Type = "", EvaluateName = "Static members", VariablesReference = 22, PresentationHint = new VariablePresentationHint { Kind = VariablePresentationHint.KindValue.Class }},
 		    new() {Name = "value__", Value = "1", Type = "int", EvaluateName = "value__" },
 	    ];
 
@@ -533,6 +533,7 @@ public static class TestExtensions
 		debugProtocolHost.AssertIntArrayVariables(thisInstanceVariables.Single(s => s.Name == "_intArray").VariablesReference);
 		debugProtocolHost.AssertInstanceThisStaticVariables(thisInstanceVariables.Single(s => s.Name == "Static members").VariablesReference);
 		debugProtocolHost.AssertClassWithDebuggerTypeProxyVariables(thisInstanceVariables.Single(s => s.Name == "_classWithDebugDisplay").VariablesReference);
+		debugProtocolHost.AssertGenericClassVariables(thisInstanceVariables.Single(s => s.Name == "_myClassWithGeneric").VariablesReference);
 	}
 
 	public static void AssertInstanceThisStaticVariables(this DebugProtocolHost debugProtocolHost, int variablesReference)
@@ -564,6 +565,16 @@ public static class TestExtensions
 		];
 		debugProtocolHost.WithVariablesRequest(variablesReference, out var intArrayVariables);
 		intArrayVariables.Should().BeEquivalentTo(expectedVariables);
+	}
+
+	public static void AssertGenericClassVariables(this DebugProtocolHost debugProtocolHost, int variablesReference)
+	{
+		List<Variable> expectedVariables =
+		[
+			new() { Name = "GenericItems", EvaluateName = "GenericItems", Value = "{System.TypeLoadException}", Type = "System.TypeLoadException", VariablesReference = 21 },
+		];
+		debugProtocolHost.WithVariablesRequest(variablesReference, out var genericClassVariables);
+		genericClassVariables.Should().BeEquivalentTo(expectedVariables);
 	}
 
 	public static void AssertClassWithDebuggerTypeProxyVariables(this DebugProtocolHost debugProtocolHost, int variablesReference)

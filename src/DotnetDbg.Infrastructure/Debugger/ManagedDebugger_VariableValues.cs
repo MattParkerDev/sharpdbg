@@ -1,5 +1,5 @@
-﻿using System.Runtime.InteropServices;
-using System.Text;
+﻿using System.Reflection.Metadata;
+using System.Runtime.InteropServices;
 using ClrDebug;
 using DotnetDbg.Infrastructure.Debugger.ExpressionEvaluator;
 using DotnetDbg.Infrastructure.Debugger.ExpressionEvaluator.Compiler;
@@ -138,16 +138,23 @@ public partial class ManagedDebugger
 
     private static string GetCustomAttributeResultString(GetCustomAttributeByNameResult attribute)
     {
-	    var dataIntPtr = attribute.ppData;
-	    var byteArray = new byte[attribute.pcbData];
-	    Marshal.Copy(dataIntPtr, byteArray, 0, byteArray.Length);
-	    // Marshal.PtrToStringUTF8(dataIntPtr, attribute.pcbData) returns "[SOH][NUL][SI]Count = {Count}[NUL][NUL]"
-	    // The first 3 characters are control characters, then the string, then two NUL characters
-	    var byteSpan = byteArray.AsSpan()[3..^2];
-	    var dataAsString = Encoding.UTF8.GetString(byteSpan); // e.g. "Count = {Count}" or "{DebuggerDisplay,nq}"
-	    // Now we need to parse the string and replace {Count} with the actual value, or just eval the expression
-	    return dataAsString;
-	}
+	    var dataAsString = GetCustomAttributeCtorStringArg(attribute.ppData, attribute.pcbData); // e.g. "Count = {Count}" or "{DebuggerDisplay,nq}"
+	    return dataAsString ?? string.Empty;
+    }
+
+    private static unsafe string? GetCustomAttributeCtorStringArg(IntPtr ppData, int pcbData)
+    {
+	    var reader = new BlobReader((byte*)ppData, pcbData);
+
+	    // 1. Prolog (must be 0x0001)
+	    ushort prolog = reader.ReadUInt16();
+	    if (prolog != 0x0001) throw new InvalidOperationException("Invalid custom attribute prolog");
+
+	    // 2. Read constructor fixed arguments
+	    // DebuggerDisplay has one string ctor arg
+	    var stringCtorArg = reader.ReadSerializedString();
+	    return stringCtorArg;
+    }
 
     private static CorDebugValue? GetUnderlyingValueOrNullFromNullableStruct(CorDebugObjectValue corDebugObjectValue)
 	{

@@ -531,6 +531,7 @@ public static class TestExtensions
 		thisInstanceVariables.Should().BeEquivalentTo(expectedVariables);
 		debugProtocolHost.AssertIntArrayVariables(thisInstanceVariables.Single(s => s.Name == "_intArray").VariablesReference);
 		debugProtocolHost.AssertInstanceThisStaticVariables(thisInstanceVariables.Single(s => s.Name == "Static members").VariablesReference);
+		debugProtocolHost.AssertClassWithDebuggerTypeProxyVariables(thisInstanceVariables.Single(s => s.Name == "_classWithDebugDisplay").VariablesReference);
 	}
 
 	public static void AssertInstanceThisStaticVariables(this DebugProtocolHost debugProtocolHost, int variablesReference)
@@ -562,5 +563,17 @@ public static class TestExtensions
 		];
 		debugProtocolHost.WithVariablesRequest(variablesReference, out var intArrayVariables);
 		intArrayVariables.Should().BeEquivalentTo(expectedVariables);
+	}
+
+	public static void AssertClassWithDebuggerTypeProxyVariables(this DebugProtocolHost debugProtocolHost, int variablesReference)
+	{
+		List<Variable> expectedVariables =
+		[
+			new() { Name = "_instance", EvaluateName = "_instance", Value = "IntProperty = 14", Type = "DebuggableConsoleApp.ClassWithDebugDisplay", VariablesReference = 19 },
+			new() { Name = "IntPropertyViaDebugView", EvaluateName = "IntPropertyViaDebugView", Value = "14", Type = "int" },
+			new() { Name = "Raw View", EvaluateName = "Raw View", Value = "", Type = "", VariablesReference = 20, PresentationHint = new VariablePresentationHint { Kind = VariablePresentationHint.KindValue.Class } },
+		];
+		debugProtocolHost.WithVariablesRequest(variablesReference, out var classWithDebuggerTypeProxyVariables);
+		classWithDebuggerTypeProxyVariables.Should().BeEquivalentTo(expectedVariables);
 	}
 }

@@ -122,6 +122,19 @@ public partial class ManagedDebugger
 	    return new(typeName, $"{{{typeName}}}", false, debugProxyTypeName);
     }
 
+    private static int GetCustomAttributeResultInt(GetCustomAttributeByNameResult attribute)
+    {
+	    var dataIntPtr = attribute.ppData;
+	    var byteArray = new byte[attribute.pcbData];
+	    Marshal.Copy(dataIntPtr, byteArray, 0, byteArray.Length);
+	    // 2 bytes prolog
+	    // 4 bytes data
+	    // 2 bytes alignment
+	    var byteSpan = byteArray.AsSpan()[2..^2];
+	    var dataAsInt = BitConverter.ToInt32(byteSpan);
+	    return dataAsInt;
+    }
+
     private static string GetCustomAttributeResultString(GetCustomAttributeByNameResult attribute)
     {
 	    var dataIntPtr = attribute.ppData;

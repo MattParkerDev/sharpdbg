@@ -1,4 +1,4 @@
-﻿using System.Runtime.InteropServices;
+﻿using System.Diagnostics;
 using ClrDebug;
 using ZLinq;
 
@@ -181,7 +181,9 @@ public partial class ManagedDebugger
 			var hasDebuggerBrowsableAttribute = metadataImport.TryGetCustomAttributeByName(mdFieldDef, "System.Diagnostics.DebuggerBrowsableAttribute", out var debuggerBrowsableAttribute) is HRESULT.S_OK;
 			if (hasDebuggerBrowsableAttribute)
 			{
-				;
+				// https://github.com/Samsung/netcoredbg/blob/6476bc00c2beaab9255c750235a68de3a3d0cfae/src/debugger/evaluator.cpp#L913
+				var debuggerBrowsableState = (DebuggerBrowsableState)GetCustomAttributeResultInt(debuggerBrowsableAttribute);
+				if (debuggerBrowsableState == DebuggerBrowsableState.Never) continue;
 			}
 			if (isLiteral)
 			{

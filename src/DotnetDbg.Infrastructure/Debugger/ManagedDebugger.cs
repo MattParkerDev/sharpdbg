@@ -470,7 +470,7 @@ public partial class ManagedDebugger : IDisposable
 	                {
 		                var function = ilFrame.Function;
 
-		                var frameId = _variableManager.CreateReference(new VariablesReference(StoredReferenceKind.Scope, null, new ThreadId(threadId), new FrameStackDepth(index)));
+		                var frameId = _variableManager.CreateReference(new VariablesReference(StoredReferenceKind.Scope, null, new ThreadId(threadId), new FrameStackDepth(index), null));
 		                var module = _modules[function.Module.BaseAddress];
 		                var line = 0;
 		                var column = 0;
@@ -531,7 +531,7 @@ public partial class ManagedDebugger : IDisposable
         if (localVariables.Length is 0 && arguments.Length is 0) return result;
 
 	    // can this just be the same reference?
-        var localsRef = _variableManager.CreateReference(new  VariablesReference(StoredReferenceKind.Scope, null, variablesReference.Value.ThreadId, variablesReference.Value.FrameStackDepth));
+        var localsRef = _variableManager.CreateReference(new  VariablesReference(StoredReferenceKind.Scope, null, variablesReference.Value.ThreadId, variablesReference.Value.FrameStackDepth, null));
         result.Add(new ScopeInfo
         {
 	        Name = "Locals",
@@ -614,7 +614,7 @@ public partial class ManagedDebugger : IDisposable
 					        Value = "",
 					        Type = "",
 					        PresentationHint = new VariablePresentationHint { Kind = PresentationHintKind.Class },
-					        VariablesReference = _variableManager.CreateReference(new VariablesReference(StoredReferenceKind.StaticClassVariable, variablesReference.ObjectValue, variablesReference.ThreadId, variablesReference.FrameStackDepth))
+					        VariablesReference = _variableManager.CreateReference(new VariablesReference(StoredReferenceKind.StaticClassVariable, variablesReference.ObjectValue, variablesReference.ThreadId, variablesReference.FrameStackDepth, null))
 				        };
 				        result.Add(variableInfo);
 			        }

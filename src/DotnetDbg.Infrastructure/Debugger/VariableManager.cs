@@ -29,7 +29,7 @@ public readonly record struct FrameStackDepth
 		Value = value;
 	}
 };
-public record struct VariablesReference(StoredReferenceKind ReferenceKind, CorDebugValue? ObjectValue, ThreadId ThreadId, FrameStackDepth FrameStackDepth);
+public record struct VariablesReference(StoredReferenceKind ReferenceKind, CorDebugValue? ObjectValue, ThreadId ThreadId, FrameStackDepth FrameStackDepth, CorDebugValue? DebuggerProxyInstance);
 /// <summary>
 /// Manages variable references for scopes and variables
 /// </summary>

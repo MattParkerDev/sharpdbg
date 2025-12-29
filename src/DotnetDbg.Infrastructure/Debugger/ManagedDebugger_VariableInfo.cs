@@ -76,7 +76,7 @@ public partial class ManagedDebugger
 		if (unwrappedDebugValue is CorDebugArrayValue arrayValue)
 		{
 			if (arrayValue.Count is 0) return 0;
-			return GenerateUniqueVariableReference(corDebugValue, threadId, stackDepth);
+			return GenerateUniqueVariableReference(corDebugValue, threadId, stackDepth, debuggerProxyInstance);
 		}
 		else if (unwrappedDebugValue is CorDebugObjectValue objectValue)
 		{
@@ -94,15 +94,15 @@ public partial class ManagedDebugger
 			if (type is CorElementType.String) return 0;
 			if (type is CorElementType.Class or CorElementType.ValueType or CorElementType.SZArray or CorElementType.Array)
 			{
-				return GenerateUniqueVariableReference(corDebugValue, threadId, stackDepth);
+				return GenerateUniqueVariableReference(corDebugValue, threadId, stackDepth, debuggerProxyInstance);
 			}
 		}
 		return 0;
 	}
 
-	private int GenerateUniqueVariableReference(CorDebugValue value, ThreadId threadId, FrameStackDepth stackDepth)
+	private int GenerateUniqueVariableReference(CorDebugValue value, ThreadId threadId, FrameStackDepth stackDepth, CorDebugValue? debuggerProxyInstance)
 	{
-		var variablesReference = new VariablesReference(StoredReferenceKind.StackVariable, value, threadId, stackDepth);
+		var variablesReference = new VariablesReference(StoredReferenceKind.StackVariable, value, threadId, stackDepth, debuggerProxyInstance);
 		var reference = _variableManager.CreateReference(variablesReference);
 		return reference;
 	}

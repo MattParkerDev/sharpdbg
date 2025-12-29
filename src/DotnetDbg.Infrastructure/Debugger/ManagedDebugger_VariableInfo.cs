@@ -178,12 +178,14 @@ public partial class ManagedDebugger
 			if (Extensions.IsCompilerGeneratedFieldName(fieldName)) continue;
 			var isStatic = (fieldProps.pdwAttr & CorFieldAttr.fdStatic) != 0;
 			var isLiteral = (fieldProps.pdwAttr & CorFieldAttr.fdLiteral) != 0;
+			var debuggerBrowsableRootHidden = false;
 			var hasDebuggerBrowsableAttribute = metadataImport.TryGetCustomAttributeByName(mdFieldDef, "System.Diagnostics.DebuggerBrowsableAttribute", out var debuggerBrowsableAttribute) is HRESULT.S_OK;
 			if (hasDebuggerBrowsableAttribute)
 			{
 				// https://github.com/Samsung/netcoredbg/blob/6476bc00c2beaab9255c750235a68de3a3d0cfae/src/debugger/evaluator.cpp#L913
 				var debuggerBrowsableState = (DebuggerBrowsableState)GetCustomAttributeResultInt(debuggerBrowsableAttribute);
 				if (debuggerBrowsableState == DebuggerBrowsableState.Never) continue; // I may not end up doing this, as it would be ideal to still be able to hover the variable in the editor and see the value
+				if (debuggerBrowsableState == DebuggerBrowsableState.RootHidden) debuggerBrowsableRootHidden = true;
 			}
 			if (isLiteral)
 			{
@@ -201,6 +203,15 @@ public partial class ManagedDebugger
 
 			var objectValue = corDebugValue.UnwrapDebugValueToObject();
 			var fieldCorDebugValue = isStatic ? corDebugClass.GetStaticFieldValue(mdFieldDef, GetFrameForThreadIdAndStackDepth(threadId, stackDepth).Raw) : objectValue.GetFieldValue(corDebugClass.Raw, mdFieldDef);
+			if (debuggerBrowsableRootHidden)
+			{
+				var unwrappedDebugValue = fieldCorDebugValue.UnwrapDebugValue();
+		        if (unwrappedDebugValue is CorDebugArrayValue arrayValue)
+		        {
+			        await AddArrayElements(arrayValue, threadId, stackDepth, result);
+					continue;
+		        }
+			}
 			var (friendlyTypeName, value, debuggerProxyInstance) = await GetValueForCorDebugValueAsync(fieldCorDebugValue, threadId, stackDepth);
 			var variableInfo = new VariableInfo
 			{

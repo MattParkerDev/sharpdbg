@@ -471,7 +471,7 @@ public class DotnetDbgTests(ITestOutputHelper testOutputHelper)
 
 	    List<Variable> expectedEnumVariables =
 	    [
-		    new() {Name = "Static members", Value = "", Type = "", EvaluateName = "Static members", VariablesReference = 24, PresentationHint = new VariablePresentationHint { Kind = VariablePresentationHint.KindValue.Class }},
+		    new() {Name = "Static members", Value = "", Type = "", EvaluateName = "Static members", VariablesReference = 29, PresentationHint = new VariablePresentationHint { Kind = VariablePresentationHint.KindValue.Class }},
 		    new() {Name = "value__", Value = "1", Type = "int", EvaluateName = "value__" },
 	    ];
 
@@ -599,8 +599,10 @@ public static class TestExtensions
 	{
 		List<Variable> expectedVariables =
 		[
-			new() { Name = "[0]", EvaluateName = "[0]", Value = "1", Type = "int" },
-			new() { Name = "Raw View", EvaluateName = "Raw View", Value = "", Type = "", VariablesReference = 23, PresentationHint = new VariablePresentationHint { Kind = VariablePresentationHint.KindValue.Class } },
+			new() { Name = "[0]", EvaluateName = "[0]", Value = "50", Type = "System.Collections.Generic.DebugViewDictionaryItem<int, int>", VariablesReference = 25 },
+			new() { Name = "[1]", EvaluateName = "[1]", Value = "100", Type = "System.Collections.Generic.DebugViewDictionaryItem<int, int>", VariablesReference = 26 },
+			new() { Name = "[2]", EvaluateName = "[2]", Value = "150", Type = "System.Collections.Generic.DebugViewDictionaryItem<int, int>", VariablesReference = 27 },
+			new() { Name = "Raw View", EvaluateName = "Raw View", Value = "", Type = "", VariablesReference = 28, PresentationHint = new VariablePresentationHint { Kind = VariablePresentationHint.KindValue.Class } },
 		];
 		debugProtocolHost.WithVariablesRequest(variablesReference, out var dictionaryVariables);
 		dictionaryVariables.Should().BeEquivalentTo(expectedVariables);

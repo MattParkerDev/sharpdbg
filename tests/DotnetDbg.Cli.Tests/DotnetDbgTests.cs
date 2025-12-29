@@ -572,7 +572,7 @@ public static class TestExtensions
 		List<Variable> expectedVariables =
 		[
 			new() { Name = "GenericItemsField", EvaluateName = "GenericItemsField", Value = "int[1]", Type = "int[]", VariablesReference = 21 },
-			new() { Name = "GenericItems", EvaluateName = "GenericItems", Value = "{System.TypeLoadException}", Type = "System.TypeLoadException", VariablesReference = 22 },
+			new() { Name = "GenericItems", EvaluateName = "GenericItems", Value = "int[1]", Type = "int[]", VariablesReference = 22 },
 		];
 		debugProtocolHost.WithVariablesRequest(variablesReference, out var genericClassVariables);
 		genericClassVariables.Should().BeEquivalentTo(expectedVariables);

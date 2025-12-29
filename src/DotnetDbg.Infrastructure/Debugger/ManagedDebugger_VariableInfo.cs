@@ -259,10 +259,7 @@ public partial class ManagedDebugger
 		    var eval = variablesReferenceIlFrame.Chain.Thread.CreateEval();
 
 		    // May not be correct, will need further testing
-		    var parameterizedContainingType = corDebugClass.GetParameterizedType(
-			    isStatic ? CorElementType.Class : (corDebugValue?.Type ?? CorElementType.Class),
-			    0,
-			    []);
+		    var parameterizedContainingType = corDebugValue.ExactType;
 
 		    var typeParameterTypes = parameterizedContainingType.TypeParameters;
 		    var typeParameterArgs = typeParameterTypes.Select(t => t.Raw).ToArray();

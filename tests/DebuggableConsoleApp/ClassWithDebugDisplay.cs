@@ -20,5 +20,16 @@ public class ClassWithDebugDisplayDebugView
 
 	public int IntPropertyViaDebugView => _instance.IntProperty;
 
-	//[DebuggerBrowsable(DebuggerBrowsableState.RootHidden)]
+	// [DebuggerBrowsable(DebuggerBrowsableState.RootHidden)]
+	// public int[] Items2 = [2, 3, 5, 7];
+
+	[DebuggerBrowsable(DebuggerBrowsableState.RootHidden)]
+	public int[] Items
+	{
+		get
+		{
+			int[] items = [2, 3, 5, 7];
+			return items;
+		}
+	}
 }

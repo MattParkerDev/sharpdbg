@@ -570,6 +570,10 @@ public static class TestExtensions
 		List<Variable> expectedVariables =
 		[
 			new() { Name = "IntPropertyViaDebugView", EvaluateName = "IntPropertyViaDebugView", Value = "14", Type = "int" },
+			new() { Name = "[0]", EvaluateName = "[0]", Value = "2", Type = "int" },
+			new() { Name = "[1]", EvaluateName = "[1]", Value = "3", Type = "int" },
+			new() { Name = "[2]", EvaluateName = "[2]", Value = "5", Type = "int" },
+			new() { Name = "[3]", EvaluateName = "[3]", Value = "7", Type = "int" },
 			new() { Name = "Raw View", EvaluateName = "Raw View", Value = "", Type = "", VariablesReference = 19, PresentationHint = new VariablePresentationHint { Kind = VariablePresentationHint.KindValue.Class } },
 		];
 		debugProtocolHost.WithVariablesRequest(variablesReference, out var classWithDebuggerTypeProxyVariables);

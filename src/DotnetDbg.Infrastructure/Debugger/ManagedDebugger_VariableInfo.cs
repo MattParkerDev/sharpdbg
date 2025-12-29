@@ -245,6 +245,16 @@ public partial class ManagedDebugger
 
 		    bool isStatic = (getterAttr & CorMethodAttr.mdStatic) != 0;
 
+		    var debuggerBrowsableRootHidden = false;
+		    var hasDebuggerBrowsableAttribute = metadataImport.TryGetCustomAttributeByName(mdProperty, "System.Diagnostics.DebuggerBrowsableAttribute", out var debuggerBrowsableAttribute) is HRESULT.S_OK;
+		    if (hasDebuggerBrowsableAttribute)
+		    {
+			    // https://github.com/Samsung/netcoredbg/blob/6476bc00c2beaab9255c750235a68de3a3d0cfae/src/debugger/evaluator.cpp#L913
+			    var debuggerBrowsableState = (DebuggerBrowsableState)GetCustomAttributeResultInt(debuggerBrowsableAttribute);
+			    if (debuggerBrowsableState == DebuggerBrowsableState.Never) continue; // I may not end up doing this, as it would be ideal to still be able to hover the variable in the editor and see the value
+			    if (debuggerBrowsableState == DebuggerBrowsableState.RootHidden) debuggerBrowsableRootHidden = true;
+		    }
+
 		    var getMethod = corDebugClass.Module.GetFunctionFromToken(getMethodDef);
 		    var eval = variablesReferenceIlFrame.Chain.Thread.CreateEval();
 
@@ -263,6 +273,15 @@ public partial class ManagedDebugger
 			var returnValue = await eval.CallParameterizedFunctionAsync(_callbacks, getMethod, typeParameterTypes.Length, typeParameterArgs, corDebugValues.Length, corDebugValues);
 
 		    if (returnValue is null) continue;
+		    if (debuggerBrowsableRootHidden)
+		    {
+			    var unwrappedDebugValue = returnValue.UnwrapDebugValue();
+			    if (unwrappedDebugValue is CorDebugArrayValue arrayValue)
+			    {
+				    await AddArrayElements(arrayValue, threadId, stackDepth, result);
+				    continue;
+			    }
+		    }
 		    var (friendlyTypeName, value, debuggerProxyInstance) = await GetValueForCorDebugValueAsync(returnValue, threadId, stackDepth);
 		    var variableInfo = new VariableInfo
 		    {

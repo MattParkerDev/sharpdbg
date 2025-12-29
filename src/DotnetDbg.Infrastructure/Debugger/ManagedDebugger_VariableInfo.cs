@@ -57,9 +57,9 @@ public partial class ManagedDebugger
 		var skipCount = isStatic ? 0 : 1; // Skip 'this' for instance methods, as we already handled it
         foreach (var (index, argumentCorDebugValue) in corDebugIlFrame.Arguments.Skip(skipCount).Index())
         {
-	        var metadataIndex = isStatic ?  index + 1 : index;
-	        // index 0 is the return value, so we add 1 to get to the arguments
-	        var paramDef = metadataImport!.GetParamForMethodIndex(corDebugFunction.Token, metadataIndex + 1);
+            // index 0 is the return value, so we add 1 to get to the arguments
+            // GetParamForMethodIndex does not include the instance 'this' parameter
+            var paramDef = metadataImport!.GetParamForMethodIndex(corDebugFunction.Token, index + 1);
 	        var paramProps = metadataImport.GetParamProps(paramDef);
 	        var argumentName = paramProps.szName;
 	        if (argumentName is null) continue;

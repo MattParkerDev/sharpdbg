@@ -272,7 +272,7 @@ public class LegacyTests(ITestOutputHelper testOutputHelper)
 		    var attachRequest = DebugAdapterProcessHelper.GetAttachRequest(debuggableProcess.Id);
 		    debugProtocolHost.SendRequestSync(attachRequest);
 		    await initializedEventTcs.Task;
-		    var setBreakpointsRequest = DebugAdapterProcessHelper.GetSetBreakpointsRequest(8, @"C:\Users\Matthew\Documents\Git\dotnetdbg\tests\DebuggableConsoleApp\MyClassNoMembers.cs");
+		    var setBreakpointsRequest = DebugAdapterProcessHelper.GetSetBreakpointsRequest(8, @"C:\Users\Matthew\Documents\Git\sharpdbg\tests\DebuggableConsoleApp\MyClassNoMembers.cs");
 		    var breakpointsResponse = debugProtocolHost.SendRequestSync(setBreakpointsRequest);
 
 		    var configurationDoneRequest = new ConfigurationDoneRequest();

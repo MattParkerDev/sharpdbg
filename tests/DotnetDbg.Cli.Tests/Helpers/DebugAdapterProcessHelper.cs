@@ -14,7 +14,7 @@ public static class DebugAdapterProcessHelper
 			StartInfo = new ProcessStartInfo
 			{
 				//FileName = @"C:\Users\Matthew\Downloads\netcoredbg-win64\netcoredbg\netcoredbg.exe",
-				FileName = @"C:\Users\Matthew\Documents\Git\dotnetdbg\artifacts\bin\DotnetDbg.Cli\debug\DotnetDbg.Cli.exe",
+				FileName = @"C:\Users\Matthew\Documents\Git\sharpdbg\artifacts\bin\DotnetDbg.Cli\debug\DotnetDbg.Cli.exe",
 				Arguments = "--interpreter=vscode",
 				RedirectStandardInput = true,
 				RedirectStandardOutput = true,
@@ -85,7 +85,7 @@ public static class DebugAdapterProcessHelper
 		};
 	}
 
-	public static SetBreakpointsRequest GetSetBreakpointsRequest(int line = 20, string filePath = @"C:\Users\Matthew\Documents\Git\dotnetdbg\tests\DebuggableConsoleApp\MyClass.cs")
+	public static SetBreakpointsRequest GetSetBreakpointsRequest(int line = 20, string filePath = @"C:\Users\Matthew\Documents\Git\sharpdbg\tests\DebuggableConsoleApp\MyClass.cs")
 	{
 		var debugFilePath = filePath;
 		var debugFileBreakpointLine = line;

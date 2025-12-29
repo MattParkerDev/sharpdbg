@@ -108,8 +108,27 @@ public partial class ManagedDebugger
 		return reference;
 	}
 
-	private async Task AddMembers(CorDebugValue corDebugValue, CorDebugType corDebugType, VariablesReference variablesReference, List<VariableInfo> result, bool includeNonPublicMembers = true)
+	private async Task AddMembersAndStaticPseudoVariable(CorDebugValue corDebugValue, CorDebugType corDebugType, VariablesReference variablesReference, List<VariableInfo> result, bool includeNonPublicMembers = true)
+	{
+		var requiresStaticPseudoVariable = await AddMembers(corDebugValue, corDebugType, variablesReference, result, includeNonPublicMembers);
+		if (requiresStaticPseudoVariable)
+		{
+			var variableInfo = new VariableInfo
+			{
+				Name = "Static members",
+				Value = "",
+				Type = "",
+				PresentationHint = new VariablePresentationHint { Kind = PresentationHintKind.Class },
+				VariablesReference = _variableManager.CreateReference(new VariablesReference(StoredReferenceKind.StaticClassVariable, corDebugValue, variablesReference.ThreadId, variablesReference.FrameStackDepth, null))
+			};
+			result.Add(variableInfo);
+		}
+	}
+
+	/// Returns a bool indicating if a Static Members pseudo variable is required
+	private async Task<bool> AddMembers(CorDebugValue corDebugValue, CorDebugType corDebugType, VariablesReference variablesReference, List<VariableInfo> result, bool includeNonPublicMembers = true)
     {
+	    var hasStaticMembers = false;
 	    var corDebugClass = corDebugType.Class;
 	    var module = corDebugClass.Module;
 	    var mdTypeDef = corDebugClass.Token;
@@ -122,15 +141,7 @@ public partial class ManagedDebugger
 	    var nonStaticProperties = mdProperties.AsValueEnumerable().Except(staticProperties).ToArray();
 	    if (staticFieldDefs.Length > 0 || staticProperties.Length > 0)
 	    {
-		    var variableInfo = new VariableInfo
-		    {
-			    Name = "Static members",
-			    Value = "",
-			    Type = "",
-			    PresentationHint = new VariablePresentationHint { Kind = PresentationHintKind.Class },
-			    VariablesReference = _variableManager.CreateReference(new VariablesReference(StoredReferenceKind.StaticClassVariable, corDebugValue, variablesReference.ThreadId, variablesReference.FrameStackDepth, null))
-		    };
-		    result.Add(variableInfo);
+		    hasStaticMembers = true;
 	    }
 	    //AddStaticMembersPseudoVariable(staticFieldDefs, staticProperties, metadataImport, corDebugClass, variablesReference.IlFrame, result);
 	    await AddFields(nonStaticFieldDefs, metadataImport, corDebugClass, corDebugValue, result, variablesReference.ThreadId, variablesReference.FrameStackDepth);
@@ -139,10 +150,10 @@ public partial class ManagedDebugger
 
 	    // Handle members on base types recursively
 	    var baseType = corDebugType.Base;
-	    if (baseType is null) return;
+	    if (baseType is null) return hasStaticMembers;
 	    var baseTypeName = GetCorDebugTypeFriendlyName(baseType);
-	    if (baseTypeName is "System.Object" or "System.ValueType" or "System.Enum") return;
-		await AddMembers(corDebugValue, baseType, variablesReference, result);
+	    if (baseTypeName is "System.Object" or "System.ValueType" or "System.Enum") return hasStaticMembers;
+		return hasStaticMembers | await AddMembers(corDebugValue, baseType, variablesReference, result);
     }
 
 	private async Task AddFields(mdFieldDef[] mdFieldDefs, MetaDataImport metadataImport, CorDebugClass corDebugClass, CorDebugValue corDebugValue, List<VariableInfo> result, ThreadId threadId, FrameStackDepth stackDepth)

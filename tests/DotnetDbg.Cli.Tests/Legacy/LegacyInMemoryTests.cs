@@ -4,9 +4,9 @@ using DotnetDbg.Cli.Tests.Helpers;
 using Microsoft.Diagnostics.NETCore.Client;
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
 
-namespace DotnetDbg.Cli.Tests;
+namespace DotnetDbg.Cli.Tests.Legacy;
 
-public class DotnetDbgInMemoryTests(ITestOutputHelper testOutputHelper)
+public class LegacyInMemoryTests(ITestOutputHelper testOutputHelper)
 {
 	[Fact]
     public async Task DotnetDbgCli_StackTraceRequest_Returns()

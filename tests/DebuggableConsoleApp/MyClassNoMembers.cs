@@ -8,3 +8,8 @@ public class MyClassNoMembers
 		var anotherVar = "asdf";
 	}
 }
+
+public class MyClassWithGeneric<T>
+{
+	public T[] GenericItems { get; set; }
+}

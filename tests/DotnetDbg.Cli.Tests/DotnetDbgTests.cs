@@ -471,7 +471,7 @@ public class DotnetDbgTests(ITestOutputHelper testOutputHelper)
 
 	    List<Variable> expectedEnumVariables =
 	    [
-		    new() {Name = "Static members", Value = "", Type = "", EvaluateName = "Static members", VariablesReference = 23, PresentationHint = new VariablePresentationHint { Kind = VariablePresentationHint.KindValue.Class }},
+		    new() {Name = "Static members", Value = "", Type = "", EvaluateName = "Static members", VariablesReference = 24, PresentationHint = new VariablePresentationHint { Kind = VariablePresentationHint.KindValue.Class }},
 		    new() {Name = "value__", Value = "1", Type = "int", EvaluateName = "value__" },
 	    ];
 
@@ -534,6 +534,7 @@ public static class TestExtensions
 		debugProtocolHost.AssertInstanceThisStaticVariables(thisInstanceVariables.Single(s => s.Name == "Static members").VariablesReference);
 		debugProtocolHost.AssertClassWithDebuggerTypeProxyVariables(thisInstanceVariables.Single(s => s.Name == "_classWithDebugDisplay").VariablesReference);
 		debugProtocolHost.AssertGenericClassVariables(thisInstanceVariables.Single(s => s.Name == "_myClassWithGeneric").VariablesReference);
+		debugProtocolHost.AssertIntListVariables(thisInstanceVariables.Single(s => s.Name == "_intList").VariablesReference);
 	}
 
 	public static void AssertInstanceThisStaticVariables(this DebugProtocolHost debugProtocolHost, int variablesReference)
@@ -576,6 +577,20 @@ public static class TestExtensions
 		];
 		debugProtocolHost.WithVariablesRequest(variablesReference, out var genericClassVariables);
 		genericClassVariables.Should().BeEquivalentTo(expectedVariables);
+	}
+
+	public static void AssertIntListVariables(this DebugProtocolHost debugProtocolHost, int variablesReference)
+	{
+		List<Variable> expectedVariables =
+		[
+			new() { Name = "[0]", EvaluateName = "[0]", Value = "1", Type = "int" },
+			new() { Name = "[1]", EvaluateName = "[1]", Value = "4", Type = "int" },
+			new() { Name = "[2]", EvaluateName = "[2]", Value = "8", Type = "int" },
+			new() { Name = "[3]", EvaluateName = "[3]", Value = "25", Type = "int" },
+			new() { Name = "Raw View", EvaluateName = "Raw View", Value = "", Type = "", VariablesReference = 23, PresentationHint = new VariablePresentationHint { Kind = VariablePresentationHint.KindValue.Class } },
+		];
+		debugProtocolHost.WithVariablesRequest(variablesReference, out var intListVariables);
+		intListVariables.Should().BeEquivalentTo(expectedVariables);
 	}
 
 	public static void AssertClassWithDebuggerTypeProxyVariables(this DebugProtocolHost debugProtocolHost, int variablesReference)

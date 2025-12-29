@@ -41,7 +41,8 @@ public partial class ManagedDebugger
 			//var debugProxyTypeCtorMethodProps = metadataImport.GetMethodProps(debugProxyTypeConstructorMethodDef);
 			var corDebugFunction = module.GetFunctionFromToken(debugProxyTypeConstructorMethodDef);
 			ICorDebugValue[] evalArgs = [corDebugValue.Raw];
-			proxyInstance = await eval.NewParameterizedObjectAsync(_callbacks ,corDebugFunction, 0, [], evalArgs.Length, evalArgs);
+			var typeParameterArgs = corDebugValue.ExactType.TypeParameters.Select(t => t.Raw).ToArray();
+			proxyInstance = await eval.NewParameterizedObjectAsync(_callbacks ,corDebugFunction, typeParameterArgs.Length, typeParameterArgs, evalArgs.Length, evalArgs);
 			ArgumentNullException.ThrowIfNull(proxyInstance);
 		}
 		return (friendlyTypeName, value, proxyInstance);

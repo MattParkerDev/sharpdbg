@@ -471,7 +471,7 @@ public class DotnetDbgTests(ITestOutputHelper testOutputHelper)
 
 	    List<Variable> expectedEnumVariables =
 	    [
-		    new() {Name = "Static members", Value = "", Type = "", EvaluateName = "Static members", VariablesReference = 22, PresentationHint = new VariablePresentationHint { Kind = VariablePresentationHint.KindValue.Class }},
+		    new() {Name = "Static members", Value = "", Type = "", EvaluateName = "Static members", VariablesReference = 23, PresentationHint = new VariablePresentationHint { Kind = VariablePresentationHint.KindValue.Class }},
 		    new() {Name = "value__", Value = "1", Type = "int", EvaluateName = "value__" },
 	    ];
 
@@ -571,7 +571,8 @@ public static class TestExtensions
 	{
 		List<Variable> expectedVariables =
 		[
-			new() { Name = "GenericItems", EvaluateName = "GenericItems", Value = "{System.TypeLoadException}", Type = "System.TypeLoadException", VariablesReference = 21 },
+			new() { Name = "GenericItemsField", EvaluateName = "GenericItemsField", Value = "int[1]", Type = "int[]", VariablesReference = 21 },
+			new() { Name = "GenericItems", EvaluateName = "GenericItems", Value = "{System.TypeLoadException}", Type = "System.TypeLoadException", VariablesReference = 22 },
 		];
 		debugProtocolHost.WithVariablesRequest(variablesReference, out var genericClassVariables);
 		genericClassVariables.Should().BeEquivalentTo(expectedVariables);

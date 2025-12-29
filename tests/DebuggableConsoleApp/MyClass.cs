@@ -38,7 +38,7 @@ public class MyClass
 	private static int _instanceStaticField = 6;
 	public int IntProperty { get; set; } = 10;
 	private ClassWithDebugDisplay _classWithDebugDisplay = new ClassWithDebugDisplay();
-	private MyClassWithGeneric<int> _myClassWithGeneric = new MyClassWithGeneric<int> { GenericItems = [42] };
+	private MyClassWithGeneric<int> _myClassWithGeneric = new MyClassWithGeneric<int> { GenericItems = [42], GenericItemsField = [43]};
 	private int Get14() => 14;
 	private int DoubleNumber(int number) => number * 2;
 	private float DoubleNumber(float number) => number * 2;

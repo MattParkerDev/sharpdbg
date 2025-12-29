@@ -574,7 +574,7 @@ public partial class ManagedDebugger : IDisposable
 		        if (variablesReference.DebuggerProxyInstance is not null)
 		        {
 			        // get the public members of the debugger proxy instance instead
-			        await AddMembers(variablesReference.DebuggerProxyInstance, variablesReference.DebuggerProxyInstance.UnwrapDebugValueToObject(), variablesReference, result);
+			        await AddMembersForDebugProxyType(variablesReference.DebuggerProxyInstance, variablesReference.DebuggerProxyInstance.UnwrapDebugValueToObject(), variablesReference, result);
 			        var rawValueVariablesReference = _variableManager.CreateReference(new VariablesReference(StoredReferenceKind.StackVariable, variablesReference.ObjectValue, variablesReference.ThreadId, variablesReference.FrameStackDepth, null));
 			        var rawValuePseudoVariable = new VariableInfo
 			        {

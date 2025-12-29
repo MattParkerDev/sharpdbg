@@ -471,7 +471,7 @@ public class DotnetDbgTests(ITestOutputHelper testOutputHelper)
 
 	    List<Variable> expectedEnumVariables =
 	    [
-		    new() {Name = "Static members", Value = "", Type = "", EvaluateName = "Static members", VariablesReference = 19, PresentationHint = new VariablePresentationHint { Kind = VariablePresentationHint.KindValue.Class }},
+		    new() {Name = "Static members", Value = "", Type = "", EvaluateName = "Static members", VariablesReference = 20, PresentationHint = new VariablePresentationHint { Kind = VariablePresentationHint.KindValue.Class }},
 		    new() {Name = "value__", Value = "1", Type = "int", EvaluateName = "value__" },
 	    ];
 
@@ -569,9 +569,8 @@ public static class TestExtensions
 	{
 		List<Variable> expectedVariables =
 		[
-			new() { Name = "_instance", EvaluateName = "_instance", Value = "IntProperty = 14", Type = "DebuggableConsoleApp.ClassWithDebugDisplay", VariablesReference = 19 },
 			new() { Name = "IntPropertyViaDebugView", EvaluateName = "IntPropertyViaDebugView", Value = "14", Type = "int" },
-			new() { Name = "Raw View", EvaluateName = "Raw View", Value = "", Type = "", VariablesReference = 20, PresentationHint = new VariablePresentationHint { Kind = VariablePresentationHint.KindValue.Class } },
+			new() { Name = "Raw View", EvaluateName = "Raw View", Value = "", Type = "", VariablesReference = 19, PresentationHint = new VariablePresentationHint { Kind = VariablePresentationHint.KindValue.Class } },
 		];
 		debugProtocolHost.WithVariablesRequest(variablesReference, out var classWithDebuggerTypeProxyVariables);
 		classWithDebuggerTypeProxyVariables.Should().BeEquivalentTo(expectedVariables);

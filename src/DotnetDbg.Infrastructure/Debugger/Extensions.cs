@@ -15,6 +15,24 @@ public static class Extensions
 	}
 
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
+	public static bool IsPublic(this mdFieldDef mdFieldDef, MetaDataImport metadataImport)
+	{
+		var fieldProps = metadataImport.GetFieldProps(mdFieldDef);
+		var isPublic = (fieldProps.pdwAttr & CorFieldAttr.fdPublic) != 0;
+		return isPublic;
+	}
+
+	[MethodImpl(MethodImplOptions.AggressiveInlining)]
+	public static bool IsPublic(this mdProperty mdProperty, MetaDataImport metadataImport)
+	{
+		var propertyProps = metadataImport.GetPropertyProps(mdProperty);
+		var getterMethodProps = metadataImport.GetMethodProps(propertyProps.pmdGetter);
+		var getterAttr = getterMethodProps.pdwAttr;
+		var isPublic = (getterAttr & CorMethodAttr.mdPublic) != 0;
+		return isPublic;
+	}
+
+	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	public static bool IsStatic(this mdProperty mdProperty, MetaDataImport metadataImport)
 	{
 		var propertyProps = metadataImport.GetPropertyProps(mdProperty);

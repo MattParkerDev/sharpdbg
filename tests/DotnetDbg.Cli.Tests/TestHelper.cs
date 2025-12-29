@@ -26,9 +26,8 @@ public static class TestHelper
 		return (debugProtocolHost, initializedEventTcs, stoppedEventTcs, new OopOrInProcDebugAdapter(process), debuggableProcess);
 	}
 
-	public static (DebugProtocolHost, TaskCompletionSource InitializedEventTcs, TcsContainer, OopOrInProcDebugAdapter DebugAdapter, Process DebuggableProcess) GetRunningDebugProtocolHostInProc(ITestOutputHelper testOutputHelper)
+	public static (DebugProtocolHost, TaskCompletionSource InitializedEventTcs, TcsContainer, OopOrInProcDebugAdapter DebugAdapter, Process DebuggableProcess) GetRunningDebugProtocolHostInProc(ITestOutputHelper testOutputHelper, bool startSuspended)
 	{
-		var startSuspended = false;
 		var (input, output, adapter) = InMemoryDebugAdapterHelper.GetAdapterStreams(testOutputHelper);
 		var debuggableProcess = DebuggableProcessHelper.StartDebuggableProcess(startSuspended);
 		var initializedEventTcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);

@@ -599,9 +599,9 @@ public static class TestExtensions
 	{
 		List<Variable> expectedVariables =
 		[
-			new() { Name = "[0]", EvaluateName = "[0]", Value = "50", Type = "System.Collections.Generic.DebugViewDictionaryItem<int, int>", VariablesReference = 25 },
-			new() { Name = "[1]", EvaluateName = "[1]", Value = "100", Type = "System.Collections.Generic.DebugViewDictionaryItem<int, int>", VariablesReference = 26 },
-			new() { Name = "[2]", EvaluateName = "[2]", Value = "150", Type = "System.Collections.Generic.DebugViewDictionaryItem<int, int>", VariablesReference = 27 },
+			new() { Name = "[0]", EvaluateName = "[0]", Value = "[5] = 50", Type = "System.Collections.Generic.DebugViewDictionaryItem<int, int>", VariablesReference = 25 },
+			new() { Name = "[1]", EvaluateName = "[1]", Value = "[10] = 100", Type = "System.Collections.Generic.DebugViewDictionaryItem<int, int>", VariablesReference = 26 },
+			new() { Name = "[2]", EvaluateName = "[2]", Value = "[15] = 150", Type = "System.Collections.Generic.DebugViewDictionaryItem<int, int>", VariablesReference = 27 },
 			new() { Name = "Raw View", EvaluateName = "Raw View", Value = "", Type = "", VariablesReference = 28, PresentationHint = new VariablePresentationHint { Kind = VariablePresentationHint.KindValue.Class } },
 		];
 		debugProtocolHost.WithVariablesRequest(variablesReference, out var dictionaryVariables);

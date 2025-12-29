@@ -3,14 +3,13 @@ using System.Text;
 using ClrDebug;
 using DotnetDbg.Infrastructure.Debugger.ExpressionEvaluator;
 using DotnetDbg.Infrastructure.Debugger.ExpressionEvaluator.Compiler;
-using DotnetDbg.Infrastructure.Debugger.ExpressionEvaluator.Interpreter;
 
 namespace DotnetDbg.Infrastructure.Debugger;
 
 public readonly record struct CorDebugValueValueResult(string FriendlyTypeName, string Value, bool ValueRequiresDebuggerDisplayEval, string? DebuggerProxyTypeName);
 public partial class ManagedDebugger
 {
-	public async Task<(string friendlyTypeName, string value)> GetValueForCorDebugValueAsync(CorDebugValue corDebugValue, ThreadId threadId, FrameStackDepth frameStackDepth)
+	public async Task<(string friendlyTypeName, string value, CorDebugValue? debuggerProxyInstance)> GetValueForCorDebugValueAsync(CorDebugValue corDebugValue, ThreadId threadId, FrameStackDepth frameStackDepth)
 	{
 		var (friendlyTypeName, value, valueRequiresDebuggerDisplayEval, debuggerProxyTypeName) = GetValueForCorDebugValue(corDebugValue);
 		if (valueRequiresDebuggerDisplayEval)
@@ -22,15 +21,30 @@ public partial class ManagedDebugger
 			if (result.Error is not null)
 			{
 				_logger?.Invoke($"Evaluation error: {result.Error}");
-				return (friendlyTypeName, result.Error);
+				return (friendlyTypeName, result.Error, null);
 			}
 			(_, value, _, _) = GetValueForCorDebugValue(result.Value!);
 		}
+		CorDebugValue? proxyInstance = null;
 		if (debuggerProxyTypeName is not null)
 		{
-			
+			var thread = _process!.GetThread(threadId.Value);
+			var eval = thread.CreateEval();
+			var module = corDebugValue.ExactType.Class.Module;
+			var metadataImport = module.GetMetaDataInterface().MetaDataImport;
+			var debugProxyCorDebugTypeDef = metadataImport.FindTypeDefByNameOrNull(debuggerProxyTypeName, mdToken.Nil);
+			ArgumentNullException.ThrowIfNull(debugProxyCorDebugTypeDef);
+			var debugProxyCorDebugClass = module.GetClassFromToken(debugProxyCorDebugTypeDef.Value);
+
+			// TODO: pass a specific signature to handle proxy types that have multiple constructors - see CompiledExpressionInterpreter.FindMethodOnType
+			var debugProxyTypeConstructorMethodDef = metadataImport.FindMethod(debugProxyCorDebugClass.Token, ".ctor", 0, 0);
+			//var debugProxyTypeCtorMethodProps = metadataImport.GetMethodProps(debugProxyTypeConstructorMethodDef);
+			var corDebugFunction = module.GetFunctionFromToken(debugProxyTypeConstructorMethodDef);
+			ICorDebugValue[] evalArgs = [corDebugValue.Raw];
+			proxyInstance = await eval.NewParameterizedObjectAsync(_callbacks ,corDebugFunction, 0, [], evalArgs.Length, evalArgs);
+			ArgumentNullException.ThrowIfNull(proxyInstance);
 		}
-		return (friendlyTypeName, value);
+		return (friendlyTypeName, value, proxyInstance);
 	}
 
 	private static CorDebugValueValueResult GetValueForCorDebugValue(CorDebugValue corDebugValue)

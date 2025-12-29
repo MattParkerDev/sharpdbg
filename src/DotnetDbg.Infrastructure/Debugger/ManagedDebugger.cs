@@ -582,8 +582,8 @@ public partial class ManagedDebugger : IDisposable
 					foreach (var i in Enumerable.Range(0, itemCount))
 					{
 						var element = arrayValue.GetElement(1, [i]);
-						var (friendlyTypeName, value) = await GetValueForCorDebugValueAsync(element, variablesReference.ThreadId, variablesReference.FrameStackDepth);
-						var variableReference = GetVariablesReference(element, friendlyTypeName, variablesReference.ThreadId, variablesReference.FrameStackDepth);
+						var (friendlyTypeName, value, debuggerProxyInstance) = await GetValueForCorDebugValueAsync(element, variablesReference.ThreadId, variablesReference.FrameStackDepth);
+						var variableReference = GetVariablesReference(element, friendlyTypeName, variablesReference.ThreadId, variablesReference.FrameStackDepth, debuggerProxyInstance);
 						var variableInfo = new VariableInfo
 						{
 							Name = $"[{i}]",
@@ -678,7 +678,8 @@ public partial class ManagedDebugger : IDisposable
 	        _logger?.Invoke($"Evaluation error: {result.Error}");
 	        return (result.Error, null, 0);
         }
-        var (friendlyTypeName, value) = await GetValueForCorDebugValueAsync(result.Value!, variablesReference.Value.ThreadId, variablesReference.Value.FrameStackDepth);
+        var (friendlyTypeName, value, debuggerProxyInstance) = await GetValueForCorDebugValueAsync(result.Value!, variablesReference.Value.ThreadId, variablesReference.Value.FrameStackDepth);
+        // TODO: create variables reference. Just return a VariableInfo
         return (value, friendlyTypeName, 0);
     }
 

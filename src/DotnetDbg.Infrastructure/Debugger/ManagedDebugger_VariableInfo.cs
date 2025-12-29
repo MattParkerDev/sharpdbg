@@ -13,13 +13,13 @@ public partial class ManagedDebugger
 		{
 			var localVariableName = module.SymbolReader?.GetLocalVariableName(corDebugFunction.Token, index);
 			if (localVariableName is null) continue; // Compiler generated locals will not be found. E.g. DefaultInterpolatedStringHandler
-			var (friendlyTypeName, value) = await GetValueForCorDebugValueAsync(localVariableCorDebugValue, threadId, stackDepth);
+			var (friendlyTypeName, value, debuggerProxyInstance) = await GetValueForCorDebugValueAsync(localVariableCorDebugValue, threadId, stackDepth);
 			var variableInfo = new VariableInfo
 			{
 				Name = localVariableName,
 				Value = value,
 				Type = friendlyTypeName,
-				VariablesReference = GetVariablesReference(localVariableCorDebugValue, friendlyTypeName, threadId, stackDepth)
+				VariablesReference = GetVariablesReference(localVariableCorDebugValue, friendlyTypeName, threadId, stackDepth, debuggerProxyInstance)
 			};
 			result.Add(variableInfo);
 		}
@@ -39,13 +39,13 @@ public partial class ManagedDebugger
         if (isStatic is false)
         {
 	        var implicitThisValue = corDebugIlFrame.Arguments[0];
-	        var (friendlyTypeName, value) = await GetValueForCorDebugValueAsync(implicitThisValue, threadId, stackDepth);
+	        var (friendlyTypeName, value, debuggerProxyInstance) = await GetValueForCorDebugValueAsync(implicitThisValue, threadId, stackDepth);
 	        var variableInfo = new VariableInfo
 	        {
 		        Name = "this", // Hardcoded - 'this' has no metadata
 		        Value = value,
 		        Type = friendlyTypeName,
-		        VariablesReference = GetVariablesReference(implicitThisValue, friendlyTypeName, threadId, stackDepth)
+		        VariablesReference = GetVariablesReference(implicitThisValue, friendlyTypeName, threadId, stackDepth, debuggerProxyInstance)
 	        };
 	        result.Add(variableInfo);
         }
@@ -58,19 +58,19 @@ public partial class ManagedDebugger
 	        var paramProps = metadataImport.GetParamProps(paramDef);
 	        var argumentName = paramProps.szName;
 	        if (argumentName is null) continue;
-	        var (friendlyTypeName, value) = await GetValueForCorDebugValueAsync(argumentCorDebugValue, threadId, stackDepth);
+	        var (friendlyTypeName, value, debuggerProxyInstance) = await GetValueForCorDebugValueAsync(argumentCorDebugValue, threadId, stackDepth);
 	        var variableInfo = new VariableInfo
 	        {
 		        Name = argumentName,
 		        Value = value,
 		        Type = friendlyTypeName,
-		        VariablesReference = GetVariablesReference(argumentCorDebugValue, friendlyTypeName, threadId, stackDepth)
+		        VariablesReference = GetVariablesReference(argumentCorDebugValue, friendlyTypeName, threadId, stackDepth, debuggerProxyInstance)
 	        };
 	        result.Add(variableInfo);
         }
 	}
 
-	private int GetVariablesReference(CorDebugValue corDebugValue, string friendlyTypeName, ThreadId threadId, FrameStackDepth stackDepth)
+	private int GetVariablesReference(CorDebugValue corDebugValue, string friendlyTypeName, ThreadId threadId, FrameStackDepth stackDepth, CorDebugValue? debuggerProxyInstance)
 	{
 		var unwrappedDebugValue = corDebugValue.UnwrapDebugValue();
 		if (unwrappedDebugValue is CorDebugArrayValue arrayValue)
@@ -133,13 +133,13 @@ public partial class ManagedDebugger
 
 			var objectValue = corDebugValue.UnwrapDebugValueToObject();
 			var fieldCorDebugValue = isStatic ? corDebugClass.GetStaticFieldValue(mdFieldDef, GetFrameForThreadIdAndStackDepth(threadId, stackDepth).Raw) : objectValue.GetFieldValue(corDebugClass.Raw, mdFieldDef);
-			var (friendlyTypeName, value) = await GetValueForCorDebugValueAsync(fieldCorDebugValue, threadId, stackDepth);
+			var (friendlyTypeName, value, debuggerProxyInstance) = await GetValueForCorDebugValueAsync(fieldCorDebugValue, threadId, stackDepth);
 			var variableInfo = new VariableInfo
 			{
 				Name = fieldName,
 				Value = value,
 				Type = friendlyTypeName,
-				VariablesReference = GetVariablesReference(fieldCorDebugValue, friendlyTypeName, threadId, stackDepth)
+				VariablesReference = GetVariablesReference(fieldCorDebugValue, friendlyTypeName, threadId, stackDepth, debuggerProxyInstance)
 			};
 			result.Add(variableInfo);
 		}
@@ -184,13 +184,13 @@ public partial class ManagedDebugger
 			var returnValue = await eval.CallParameterizedFunctionAsync(_callbacks, getMethod, typeParameterTypes.Length, typeParameterArgs, corDebugValues.Length, corDebugValues);
 
 		    if (returnValue is null) continue;
-		    var (friendlyTypeName, value) = await GetValueForCorDebugValueAsync(returnValue, threadId, stackDepth);
+		    var (friendlyTypeName, value, debuggerProxyInstance) = await GetValueForCorDebugValueAsync(returnValue, threadId, stackDepth);
 		    var variableInfo = new VariableInfo
 		    {
 			    Name = propertyName,
 			    Value = value,
 			    Type = friendlyTypeName,
-			    VariablesReference = GetVariablesReference(returnValue, friendlyTypeName, threadId, stackDepth)
+			    VariablesReference = GetVariablesReference(returnValue, friendlyTypeName, threadId, stackDepth, debuggerProxyInstance)
 		    };
 		    result.Add(variableInfo);
 		    if (returnValue is CorDebugHandleValue handleValue)

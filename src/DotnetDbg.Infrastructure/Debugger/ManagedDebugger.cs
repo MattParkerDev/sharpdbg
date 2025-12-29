@@ -591,7 +591,7 @@ public partial class ManagedDebugger : IDisposable
 
 		        if (unwrappedDebugValue is CorDebugArrayValue arrayValue)
 		        {
-			        await AddArrayElements(arrayValue, variablesReference, result);
+			        await AddArrayElements(arrayValue, variablesReference.ThreadId, variablesReference.FrameStackDepth, result);
 		        }
 		        else if (unwrappedDebugValue is CorDebugObjectValue objectValue)
 		        {
@@ -627,7 +627,7 @@ public partial class ManagedDebugger : IDisposable
         return result;
     }
 
-    private async Task AddArrayElements(CorDebugArrayValue arrayValue, VariablesReference variablesReference, List<VariableInfo> result)
+    private async Task AddArrayElements(CorDebugArrayValue arrayValue, ThreadId threadId, FrameStackDepth stackDepth, List<VariableInfo> result)
     {
 	    var rank = arrayValue.Rank;
 	    if (rank > 1) throw new NotImplementedException("Multidimensional arrays not yet supported");
@@ -636,8 +636,8 @@ public partial class ManagedDebugger : IDisposable
 	    foreach (var i in Enumerable.Range(0, itemCount))
 	    {
 		    var element = arrayValue.GetElement(1, [i]);
-		    var (friendlyTypeName, value, debuggerProxyInstance) = await GetValueForCorDebugValueAsync(element, variablesReference.ThreadId, variablesReference.FrameStackDepth);
-		    var variableReference = GetVariablesReference(element, friendlyTypeName, variablesReference.ThreadId, variablesReference.FrameStackDepth, debuggerProxyInstance);
+		    var (friendlyTypeName, value, debuggerProxyInstance) = await GetValueForCorDebugValueAsync(element, threadId, stackDepth);
+		    var variableReference = GetVariablesReference(element, friendlyTypeName, threadId, stackDepth, debuggerProxyInstance);
 		    var variableInfo = new VariableInfo
 		    {
 			    Name = $"[{i}]",

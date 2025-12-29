@@ -178,6 +178,11 @@ public partial class ManagedDebugger
 			if (Extensions.IsCompilerGeneratedFieldName(fieldName)) continue;
 			var isStatic = (fieldProps.pdwAttr & CorFieldAttr.fdStatic) != 0;
 			var isLiteral = (fieldProps.pdwAttr & CorFieldAttr.fdLiteral) != 0;
+			var hasDebuggerBrowsableAttribute = metadataImport.TryGetCustomAttributeByName(mdFieldDef, "System.Diagnostics.DebuggerBrowsableAttribute", out var debuggerBrowsableAttribute) is HRESULT.S_OK;
+			if (hasDebuggerBrowsableAttribute)
+			{
+				;
+			}
 			if (isLiteral)
 			{
 				var literalValue = GetLiteralValue(fieldProps.ppValue, fieldProps.pdwCPlusTypeFlag);

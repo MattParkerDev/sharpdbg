@@ -22,6 +22,7 @@ public static class DebugAdapterProcessHelper
 				CreateNoWindow = true
 			}
 		};
+		if (File.Exists(process.StartInfo.FileName) is false) throw new FileNotFoundException("SharpDbg executable not found", process.StartInfo.FileName);
 		process.Start();
 		return process;
 	}

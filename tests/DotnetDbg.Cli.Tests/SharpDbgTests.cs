@@ -5,7 +5,7 @@ using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
 
 namespace DotnetDbg.Cli.Tests;
 
-public class DotnetDbgTests(ITestOutputHelper testOutputHelper)
+public class SharpDbgTests(ITestOutputHelper testOutputHelper)
 {
 	[Fact]
     public async Task DotnetDbgCli_ScopesRequest_Returns_V2()

@@ -643,7 +643,7 @@ public partial class ManagedDebugger : IDisposable
 	        _logger?.Invoke($"Evaluation error: {result.Error}");
 	        return (result.Error, null, 0);
         }
-        var (friendlyTypeName, value, debuggerProxyInstance) = await GetValueForCorDebugValueAsync(result.Value!, variablesReference.Value.ThreadId, variablesReference.Value.FrameStackDepth);
+        var (friendlyTypeName, value, debuggerProxyInstance, resultIsError) = await GetValueForCorDebugValueAsync(result.Value!, variablesReference.Value.ThreadId, variablesReference.Value.FrameStackDepth);
         // TODO: create variables reference. Just return a VariableInfo
         return (value, friendlyTypeName, 0);
     }

@@ -9,7 +9,7 @@ namespace DotnetDbg.Infrastructure.Debugger;
 public readonly record struct CorDebugValueValueResult(string FriendlyTypeName, string Value, bool ValueRequiresDebuggerDisplayEval, string? DebuggerProxyTypeName);
 public partial class ManagedDebugger
 {
-	public async Task<(string friendlyTypeName, string value, CorDebugValue? debuggerProxyInstance)> GetValueForCorDebugValueAsync(CorDebugValue corDebugValue, ThreadId threadId, FrameStackDepth frameStackDepth)
+	public async Task<(string friendlyTypeName, string value, CorDebugValue? debuggerProxyInstance, bool resultIsError)> GetValueForCorDebugValueAsync(CorDebugValue corDebugValue, ThreadId threadId, FrameStackDepth frameStackDepth)
 	{
 		var (friendlyTypeName, value, valueRequiresDebuggerDisplayEval, debuggerProxyTypeName) = GetValueForCorDebugValue(corDebugValue);
 		if (valueRequiresDebuggerDisplayEval)
@@ -21,7 +21,7 @@ public partial class ManagedDebugger
 			if (result.Error is not null)
 			{
 				_logger?.Invoke($"Evaluation error: {result.Error}");
-				return (friendlyTypeName, result.Error, null);
+				return (friendlyTypeName, result.Error, null, true);
 			}
 			(_, value, _, _) = GetValueForCorDebugValue(result.Value!);
 		}
@@ -45,7 +45,7 @@ public partial class ManagedDebugger
 			proxyInstance = await eval.NewParameterizedObjectAsync(_callbacks ,corDebugFunction, typeParameterArgs.Length, typeParameterArgs, evalArgs.Length, evalArgs);
 			ArgumentNullException.ThrowIfNull(proxyInstance);
 		}
-		return (friendlyTypeName, value, proxyInstance);
+		return (friendlyTypeName, value, proxyInstance, false);
 	}
 
 	private static CorDebugValueValueResult GetValueForCorDebugValue(CorDebugValue corDebugValue)

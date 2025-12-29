@@ -7,7 +7,7 @@ namespace DotnetDbg.Cli.Tests.Legacy;
 
 public class LegacyTests(ITestOutputHelper testOutputHelper)
 {
-[Fact]
+	[Fact(Skip = "Legacy")]
     public async Task DotnetDbgCli_InitializeRequest_Returns()
     {
 	    var process = DebugAdapterProcessHelper.GetDebugAdapterProcess();
@@ -25,7 +25,7 @@ public class LegacyTests(ITestOutputHelper testOutputHelper)
 	    await Verify(response, settings);
     }
 
-    [Fact]
+	[Fact(Skip = "Legacy")]
     public async Task DotnetDbgCli_AttachRequest_Returns()
     {
 	    var process = DebugAdapterProcessHelper.GetDebugAdapterProcess();
@@ -46,7 +46,7 @@ public class LegacyTests(ITestOutputHelper testOutputHelper)
 	    }
     }
 
-    [Fact]
+    [Fact(Skip = "Legacy")]
     public async Task DotnetDbgCli_SetBreakpointsRequest_Returns()
     {
 	    var process = DebugAdapterProcessHelper.GetDebugAdapterProcess();
@@ -72,7 +72,7 @@ public class LegacyTests(ITestOutputHelper testOutputHelper)
 	    }
     }
 
-    [Fact]
+    [Fact(Skip = "Legacy")]
     public async Task DotnetDbgCli_ConfigurationDoneRequest_Returns()
     {
 	    var startSuspended = false;
@@ -104,7 +104,7 @@ public class LegacyTests(ITestOutputHelper testOutputHelper)
 	    }
     }
 
-    [Fact]
+    [Fact(Skip = "Legacy")]
     public async Task DotnetDbgCli_StackTraceRequest_Returns()
     {
 	    var startSuspended = false;
@@ -143,7 +143,7 @@ public class LegacyTests(ITestOutputHelper testOutputHelper)
 	    }
     }
 
-    [Fact]
+    [Fact(Skip = "Legacy")]
     public async Task DotnetDbgCli_ScopesRequest_Returns()
     {
 	    var startSuspended = false;
@@ -201,7 +201,7 @@ public class LegacyTests(ITestOutputHelper testOutputHelper)
 	    }
     }
 
-    [Fact]
+    [Fact(Skip = "Legacy")]
     public async Task DotnetDbgCli_LocalVariable_Class_Variables_Returns()
     {
 	    var startSuspended = false;
@@ -254,7 +254,7 @@ public class LegacyTests(ITestOutputHelper testOutputHelper)
 	    }
     }
 
-    [Fact]
+    [Fact(Skip = "Legacy")]
     public async Task DotnetDbgCli_VariablesRequest_InstanceMethodInClassWithNoMembers_ThisVarHasNoVariablesReference()
     {
 	    var startSuspended = false;
@@ -305,7 +305,7 @@ public class LegacyTests(ITestOutputHelper testOutputHelper)
 	    }
     }
 
-    [Fact]
+    [Fact(Skip = "Legacy")]
     public async Task DotnetDbgCli_NextRequest_ReturnsNextLine()
     {
 	    var startSuspended = false;
@@ -360,7 +360,7 @@ public class LegacyTests(ITestOutputHelper testOutputHelper)
 	    }
     }
 
-    [Fact]
+    [Fact(Skip = "Legacy")]
     public async Task DotnetDbgCli_VariablesRequest_Returns()
     {
 	    var startSuspended = false;

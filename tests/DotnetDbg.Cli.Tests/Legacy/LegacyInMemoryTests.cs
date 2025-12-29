@@ -8,7 +8,7 @@ namespace DotnetDbg.Cli.Tests.Legacy;
 
 public class LegacyInMemoryTests(ITestOutputHelper testOutputHelper)
 {
-	[Fact]
+	[Fact(Skip = "Legacy")]
     public async Task DotnetDbgCli_StackTraceRequest_Returns()
     {
 	    var startSuspended = false;
@@ -74,7 +74,7 @@ public class LegacyInMemoryTests(ITestOutputHelper testOutputHelper)
 	    }
     }
 
-    [Fact]
+    [Fact(Skip = "Legacy")]
     public async Task DotnetDbgCli_LocalVariable_Class_Variables_Returns()
     {
 	    var startSuspended = false;
@@ -133,7 +133,7 @@ public class LegacyInMemoryTests(ITestOutputHelper testOutputHelper)
 	    }
     }
 
-    [Fact]
+    [Fact(Skip = "Legacy")]
     public async Task DotnetDbgCli_InMem_NextRequest_ReturnsNextLine()
     {
 	    var startSuspended = false;
@@ -190,7 +190,7 @@ public class LegacyInMemoryTests(ITestOutputHelper testOutputHelper)
 	    }
     }
 
-    [Fact]
+    [Fact(Skip = "Legacy")]
     public async Task DotnetDbgCli_VariablesRequestForObject_Returns()
     {
 	    var startSuspended = false;

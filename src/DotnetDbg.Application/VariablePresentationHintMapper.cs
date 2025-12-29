@@ -1,5 +1,4 @@
 ﻿using DotnetDbg.Infrastructure.Debugger;
-using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
 using VariablePresentationHint = Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages.VariablePresentationHint;
 
 namespace DotnetDbg.Application;
@@ -10,8 +9,8 @@ public static class VariablePresentationHintMapper
 	{
 		return new VariablePresentationHint
 		{
-			Kind = hint.Kind.ToDto(),
-			Attributes = null,
+			Kind = hint.Kind?.ToDto(),
+			Attributes = hint.Attributes?.ToDto(),
 			Visibility = null
 		};
 	}
@@ -25,6 +24,15 @@ public static class VariablePresentationHintMapper
 			PresentationHintKind.Event => VariablePresentationHint.KindValue.Event,
 			PresentationHintKind.Class => VariablePresentationHint.KindValue.Class,
 			PresentationHintKind.Data => VariablePresentationHint.KindValue.Data,
+			_ => throw new ArgumentOutOfRangeException(nameof(kind), kind, null)
+		};
+	}
+
+	private static VariablePresentationHint.AttributesValue ToDto(this AttributesValue kind)
+	{
+		return kind switch
+		{
+			AttributesValue.FailedEvaluation => VariablePresentationHint.AttributesValue.FailedEvaluation,
 			_ => throw new ArgumentOutOfRangeException(nameof(kind), kind, null)
 		};
 	}

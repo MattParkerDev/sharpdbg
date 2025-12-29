@@ -6,7 +6,7 @@ namespace DotnetDbg.Infrastructure.Debugger;
 
 public partial class ManagedDebugger
 {
-	private static int GetCustomAttributeResultInt(GetCustomAttributeByNameResult attribute)
+	private static int GetDebuggerBrowsableCustomAttributeResultInt(GetCustomAttributeByNameResult attribute)
 	{
 		var dataIntPtr = attribute.ppData;
 		var byteArray = new byte[attribute.pcbData];

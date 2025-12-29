@@ -183,7 +183,7 @@ public partial class ManagedDebugger
 			if (hasDebuggerBrowsableAttribute)
 			{
 				// https://github.com/Samsung/netcoredbg/blob/6476bc00c2beaab9255c750235a68de3a3d0cfae/src/debugger/evaluator.cpp#L913
-				var debuggerBrowsableState = (DebuggerBrowsableState)GetCustomAttributeResultInt(debuggerBrowsableAttribute);
+				var debuggerBrowsableState = (DebuggerBrowsableState)GetDebuggerBrowsableCustomAttributeResultInt(debuggerBrowsableAttribute);
 				if (debuggerBrowsableState == DebuggerBrowsableState.Never) continue; // I may not end up doing this, as it would be ideal to still be able to hover the variable in the editor and see the value
 				if (debuggerBrowsableState == DebuggerBrowsableState.RootHidden) debuggerBrowsableRootHidden = true;
 			}
@@ -250,7 +250,7 @@ public partial class ManagedDebugger
 		    if (hasDebuggerBrowsableAttribute)
 		    {
 			    // https://github.com/Samsung/netcoredbg/blob/6476bc00c2beaab9255c750235a68de3a3d0cfae/src/debugger/evaluator.cpp#L913
-			    var debuggerBrowsableState = (DebuggerBrowsableState)GetCustomAttributeResultInt(debuggerBrowsableAttribute);
+			    var debuggerBrowsableState = (DebuggerBrowsableState)GetDebuggerBrowsableCustomAttributeResultInt(debuggerBrowsableAttribute);
 			    if (debuggerBrowsableState == DebuggerBrowsableState.Never) continue; // I may not end up doing this, as it would be ideal to still be able to hover the variable in the editor and see the value
 			    if (debuggerBrowsableState == DebuggerBrowsableState.RootHidden) debuggerBrowsableRootHidden = true;
 		    }

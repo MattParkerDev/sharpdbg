@@ -2,9 +2,8 @@
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol;
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
 using Newtonsoft.Json.Linq;
-using SharpIDE.Application.Features.Debugging.Signing;
 
-namespace DotnetDbg.Cli.Tests;
+namespace DotnetDbg.Cli.Tests.Helpers;
 
 public static class DebugAdapterProcessHelper
 {

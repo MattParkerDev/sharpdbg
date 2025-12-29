@@ -1,7 +1,4 @@
-﻿using System.Text;
-using CliWrap;
-
-namespace SharpIDE.Application.Features.Debugging.Signing;
+﻿namespace DotnetDbg.Cli.Tests.Helpers;
 
 public static class DebuggerHandshakeSigner
 {

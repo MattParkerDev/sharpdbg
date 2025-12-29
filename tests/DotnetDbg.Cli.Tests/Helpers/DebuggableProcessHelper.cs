@@ -1,6 +1,6 @@
 ﻿using System.Diagnostics;
 
-namespace DotnetDbg.Cli.Tests;
+namespace DotnetDbg.Cli.Tests.Helpers;
 
 public static class DebuggableProcessHelper
 {

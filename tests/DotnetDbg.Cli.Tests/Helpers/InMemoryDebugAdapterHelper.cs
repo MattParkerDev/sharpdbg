@@ -1,8 +1,7 @@
 using System.IO.Pipes;
-using System.Text;
 using DotnetDbg.Application;
 
-namespace DotnetDbg.Cli.Tests;
+namespace DotnetDbg.Cli.Tests.Helpers;
 
 public static class InMemoryDebugAdapterHelper
 {

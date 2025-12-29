@@ -1,4 +1,3 @@
-using System.Threading.Channels;
 using AwesomeAssertions;
 using DotnetDbg.Cli.Tests.Helpers;
 using Microsoft.Diagnostics.NETCore.Client;

@@ -108,9 +108,9 @@ public partial class ManagedDebugger
 		return reference;
 	}
 
-	private async Task AddMembers(CorDebugObjectValue objectValue, VariablesReference variablesReference, List<VariableInfo> result)
+	private async Task AddMembers(CorDebugValue corDebugValue, CorDebugObjectValue dereferencedObjectValue, VariablesReference variablesReference, List<VariableInfo> result)
     {
-	    var corDebugClass = objectValue.Class;
+	    var corDebugClass = dereferencedObjectValue.Class;
 	    var module = corDebugClass.Module;
 	    var mdTypeDef = corDebugClass.Token;
 	    var metadataImport = module.GetMetaDataInterface().MetaDataImport;
@@ -128,14 +128,14 @@ public partial class ManagedDebugger
 			    Value = "",
 			    Type = "",
 			    PresentationHint = new VariablePresentationHint { Kind = PresentationHintKind.Class },
-			    VariablesReference = _variableManager.CreateReference(new VariablesReference(StoredReferenceKind.StaticClassVariable, variablesReference.ObjectValue, variablesReference.ThreadId, variablesReference.FrameStackDepth, null))
+			    VariablesReference = _variableManager.CreateReference(new VariablesReference(StoredReferenceKind.StaticClassVariable, corDebugValue, variablesReference.ThreadId, variablesReference.FrameStackDepth, null))
 		    };
 		    result.Add(variableInfo);
 	    }
 	    //AddStaticMembersPseudoVariable(staticFieldDefs, staticProperties, metadataImport, corDebugClass, variablesReference.IlFrame, result);
-	    await AddFields(nonStaticFieldDefs, metadataImport, corDebugClass, variablesReference.ObjectValue, result, variablesReference.ThreadId, variablesReference.FrameStackDepth);
+	    await AddFields(nonStaticFieldDefs, metadataImport, corDebugClass, corDebugValue, result, variablesReference.ThreadId, variablesReference.FrameStackDepth);
 	    // We need to pass the un-unwrapped reference value here, as we need to invoke CallParameterizedFunction with the correct parameters
-	    await AddProperties(nonStaticProperties, metadataImport, corDebugClass, variablesReference.ThreadId, variablesReference.FrameStackDepth, variablesReference.ObjectValue!, result);
+	    await AddProperties(nonStaticProperties, metadataImport, corDebugClass, variablesReference.ThreadId, variablesReference.FrameStackDepth, corDebugValue, result);
     }
 
 	private async Task AddFields(mdFieldDef[] mdFieldDefs, MetaDataImport metadataImport, CorDebugClass corDebugClass, CorDebugValue corDebugValue, List<VariableInfo> result, ThreadId threadId, FrameStackDepth stackDepth)

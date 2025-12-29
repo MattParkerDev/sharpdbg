@@ -571,6 +571,22 @@ public partial class ManagedDebugger : IDisposable
 	        }
 	        else if (variablesReference.ReferenceKind is StoredReferenceKind.StackVariable)
 	        {
+		        if (variablesReference.DebuggerProxyInstance is not null)
+		        {
+			        // get the public members of the debugger proxy instance instead
+			        await AddMembers(variablesReference.DebuggerProxyInstance, variablesReference.DebuggerProxyInstance.UnwrapDebugValueToObject(), variablesReference, result);
+			        var rawValueVariablesReference = _variableManager.CreateReference(new VariablesReference(StoredReferenceKind.StackVariable, variablesReference.ObjectValue, variablesReference.ThreadId, variablesReference.FrameStackDepth, null));
+			        var rawValuePseudoVariable = new VariableInfo
+			        {
+				        Name = "Raw View",
+				        Value = "",
+				        Type = "",
+				        PresentationHint = new VariablePresentationHint { Kind = PresentationHintKind.Class },
+				        VariablesReference = rawValueVariablesReference
+			        };
+			        result.Add(rawValuePseudoVariable);
+			        return result;
+		        }
 		        var unwrappedDebugValue = variablesReference.ObjectValue!.UnwrapDebugValue();
 
 		        if (unwrappedDebugValue is CorDebugArrayValue arrayValue)
@@ -596,7 +612,7 @@ public partial class ManagedDebugger : IDisposable
 		        }
 		        else if (unwrappedDebugValue is CorDebugObjectValue objectValue)
 		        {
-			        await AddMembers(objectValue, variablesReference, result);
+			        await AddMembers(variablesReference.ObjectValue!, objectValue, variablesReference, result);
 		        }
 		        else
 		        {

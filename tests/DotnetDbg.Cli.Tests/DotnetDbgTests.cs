@@ -554,6 +554,7 @@ public static class TestExtensions
 			new() { Name = "_utcNow", EvaluateName = "_utcNow", Value = "{System.DateTime}", Type = "System.DateTime", VariablesReference = 18 },
 			new() { Name = "_nullableUtcNow", EvaluateName = "_nullableUtcNow", Value = "{System.DateTime}", Type = "System.DateTime?", VariablesReference = 19 },
 			new() { Name = "_instanceStaticField", EvaluateName = "_instanceStaticField", Value = "6", Type = "int" },
+			new() { Name = "StaticFieldFromBase", EvaluateName = "StaticFieldFromBase", Value = "168", Type = "int" },
 		];
 		debugProtocolHost.WithVariablesRequest(variablesReference, out var instanceThisStaticVariables);
 		instanceThisStaticVariables.Should().BeEquivalentTo(expectedVariables);

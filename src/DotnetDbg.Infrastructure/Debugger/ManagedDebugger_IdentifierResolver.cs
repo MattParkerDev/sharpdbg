@@ -92,12 +92,8 @@ public partial class ManagedDebugger
 
 		foreach (var (index, argumentValue) in frame.Arguments.Skip(skipCount).Index())
 		{
-			// Metadata parameter index:
-			// - Metadata index starts at 1
-			// - Does NOT include 'this'
-	        var metadataIndex = isStatic ?  index + 1 : index;
-	        // index 0 is the return value, so we add 1 to get to the arguments
-			var paramDef = metadataImport.GetParamForMethodIndex(corDebugFunction.Token, metadataIndex + 1);
+			// index 0 is the return value, so we add 1 to get to the arguments
+			var paramDef = metadataImport.GetParamForMethodIndex(corDebugFunction.Token, index + 1);
 			var paramProps = metadataImport.GetParamProps(paramDef);
 			var argumentName = paramProps.szName;
 			if (argumentName is null) continue;

@@ -1,5 +1,5 @@
 ﻿using System.Diagnostics;
-using DotnetDbg.Application;
+using SharpDbg.Application;
 
 namespace DotnetDbg.Cli.Tests.Helpers;
 

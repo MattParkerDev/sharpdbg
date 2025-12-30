@@ -8,7 +8,7 @@ using MSBreakpoint = Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages.
 using MSThread = Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages.Thread;
 using MSStackFrame = Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages.StackFrame;
 
-namespace DotnetDbg.Application;
+namespace SharpDbg.Application;
 
 /// <summary>
 /// Main debug adapter that coordinates DAP protocol and debugger engine

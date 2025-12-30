@@ -1,5 +1,5 @@
 using AwesomeAssertions;
-using DotnetDbg.Application;
+using SharpDbg.Application;
 using DotnetDbg.Cli.Tests.Helpers;
 using Microsoft.Diagnostics.NETCore.Client;
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;

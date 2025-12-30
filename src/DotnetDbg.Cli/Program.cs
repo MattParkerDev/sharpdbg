@@ -1,6 +1,6 @@
 ﻿using System.Diagnostics;
 using System.Threading;
-using DotnetDbg.Application;
+using SharpDbg.Application;
 
 namespace DotnetDbg.Cli;
 

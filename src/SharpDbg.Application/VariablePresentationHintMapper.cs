@@ -1,11 +1,12 @@
 ﻿using DotnetDbg.Infrastructure.Debugger;
+using Debugger_VariablePresentationHint = DotnetDbg.Infrastructure.Debugger.VariablePresentationHint;
 using VariablePresentationHint = Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages.VariablePresentationHint;
 
-namespace DotnetDbg.Application;
+namespace SharpDbg.Application;
 
 public static class VariablePresentationHintMapper
 {
-	public static VariablePresentationHint ToDto(this Infrastructure.Debugger.VariablePresentationHint hint)
+	public static VariablePresentationHint ToDto(this Debugger_VariablePresentationHint hint)
 	{
 		return new VariablePresentationHint
 		{

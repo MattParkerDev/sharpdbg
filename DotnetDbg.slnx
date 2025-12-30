@@ -7,9 +7,9 @@
     <File Path="README.md" />
   </Folder>
   <Folder Name="/src/">
-    <Project Path="src/DotnetDbg.Application/DotnetDbg.Application.csproj" />
     <Project Path="src/DotnetDbg.Cli/DotnetDbg.Cli.csproj" />
     <Project Path="src/DotnetDbg.Infrastructure/DotnetDbg.Infrastructure.csproj" />
+    <Project Path="src/SharpDbg.Application/SharpDbg.Application.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/DebuggableConsoleApp/DebuggableConsoleApp.csproj" />

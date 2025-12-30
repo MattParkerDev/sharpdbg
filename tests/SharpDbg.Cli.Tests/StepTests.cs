@@ -3,10 +3,10 @@ using SharpDbg.Cli.Tests.Helpers;
 
 namespace SharpDbg.Cli.Tests;
 
-public class StepInTests(ITestOutputHelper testOutputHelper)
+public class StepTests(ITestOutputHelper testOutputHelper)
 {
 	[Fact]
-    public async Task SharpDbgCli_StepInRequest_Returns_StoppedEventAtCorrectLocation()
+    public async Task SharpDbgCli_StepRequests_Returns_StoppedEventsAtCorrectLocation()
     {
 	    var startSuspended = true;
 

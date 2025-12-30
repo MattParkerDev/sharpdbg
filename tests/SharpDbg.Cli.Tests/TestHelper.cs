@@ -119,8 +119,15 @@ public static class TestHelper
 
 	public static DebugProtocolHost WithStepInRequest(this DebugProtocolHost debugProtocolHost, int threadId)
 	{
-		var continueRequest = new StepInRequest(threadId);
-		debugProtocolHost.SendRequestSync(continueRequest);
+		var stepInRequest = new StepInRequest(threadId);
+		debugProtocolHost.SendRequestSync(stepInRequest);
+		return debugProtocolHost;
+	}
+
+	public static DebugProtocolHost WithStepOutRequest(this DebugProtocolHost debugProtocolHost, int threadId)
+	{
+		var stepOutRequest = new StepOutRequest(threadId);
+		debugProtocolHost.SendRequestSync(stepOutRequest);
 		return debugProtocolHost;
 	}
 

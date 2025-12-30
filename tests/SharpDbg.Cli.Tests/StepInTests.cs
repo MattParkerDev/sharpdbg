@@ -34,5 +34,16 @@ public class StepInTests(ITestOutputHelper testOutputHelper)
 	    var stopInfo2 = stoppedEvent2.ReadStopInfo();
 	    stopInfo2.filePath.Should().EndWith("AnotherClass.cs");
 	    stopInfo2.line.Should().Be(7);
+
+	    var stoppedEvent3 = await debugProtocolHost
+		    .WithStepOutRequest(stoppedEvent.ThreadId!.Value)
+		    .WaitForStoppedEvent(stoppedEventTcs);
+	    var stopInfo3 = stoppedEvent3.ReadStopInfo();
+	    // Stepping out should land us back on the same line as the method we just stepped out of
+	    stopInfo3.filePath.Should().EndWith("MyClass.cs");
+	    stopInfo3.line.Should().Be(20);
+
+	    List<int> threadIds = [stoppedEvent.ThreadId!.Value, stoppedEvent2.ThreadId!.Value, stoppedEvent3.ThreadId!.Value];
+	    threadIds.Distinct().Should().HaveCount(1);
     }
 }

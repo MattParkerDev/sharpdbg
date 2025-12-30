@@ -1,4 +1,4 @@
-using DotnetDbg.Infrastructure.Debugger;
+using SharpDbg.Infrastructure.Debugger;
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol;
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
 // Newtonsoft.Json.Linq is required for accessing ConfigurationProperties from LaunchArguments/AttachArguments

@@ -20,7 +20,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\DotnetDbg.Infrastructure\DotnetDbg.Infrastructure.csproj" />
+    <ProjectReference Include="..\SharpDbg.Infrastructure\SharpDbg.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>

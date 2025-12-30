@@ -864,7 +864,7 @@ public partial class ManagedDebugger : IDisposable
 			return;
 		}
 		var (sourceFilePath, line, _) = sourceInfo.Value;
-		OnStopped2?.Invoke(corThread.Id, sourceFilePath, line + 1, "step"); // TODO: line number 1 or 0 based needs to be standardised - currently the breakpoint manager stores the breakpoints as 1 based...
+		OnStopped2?.Invoke(corThread.Id, sourceFilePath, line, "step");
     }
 
     private void HandleBreak(object? sender, BreakCorDebugManagedCallbackEventArgs breakCorDebugManagedCallbackEventArgs)

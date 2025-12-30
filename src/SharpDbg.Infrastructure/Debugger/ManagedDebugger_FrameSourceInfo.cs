@@ -4,6 +4,7 @@ namespace SharpDbg.Infrastructure.Debugger;
 
 public partial class ManagedDebugger
 {
+	/// This appears to be 1 based, ie requires no adjustment when returned to the user
 	private (string FilePath, int StartLine, int StartColumn)? GetSourceInfoAtFrame(CorDebugFrame frame)
 	{
 		if (frame is not CorDebugILFrame ilFrame)

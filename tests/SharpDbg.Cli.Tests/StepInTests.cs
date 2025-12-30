@@ -33,6 +33,6 @@ public class StepInTests(ITestOutputHelper testOutputHelper)
 		    .WaitForStoppedEvent(stoppedEventTcs);
 	    var stopInfo2 = stoppedEvent2.ReadStopInfo();
 	    stopInfo2.filePath.Should().EndWith("AnotherClass.cs");
-	    stopInfo2.line.Should().Be(8);
+	    stopInfo2.line.Should().Be(7);
     }
 }

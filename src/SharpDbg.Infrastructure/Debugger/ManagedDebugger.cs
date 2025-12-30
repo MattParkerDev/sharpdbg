@@ -857,7 +857,14 @@ public partial class ManagedDebugger : IDisposable
         var stepper = _stepper ?? throw new InvalidOperationException("No stepper found for step complete");
 		stepper.Deactivate(); // I really don't know if its necessary to deactivate the steppers once done
 		_stepper = null;
-        OnStopped?.Invoke(corThread.Id, "step");
+		var sourceInfo = GetSourceInfoAtFrame(corThread.ActiveFrame);
+		if (sourceInfo is null)
+		{
+			OnStopped?.Invoke(corThread.Id, "step");
+			return;
+		}
+		var (sourceFilePath, line, _) = sourceInfo.Value;
+		OnStopped2?.Invoke(corThread.Id, sourceFilePath, line + 1, "step"); // TODO: line number 1 or 0 based needs to be standardised - currently the breakpoint manager stores the breakpoints as 1 based...
     }
 
     private void HandleBreak(object? sender, BreakCorDebugManagedCallbackEventArgs breakCorDebugManagedCallbackEventArgs)

@@ -31,8 +31,8 @@ public class StepInTests(ITestOutputHelper testOutputHelper)
 	    var stoppedEvent2 = await debugProtocolHost
 		    .WithStepInRequest(stoppedEvent.ThreadId!.Value)
 		    .WaitForStoppedEvent(stoppedEventTcs);
-	    //var stopInfo2 = stoppedEvent2.ReadStopInfo();
-	    //stopInfo2.filePath.Should().EndWith("AnotherClass.cs");
-	    //stopInfo2.line.Should().Be(8);
+	    var stopInfo2 = stoppedEvent2.ReadStopInfo();
+	    stopInfo2.filePath.Should().EndWith("AnotherClass.cs");
+	    stopInfo2.line.Should().Be(8);
     }
 }

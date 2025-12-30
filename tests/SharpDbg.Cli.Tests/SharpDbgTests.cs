@@ -8,7 +8,7 @@ namespace SharpDbg.Cli.Tests;
 public class SharpDbgTests(ITestOutputHelper testOutputHelper)
 {
 	[Fact]
-    public async Task DotnetDbgCli_ScopesRequest_Returns_V2()
+    public async Task SharpDbgCli_ScopesRequest_Returns_V2()
     {
 	    var startSuspended = true;
 

@@ -7,7 +7,7 @@ namespace SharpDbg.Cli.Tests;
 public class EvalTests(ITestOutputHelper testOutputHelper)
 {
 	[Fact]
-    public async Task DotnetDbgCli_EvaluationRequest_Returns()
+    public async Task SharpDbgCli_EvaluationRequest_Returns()
     {
 	    var startSuspended = false;
 

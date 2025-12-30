@@ -9,7 +9,7 @@ namespace SharpDbg.Cli.Tests.Legacy;
 public class LegacyInMemoryTests(ITestOutputHelper testOutputHelper)
 {
 	[Fact(Skip = "Legacy")]
-    public async Task DotnetDbgCli_StackTraceRequest_Returns()
+    public async Task SharpDbgCli_StackTraceRequest_Returns()
     {
 	    var startSuspended = false;
 	    var debuggableProcess = DebuggableProcessHelper.StartDebuggableProcess(startSuspended);
@@ -75,7 +75,7 @@ public class LegacyInMemoryTests(ITestOutputHelper testOutputHelper)
     }
 
     [Fact(Skip = "Legacy")]
-    public async Task DotnetDbgCli_LocalVariable_Class_Variables_Returns()
+    public async Task SharpDbgCli_LocalVariable_Class_Variables_Returns()
     {
 	    var startSuspended = false;
 	    var debuggableProcess = DebuggableProcessHelper.StartDebuggableProcess(startSuspended);
@@ -134,7 +134,7 @@ public class LegacyInMemoryTests(ITestOutputHelper testOutputHelper)
     }
 
     [Fact(Skip = "Legacy")]
-    public async Task DotnetDbgCli_InMem_NextRequest_ReturnsNextLine()
+    public async Task SharpDbgCli_InMem_NextRequest_ReturnsNextLine()
     {
 	    var startSuspended = false;
 	    var debuggableProcess = DebuggableProcessHelper.StartDebuggableProcess(startSuspended);
@@ -191,7 +191,7 @@ public class LegacyInMemoryTests(ITestOutputHelper testOutputHelper)
     }
 
     [Fact(Skip = "Legacy")]
-    public async Task DotnetDbgCli_VariablesRequestForObject_Returns()
+    public async Task SharpDbgCli_VariablesRequestForObject_Returns()
     {
 	    var startSuspended = false;
 	    var debuggableProcess = DebuggableProcessHelper.StartDebuggableProcess(startSuspended);

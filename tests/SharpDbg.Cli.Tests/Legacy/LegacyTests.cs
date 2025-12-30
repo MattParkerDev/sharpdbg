@@ -8,7 +8,7 @@ namespace SharpDbg.Cli.Tests.Legacy;
 public class LegacyTests(ITestOutputHelper testOutputHelper)
 {
 	[Fact(Skip = "Legacy")]
-    public async Task DotnetDbgCli_InitializeRequest_Returns()
+    public async Task SharpDbgCli_InitializeRequest_Returns()
     {
 	    var process = DebugAdapterProcessHelper.GetDebugAdapterProcess();
 	    var debugProtocolHost = DebugAdapterProcessHelper.GetDebugProtocolHost(process, testOutputHelper);
@@ -26,7 +26,7 @@ public class LegacyTests(ITestOutputHelper testOutputHelper)
     }
 
 	[Fact(Skip = "Legacy")]
-    public async Task DotnetDbgCli_AttachRequest_Returns()
+    public async Task SharpDbgCli_AttachRequest_Returns()
     {
 	    var process = DebugAdapterProcessHelper.GetDebugAdapterProcess();
 	    var debuggableProcess = DebuggableProcessHelper.StartDebuggableProcess();
@@ -47,7 +47,7 @@ public class LegacyTests(ITestOutputHelper testOutputHelper)
     }
 
     [Fact(Skip = "Legacy")]
-    public async Task DotnetDbgCli_SetBreakpointsRequest_Returns()
+    public async Task SharpDbgCli_SetBreakpointsRequest_Returns()
     {
 	    var process = DebugAdapterProcessHelper.GetDebugAdapterProcess();
 	    var debuggableProcess = DebuggableProcessHelper.StartDebuggableProcess(false);
@@ -73,7 +73,7 @@ public class LegacyTests(ITestOutputHelper testOutputHelper)
     }
 
     [Fact(Skip = "Legacy")]
-    public async Task DotnetDbgCli_ConfigurationDoneRequest_Returns()
+    public async Task SharpDbgCli_ConfigurationDoneRequest_Returns()
     {
 	    var startSuspended = false;
 	    var process = DebugAdapterProcessHelper.GetDebugAdapterProcess();
@@ -105,7 +105,7 @@ public class LegacyTests(ITestOutputHelper testOutputHelper)
     }
 
     [Fact(Skip = "Legacy")]
-    public async Task DotnetDbgCli_StackTraceRequest_Returns()
+    public async Task SharpDbgCli_StackTraceRequest_Returns()
     {
 	    var startSuspended = false;
 	    var process = DebugAdapterProcessHelper.GetDebugAdapterProcess();
@@ -144,7 +144,7 @@ public class LegacyTests(ITestOutputHelper testOutputHelper)
     }
 
     [Fact(Skip = "Legacy")]
-    public async Task DotnetDbgCli_ScopesRequest_Returns()
+    public async Task SharpDbgCli_ScopesRequest_Returns()
     {
 	    var startSuspended = false;
 	    var process = DebugAdapterProcessHelper.GetDebugAdapterProcess();
@@ -202,7 +202,7 @@ public class LegacyTests(ITestOutputHelper testOutputHelper)
     }
 
     [Fact(Skip = "Legacy")]
-    public async Task DotnetDbgCli_LocalVariable_Class_Variables_Returns()
+    public async Task SharpDbgCli_LocalVariable_Class_Variables_Returns()
     {
 	    var startSuspended = false;
 	    var process = DebugAdapterProcessHelper.GetDebugAdapterProcess();
@@ -255,7 +255,7 @@ public class LegacyTests(ITestOutputHelper testOutputHelper)
     }
 
     [Fact(Skip = "Legacy")]
-    public async Task DotnetDbgCli_VariablesRequest_InstanceMethodInClassWithNoMembers_ThisVarHasNoVariablesReference()
+    public async Task SharpDbgCli_VariablesRequest_InstanceMethodInClassWithNoMembers_ThisVarHasNoVariablesReference()
     {
 	    var startSuspended = false;
 	    var process = DebugAdapterProcessHelper.GetDebugAdapterProcess();
@@ -306,7 +306,7 @@ public class LegacyTests(ITestOutputHelper testOutputHelper)
     }
 
     [Fact(Skip = "Legacy")]
-    public async Task DotnetDbgCli_NextRequest_ReturnsNextLine()
+    public async Task SharpDbgCli_NextRequest_ReturnsNextLine()
     {
 	    var startSuspended = false;
 	    var process = DebugAdapterProcessHelper.GetDebugAdapterProcess();
@@ -361,7 +361,7 @@ public class LegacyTests(ITestOutputHelper testOutputHelper)
     }
 
     [Fact(Skip = "Legacy")]
-    public async Task DotnetDbgCli_VariablesRequest_Returns()
+    public async Task SharpDbgCli_VariablesRequest_Returns()
     {
 	    var startSuspended = false;
 	    var process = DebugAdapterProcessHelper.GetDebugAdapterProcess();

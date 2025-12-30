@@ -1,7 +1,7 @@
 ﻿using System.Diagnostics;
 using SharpDbg.Application;
 
-namespace DotnetDbg.Cli.Tests.Helpers;
+namespace SharpDbg.Cli.Tests.Helpers;
 
 public class ProcessKiller(Process process) : IDisposable
 {

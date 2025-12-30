@@ -1,4 +1,4 @@
-﻿namespace DotnetDbg.Cli.Tests.Helpers;
+﻿namespace SharpDbg.Cli.Tests.Helpers;
 
 public static class Extensions
 {

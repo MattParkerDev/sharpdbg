@@ -1,7 +1,7 @@
 using System.IO.Pipes;
 using SharpDbg.Application;
 
-namespace DotnetDbg.Cli.Tests.Helpers;
+namespace SharpDbg.Cli.Tests.Helpers;
 
 public static class InMemoryDebugAdapterHelper
 {

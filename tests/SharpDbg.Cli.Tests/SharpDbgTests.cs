@@ -1,16 +1,16 @@
 using AwesomeAssertions;
-using DotnetDbg.Cli.Tests.Helpers;
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol;
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
+using SharpDbg.Cli.Tests.Helpers;
 
-namespace DotnetDbg.Cli.Tests;
+namespace SharpDbg.Cli.Tests;
 
 public class SharpDbgTests(ITestOutputHelper testOutputHelper)
 {
 	[Fact]
     public async Task DotnetDbgCli_ScopesRequest_Returns_V2()
     {
-	    var startSuspended = false;
+	    var startSuspended = true;
 
 	    var (debugProtocolHost, initializedEventTcs, stoppedEventTcs, adapter, p2) = TestHelper.GetRunningDebugProtocolHostInProc(testOutputHelper, startSuspended);
 	    using var _ = adapter;
@@ -131,7 +131,7 @@ public static class TestExtensions
 	{
 		List<Variable> expectedVariables =
 		[
-			new() { Name = "_counter", EvaluateName = "_counter", Value = "3", Type = "int" },
+			new() { Name = "_counter", EvaluateName = "_counter", Value = "2", Type = "int" },
 			new() { Name = "IntStaticProperty", EvaluateName = "IntStaticProperty", Value = "10", Type = "int" },
 			new() { Name = "StaticClassProperty", EvaluateName = "StaticClassProperty", Value = "{DebuggableConsoleApp.MyClass2}", Type = "DebuggableConsoleApp.MyClass2", VariablesReference = 20 },
 			new() { Name = "_staticClassField", EvaluateName = "_staticClassField", Value = "{DebuggableConsoleApp.MyClass2}", Type = "DebuggableConsoleApp.MyClass2", VariablesReference = 15 },

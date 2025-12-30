@@ -1,8 +1,8 @@
 ﻿using AwesomeAssertions;
-using DotnetDbg.Cli.Tests.Helpers;
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
+using SharpDbg.Cli.Tests.Helpers;
 
-namespace DotnetDbg.Cli.Tests;
+namespace SharpDbg.Cli.Tests;
 
 public class EvalTests(ITestOutputHelper testOutputHelper)
 {

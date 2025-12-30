@@ -2,7 +2,7 @@
 using System.Threading;
 using SharpDbg.Application;
 
-namespace DotnetDbg.Cli;
+namespace SharpDbg.Cli;
 
 class Program
 {

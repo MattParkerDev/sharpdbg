@@ -3,7 +3,7 @@ using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol;
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
 using Newtonsoft.Json.Linq;
 
-namespace DotnetDbg.Cli.Tests.Helpers;
+namespace SharpDbg.Cli.Tests.Helpers;
 
 public static class DebugAdapterProcessHelper
 {
@@ -14,7 +14,7 @@ public static class DebugAdapterProcessHelper
 			StartInfo = new ProcessStartInfo
 			{
 				//FileName = @"C:\Users\Matthew\Downloads\netcoredbg-win64\netcoredbg\netcoredbg.exe",
-				FileName = @"C:\Users\Matthew\Documents\Git\sharpdbg\artifacts\bin\DotnetDbg.Cli\debug\DotnetDbg.Cli.exe",
+				FileName = @"C:\Users\Matthew\Documents\Git\sharpdbg\artifacts\bin\SharpDbg.Cli\debug\SharpDbg.Cli.exe",
 				Arguments = "--interpreter=vscode",
 				RedirectStandardInput = true,
 				RedirectStandardOutput = true,

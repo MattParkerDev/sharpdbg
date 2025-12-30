@@ -1,9 +1,9 @@
 ﻿using AwesomeAssertions;
-using DotnetDbg.Cli.Tests.Helpers;
 using Microsoft.Diagnostics.NETCore.Client;
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
+using SharpDbg.Cli.Tests.Helpers;
 
-namespace DotnetDbg.Cli.Tests.Legacy;
+namespace SharpDbg.Cli.Tests.Legacy;
 
 public class LegacyTests(ITestOutputHelper testOutputHelper)
 {

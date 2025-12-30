@@ -4,7 +4,6 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <OutputType>Exe</OutputType>
-    <RootNamespace>DotnetDbg.Cli.Tests</RootNamespace>
     <TargetFramework>net10.0</TargetFramework>
 	<UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>
     <!--
@@ -33,7 +32,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\DotnetDbg.Cli\DotnetDbg.Cli.csproj" />
+    <ProjectReference Include="..\..\src\SharpDbg.Cli\SharpDbg.Cli.csproj" />
 	  <!-- ensure the project we are debugging is up to date -->
     <ProjectReference Include="..\DebuggableConsoleApp\DebuggableConsoleApp.csproj" ReferenceOutputAssembly="false" />
   </ItemGroup>

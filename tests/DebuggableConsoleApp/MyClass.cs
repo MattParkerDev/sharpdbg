@@ -1,4 +1,6 @@
-﻿namespace DebuggableConsoleApp;
+﻿using DebuggableConsoleApp.Namespace1;
+
+namespace DebuggableConsoleApp;
 
 public class MyClass : MyClassBase
 {
@@ -15,7 +17,7 @@ public class MyClass : MyClassBase
 		int? nullableInt;
 		int? nullableIntWithVal = 4;
 		MyClass? nullableRefType;
-
+		AnotherClass.MyStaticMethod();
 		var anotherVar = "asdf";
 		;
 	}

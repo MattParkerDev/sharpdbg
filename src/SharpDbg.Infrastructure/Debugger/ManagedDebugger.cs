@@ -261,8 +261,10 @@ public partial class ManagedDebugger : IDisposable
             if (frame != null)
             {
                 var stepper = frame.CreateStepper();
+                stepper.SetUnmappedStopMask(CorDebugUnmappedStop.STOP_NONE);
                 stepper.Step(true);
                 IsRunning = true;
+                _stepper = stepper;
                 _variableManager.Clear();
                 _rawProcess?.Continue(false);
             }
@@ -281,8 +283,10 @@ public partial class ManagedDebugger : IDisposable
             if (frame != null)
             {
                 var stepper = frame.CreateStepper();
+                stepper.SetUnmappedStopMask(CorDebugUnmappedStop.STOP_NONE);
                 stepper.StepOut();
                 IsRunning = true;
+                _stepper = stepper;
                 _variableManager.Clear();
                 _rawProcess?.Continue(false);
             }

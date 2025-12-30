@@ -15,6 +15,11 @@
   </PropertyGroup>
 
   <ItemGroup>
+  	<Publicize IncludeCompilerGeneratedMembers="false" Include="Microsoft.VisualStudio.Shared.VSCodeDebugProtocol" />
+  	<DoNotPublicize Include="Microsoft.VisualStudio.Shared.VSCodeDebugProtocol:Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.DebugAdapterBase" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Content Include="xunit.runner.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
@@ -23,6 +28,10 @@
   </ItemGroup>
 
   <ItemGroup>
+	<PackageReference Include="Krafs.Publicizer" Version="2.3.0">
+	 <PrivateAssets>all</PrivateAssets>
+	 <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+	</PackageReference>
     <PackageReference Include="AwesomeAssertions" Version="9.3.0" />
     <PackageReference Include="CliWrap" Version="3.10.0" />
     <PackageReference Include="Microsoft.Diagnostics.NETCore.Client" Version="0.2.652701" />

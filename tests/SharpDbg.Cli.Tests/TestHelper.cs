@@ -63,9 +63,14 @@ public static class TestHelper
 		return stoppedEvent;
 	}
 
-	public static DebugProtocolHost WithBreakpointsRequest(this DebugProtocolHost debugProtocolHost)
+	public static DebugProtocolHost WithBreakpointsRequest(this DebugProtocolHost debugProtocolHost, int? line = null, string? filePath = null)
 	{
-		var setBreakpointsRequest = DebugAdapterProcessHelper.GetSetBreakpointsRequest();
+		var setBreakpointsRequest = (line, filePath) switch
+		{
+			({ } l, { } fp) => DebugAdapterProcessHelper.GetSetBreakpointsRequest(l, fp),
+			({ } l, null) => DebugAdapterProcessHelper.GetSetBreakpointsRequest(l),
+			_ => DebugAdapterProcessHelper.GetSetBreakpointsRequest()
+		};
 		debugProtocolHost.SendRequestSync(setBreakpointsRequest);
 		return debugProtocolHost;
 	}

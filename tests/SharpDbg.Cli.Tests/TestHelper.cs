@@ -112,6 +112,13 @@ public static class TestHelper
 		return debugProtocolHost;
 	}
 
+	public static DebugProtocolHost WithStepInRequest(this DebugProtocolHost debugProtocolHost, int threadId)
+	{
+		var continueRequest = new StepInRequest(threadId);
+		debugProtocolHost.SendRequestSync(continueRequest);
+		return debugProtocolHost;
+	}
+
 	public static DebugProtocolHost WithEvaluateRequest(this DebugProtocolHost debugProtocolHost, int frameId, string expression, out EvaluateResponse evaluateResponse)
 	{
 		var evaluateRequest = new EvaluateRequest { Expression = expression, FrameId = frameId, Context = EvaluateArguments.ContextValue.Repl };

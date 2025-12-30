@@ -14,7 +14,7 @@ public static class Program
 			// Keep the application running to allow debugging
 			myClass.MyMethod(13, 6);
 			myClassNoMembers.MyMethod(42);
-			Thread.Sleep(500);
+			Thread.Sleep(100);
 			//await Task.Delay(500);
 		}
 	}

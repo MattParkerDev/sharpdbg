@@ -43,7 +43,31 @@ public class StepInTests(ITestOutputHelper testOutputHelper)
 	    stopInfo3.filePath.Should().EndWith("MyClass.cs");
 	    stopInfo3.line.Should().Be(20);
 
-	    List<int> threadIds = [stoppedEvent.ThreadId!.Value, stoppedEvent2.ThreadId!.Value, stoppedEvent3.ThreadId!.Value];
+	    // Continue so we loop and are back at the breakpoint
+	    var stoppedEvent4 = await debugProtocolHost.WithContinueRequest().WaitForStoppedEvent(stoppedEventTcs);
+	    var stopInfo4 = stoppedEvent4.ReadStopInfo();
+	    stopInfo4.filePath.Should().EndWith("MyClass.cs");
+	    stopInfo4.line.Should().Be(20);
+
+	    // Now, put a breakpoint inside AnotherMethod, and step over. We should still be in AnotherClass.cs
+	    debugProtocolHost.WithBreakpointsRequest(8, @"C:\Users\Matthew\Documents\Git\sharpdbg\tests\DebuggableConsoleApp\Namespace1\AnotherClass.cs");
+
+	    var stoppedEvent5 = await debugProtocolHost.WithStepOverRequest(stoppedEvent.ThreadId!.Value).WaitForStoppedEvent(stoppedEventTcs);
+	    var stopInfo5 = stoppedEvent5.ReadStopInfo();
+	    stopInfo5.filePath.Should().EndWith("AnotherClass.cs");
+	    stopInfo5.line.Should().Be(8);
+
+	    var stoppedEvent6 = await debugProtocolHost.WithStepOverRequest(stoppedEvent.ThreadId!.Value).WaitForStoppedEvent(stoppedEventTcs);
+	    var stopInfo6 = stoppedEvent6.ReadStopInfo();
+	    stopInfo6.filePath.Should().EndWith("AnotherClass.cs");
+	    stopInfo6.line.Should().Be(9);
+
+	    var stoppedEvent7 = await debugProtocolHost.WithContinueRequest().WaitForStoppedEvent(stoppedEventTcs);
+	    var stopInfo7 = stoppedEvent7.ReadStopInfo();
+	    stopInfo7.filePath.Should().EndWith("MyClass.cs");
+	    stopInfo7.line.Should().Be(20);
+
+	    List<int> threadIds = [stoppedEvent.ThreadId!.Value, stoppedEvent2.ThreadId!.Value, stoppedEvent3.ThreadId!.Value, stoppedEvent4.ThreadId!.Value, stoppedEvent5.ThreadId!.Value, stoppedEvent6.ThreadId!.Value, stoppedEvent7.ThreadId!.Value];
 	    threadIds.Distinct().Should().HaveCount(1);
     }
 }

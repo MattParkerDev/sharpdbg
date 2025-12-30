@@ -34,7 +34,7 @@ class Program
             }
         }
 
-        //logPath = @"C:\Users\Matthew\Downloads\dotnetdbglogs\log.txt";
+        //logPath = @"C:\Users\Matthew\Downloads\sharpdbglogs\log.txt";
         // Setup logging if specified
         if (!string.IsNullOrEmpty(logPath))
         {
@@ -54,7 +54,7 @@ class Program
             }
         }
 
-        Log($"Starting DotNetDbg - Interpreter: {interpreter}");
+        Log($"Starting SharpDbg - Interpreter: {interpreter}");
 
         if (interpreter != "vscode")
         {

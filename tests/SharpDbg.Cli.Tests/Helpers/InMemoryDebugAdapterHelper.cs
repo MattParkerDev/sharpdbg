@@ -30,7 +30,7 @@ public static class InMemoryDebugAdapterHelper
 
 		void Log(string message)
 		{
-			testOutputHelper.WriteLine($"Log [DotnetDbg]: {message}");
+			testOutputHelper.WriteLine($"Log [SharpDbg]: {message}");
 		}
 	}
 }

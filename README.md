@@ -74,7 +74,7 @@ This will produce the debug adapter executable at `artifacts/bin/SharpDbg.Cli/De
     public class List<T> : IList<T>, IList, IReadOnlyList<T>
 ```
 
-### DebuggerTypeProxy (& DebuggerBrowsable(DebuggerBrowsableState.RootHidden))
+### DebuggerTypeProxy & DebuggerBrowsable(.RootHidden) attributes
 
 <img width="365" height="173" alt="image" src="https://github.com/user-attachments/assets/037dc6f5-ed51-4b59-a4d3-ce651ceacf2a" />
 

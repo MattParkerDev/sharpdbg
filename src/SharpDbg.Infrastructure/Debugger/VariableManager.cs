@@ -74,8 +74,19 @@ public class VariableManager
     {
         lock (_lock)
         {
+	        var handleReferences = _references.Values.SelectMany(GetHandleValues).ToList();
+	        handleReferences.ForEach(h => h.Dispose());
             _references.Clear();
             _nextReference = 1;
         }
+    }
+
+    private static IEnumerable<CorDebugHandleValue> GetHandleValues(VariablesReference r)
+    {
+	    if (r.ObjectValue is CorDebugHandleValue ov)
+		    yield return ov;
+
+	    if (r.DebuggerProxyInstance is CorDebugHandleValue dp)
+		    yield return dp;
     }
 }

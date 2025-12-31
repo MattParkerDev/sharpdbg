@@ -307,10 +307,6 @@ public partial class ManagedDebugger
 			    VariablesReference = GetVariablesReference(returnValue, friendlyTypeName, threadId, stackDepth, debuggerProxyInstance)
 		    };
 		    result.Add(variableInfo);
-		    if (returnValue is CorDebugHandleValue handleValue)
-		    {
-			    handleValue.Dispose();
-		    }
 	    }
     }
 

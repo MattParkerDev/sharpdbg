@@ -24,7 +24,7 @@ public class MyClass : MyClassBase
 	//private const int nq = -1;
 
 	//private MyClass2 get_ClassProperty() => ClassProperty;
-	private MyClass2 _classField = new MyClass2();
+	private MyClass3 _classField = new MyClass3();
 	private MyClass2 ClassProperty { get; set; } = new MyClass2();
 	private MyClass2 ClassProperty2 { get; set; } = new MyClass2();
 	private static int IntStaticProperty { get; set; } = 10;
@@ -50,6 +50,13 @@ public class MyClass : MyClassBase
 }
 
 public class MyClass2
+{
+	public string MyProperty { get; set; } = "Hello";
+	public int IntField = 6;
+	public int IntProperty { get; set; } = 6;
+}
+
+public class MyClass3
 {
 	public string MyProperty { get; set; } = "Hello";
 	public int IntField = 6;

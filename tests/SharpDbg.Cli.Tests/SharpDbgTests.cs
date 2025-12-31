@@ -104,7 +104,7 @@ public static class TestExtensions
 		List<Variable> expectedVariables =
 		[
 			new() { Name = "_name", EvaluateName = "_name", Value = "TestName", Type = "string" },
-			new() { Name = "_classField", EvaluateName = "_classField", Value = "{DebuggableConsoleApp.MyClass2}", Type = "DebuggableConsoleApp.MyClass2", VariablesReference = 7 },
+			new() { Name = "_classField", EvaluateName = "_classField", Value = "{DebuggableConsoleApp.MyClass3}", Type = "DebuggableConsoleApp.MyClass3", VariablesReference = 7 },
 			new() { Name = "ClassProperty", EvaluateName = "ClassProperty", Value = "{DebuggableConsoleApp.MyClass2}", Type = "DebuggableConsoleApp.MyClass2", VariablesReference = 13 },
 			new() { Name = "ClassProperty2", EvaluateName = "ClassProperty2", Value = "{DebuggableConsoleApp.MyClass2}", Type = "DebuggableConsoleApp.MyClass2", VariablesReference = 14 },
 			new() { Name = "_intList", EvaluateName = "_intList", Value = "Count = 4", Type = "System.Collections.Generic.List<int>", VariablesReference = 8 },
@@ -199,6 +199,7 @@ public static class TestExtensions
 		];
 		debugProtocolHost.WithVariablesRequest(variablesReference, out var dictionaryVariables);
 		dictionaryVariables.Should().BeEquivalentTo(expectedVariables);
+	}
 
 	public static void AssertClassWithFieldOfNestedClassType_Variables(this DebugProtocolHost debugProtocolHost, int variablesReference)
 	{
@@ -224,7 +225,6 @@ public static class TestExtensions
 		];
 		debugProtocolHost.WithVariablesRequest(variablesReference, out var classWithNestedClassFieldVariables);
 		classWithNestedClassFieldVariables.Should().BeEquivalentTo(expectedVariables);
-	}
 	}
 
 	public static void AssertClassWithDebuggerTypeProxyVariables(this DebugProtocolHost debugProtocolHost, int variablesReference)

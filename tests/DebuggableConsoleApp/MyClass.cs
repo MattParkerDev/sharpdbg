@@ -24,7 +24,7 @@ public class MyClass : MyClassBase
 	//private const int nq = -1;
 
 	//private MyClass2 get_ClassProperty() => ClassProperty;
-	private MyClass2 ClassField { get; set; } = new MyClass2();
+	private MyClass2 _classField = new MyClass2();
 	private MyClass2 ClassProperty { get; set; } = new MyClass2();
 	private MyClass2 ClassProperty2 { get; set; } = new MyClass2();
 	private static int IntStaticProperty { get; set; } = 10;

@@ -181,7 +181,7 @@ public partial class ManagedDebugger : IDisposable
         if (_rawProcess != null)
         {
             IsRunning = true;
-            _variableManager.Clear();
+            _variableManager.ClearAndDisposeHandleValues();
             _rawProcess.Continue(false);
         }
     }
@@ -242,7 +242,7 @@ public partial class ManagedDebugger : IDisposable
             stepper.StepRange(false, [stepRange], 1);
             IsRunning = true;
             _stepper = stepper;
-            _variableManager.Clear();
+            _variableManager.ClearAndDisposeHandleValues();
             _rawProcess?.Continue(false);
         }
     }
@@ -263,7 +263,7 @@ public partial class ManagedDebugger : IDisposable
                 stepper.Step(true);
                 IsRunning = true;
                 _stepper = stepper;
-                _variableManager.Clear();
+                _variableManager.ClearAndDisposeHandleValues();
                 _rawProcess?.Continue(false);
             }
         }
@@ -285,7 +285,7 @@ public partial class ManagedDebugger : IDisposable
                 stepper.StepOut();
                 IsRunning = true;
                 _stepper = stepper;
-                _variableManager.Clear();
+                _variableManager.ClearAndDisposeHandleValues();
                 _rawProcess?.Continue(false);
             }
         }
@@ -719,7 +719,7 @@ public partial class ManagedDebugger : IDisposable
     {
         _threads.Clear();
         _breakpointManager.Clear();
-        _variableManager.Clear();
+        _variableManager.ClearAndDisposeHandleValues();
 
         // Dispose all module info (which disposes symbol readers)
         foreach (var moduleInfo in _modules.Values)

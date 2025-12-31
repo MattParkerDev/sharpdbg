@@ -70,7 +70,7 @@ public class VariableManager
     /// <summary>
     /// Clear all references
     /// </summary>
-    public void Clear()
+    public void ClearAndDisposeHandleValues()
     {
         lock (_lock)
         {

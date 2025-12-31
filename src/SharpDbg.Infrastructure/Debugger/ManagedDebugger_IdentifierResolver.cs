@@ -77,7 +77,7 @@ public partial class ManagedDebugger
 
 		var metadataImport = module.Module.GetMetaDataInterface().MetaDataImport;
 		var methodProps = metadataImport!.GetMethodProps(corDebugFunction.Token);
-		var isStatic = (methodProps.pdwAttr & CorMethodAttr.mdStatic) != 0;
+		var isStatic = methodProps.pdwAttr.IsMdStatic();
 
 		// Instance methods: Arguments[0] == "this"
 		if (!isStatic)

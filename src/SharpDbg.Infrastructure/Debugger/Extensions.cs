@@ -10,7 +10,7 @@ public static class Extensions
 	public static bool IsStatic(this mdFieldDef mdFieldDef, MetaDataImport metadataImport)
 	{
 		var fieldProps = metadataImport.GetFieldProps(mdFieldDef);
-		var isStatic = (fieldProps.pdwAttr & CorFieldAttr.fdStatic) != 0;
+		var isStatic = fieldProps.pdwAttr.IsFdStatic();
 		return isStatic;
 	}
 
@@ -18,7 +18,7 @@ public static class Extensions
 	public static bool IsPublic(this mdFieldDef mdFieldDef, MetaDataImport metadataImport)
 	{
 		var fieldProps = metadataImport.GetFieldProps(mdFieldDef);
-		var isPublic = (fieldProps.pdwAttr & CorFieldAttr.fdPublic) != 0;
+		var isPublic = fieldProps.pdwAttr.IsFdPublic();
 		return isPublic;
 	}
 
@@ -27,8 +27,7 @@ public static class Extensions
 	{
 		var propertyProps = metadataImport.GetPropertyProps(mdProperty);
 		var getterMethodProps = metadataImport.GetMethodProps(propertyProps.pmdGetter);
-		var getterAttr = getterMethodProps.pdwAttr;
-		var isPublic = (getterAttr & CorMethodAttr.mdPublic) != 0;
+		var isPublic = getterMethodProps.pdwAttr.IsMdPublic();
 		return isPublic;
 	}
 
@@ -37,9 +36,7 @@ public static class Extensions
 	{
 		var propertyProps = metadataImport.GetPropertyProps(mdProperty);
 		var getterMethodProps = metadataImport.GetMethodProps(propertyProps.pmdGetter);
-		var getterAttr = getterMethodProps.pdwAttr;
-
-		var isStatic = (getterAttr & CorMethodAttr.mdStatic) != 0;
+		var isStatic = getterMethodProps.pdwAttr.IsMdStatic();
 		return isStatic;
 	}
 
@@ -47,7 +44,7 @@ public static class Extensions
 	public static bool IsStatic(this mdMethodDef methodToken, MetaDataImport metaDataImport)
 	{
 		var methodProps = metaDataImport.GetMethodProps(methodToken);
-		var isStatic = (methodProps.pdwAttr & CorMethodAttr.mdStatic) != 0;
+		var isStatic = methodProps.pdwAttr.IsMdStatic();
 		return isStatic;
 	}
 

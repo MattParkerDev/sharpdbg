@@ -38,7 +38,7 @@ public partial class ManagedDebugger
         // but GetParamForMethodIndex does NOT include it - it is named by convention
         // so we need to check the method attributes to see if it's static or instance, to conditionally handle "this"
         var methodProps = metadataImport!.GetMethodProps(corDebugFunction.Token);
-        var isStatic = (methodProps.pdwAttr & CorMethodAttr.mdStatic) != 0;
+        var isStatic = methodProps.pdwAttr.IsMdStatic();
         if (isStatic is false)
         {
 	        var implicitThisValue = corDebugIlFrame.Arguments[0];
@@ -191,8 +191,8 @@ public partial class ManagedDebugger
 			var fieldName = fieldProps.szField;
 			if (fieldName is null) continue;
 			if (Extensions.IsCompilerGeneratedFieldName(fieldName)) continue;
-			var isStatic = (fieldProps.pdwAttr & CorFieldAttr.fdStatic) != 0;
-			var isLiteral = (fieldProps.pdwAttr & CorFieldAttr.fdLiteral) != 0;
+			var isStatic = fieldProps.pdwAttr.IsFdStatic();
+			var isLiteral = fieldProps.pdwAttr.IsFdLiteral();
 			var debuggerBrowsableRootHidden = false;
 			var hasDebuggerBrowsableAttribute = metadataImport.TryGetCustomAttributeByName(mdFieldDef, "System.Diagnostics.DebuggerBrowsableAttribute", out var debuggerBrowsableAttribute) is HRESULT.S_OK;
 			if (hasDebuggerBrowsableAttribute)
@@ -260,7 +260,7 @@ public partial class ManagedDebugger
 		    var getterMethodProps = metadataImport.GetMethodProps(getMethodDef);
 		    var getterAttr = getterMethodProps.pdwAttr;
 
-		    bool isStatic = (getterAttr & CorMethodAttr.mdStatic) != 0;
+		    var isStatic = getterAttr.IsMdStatic();
 
 		    var debuggerBrowsableRootHidden = false;
 		    var hasDebuggerBrowsableAttribute = metadataImport.TryGetCustomAttributeByName(mdProperty, "System.Diagnostics.DebuggerBrowsableAttribute", out var debuggerBrowsableAttribute) is HRESULT.S_OK;

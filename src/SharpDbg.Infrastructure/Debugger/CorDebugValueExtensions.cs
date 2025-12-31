@@ -101,7 +101,7 @@ public static class CorDebugValueExtensions
 		var getterMethodProps = metadataImport.GetMethodProps(getMethodDef);
 		var getterAttr = getterMethodProps.pdwAttr;
 
-		bool isStatic = (getterAttr & CorMethodAttr.mdStatic) != 0;
+		var isStatic = getterAttr.IsMdStatic();
 
 		var getMethod = corDebugClass.Module.GetFunctionFromToken(getMethodDef);
 		var eval = ilFrame.Chain.Thread.CreateEval();

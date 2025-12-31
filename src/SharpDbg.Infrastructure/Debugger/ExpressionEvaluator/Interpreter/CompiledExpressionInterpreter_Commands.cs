@@ -156,7 +156,7 @@ public partial class CompiledExpressionInterpreter
 		}
 
 		var methodProps2 = function.Class.Module.GetMetaDataInterface().MetaDataImport!.GetMethodProps(function.Token);
-		isInstance = (methodProps2.pdwAttr & CorMethodAttr.mdStatic) == 0;
+		isInstance = methodProps2.pdwAttr.IsMdStatic() is false;
 
 		var typeArgsCount = entry.GenericTypeCache?.Count ?? 0;
 		var realArgsCount = args.Length + (isInstance ? 1 : 0);
@@ -233,7 +233,7 @@ public partial class CompiledExpressionInterpreter
 			if (methodProps.szMethod != methodName)
 				continue;
 
-			var isStatic = (methodProps.pdwAttr & CorMethodAttr.mdStatic) != 0;
+			var isStatic = methodProps.pdwAttr.IsMdStatic();
 
 			if ((searchStatic && !isStatic) || (!searchStatic && isStatic && !idsEmpty))
 				continue;

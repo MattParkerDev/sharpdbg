@@ -54,6 +54,8 @@ public class MyClass2
 	public string MyProperty { get; set; } = "Hello";
 	public int IntField = 6;
 	public int IntProperty { get; set; } = 6;
+	public MyClassContainingAnotherClass.MyNestedClass NestedClassProperty { get; set; } = new();
+	public MyGenericClassContainingAnotherGenericClass<string, int>.MyNestedGenericClass<long, float> NestedGenericClassProperty { get; set; } = new();
 }
 
 public enum MyEnum

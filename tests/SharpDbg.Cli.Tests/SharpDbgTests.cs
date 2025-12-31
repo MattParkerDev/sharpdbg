@@ -57,7 +57,7 @@ public class SharpDbgTests(ITestOutputHelper testOutputHelper)
 
 	    List<Variable> expectedEnumVariables =
 	    [
-		    new() {Name = "Static members", Value = "", Type = "", EvaluateName = "Static members", VariablesReference = 30, PresentationHint = new VariablePresentationHint { Kind = VariablePresentationHint.KindValue.Class }},
+		    new() {Name = "Static members", Value = "", Type = "", EvaluateName = "Static members", VariablesReference = 32, PresentationHint = new VariablePresentationHint { Kind = VariablePresentationHint.KindValue.Class }},
 		    new() {Name = "value__", Value = "1", Type = "int", EvaluateName = "value__" },
 	    ];
 
@@ -207,6 +207,8 @@ public static class TestExtensions
 			new() { Name = "IntField", EvaluateName = "IntField", Value = "6", Type = "int" },
 			new() { Name = "IntProperty", EvaluateName = "IntProperty", Value = "6", Type = "int" },
 			new() { Name = "MyProperty", EvaluateName = "MyProperty", Value = "Hello", Type = "string" },
+			new() { Name = "NestedClassProperty", EvaluateName = "NestedClassProperty", Value = "{DebuggableConsoleApp.MyClassContainingAnotherClass.MyNestedClass}", Type = "DebuggableConsoleApp.MyClassContainingAnotherClass.MyNestedClass", VariablesReference = 30 },
+			new() { Name = "NestedGenericClassProperty", EvaluateName = "NestedGenericClassProperty", Value = "{DebuggableConsoleApp.MyGenericClassContainingAnotherGenericClass<string, int>.MyNestedGenericClass<long, float>}", Type = "DebuggableConsoleApp.MyGenericClassContainingAnotherGenericClass<string, int>.MyNestedGenericClass<long, float>", VariablesReference = 31 },
 		];
 		debugProtocolHost.WithVariablesRequest(variablesReference, out var classWithNestedClassFieldVariables);
 		classWithNestedClassFieldVariables.Should().BeEquivalentTo(expectedVariables);

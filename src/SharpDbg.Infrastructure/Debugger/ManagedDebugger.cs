@@ -860,7 +860,12 @@ public partial class ManagedDebugger : IDisposable
 		var sourceInfo = GetSourceInfoAtFrame(corThread.ActiveFrame);
 		if (sourceInfo is null)
 		{
-			OnStopped?.Invoke(corThread.Id, "step");
+			// sourceInfo will be null if we could not find a PDB for the module
+			// Bottom line - if we have no PDB, we have no source info, and there is no possible way for the user to map the stop location to a source file/line
+			// (Until we implement Source Link and/or Decompilation support)
+			// So for now, if this occurs, we are going to do a step out to get us back to a stop location with source info
+			// TODO: This should probably be more sophisticated - mark the CorDebugFunction as non user code - `JMCStatus = false`, enable JMC for the stepper and then step over, in case the non user code calls user code, e.g. LINQ methods
+			StepOut(corThread.Id);
 			return;
 		}
 		var (sourceFilePath, line, _) = sourceInfo.Value;

@@ -126,6 +126,7 @@ public static class TestExtensions
 		debugProtocolHost.AssertGenericClassVariables(thisInstanceVariables.Single(s => s.Name == "_myClassWithGeneric").VariablesReference);
 		debugProtocolHost.AssertIntListVariables(thisInstanceVariables.Single(s => s.Name == "_intList").VariablesReference);
 		debugProtocolHost.AssertDictionaryVariables(thisInstanceVariables.Single(s => s.Name == "_intDictionary").VariablesReference);
+		debugProtocolHost.AssertClassWithFieldOfNestedClassType_Variables(thisInstanceVariables.Single(s => s.Name == "_classField").VariablesReference);
 	}
 
 	public static void AssertInstanceThisStaticVariables(this DebugProtocolHost debugProtocolHost, int variablesReference)
@@ -197,6 +198,19 @@ public static class TestExtensions
 		];
 		debugProtocolHost.WithVariablesRequest(variablesReference, out var dictionaryVariables);
 		dictionaryVariables.Should().BeEquivalentTo(expectedVariables);
+
+	public static void AssertClassWithFieldOfNestedClassType_Variables(this DebugProtocolHost debugProtocolHost, int variablesReference)
+	{
+		List<Variable> expectedVariables =
+		[
+			new() { Name = "IntField", EvaluateName = "IntField", Value = "6", Type = "int" },
+			new() { Name = "IntProperty", EvaluateName = "IntProperty", Value = "6", Type = "int" },
+			new() { Name = "MyProperty", EvaluateName = "MyProperty", Value = "Hello", Type = "string" },
+		];
+		debugProtocolHost.WithVariablesRequest(variablesReference, out var classWithNestedClassFieldVariables);
+		classWithNestedClassFieldVariables.Should().BeEquivalentTo(expectedVariables);
+	}
+
 	}
 
 	public static void AssertClassWithDebuggerTypeProxyVariables(this DebugProtocolHost debugProtocolHost, int variablesReference)

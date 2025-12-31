@@ -704,6 +704,7 @@ public partial class ManagedDebugger : IDisposable
 			                _logger?.Invoke($"Error deactivating breakpoint during detach: {ex.Message}");
 		                }
 	                }
+					Cleanup();
                     _process.Detach();
                 }
                 catch (Exception ex)
@@ -711,7 +712,6 @@ public partial class ManagedDebugger : IDisposable
                     _logger?.Invoke($"Error detaching: {ex.Message}");
                 }
             }
-            Cleanup();
         }
     }
 

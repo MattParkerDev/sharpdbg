@@ -8,9 +8,7 @@ using ZLinq;
 
 namespace SharpDbg.Infrastructure.Debugger;
 
-/// <summary>
-/// Main debugger class wrapping ClrDebug functionality
-/// </summary>
+// v1 of this class was AI generated, and could definitely do with some cleaning up
 public partial class ManagedDebugger : IDisposable
 {
     private CorDebug? _corDebug;
@@ -689,6 +687,23 @@ public partial class ManagedDebugger : IDisposable
             {
                 try
                 {
+	                if (IsRunning)
+	                {
+		                // pause first
+		                _process.Stop(0);
+		                IsRunning = false;
+	                }
+	                foreach (var bp in _breakpointManager.GetAllBreakpoints().Where(b => b.CorBreakpoint != null))
+	                {
+		                try
+		                {
+			                bp.CorBreakpoint!.Activate(false);
+		                }
+		                catch (Exception ex)
+		                {
+			                _logger?.Invoke($"Error deactivating breakpoint during detach: {ex.Message}");
+		                }
+	                }
                     _process.Detach();
                 }
                 catch (Exception ex)

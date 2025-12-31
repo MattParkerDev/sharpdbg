@@ -1,4 +1,5 @@
-﻿using System.Reflection.Metadata;
+﻿using System.Collections.Immutable;
+using System.Reflection.Metadata;
 using System.Runtime.InteropServices;
 using ClrDebug;
 using SharpDbg.Infrastructure.Debugger.ExpressionEvaluator;
@@ -158,31 +159,44 @@ public partial class ManagedDebugger
 	    var primitiveName = GetFriendlyTypeName(corDebugType.Type);
 	    if (primitiveName is not null) return primitiveName;
 	    var corDebugClass = corDebugType.Class;
+	    // The specific CorDebugType may have type parameters, but they could be for its enclosing type (e.g. a class defined inside a generic class)
+	    // So we get them here, and pass it into the recursive GetCorDebugTypeFriendlyNameInternal. Starting from the bottom (highest enclosing type), each level will consume the type parameters it needs, based on its arity, indicated in the name (`1, `2, etc.)
+	    // e.g. for MyClassContainingAnotherClass<string, int>.MyNestedClass<long, float>, type parameters contains [string, int, long, float]
+	    var typeParameters = corDebugType.TypeParameters.ToList();
+	    var name = GetCorDebugTypeFriendlyNameInternal(corDebugClass, typeParameters);
+	    return name;
+    }
+
+    private static string GetCorDebugTypeFriendlyNameInternal(CorDebugClass corDebugClass, List<CorDebugType> typeParameterTypes)
+    {
 	    var module = corDebugClass.Module;
 	    var token = corDebugClass.Token;
 	    var metadataImport = module.GetMetaDataInterface().MetaDataImport;
 	    var typeDefProps = metadataImport.GetTypeDefProps(token);
 	    var typeName = typeDefProps.szTypeDef;
+	    var isNested = typeDefProps.pdwTypeDefFlags.IsTdNested();
 
-	    // Get generic type parameters
-	    var genericArgs = new List<string>();
-	    var typeParameters = corDebugType.TypeParameters;
-
-	    foreach (var typeParameter in typeParameters)
+	    string? parentTypeName = null;
+	    if (isNested)
 	    {
-		    string argName = GetCorDebugTypeFriendlyName(typeParameter);
-		    genericArgs.Add(argName);
+		    var parentTypeDef = metadataImport.GetNestedClassProps(token);
+		    var parentTypeCorDebugClass = module.GetClassFromToken(parentTypeDef);
+		    parentTypeName = GetCorDebugTypeFriendlyNameInternal(parentTypeCorDebugClass, typeParameterTypes);
 	    }
 
-	    // Replace the backtick notation with angle brackets
-	    if (genericArgs.Count > 0)
+	    // This will be first reached by the outermost type
+	    // The below will consume type parameters it requires based on arity
+
+	    var backtickIndex = typeName.LastIndexOf('`');
+	    var typeHasTypeParameters = backtickIndex is not -1;
+	    if (typeHasTypeParameters)
 	    {
-		    // Remove the `1, `2, etc. from the type name
-		    var backtickIndex = typeName.LastIndexOf('`');
-		    if (backtickIndex is -1) throw new InvalidOperationException("Generic type name does not contain backtick");
-		    typeName = typeName[..backtickIndex];
-		    // Add generic arguments
-		    typeName = $"{typeName}<{string.Join(", ", genericArgs)}>";
+		    var typeNameAsSpan = typeName.AsSpan();
+		    var aritySpan = typeNameAsSpan[(backtickIndex + 1)..];
+		    if (int.TryParse(aritySpan, out var arity) is false) throw new InvalidOperationException("Failed to parse generic type arity from type name");
+		    var typeParametersFriendlyNamesForType = typeParameterTypes.Take(arity).Select(GetCorDebugTypeFriendlyName).ToImmutableArray();
+		    typeParameterTypes.RemoveRange(0, arity);
+		    typeName = $"{typeName[..backtickIndex]}<{string.Join(", ", typeParametersFriendlyNamesForType)}>";
 	    }
 
 	    if (typeName.StartsWith("System.Nullable<")) // unwrap System.Nullable<int> to int?
@@ -195,7 +209,7 @@ public partial class ManagedDebugger
 	    }
 
 	    var languageAlias = ClassNameToMaybeLanguageAlias(typeName);
-	    return languageAlias;
+	    return isNested ? $"{parentTypeName}.{languageAlias}" : languageAlias;
 	}
 
 	private static string ClassNameToMaybeLanguageAlias(string className)

@@ -50,7 +50,7 @@ public class StepTests(ITestOutputHelper testOutputHelper)
 	    stopInfo4.line.Should().Be(20);
 
 	    // Now, put a breakpoint inside AnotherMethod, and step over. We should still be in AnotherClass.cs
-	    debugProtocolHost.WithBreakpointsRequest(8, @"C:\Users\Matthew\Documents\Git\sharpdbg\tests\DebuggableConsoleApp\Namespace1\AnotherClass.cs");
+	    debugProtocolHost.WithBreakpointsRequest(8, Path.JoinFromGitRoot("tests", "DebuggableConsoleApp", "Namespace1", "AnotherClass.cs"));
 
 	    var stoppedEvent5 = await debugProtocolHost.WithStepOverRequest(stoppedEvent.ThreadId!.Value).WaitForStoppedEvent(stoppedEventTcs);
 	    var stopInfo5 = stoppedEvent5.ReadStopInfo();
@@ -68,7 +68,7 @@ public class StepTests(ITestOutputHelper testOutputHelper)
 	    stopInfo7.line.Should().Be(20);
 
 	    // breakpoint on a line that would F11 into unmapped code
-	    debugProtocolHost.WithBreakpointsRequest(10, @"C:\Users\Matthew\Documents\Git\sharpdbg\tests\DebuggableConsoleApp\Namespace1\AnotherClass.cs");
+	    debugProtocolHost.WithBreakpointsRequest(10, Path.JoinFromGitRoot("tests", "DebuggableConsoleApp", "Namespace1", "AnotherClass.cs"));
 	    var stoppedEvent8 = await debugProtocolHost.WithContinueRequest().WaitForStoppedEvent(stoppedEventTcs);
 	    var stopInfo8 = stoppedEvent8.ReadStopInfo();
 	    stopInfo8.filePath.Should().EndWith("AnotherClass.cs");

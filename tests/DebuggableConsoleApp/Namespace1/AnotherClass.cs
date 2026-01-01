@@ -12,4 +12,10 @@ public class AnotherClass
 			.ToList();
 		return myResult;
 	}
+
+	public static async Task<int> AnotherMethodAsync()
+	{
+		await Task.Delay(10);
+		return 5;
+	}
 }

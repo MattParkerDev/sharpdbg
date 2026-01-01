@@ -46,8 +46,8 @@ public partial class ManagedDebugger : IDisposable
         _logger = logger;
         _breakpointManager = new BreakpointManager();
         _variableManager = new VariableManager();
-        _asyncStepper = new AsyncStepper(_modules);
         _callbacks = new CorDebugManagedCallback();
+        _asyncStepper = new AsyncStepper(_modules, _callbacks);
 
         // Subscribe to callback events
         _callbacks.OnAnyEvent += OnAnyEvent;

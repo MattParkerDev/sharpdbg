@@ -22,6 +22,7 @@ public partial class ManagedDebugger : IDisposable
     private bool _stopAtEntry;
     private bool _isAttached;
     private int? _pendingAttachProcessId;
+    private AsyncStepper? _asyncStepper;
 
     public event Action<int, string>? OnStopped;
     // ThreadId, FilePath, Line, Reason
@@ -45,6 +46,7 @@ public partial class ManagedDebugger : IDisposable
         _logger = logger;
         _breakpointManager = new BreakpointManager();
         _variableManager = new VariableManager();
+        _asyncStepper = new AsyncStepper(_modules);
         _callbacks = new CorDebugManagedCallback();
 
         // Subscribe to callback events
@@ -220,6 +222,20 @@ public partial class ManagedDebugger : IDisposable
             var frame = thread.ActiveFrame;
             if (frame is not CorDebugILFrame ilFrame) throw new InvalidOperationException("Active frame is not an IL frame");
 			if (_stepper is not null) throw new InvalidOperationException("A step operation is already in progress");
+
+            // Try async stepping first
+            bool useSimpleStepper;
+            if (_asyncStepper != null && _asyncStepper.TrySetupAsyncStep(thread, AsyncStepper.StepType.StepOver, out useSimpleStepper))
+            {
+                if (!useSimpleStepper)
+                {
+                    IsRunning = true;
+                    _variableManager.ClearAndDisposeHandleValues();
+                    _rawProcess?.Continue(false);
+                    return;
+                }
+            }
+
             CorDebugStepper stepper = frame.CreateStepper();
             //stepper.SetInterceptMask(CorDebugIntercept.INTERCEPT_NONE);
             stepper.SetUnmappedStopMask(CorDebugUnmappedStop.STOP_NONE);

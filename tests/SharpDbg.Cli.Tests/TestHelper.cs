@@ -65,12 +65,7 @@ public static class TestHelper
 
 	public static DebugProtocolHost WithBreakpointsRequest(this DebugProtocolHost debugProtocolHost, int? line = null, string? filePath = null)
 	{
-		var setBreakpointsRequest = (line, filePath) switch
-		{
-			({ } l, { } fp) => DebugAdapterProcessHelper.GetSetBreakpointsRequest(l, fp),
-			({ } l, null) => DebugAdapterProcessHelper.GetSetBreakpointsRequest(l),
-			_ => DebugAdapterProcessHelper.GetSetBreakpointsRequest()
-		};
+		var setBreakpointsRequest = DebugAdapterProcessHelper.GetSetBreakpointsRequest(line, filePath);
 		if (File.Exists(setBreakpointsRequest.Source.Path) is false) throw new FileNotFoundException("Source file for breakpoint not found", setBreakpointsRequest.Source.Path);
 		debugProtocolHost.SendRequestSync(setBreakpointsRequest);
 		return debugProtocolHost;

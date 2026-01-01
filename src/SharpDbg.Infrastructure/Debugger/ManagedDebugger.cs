@@ -274,6 +274,19 @@ public partial class ManagedDebugger : IDisposable
             var frame = thread.ActiveFrame;
             if (frame != null)
             {
+                // Try async stepping first
+                bool useSimpleStepper;
+                if (_asyncStepper != null && _asyncStepper.TrySetupAsyncStep(thread, AsyncStepper.StepType.StepIn, out useSimpleStepper))
+                {
+                    if (!useSimpleStepper)
+                    {
+                        IsRunning = true;
+                        _variableManager.ClearAndDisposeHandleValues();
+                        _rawProcess?.Continue(false);
+                        return;
+                    }
+                }
+
                 var stepper = frame.CreateStepper();
                 stepper.SetUnmappedStopMask(CorDebugUnmappedStop.STOP_NONE);
                 stepper.Step(true);
@@ -869,9 +882,42 @@ public partial class ManagedDebugger : IDisposable
 		    ContinueProcess(); // may be incorrect
 		    return;
 	    }
+	    var corThread = breakpointCorDebugManagedCallbackEventArgs.Thread;
+
+        // Check if async stepper handles this breakpoint
+        if (_asyncStepper != null)
+        {
+            bool asyncHandled = _asyncStepper.TryHandleBreakpoint(corThread, functionBreakpoint, out bool shouldStop);
+            if (asyncHandled)
+            {
+                if (shouldStop)
+                {
+                    IsRunning = false;
+                    if (_stepper is not null)
+                    {
+                        _stepper.Deactivate();
+                        _stepper = null;
+                    }
+                    var sourceInfoNullable = GetSourceInfoAtFrame(corThread.ActiveFrame);
+                    if (sourceInfoNullable is {} sourceInfo)
+                    {
+                        OnStopped2?.Invoke(corThread.Id, sourceInfo.FilePath, sourceInfo.StartLine, "step");
+                    }
+                    else
+                    {
+                        OnStopped?.Invoke(corThread.Id, "step");
+                    }
+                }
+                else
+                {
+                    ContinueProcess();
+                }
+                return;
+            }
+        }
+
 	    var managedBreakpoint = _breakpointManager.FindByCorBreakpoint(functionBreakpoint.Raw);
 	    ArgumentNullException.ThrowIfNull(managedBreakpoint);
-	    var corThread = breakpointCorDebugManagedCallbackEventArgs.Thread;
         IsRunning = false;
         if (_stepper is not null)
         {

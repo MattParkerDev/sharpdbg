@@ -27,6 +27,20 @@ public class SymbolReader : IDisposable
         string DocumentPath
     );
 
+    /// <summary>
+    /// Information about an await block in an async method
+    /// </summary>
+    public record AsyncAwaitInfo(uint YieldOffset, uint ResumeOffset);
+
+    /// <summary>
+    /// Complete async method stepping information
+    /// </summary>
+    public class AsyncMethodSteppingInfo
+    {
+        public List<AsyncAwaitInfo> AwaitInfos { get; set; } = new();
+        public uint LastUserCodeIlOffset { get; set; }
+    }
+
     private SymbolReader(MetadataReaderProvider provider, MetadataReader reader, MetadataReader peMetadataReader,
 	    string assemblyPath)
     {
@@ -406,6 +420,72 @@ public class SymbolReader : IDisposable
 		// Calling method will handle when ilEndOffset == ilStartOffset, and change it to method size
 		return (ilStartOffset, ilEndOffset);
 	}
+
+	// Guid for async method stepping information from Roslyn
+	// https://github.com/dotnet/roslyn/blob/afd10305a37c0ffb2cfb2c2d8446154c68cfa87a/src/Dependencies/CodeAnalysis.Debugging/PortableCustomDebugInfoKinds.cs#L13
+	private static readonly Guid _asyncMethodSteppingInformationBlob = new("54FD2AC5-E925-401A-9C2A-F94F171072F8");
+
+    /// <summary>
+    /// Get async method stepping information for a method.
+    /// This includes await block yield/resume offsets and last user code IL offset.
+    /// </summary>
+    /// <param name="methodToken">Method token</param>
+    /// <returns>Async method stepping info if method has await blocks, null otherwise</returns>
+    public AsyncMethodSteppingInfo? GetAsyncMethodSteppingInfo(int methodToken)
+    {
+        var methodHandle = MetadataTokens.MethodDefinitionHandle(methodToken);
+        //var methodDebugInfoHandle = methodHandle.ToDebugInformationHandle();
+        var entityHandle = MetadataTokens.EntityHandle(methodToken);
+
+        var result = new AsyncMethodSteppingInfo();
+        bool foundOffset = false;
+        foreach (var cdiHandle in _reader.GetCustomDebugInformation(entityHandle))
+        {
+            var cdi = _reader.GetCustomDebugInformation(cdiHandle);
+
+            if (_reader.GetGuid(cdi.Kind) == _asyncMethodSteppingInformationBlob)
+            {
+                var blobReader = _reader.GetBlobReader(cdi.Value);
+
+                // Skip catch_handler_offset
+                blobReader.ReadUInt32();
+
+                // Read yield_offset, resume_offset, compressed_token tuples
+                while (blobReader.Offset < blobReader.Length)
+                {
+                    var yieldOffset = blobReader.ReadUInt32();
+                    var resumeOffset = blobReader.ReadUInt32();
+                    var token = blobReader.ReadCompressedInteger();
+
+                    result.AwaitInfos.Add(new AsyncAwaitInfo(yieldOffset, resumeOffset));
+                }
+            }
+        }
+
+        if (result.AwaitInfos.Count == 0)
+            return null;
+
+        // Find last IL offset for user code in this method
+        var debugInfo = _reader.GetMethodDebugInformation(methodHandle);
+
+        if (!debugInfo.SequencePointsBlob.IsNil)
+        {
+            foreach (var sp in debugInfo.GetSequencePoints())
+            {
+                // Skip hidden sequence points and invalid lines
+                if (sp.StartLine == 0 || sp.IsHidden || sp.Offset < 0)
+                    continue;
+
+                result.LastUserCodeIlOffset = (uint)sp.Offset;
+                foundOffset = true;
+            }
+        }
+
+        if (!foundOffset)
+            return null;
+
+        return result;
+    }
 
     /// <summary>
     /// Get all source files referenced in the PDB

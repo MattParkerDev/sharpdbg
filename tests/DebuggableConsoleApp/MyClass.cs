@@ -12,8 +12,8 @@ public class MyClass : MyClassBase
 		var enumVar = MyEnum.SecondValue;
 		var enumWithFlagsVar = MyEnumWithFlags.FlagValue1 | MyEnumWithFlags.FlagValue3;
 		var structVar = new MyStruct { Id = 5, Name = "StructName" };
-		Console.WriteLine($"Log{_counter:D}");
-		_counter++;
+		Console.WriteLine($"Log_MyMethod");
+		_counter = 1;
 		int? nullableInt;
 		int? nullableIntWithVal = 4;
 		MyClass? nullableRefType;

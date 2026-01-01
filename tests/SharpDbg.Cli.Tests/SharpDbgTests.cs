@@ -134,7 +134,7 @@ public static class TestExtensions
 	{
 		List<Variable> expectedVariables =
 		[
-			new() { Name = "_counter", EvaluateName = "_counter", Value = "2", Type = "int" },
+			new() { Name = "_counter", EvaluateName = "_counter", Value = "1", Type = "int" },
 			new() { Name = "IntStaticProperty", EvaluateName = "IntStaticProperty", Value = "10", Type = "int" },
 			new() { Name = "StaticClassProperty", EvaluateName = "StaticClassProperty", Value = "{DebuggableConsoleApp.MyClass2}", Type = "DebuggableConsoleApp.MyClass2", VariablesReference = 21 },
 			new() { Name = "_staticClassField", EvaluateName = "_staticClassField", Value = "{DebuggableConsoleApp.MyClass2}", Type = "DebuggableConsoleApp.MyClass2", VariablesReference = 16 },

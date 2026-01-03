@@ -305,7 +305,8 @@ public class AsyncStepper
                     }
                 };
 
-                shouldUseSimpleStepper = false;
+                // Don't set shouldUseSimpleStepper to false - the simple stepper should be created
+                // to handle stepping until the yield breakpoint is reached
                 return true;
             }
         }
@@ -392,6 +393,9 @@ public class AsyncStepper
 
         try
         {
+            // Disable all simple steppers when we hit the yield breakpoint
+            DisableAllSimpleSteppers(thread.Process);
+
             // Get async state machine ID for parallel execution tracking
             var function = frame.Function;
             var ilCode = function.ILCode;
@@ -445,8 +449,8 @@ public class AsyncStepper
             // Check if this is the same thread
             if (_currentAsyncStep!.ThreadId == thread.Id)
             {
-                // Same thread - stop
-                shouldStop = true;
+                // Same thread - set up stepper and clear async step
+                _debugger.SetupStepper(thread, _currentAsyncStep.InitialStepType);
                 _currentAsyncStep?.Dispose();
                 _currentAsyncStep = null;
                 return (true, shouldStop);
@@ -464,8 +468,8 @@ public class AsyncStepper
 
                     if (currentAddress == storedAddress)
                     {
-                        // Same async instance - stop
-                        shouldStop = true;
+                        // Same async instance - set up stepper and clear async step
+                        _debugger.SetupStepper(thread, _currentAsyncStep.InitialStepType);
                         _currentAsyncStep?.Dispose();
                         _currentAsyncStep = null;
                         return (true, shouldStop);
@@ -478,17 +482,17 @@ public class AsyncStepper
                 }
             }
 
-            // Can't determine - stop to be safe
-            shouldStop = true;
+            // Can't determine - set up stepper and clear async step
+            _debugger.SetupStepper(thread, _currentAsyncStep.InitialStepType);
             _currentAsyncStep?.Dispose();
             _currentAsyncStep = null;
             return (true, shouldStop);
         }
         catch (Exception)
         {
-            // If anything fails, stop to be safe
+            // If anything fails, set up stepper and clear async step
             throw;
-            shouldStop = true;
+            _debugger.SetupStepper(thread, _currentAsyncStep.InitialStepType);
             _currentAsyncStep?.Dispose();
             _currentAsyncStep = null;
             return (true, shouldStop);
@@ -636,6 +640,41 @@ public class AsyncStepper
         catch (Exception)
         {
             return false;
+        }
+    }
+
+    /// <summary>
+    /// Disable all simple steppers across all app domains
+    /// </summary>
+    private void DisableAllSimpleSteppers(CorDebugProcess process)
+    {
+        try
+        {
+            var appDomains = process.EnumerateAppDomains();
+            foreach (var appDomain in appDomains)
+            {
+                var steppers = appDomain.EnumerateSteppers();
+                foreach (var stepper in steppers)
+                {
+                    stepper.Deactivate();
+                }
+            }
+        }
+        catch (Exception)
+        {
+            // Ignore errors disabling steppers
+        }
+    }
+
+    /// <summary>
+    /// Clear active async step if step completed without hitting async breakpoint
+    /// </summary>
+    public void ClearActiveAsyncStep()
+    {
+        using (_lock2.Lock())
+        {
+            _currentAsyncStep?.Dispose();
+            _currentAsyncStep = null;
         }
     }
 

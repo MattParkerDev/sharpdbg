@@ -212,6 +212,54 @@ public partial class ManagedDebugger : IDisposable
     }
 
     private CorDebugStepper? _stepper;
+
+    /// <summary>
+    /// Setup a stepper without continuing execution
+    /// </summary>
+    internal CorDebugStepper? SetupStepper(CorDebugThread thread, AsyncStepper.StepType stepType)
+    {
+        var frame = thread.ActiveFrame;
+        if (frame is not CorDebugILFrame ilFrame)
+            return null;
+
+        if (_stepper is not null)
+            return null;
+
+        CorDebugStepper stepper = frame.CreateStepper();
+        stepper.SetUnmappedStopMask(CorDebugUnmappedStop.STOP_NONE);
+
+        if (stepType == AsyncStepper.StepType.StepOut)
+        {
+            stepper.StepOut();
+        }
+        else if (stepType == AsyncStepper.StepType.StepIn)
+        {
+            stepper.Step(true);
+        }
+        else // StepOver
+        {
+            var symbolReader = _modules[frame.Function.Module.BaseAddress].SymbolReader;
+            if (symbolReader == null)
+                return null;
+
+            var currentIlOffset = ilFrame.IP.pnOffset;
+            var (startIlOffset, endIlOffset) = symbolReader.GetStartAndEndSequencePointIlOffsetsForIlOffset(frame.Function.Token, currentIlOffset);
+            if (startIlOffset == endIlOffset)
+            {
+                endIlOffset = frame.Function.ILCode.Size;
+            }
+            var stepRange = new COR_DEBUG_STEP_RANGE
+            {
+                startOffset = startIlOffset,
+                endOffset = endIlOffset
+            };
+            stepper.StepRange(false, [stepRange], 1);
+        }
+
+        _stepper = stepper;
+        return stepper;
+    }
+
     /// <summary>
     /// Step to the next line
     /// </summary>
@@ -237,30 +285,13 @@ public partial class ManagedDebugger : IDisposable
                 }
             }
 
-            CorDebugStepper stepper = frame.CreateStepper();
-            //stepper.SetInterceptMask(CorDebugIntercept.INTERCEPT_NONE);
-            stepper.SetUnmappedStopMask(CorDebugUnmappedStop.STOP_NONE);
-            //stepper.SetJMC(true);
-            // we need to get the start IL Offset of the current sequence point, and the start IL Offset of the next sequence point
-            // This is our step range
-            var symbolReader = _modules[frame.Function.Module.BaseAddress].SymbolReader;
-			if (symbolReader == null) throw new InvalidOperationException("No symbol reader for module");
-			var currentIlOffset = ilFrame.IP.pnOffset;
-            var (startIlOffset, endIlOffset) = symbolReader.GetStartAndEndSequencePointIlOffsetsForIlOffset(frame.Function.Token, currentIlOffset);
-            if (startIlOffset == endIlOffset)
+            var stepper = SetupStepper(thread, AsyncStepper.StepType.StepOver);
+            if (stepper != null)
             {
-	            endIlOffset = frame.Function.ILCode.Size;
+                IsRunning = true;
+                _variableManager.ClearAndDisposeHandleValues();
+                _rawProcess?.Continue(false);
             }
-            var stepRange = new COR_DEBUG_STEP_RANGE
-            {
-	            startOffset = startIlOffset,
-	            endOffset = endIlOffset
-            };
-            stepper.StepRange(false, [stepRange], 1);
-            IsRunning = true;
-            _stepper = stepper;
-            _variableManager.ClearAndDisposeHandleValues();
-            _rawProcess?.Continue(false);
         }
     }
 
@@ -288,13 +319,13 @@ public partial class ManagedDebugger : IDisposable
                     }
                 }
 
-                var stepper = frame.CreateStepper();
-                stepper.SetUnmappedStopMask(CorDebugUnmappedStop.STOP_NONE);
-                stepper.Step(true);
-                IsRunning = true;
-                _stepper = stepper;
-                _variableManager.ClearAndDisposeHandleValues();
-                _rawProcess?.Continue(false);
+                var stepper = SetupStepper(thread, AsyncStepper.StepType.StepIn);
+                if (stepper != null)
+                {
+                    IsRunning = true;
+                    _variableManager.ClearAndDisposeHandleValues();
+                    _rawProcess?.Continue(false);
+                }
             }
         }
     }
@@ -322,13 +353,13 @@ public partial class ManagedDebugger : IDisposable
                     }
                 }
 
-                var stepper = frame.CreateStepper();
-                stepper.SetUnmappedStopMask(CorDebugUnmappedStop.STOP_NONE);
-                stepper.StepOut();
-                IsRunning = true;
-                _stepper = stepper;
-                _variableManager.ClearAndDisposeHandleValues();
-                _rawProcess?.Continue(false);
+                var stepper = SetupStepper(thread, AsyncStepper.StepType.StepOut);
+                if (stepper != null)
+                {
+                    IsRunning = true;
+                    _variableManager.ClearAndDisposeHandleValues();
+                    _rawProcess?.Continue(false);
+                }
             }
         }
     }
@@ -946,7 +977,7 @@ public partial class ManagedDebugger : IDisposable
     {
 	    var corThread = stepCompleteCorDebugManagedCallbackEventArgs.Thread;
         IsRunning = false;
-        _asyncStepper?.Disable();
+        _asyncStepper?.ClearActiveAsyncStep(); // Only clear if step completed without hitting async breakpoint
         var stepper = _stepper ?? throw new InvalidOperationException("No stepper found for step complete");
 		stepper.Deactivate(); // I really don't know if its necessary to deactivate the steppers once done
 		_stepper = null;

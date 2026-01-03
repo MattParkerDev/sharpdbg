@@ -38,7 +38,7 @@ public class SymbolReader : IDisposable
     public class AsyncMethodSteppingInfo
     {
         public List<AsyncAwaitInfo> AwaitInfos { get; set; } = new();
-        public uint LastUserCodeIlOffset { get; set; }
+        public int LastUserCodeIlOffset { get; set; }
     }
 
     private SymbolReader(MetadataReaderProvider provider, MetadataReader reader, MetadataReader peMetadataReader,
@@ -476,7 +476,7 @@ public class SymbolReader : IDisposable
                 if (sp.StartLine == 0 || sp.IsHidden || sp.Offset < 0)
                     continue;
 
-                result.LastUserCodeIlOffset = (uint)sp.Offset;
+                result.LastUserCodeIlOffset = sp.Offset;
                 foundOffset = true;
             }
         }

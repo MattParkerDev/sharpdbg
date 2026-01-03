@@ -455,7 +455,7 @@ public class SymbolReader : IDisposable
                 {
                     var yieldOffset = blobReader.ReadUInt32();
                     var resumeOffset = blobReader.ReadUInt32();
-                    var token = blobReader.ReadCompressedInteger();
+                    var token = (uint)blobReader.ReadCompressedInteger();
 
                     result.AwaitInfos.Add(new AsyncAwaitInfo(yieldOffset, resumeOffset));
                 }

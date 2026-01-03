@@ -207,6 +207,7 @@ public partial class ManagedDebugger : IDisposable
         {
             _rawProcess.Stop(0);
             IsRunning = false;
+            _asyncStepper?.Disable();
         }
     }
 
@@ -746,6 +747,7 @@ public partial class ManagedDebugger : IDisposable
 
     private void Cleanup()
     {
+        _asyncStepper?.Disable();
         _threads.Clear();
         _breakpointManager.Clear();
         _variableManager.ClearAndDisposeHandleValues();
@@ -931,6 +933,7 @@ public partial class ManagedDebugger : IDisposable
     {
 	    var corThread = stepCompleteCorDebugManagedCallbackEventArgs.Thread;
         IsRunning = false;
+        _asyncStepper?.Disable();
         var stepper = _stepper ?? throw new InvalidOperationException("No stepper found for step complete");
 		stepper.Deactivate(); // I really don't know if its necessary to deactivate the steppers once done
 		_stepper = null;
@@ -953,6 +956,7 @@ public partial class ManagedDebugger : IDisposable
     {
         var corThread = breakCorDebugManagedCallbackEventArgs.Thread;
         IsRunning = false;
+        _asyncStepper?.Disable();
         if (_stepper is not null)
         {
 	        _stepper.Deactivate();
@@ -965,6 +969,7 @@ public partial class ManagedDebugger : IDisposable
     {
 	    var corThread = exceptionCorDebugManagedCallbackEventArgs.Thread;
         IsRunning = false;
+        _asyncStepper?.Disable();
         if (_stepper is not null)
         {
 	        _stepper.Deactivate();
@@ -978,6 +983,8 @@ public partial class ManagedDebugger : IDisposable
         Cleanup();
         _process = null;
         _corDebug = null;
+        _asyncStepper?.Dispose();
+        _asyncStepper = null;
     }
 
     // Helper classes for scope tracking

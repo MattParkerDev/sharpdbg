@@ -270,4 +270,27 @@ public static class Extensions
 			evalCompleteTcs.SetResult();
 		}
 	}
+
+	// TODO: Consolidate with the instance method in CompiledExpressionInterpreter_ValueCreation.cs
+	public static CorDebugValue NewBooleanValue(this CorDebugEval eval, bool value)
+	{
+		var corValue = eval.CreateValue(CorElementType.Boolean, null);
+
+		if (value && corValue is CorDebugGenericValue genValue)
+		{
+			var size = genValue.Size;
+			var valueData = new byte[size];
+			valueData[0] = 1;
+			unsafe
+			{
+				fixed (byte* p = valueData)
+				{
+					var ptr = (IntPtr)p;
+					genValue.SetValue(ptr);
+				}
+			}
+		}
+
+		return corValue;
+	}
 }

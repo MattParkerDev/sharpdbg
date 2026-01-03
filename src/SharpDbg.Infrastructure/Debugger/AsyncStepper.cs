@@ -8,6 +8,7 @@ namespace SharpDbg.Infrastructure.Debugger;
 public class AsyncStepper
 {
 	private readonly CorDebugManagedCallback _managedCallback;
+	private readonly ManagedDebugger _debugger;
     private enum AsyncStepStatus
     {
         YieldBreakpoint,
@@ -24,8 +25,8 @@ public class AsyncStepper
     private class AsyncBreakpoint
     {
         public CorDebugFunctionBreakpoint? Breakpoint;
-        public long ModuleAddress;
-        public int MethodToken;
+        public CORDB_ADDRESS ModuleAddress;
+        public mdMethodDef MethodToken;
         public uint ILOffset;
 
         public void Deactivate()
@@ -74,10 +75,109 @@ public class AsyncStepper
     private AsyncBreakpoint? _notifyDebuggerBreakpoint;
     private readonly object _lock = new();
 
-    public AsyncStepper(Dictionary<long, ModuleInfo> modules, CorDebugManagedCallback managedCallback)
+    public AsyncStepper(Dictionary<long, ModuleInfo> modules, CorDebugManagedCallback managedCallback, ManagedDebugger debugger)
     {
 	    _modules = modules;
 	    _managedCallback = managedCallback;
+	    _debugger = debugger;
+    }
+
+    /// <summary>
+    /// Call SetNotificationForWaitCompletion on the async builder
+    /// </summary>
+    private bool SetNotificationForWaitCompletion(CorDebugValue builder, CorDebugILFrame? frame, CorDebugThread thread)
+    {
+        try
+        {
+            var objectValue = builder.UnwrapDebugValueToObject();
+            var @class = objectValue.Class;
+            var module = @class.Module;
+            var metadataImport = module.GetMetaDataInterface().MetaDataImport;
+
+            // Find SetNotificationForWaitCompletion method
+            var methodDef = metadataImport.FindMethod(@class.Token, "SetNotificationForWaitCompletion", 0, 0);
+            if (methodDef.IsNil)
+                return false;
+
+            var function = module.GetFunctionFromToken(methodDef);
+            var eval = thread.CreateEval();
+
+            var boolValue = eval.NewBooleanValue(true);
+
+            // Call builder.SetNotificationForWaitCompletion(true)
+            var typeParameterArgs = objectValue.ExactType.TypeParameters.Select(t => t.Raw).ToArray();
+            var result = eval.CallParameterizedFunctionAsync(
+                _managedCallback,
+                function,
+                typeParameterArgs.Length,
+                typeParameterArgs,
+                2,
+                [builder.Raw, boolValue.Raw]
+            ).GetAwaiter().GetResult();
+
+            return true;
+        }
+        catch (Exception)
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Setup breakpoint in Task.NotifyDebuggerOfWaitCompletion method
+    /// </summary>
+    private bool SetupNotifyDebuggerOfWaitCompletionBreakpoint(CorDebugThread thread)
+    {
+        try
+        {
+            const string assemblyName = "System.Private.CoreLib.dll";
+            const string className = "System.Threading.Tasks.Task";
+            const string methodName = "NotifyDebuggerOfWaitCompletion";
+
+            // Find the module
+            CorDebugModule? targetModule = null;
+            foreach (var module in _modules.Values)
+            {
+                if (module.Module.Name.EndsWith(assemblyName, StringComparison.OrdinalIgnoreCase))
+                {
+                    targetModule = module.Module;
+                    break;
+                }
+            }
+
+            if (targetModule == null)
+                return false;
+
+            // TODO: This doesn't need to be looked up every time
+            var metadataImport = targetModule.GetMetaDataInterface().MetaDataImport;
+            var classDef = metadataImport.FindTypeDefByNameOrNull(className, mdToken.Nil);
+            if (classDef is null) return false;
+
+            var methodDef = metadataImport.FindMethod(classDef.Value, methodName, 0, 0);
+            if (methodDef.IsNil) return false;
+
+            var function = targetModule.GetFunctionFromToken(methodDef);
+            var ilCode = function.ILCode;
+            var breakpoint = ilCode.CreateBreakpoint(0);
+            breakpoint.Activate(true);
+
+            lock (_lock)
+            {
+                _notifyDebuggerBreakpoint = new AsyncBreakpoint
+                {
+                    Breakpoint = breakpoint,
+                    ModuleAddress = targetModule.BaseAddress,
+                    MethodToken = methodDef,
+                    ILOffset = 0
+                };
+            }
+
+            return true;
+        }
+        catch (Exception)
+        {
+            return false;
+        }
     }
 
     /// <summary>
@@ -139,8 +239,34 @@ public class AsyncStepper
 
                 if (stepType == StepType.StepOut)
                 {
-                    // For step-out, we'll use SetNotificationForWaitCompletion
-                    // This will be handled in a separate method
+                    // For step-out in async method with await, check if we need NotifyDebuggerOfWaitCompletion
+                    var builder = GetAsyncBuilder(frame as CorDebugILFrame);
+                    if (builder != null)
+                    {
+                        // Check if builder is AsyncVoidMethodBuilder
+                        var builderType = ManagedDebugger.GetCorDebugTypeFriendlyName(builder.ExactType);
+                        if (builderType == "System.Runtime.CompilerServices.AsyncVoidMethodBuilder")
+                        {
+                            // async void method - use normal step-out
+                            return false;
+                        }
+
+                        // Not async void - use NotifyDebuggerOfWaitCompletion magic
+                        var success = SetNotificationForWaitCompletion(builder, frame as CorDebugILFrame, thread);
+                        if (success)
+                        {
+                            // Setup breakpoint in Task.NotifyDebuggerOfWaitCompletion
+                            var notifyBpSuccess = SetupNotifyDebuggerOfWaitCompletionBreakpoint(thread);
+                            if (notifyBpSuccess)
+                            {
+                                // Async step-out handled - no need for stepper
+                                shouldUseSimpleStepper = false;
+                                return true;
+                            }
+                        }
+                    }
+
+                    // Fall back to normal step-out
                     return false;
                 }
 

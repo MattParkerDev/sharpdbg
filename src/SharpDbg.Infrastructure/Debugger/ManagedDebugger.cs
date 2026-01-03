@@ -885,7 +885,8 @@ public partial class ManagedDebugger : IDisposable
         ContinueProcess();
     }
 
-    private void HandleBreakpoint(object? sender, BreakpointCorDebugManagedCallbackEventArgs breakpointCorDebugManagedCallbackEventArgs)
+    // TODO: Wrap in try catch
+    private async void HandleBreakpoint(object? sender, BreakpointCorDebugManagedCallbackEventArgs breakpointCorDebugManagedCallbackEventArgs)
     {
 	    //System.Diagnostics.Debugger.Launch();
 	    var breakpoint = breakpointCorDebugManagedCallbackEventArgs.Breakpoint;
@@ -901,10 +902,10 @@ public partial class ManagedDebugger : IDisposable
         // Check if async stepper handles this breakpoint
         if (_asyncStepper != null)
         {
-            bool asyncHandled = _asyncStepper.TryHandleBreakpoint(corThread, functionBreakpoint, out bool shouldStop);
+            var (asyncHandled, shouldStop) = await _asyncStepper.TryHandleBreakpoint(corThread, functionBreakpoint);
             if (asyncHandled)
             {
-                if (shouldStop)
+                if (shouldStop is true)
                 {
                     IsRunning = false;
                     if (_stepper is not null)

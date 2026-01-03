@@ -1,4 +1,5 @@
 using ClrDebug;
+using NeoSmart.AsyncLock;
 
 namespace SharpDbg.Infrastructure.Debugger;
 
@@ -73,7 +74,7 @@ public class AsyncStepper
     private readonly Dictionary<long, ModuleInfo> _modules;
     private AsyncStep? _currentAsyncStep;
     private AsyncBreakpoint? _notifyDebuggerBreakpoint;
-    private readonly object _lock = new();
+    private readonly AsyncLock _lock2 = new AsyncLock();
 
     public AsyncStepper(Dictionary<long, ModuleInfo> modules, CorDebugManagedCallback managedCallback, ManagedDebugger debugger)
     {
@@ -161,7 +162,7 @@ public class AsyncStepper
             var breakpoint = ilCode.CreateBreakpoint(0);
             breakpoint.Activate(true);
 
-            lock (_lock)
+            using (_lock2.Lock())
             {
                 _notifyDebuggerBreakpoint = new AsyncBreakpoint
                 {
@@ -231,7 +232,7 @@ public class AsyncStepper
                 }
             }
 
-            lock (_lock)
+            using (_lock2.Lock())
             {
                 // Clean up any existing async step
                 _currentAsyncStep?.Dispose();
@@ -311,6 +312,7 @@ public class AsyncStepper
         catch (Exception)
         {
             // If anything goes wrong, fall back to simple stepper
+            throw;
             return false;
         }
     }
@@ -322,11 +324,9 @@ public class AsyncStepper
     /// <param name="breakpoint">Breakpoint that was hit</param>
     /// <param name="shouldStop">Output: whether execution should stop</param>
     /// <returns>True if breakpoint was handled by async stepper</returns>
-    public bool TryHandleBreakpoint(CorDebugThread thread, CorDebugFunctionBreakpoint breakpoint, out bool shouldStop)
+    public async Task<(bool HandledByAsyncStepper, bool? ShouldStop)> TryHandleBreakpoint(CorDebugThread thread, CorDebugFunctionBreakpoint breakpoint)
     {
-        shouldStop = false;
-
-        lock (_lock)
+        using (await _lock2.LockAsync())
         {
             // Check if it's our NotifyDebuggerOfWaitCompletion breakpoint
             if (_notifyDebuggerBreakpoint != null &&
@@ -337,13 +337,12 @@ public class AsyncStepper
                 _notifyDebuggerBreakpoint = null;
 
                 // Continue with normal step-out
-                shouldStop = true;
-                return true;
+                return (true, true);
             }
 
             // Check if we have an active async step
             if (_currentAsyncStep == null)
-                return false;
+                return (false, null);
 
             // Check if breakpoint matches our async step
             if (!MatchesBreakpoint(breakpoint, _currentAsyncStep.Breakpoint!, thread))
@@ -351,7 +350,7 @@ public class AsyncStepper
                 // Different breakpoint hit - cancel async stepping
                 _currentAsyncStep?.Dispose();
                 _currentAsyncStep = null;
-                return false;
+                return (false, null);
             }
 
             // Check if IP matches expected offset
@@ -360,7 +359,7 @@ public class AsyncStepper
             {
                 _currentAsyncStep?.Dispose();
                 _currentAsyncStep = null;
-                return false;
+                return (false, null);
             }
 
             var ipResult = frame.IP;
@@ -369,32 +368,34 @@ public class AsyncStepper
                 // Wrong offset - cancel async stepping
                 _currentAsyncStep?.Dispose();
                 _currentAsyncStep = null;
-                return false;
+                return (false, null);
             }
 
             if (_currentAsyncStep.Status == AsyncStepStatus.YieldBreakpoint)
             {
                 // Yield breakpoint hit - switch to resume breakpoint
-                return HandleYieldBreakpoint(thread, frame, out shouldStop);
+                return await HandleYieldBreakpoint(thread, frame);
             }
             else if (_currentAsyncStep.Status == AsyncStepStatus.ResumeBreakpoint)
             {
                 // Resume breakpoint hit - check if we should stop
-                return HandleResumeBreakpoint(thread, out shouldStop);
+                return await HandleResumeBreakpoint(thread);
             }
         }
 
-        return false;
+        return (false, null);
     }
 
-    private bool HandleYieldBreakpoint(CorDebugThread thread, CorDebugILFrame frame, out bool shouldStop)
+    private async Task<(bool HandledByAsyncStepper, bool? ShouldStop)> HandleYieldBreakpoint(CorDebugThread thread, CorDebugILFrame frame)
     {
-        shouldStop = false;
+        var shouldStop = false;
 
         try
         {
             // Get async state machine ID for parallel execution tracking
-            var asyncId = GetAsyncIdReference(thread, frame);
+            var function = frame.Function;
+            var ilCode = function.ILCode;
+            var asyncId = await GetAsyncIdReference(thread, frame);
             if (asyncId != null)
             {
                 // Create strong handle to prevent invalidation
@@ -404,8 +405,7 @@ public class AsyncStepper
             }
 
             // Create resume breakpoint
-            var function = frame.Function;
-            var ilCode = function.ILCode;
+
             var resumeBreakpoint = ilCode.CreateBreakpoint((int)_currentAsyncStep!.ResumeOffset);
             resumeBreakpoint.Activate(true);
 
@@ -423,7 +423,7 @@ public class AsyncStepper
             _currentAsyncStep!.Status = AsyncStepStatus.ResumeBreakpoint;
 
             // Continue execution
-            return true;
+            return (true, shouldStop);
         }
         catch (Exception)
         {
@@ -431,13 +431,14 @@ public class AsyncStepper
             _currentAsyncStep?.Dispose();
             _currentAsyncStep = null;
             shouldStop = true;
-            return true;
+            throw;
+            return (true, shouldStop);
         }
     }
 
-    private bool HandleResumeBreakpoint(CorDebugThread thread, out bool shouldStop)
+    private async Task<(bool HandledByAsyncStepper, bool? ShouldStop)> HandleResumeBreakpoint(CorDebugThread thread)
     {
-        shouldStop = false;
+        var shouldStop = false;
 
         try
         {
@@ -448,13 +449,13 @@ public class AsyncStepper
                 shouldStop = true;
                 _currentAsyncStep?.Dispose();
                 _currentAsyncStep = null;
-                return true;
+                return (true, shouldStop);
             }
 
             // Different thread - check async ID
             if (_currentAsyncStep!.AsyncIdHandle != null)
             {
-                var currentAsyncId = GetAsyncIdReference(thread, thread.ActiveFrame as CorDebugILFrame);
+                var currentAsyncId = await GetAsyncIdReference(thread, thread.ActiveFrame as CorDebugILFrame);
                 if (currentAsyncId != null)
                 {
                     var currentAddress = currentAsyncId.Address;
@@ -467,12 +468,12 @@ public class AsyncStepper
                         shouldStop = true;
                         _currentAsyncStep?.Dispose();
                         _currentAsyncStep = null;
-                        return true;
+                        return (true, shouldStop);
                     }
                     else
                     {
                         // Different async instance - continue
-                        return true;
+                        return (true, shouldStop);
                     }
                 }
             }
@@ -481,15 +482,16 @@ public class AsyncStepper
             shouldStop = true;
             _currentAsyncStep?.Dispose();
             _currentAsyncStep = null;
-            return true;
+            return (true, shouldStop);
         }
         catch (Exception)
         {
             // If anything fails, stop to be safe
+            throw;
             shouldStop = true;
             _currentAsyncStep?.Dispose();
             _currentAsyncStep = null;
-            return true;
+            return (true, shouldStop);
         }
     }
 
@@ -511,7 +513,7 @@ public class AsyncStepper
         return null;
     }
 
-    private CorDebugValue? GetAsyncIdReference(CorDebugThread thread, CorDebugILFrame? frame)
+    private async Task<CorDebugValue?> GetAsyncIdReference(CorDebugThread thread, CorDebugILFrame? frame)
     {
         try
         {
@@ -522,7 +524,7 @@ public class AsyncStepper
             if (builder == null)
                 return null;
 
-            var objectId = GetObjectIdForDebugger(builder, frame, thread);
+            var objectId = await GetObjectIdForDebugger(builder, frame, thread);
             return objectId;
         }
         catch (Exception)
@@ -576,7 +578,7 @@ public class AsyncStepper
         }
     }
 
-    private CorDebugValue? GetObjectIdForDebugger(CorDebugValue builder, CorDebugILFrame frame, CorDebugThread thread)
+    private async Task<CorDebugValue?> GetObjectIdForDebugger(CorDebugValue builder, CorDebugILFrame frame, CorDebugThread thread)
     {
         try
         {
@@ -598,14 +600,14 @@ public class AsyncStepper
             var eval = frame.Chain.Thread.CreateEval();
 
             // Call ObjectIdForDebugger getter
-            var result = eval.CallParameterizedFunctionAsync(
+            var result = await eval.CallParameterizedFunctionAsync(
 	            _managedCallback,
-                getMethod,
-                builder.ExactType.TypeParameters.Length,
-                builder.ExactType.TypeParameters.Select(t => t.Raw).ToArray(),
-                1,
-                [builder.Raw]
-            ).GetAwaiter().GetResult();
+	            getMethod,
+	            builder.ExactType.TypeParameters.Length,
+	            builder.ExactType.TypeParameters.Select(t => t.Raw).ToArray(),
+	            1,
+	            [builder.Raw]
+            );
 
             return result;
         }
@@ -642,7 +644,7 @@ public class AsyncStepper
     /// </summary>
     public void Disable()
     {
-        lock (_lock)
+        using (_lock2.Lock())
         {
             _currentAsyncStep?.Dispose();
             _currentAsyncStep = null;

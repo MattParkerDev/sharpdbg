@@ -919,58 +919,65 @@ public partial class ManagedDebugger : IDisposable
     // TODO: Wrap in try catch
     private async void HandleBreakpoint(object? sender, BreakpointCorDebugManagedCallbackEventArgs breakpointCorDebugManagedCallbackEventArgs)
     {
-	    //System.Diagnostics.Debugger.Launch();
-	    var breakpoint = breakpointCorDebugManagedCallbackEventArgs.Breakpoint;
-	    ArgumentNullException.ThrowIfNull(breakpoint);
-	    if (breakpoint is not CorDebugFunctionBreakpoint functionBreakpoint)
+	    try
 	    {
-		    _logger?.Invoke("Unknown breakpoint type hit");
-		    ContinueProcess(); // may be incorrect
-		    return;
+		    //System.Diagnostics.Debugger.Launch();
+		    var breakpoint = breakpointCorDebugManagedCallbackEventArgs.Breakpoint;
+		    ArgumentNullException.ThrowIfNull(breakpoint);
+		    if (breakpoint is not CorDebugFunctionBreakpoint functionBreakpoint)
+		    {
+			    _logger?.Invoke("Unknown breakpoint type hit");
+			    ContinueProcess(); // may be incorrect
+			    return;
+		    }
+		    var corThread = breakpointCorDebugManagedCallbackEventArgs.Thread;
+
+		    // Check if async stepper handles this breakpoint
+		    if (_asyncStepper != null)
+		    {
+			    var (asyncHandled, shouldStop) = await _asyncStepper.TryHandleBreakpoint(corThread, functionBreakpoint);
+			    if (asyncHandled)
+			    {
+				    if (shouldStop is true)
+				    {
+					    IsRunning = false;
+					    if (_stepper is not null)
+					    {
+						    _stepper.Deactivate();
+						    _stepper = null;
+					    }
+					    var sourceInfoNullable = GetSourceInfoAtFrame(corThread.ActiveFrame);
+					    if (sourceInfoNullable is {} sourceInfo)
+					    {
+						    OnStopped2?.Invoke(corThread.Id, sourceInfo.FilePath, sourceInfo.StartLine, "step");
+					    }
+					    else
+					    {
+						    OnStopped?.Invoke(corThread.Id, "step");
+					    }
+				    }
+				    else
+				    {
+					    ContinueProcess();
+				    }
+				    return;
+			    }
+		    }
+
+		    var managedBreakpoint = _breakpointManager.FindByCorBreakpoint(functionBreakpoint.Raw);
+		    ArgumentNullException.ThrowIfNull(managedBreakpoint);
+		    IsRunning = false;
+		    if (_stepper is not null)
+		    {
+			    _stepper.Deactivate();
+			    _stepper = null;
+		    }
+		    OnStopped2?.Invoke(corThread.Id, managedBreakpoint.FilePath, managedBreakpoint.Line, "breakpoint");
 	    }
-	    var corThread = breakpointCorDebugManagedCallbackEventArgs.Thread;
-
-        // Check if async stepper handles this breakpoint
-        if (_asyncStepper != null)
-        {
-            var (asyncHandled, shouldStop) = await _asyncStepper.TryHandleBreakpoint(corThread, functionBreakpoint);
-            if (asyncHandled)
-            {
-                if (shouldStop is true)
-                {
-                    IsRunning = false;
-                    if (_stepper is not null)
-                    {
-                        _stepper.Deactivate();
-                        _stepper = null;
-                    }
-                    var sourceInfoNullable = GetSourceInfoAtFrame(corThread.ActiveFrame);
-                    if (sourceInfoNullable is {} sourceInfo)
-                    {
-                        OnStopped2?.Invoke(corThread.Id, sourceInfo.FilePath, sourceInfo.StartLine, "step");
-                    }
-                    else
-                    {
-                        OnStopped?.Invoke(corThread.Id, "step");
-                    }
-                }
-                else
-                {
-                    ContinueProcess();
-                }
-                return;
-            }
-        }
-
-	    var managedBreakpoint = _breakpointManager.FindByCorBreakpoint(functionBreakpoint.Raw);
-	    ArgumentNullException.ThrowIfNull(managedBreakpoint);
-        IsRunning = false;
-        if (_stepper is not null)
-        {
-	        _stepper.Deactivate();
-	        _stepper = null;
-        }
-        OnStopped2?.Invoke(corThread.Id, managedBreakpoint.FilePath, managedBreakpoint.Line, "breakpoint");
+	    catch (Exception e)
+	    {
+		    throw; // TODO handle exception
+	    }
     }
 
     private void HandleStepComplete(object? sender, StepCompleteCorDebugManagedCallbackEventArgs stepCompleteCorDebugManagedCallbackEventArgs)

@@ -374,6 +374,10 @@ public class AsyncStepper
 
             if (_currentAsyncStep.Status == AsyncStepStatus.YieldBreakpoint)
             {
+	            if (_currentAsyncStep.ThreadId != thread.Id)
+	            {
+		            return (false, null);
+	            }
                 // Yield breakpoint hit - switch to resume breakpoint
                 return await HandleYieldBreakpoint(thread, frame);
             }
@@ -420,7 +424,7 @@ public class AsyncStepper
             _currentAsyncStep!.Breakpoint = new AsyncBreakpoint
             {
                 Breakpoint = resumeBreakpoint,
-                ModuleAddress = (long)function.Module.BaseAddress,
+                ModuleAddress = function.Module.BaseAddress,
                 MethodToken = function.Token,
                 ILOffset = _currentAsyncStep!.ResumeOffset
             };
@@ -466,26 +470,26 @@ public class AsyncStepper
                     var dereferencedHandle = _currentAsyncStep!.AsyncIdHandle!.Dereference();
                     var storedAddress = dereferencedHandle.Address;
 
-                    if (currentAddress == storedAddress)
+                    if (currentAddress == storedAddress || currentAddress == 0 || storedAddress == 0)
                     {
                         // Same async instance - set up stepper and clear async step
                         _debugger.SetupStepper(thread, _currentAsyncStep.InitialStepType);
                         _currentAsyncStep?.Dispose();
                         _currentAsyncStep = null;
-                        return (true, shouldStop);
+                        //return (true, shouldStop);
                     }
                     else
                     {
                         // Different async instance - continue
-                        return (true, shouldStop);
+                        //return (true, shouldStop);
                     }
                 }
             }
 
             // Can't determine - set up stepper and clear async step
-            _debugger.SetupStepper(thread, _currentAsyncStep.InitialStepType);
-            _currentAsyncStep?.Dispose();
-            _currentAsyncStep = null;
+            //_debugger.SetupStepper(thread, _currentAsyncStep.InitialStepType);
+            //_currentAsyncStep?.Dispose();
+            //_currentAsyncStep = null;
             return (true, shouldStop);
         }
         catch (Exception)

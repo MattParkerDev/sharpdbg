@@ -310,6 +310,18 @@ public partial class ManagedDebugger : IDisposable
             var frame = thread.ActiveFrame;
             if (frame != null)
             {
+                // Try async stepping first
+                if (_asyncStepper != null && _asyncStepper.TrySetupAsyncStep(thread, AsyncStepper.StepType.StepOut, out var useSimpleStepper))
+                {
+                    if (!useSimpleStepper)
+                    {
+                        IsRunning = true;
+                        _variableManager.ClearAndDisposeHandleValues();
+                        _rawProcess?.Continue(false);
+                        return;
+                    }
+                }
+
                 var stepper = frame.CreateStepper();
                 stepper.SetUnmappedStopMask(CorDebugUnmappedStop.STOP_NONE);
                 stepper.StepOut();

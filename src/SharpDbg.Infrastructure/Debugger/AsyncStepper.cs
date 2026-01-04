@@ -394,49 +394,35 @@ public class AsyncStepper
 
     private async Task<(bool HandledByAsyncStepper, bool? ShouldStop)> HandleYieldBreakpoint(CorDebugThread thread, CorDebugILFrame frame)
     {
-        var shouldStop = false;
+        // Disable all simple steppers when we hit the yield breakpoint
+        DisableAllSimpleSteppers(thread.Process);
 
-        try
+        // Get async state machine ID for parallel execution tracking
+        var function = frame.Function;
+        var ilCode = function.ILCode;
+        var asyncIdHandleValue = await GetAsyncIdReference(thread, frame);
+        Guard.Against.Null(asyncIdHandleValue);
+        _currentAsyncStep!.AsyncIdHandle = asyncIdHandleValue;
+
+        // Create resume breakpoint
+        var resumeBreakpoint = ilCode.CreateBreakpoint((int)_currentAsyncStep!.ResumeOffset);
+        resumeBreakpoint.Activate(true);
+
+        // Deactivate yield breakpoint
+        _currentAsyncStep!.Breakpoint?.Deactivate();
+
+        // Update state
+        _currentAsyncStep!.Breakpoint = new AsyncBreakpoint
         {
-            // Disable all simple steppers when we hit the yield breakpoint
-            DisableAllSimpleSteppers(thread.Process);
+            Breakpoint = resumeBreakpoint,
+            ModuleAddress = function.Module.BaseAddress,
+            MethodToken = function.Token,
+            ILOffset = _currentAsyncStep!.ResumeOffset
+        };
+        _currentAsyncStep!.Status = AsyncStepStatus.ResumeBreakpoint;
 
-            // Get async state machine ID for parallel execution tracking
-            var function = frame.Function;
-            var ilCode = function.ILCode;
-            var asyncIdHandleValue = await GetAsyncIdReference(thread, frame);
-            Guard.Against.Null(asyncIdHandleValue);
-            _currentAsyncStep!.AsyncIdHandle = asyncIdHandleValue;
-
-            // Create resume breakpoint
-            var resumeBreakpoint = ilCode.CreateBreakpoint((int)_currentAsyncStep!.ResumeOffset);
-            resumeBreakpoint.Activate(true);
-
-            // Deactivate yield breakpoint
-            _currentAsyncStep!.Breakpoint?.Deactivate();
-
-            // Update state
-            _currentAsyncStep!.Breakpoint = new AsyncBreakpoint
-            {
-                Breakpoint = resumeBreakpoint,
-                ModuleAddress = function.Module.BaseAddress,
-                MethodToken = function.Token,
-                ILOffset = _currentAsyncStep!.ResumeOffset
-            };
-            _currentAsyncStep!.Status = AsyncStepStatus.ResumeBreakpoint;
-
-            // Continue execution
-            return (true, shouldStop);
-        }
-        catch (Exception)
-        {
-            // If anything fails, cancel async stepping
-            _currentAsyncStep?.Dispose();
-            _currentAsyncStep = null;
-            shouldStop = true;
-            throw;
-            return (true, shouldStop);
-        }
+        // Continue execution
+        return (true, false);
     }
 
     private async Task<(bool HandledByAsyncStepper, bool? ShouldStop)> HandleResumeBreakpoint(CorDebugThread thread)

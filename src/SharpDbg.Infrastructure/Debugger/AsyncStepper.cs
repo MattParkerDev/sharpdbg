@@ -480,24 +480,14 @@ public class AsyncStepper
         return null;
     }
 
-    private async Task<CorDebugHandleValue?> GetAsyncIdReference(CorDebugThread thread, CorDebugILFrame? frame)
+    private async Task<CorDebugHandleValue?> GetAsyncIdReference(CorDebugThread thread, CorDebugILFrame frame)
     {
-        try
-        {
-            if (frame == null)
-                return null;
+	    Guard.Against.Null(frame);
+        var builder = GetAsyncBuilder(frame);
+        if (builder == null) return null;
 
-            var builder = GetAsyncBuilder(frame);
-            if (builder == null)
-                return null;
-
-            var objectId = await GetObjectIdForDebugger(builder, frame, thread);
-            return objectId;
-        }
-        catch (Exception)
-        {
-            return null;
-        }
+        var objectId = await GetObjectIdForDebugger(builder, frame);
+        return objectId;
     }
 
     private CorDebugValue? GetAsyncBuilder(CorDebugILFrame frame)
@@ -545,45 +535,38 @@ public class AsyncStepper
         }
     }
 
-    private async Task<CorDebugHandleValue?> GetObjectIdForDebugger(CorDebugValue builder, CorDebugILFrame frame, CorDebugThread thread)
+    private async Task<CorDebugHandleValue?> GetObjectIdForDebugger(CorDebugValue builder, CorDebugILFrame frame)
     {
-        try
-        {
-            var objectValue = builder.UnwrapDebugValueToObject();
-            var @class = objectValue.Class;
-            var module = @class.Module;
-            var metadataImport = module.GetMetaDataInterface().MetaDataImport;
 
-            var propertyDef = metadataImport.GetPropertyWithName(@class.Token, "ObjectIdForDebugger");
-            if (propertyDef == null || propertyDef.Value.IsNil)
-                return null;
+        var objectValue = builder.UnwrapDebugValueToObject();
+        var @class = objectValue.Class;
+        var module = @class.Module;
+        var metadataImport = module.GetMetaDataInterface().MetaDataImport;
 
-            var propertyProps = metadataImport.GetPropertyProps(propertyDef.Value);
-            var getMethodDef = propertyProps.pmdGetter;
-            if (getMethodDef.IsNil)
-                return null;
+        var propertyDef = metadataImport.GetPropertyWithName(@class.Token, "ObjectIdForDebugger");
+        if (propertyDef == null || propertyDef.Value.IsNil)
+            return null;
 
-            var getMethod = module.GetFunctionFromToken(getMethodDef);
-            var eval = frame.Chain.Thread.CreateEval();
+        var propertyProps = metadataImport.GetPropertyProps(propertyDef.Value);
+        var getMethodDef = propertyProps.pmdGetter;
+        if (getMethodDef.IsNil)
+            return null;
 
-            // Call ObjectIdForDebugger getter
-            var result = await eval.CallParameterizedFunctionAsync(
-	            _managedCallback,
-	            getMethod,
-	            builder.ExactType.TypeParameters.Length,
-	            builder.ExactType.TypeParameters.Select(t => t.Raw).ToArray(),
-	            1,
-	            [builder.Raw]
-            );
+        var getMethod = module.GetFunctionFromToken(getMethodDef);
+        var eval = frame.Chain.Thread.CreateEval();
 
-			if (result is not CorDebugHandleValue handleValue) throw new InvalidOperationException("ObjectIdForDebugger is not a handle value");
-            return handleValue;
-        }
-        catch (Exception)
-        {
-	        throw;
-	        //return null;
-        }
+        // Call ObjectIdForDebugger getter
+        var result = await eval.CallParameterizedFunctionAsync(
+            _managedCallback,
+            getMethod,
+            builder.ExactType.TypeParameters.Length,
+            builder.ExactType.TypeParameters.Select(t => t.Raw).ToArray(),
+            1,
+            [builder.Raw]
+        );
+
+		if (result is not CorDebugHandleValue handleValue) throw new InvalidOperationException("ObjectIdForDebugger is not a handle value");
+        return handleValue;
     }
 
     private bool MatchesBreakpoint(CorDebugFunctionBreakpoint breakpoint, AsyncBreakpoint asyncBp, CorDebugThread thread)

@@ -466,14 +466,14 @@ public class AsyncStepper
                 var currentAsyncId = await GetAsyncIdReference(thread, thread.ActiveFrame as CorDebugILFrame);
                 if (currentAsyncId != null)
                 {
-                    var currentAddress = currentAsyncId.Address;
+                    var currentAddress = currentAsyncId.Dereference().Address;
                     var dereferencedHandle = _currentAsyncStep!.AsyncIdHandle!.Dereference();
                     var storedAddress = dereferencedHandle.Address;
 
                     if (currentAddress == storedAddress || currentAddress == 0 || storedAddress == 0)
                     {
                         // Same async instance - set up stepper and clear async step
-                        _debugger.SetupStepper(thread, _currentAsyncStep.InitialStepType);
+                        var stepper = _debugger.SetupStepper(thread, _currentAsyncStep.InitialStepType);
                         _currentAsyncStep?.Dispose();
                         _currentAsyncStep = null;
                         //return (true, shouldStop);
@@ -521,7 +521,7 @@ public class AsyncStepper
         return null;
     }
 
-    private async Task<CorDebugValue?> GetAsyncIdReference(CorDebugThread thread, CorDebugILFrame? frame)
+    private async Task<CorDebugHandleValue?> GetAsyncIdReference(CorDebugThread thread, CorDebugILFrame? frame)
     {
         try
         {
@@ -586,7 +586,7 @@ public class AsyncStepper
         }
     }
 
-    private async Task<CorDebugValue?> GetObjectIdForDebugger(CorDebugValue builder, CorDebugILFrame frame, CorDebugThread thread)
+    private async Task<CorDebugHandleValue?> GetObjectIdForDebugger(CorDebugValue builder, CorDebugILFrame frame, CorDebugThread thread)
     {
         try
         {
@@ -617,11 +617,13 @@ public class AsyncStepper
 	            [builder.Raw]
             );
 
-            return result;
+			if (result is not CorDebugHandleValue handleValue) throw new InvalidOperationException("ObjectIdForDebugger is not a handle value");
+            return handleValue;
         }
         catch (Exception)
         {
-            return null;
+	        throw;
+	        //return null;
         }
     }
 

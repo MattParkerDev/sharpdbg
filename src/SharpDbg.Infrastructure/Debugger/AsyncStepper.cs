@@ -429,49 +429,37 @@ public class AsyncStepper
     {
         var shouldStop = false;
 
-        try
+        // Check if this is the same thread
+        if (_currentAsyncStep!.ThreadId == thread.Id)
         {
-            // Check if this is the same thread
-            if (_currentAsyncStep!.ThreadId == thread.Id)
-            {
-                // Same thread - set up stepper and clear async step
-                _debugger.SetupStepper(thread, _currentAsyncStep.InitialStepType);
-                _currentAsyncStep?.Dispose();
-                _currentAsyncStep = null;
-                return (true, shouldStop);
-            }
-
-            // Different thread - check async ID
-            if (_currentAsyncStep!.AsyncIdHandle is not null)
-            {
-                var currentAsyncId = await GetAsyncIdReference(thread, thread.ActiveFrame as CorDebugILFrame);
-                if (currentAsyncId is not null)
-                {
-                    var currentAddress = currentAsyncId.Dereference().Address;
-                    var dereferencedHandle = _currentAsyncStep!.AsyncIdHandle!.Dereference();
-                    var storedAddress = dereferencedHandle.Address;
-
-                    if (currentAddress == storedAddress || currentAddress == 0 || storedAddress == 0)
-                    {
-                        // Same async instance - set up stepper and clear async step
-                        var stepper = _debugger.SetupStepper(thread, _currentAsyncStep.InitialStepType);
-                        _currentAsyncStep?.Dispose();
-                        _currentAsyncStep = null;
-                    }
-                }
-            }
-
-            return (true, shouldStop);
-        }
-        catch (Exception)
-        {
-            // If anything fails, set up stepper and clear async step
-            throw;
+            // Same thread - set up stepper and clear async step
             _debugger.SetupStepper(thread, _currentAsyncStep.InitialStepType);
             _currentAsyncStep?.Dispose();
             _currentAsyncStep = null;
             return (true, shouldStop);
         }
+
+        // Different thread - check async ID
+        if (_currentAsyncStep!.AsyncIdHandle is not null)
+        {
+            var currentAsyncId = await GetAsyncIdReference(thread, thread.ActiveFrame as CorDebugILFrame);
+            if (currentAsyncId is not null)
+            {
+                var currentAddress = currentAsyncId.Dereference().Address;
+                var dereferencedHandle = _currentAsyncStep!.AsyncIdHandle!.Dereference();
+                var storedAddress = dereferencedHandle.Address;
+
+                if (currentAddress == storedAddress || currentAddress == 0 || storedAddress == 0)
+                {
+                    // Same async instance - set up stepper and clear async step
+                    var stepper = _debugger.SetupStepper(thread, _currentAsyncStep.InitialStepType);
+                    _currentAsyncStep?.Dispose();
+                    _currentAsyncStep = null;
+                }
+            }
+        }
+
+        return (true, shouldStop);
     }
 
     private SymbolReader.AsyncAwaitInfo? FindNextAwaitInfo(SymbolReader.AsyncMethodSteppingInfo asyncInfo, uint currentOffset)

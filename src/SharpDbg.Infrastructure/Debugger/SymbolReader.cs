@@ -2,6 +2,7 @@ using System.Collections.Immutable;
 using System.Reflection.Metadata;
 using System.Reflection.Metadata.Ecma335;
 using System.Reflection.PortableExecutable;
+using ClrDebug;
 using ZLinq;
 
 namespace SharpDbg.Infrastructure.Debugger;
@@ -419,6 +420,39 @@ public class SymbolReader : IDisposable
 
 		// Calling method will handle when ilEndOffset == ilStartOffset, and change it to method size
 		return (ilStartOffset, ilEndOffset);
+	}
+
+	public (int currentIlOffset, int nextUserCodeIlOffset)? GetFrameCurrentIlOffsetAndNextUserCodeIlOffset(CorDebugILFrame ilFrame)
+	{
+		var method = ilFrame.Function;
+		var code = method.ILCode;
+		var methodToken = method.Token;
+		var ipResult = ilFrame.IP;
+		if (ipResult.pMappingResult is CorDebugMappingResult.MAPPING_UNMAPPED_ADDRESS or CorDebugMappingResult.MAPPING_NO_INFO)
+		{
+			throw new InvalidOperationException("IL Frame IP is unmapped or has no info");
+		}
+		var nextUserCodeIlOffset = GetNextUserCodeIlOffset(methodToken, ipResult.pnOffset);
+		if (nextUserCodeIlOffset is null) return null;
+		return (ipResult.pnOffset, nextUserCodeIlOffset.Value);
+	}
+
+	public int? GetNextUserCodeIlOffset(int methodToken, int currentIlOffset)
+	{
+		var methodHandle = MetadataTokens.MethodDefinitionHandle(methodToken);
+		var debugInfo = _reader.GetMethodDebugInformation(methodHandle);
+		foreach (var sequencePoint in debugInfo.GetSequencePoints())
+		{
+			if (sequencePoint.StartLine is 0 or SequencePoint.HiddenLine)
+				continue;
+
+			if (sequencePoint.Offset >= currentIlOffset)
+			{
+				var nextUserCodeIlOffset = sequencePoint.Offset;
+				return nextUserCodeIlOffset;
+			}
+		}
+		return null;
 	}
 
 	// Guid for async method stepping information from Roslyn

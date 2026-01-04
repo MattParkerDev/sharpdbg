@@ -29,30 +29,28 @@ public class AsyncStepTests(ITestOutputHelper testOutputHelper)
 
 	    debugProtocolHost.WithClearBreakpointsRequest(Path.JoinFromGitRoot("tests", "DebuggableConsoleApp", "MyAsyncClass.cs"));
 
+	    // step over sync
 	    var stoppedEvent2 = await debugProtocolHost.WithStepOverRequest(stoppedEvent.ThreadId!.Value).WaitForStoppedEvent(stoppedEventTcs);
 	    var stopInfo2 = stoppedEvent2.ReadStopInfo();
 	    stopInfo2.filePath.Should().EndWith("MyAsyncClass.cs");
 	    stopInfo2.line.Should().Be(10);
 
+	    // step over sync, arrives at await line
 	    var stoppedEvent3 = await debugProtocolHost.WithStepOverRequest(stoppedEvent.ThreadId!.Value).WaitForStoppedEvent(stoppedEventTcs);
 	    var stopInfo3 = stoppedEvent3.ReadStopInfo();
 	    stopInfo3.filePath.Should().EndWith("MyAsyncClass.cs");
 	    stopInfo3.line.Should().Be(11);
 
+	    // step over await
 	    var stoppedEvent4 = await debugProtocolHost.WithStepOverRequest(stoppedEvent.ThreadId!.Value).WaitForStoppedEvent(stoppedEventTcs);
 	    var stopInfo4 = stoppedEvent4.ReadStopInfo();
 	    stopInfo4.filePath.Should().EndWith("MyAsyncClass.cs");
 	    stopInfo4.line.Should().Be(12);
 
-	    return;
-
-	    foreach (var i in Enumerable.Range(0, 20))
-	    {
-		    var stoppedEventx = await debugProtocolHost.WithStepOverRequest(stoppedEvent.ThreadId!.Value).WaitForStoppedEvent(stoppedEventTcs);
-		    var stopInfox = stoppedEventx.ReadStopInfo();
-		    stoppedEventx.ThreadId!.Value.Should().Be(stoppedEvent.ThreadId.Value);
-		    stopInfox.line.Should().Be(9);
-		    ;
-	    }
+	    // step over another await, note we must use stoppedEvent4's ThreadId, as the thread may have changed after the await
+	    var stoppedEvent5 = await debugProtocolHost.WithStepOverRequest(stoppedEvent4.ThreadId!.Value).WaitForStoppedEvent(stoppedEventTcs);
+	    var stopInfo5 = stoppedEvent5.ReadStopInfo();
+	    stopInfo5.filePath.Should().EndWith("MyAsyncClass.cs");
+	    stopInfo5.line.Should().Be(13);
     }
 }

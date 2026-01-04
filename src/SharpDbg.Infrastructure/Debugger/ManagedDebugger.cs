@@ -216,14 +216,11 @@ public partial class ManagedDebugger : IDisposable
     /// <summary>
     /// Setup a stepper without continuing execution
     /// </summary>
-    internal CorDebugStepper? SetupStepper(CorDebugThread thread, AsyncStepper.StepType stepType)
+    internal CorDebugStepper SetupStepper(CorDebugThread thread, AsyncStepper.StepType stepType)
     {
         var frame = thread.ActiveFrame;
-        if (frame is not CorDebugILFrame ilFrame)
-            return null;
-
-        if (_stepper is not null)
-            return null;
+        if (frame is not CorDebugILFrame ilFrame) throw new InvalidOperationException("Active frame is not an IL frame");
+        if (_stepper is not null) throw new InvalidOperationException("A step operation is already in progress");
 
         CorDebugStepper stepper = frame.CreateStepper();
         stepper.SetUnmappedStopMask(CorDebugUnmappedStop.STOP_NONE);
@@ -924,6 +921,13 @@ public partial class ManagedDebugger : IDisposable
 		    //System.Diagnostics.Debugger.Launch();
 		    var breakpoint = breakpointCorDebugManagedCallbackEventArgs.Breakpoint;
 		    ArgumentNullException.ThrowIfNull(breakpoint);
+
+		    if (_stepper is not null)
+		    {
+			    _stepper.Deactivate();
+			    _stepper = null;
+		    }
+
 		    if (breakpoint is not CorDebugFunctionBreakpoint functionBreakpoint)
 		    {
 			    _logger?.Invoke("Unknown breakpoint type hit");
@@ -958,7 +962,7 @@ public partial class ManagedDebugger : IDisposable
 				    }
 				    else
 				    {
-					    ContinueProcess();
+					    Continue();
 				    }
 				    return;
 			    }
@@ -967,11 +971,6 @@ public partial class ManagedDebugger : IDisposable
 		    var managedBreakpoint = _breakpointManager.FindByCorBreakpoint(functionBreakpoint.Raw);
 		    ArgumentNullException.ThrowIfNull(managedBreakpoint);
 		    IsRunning = false;
-		    if (_stepper is not null)
-		    {
-			    _stepper.Deactivate();
-			    _stepper = null;
-		    }
 		    OnStopped2?.Invoke(corThread.Id, managedBreakpoint.FilePath, managedBreakpoint.Line, "breakpoint");
 	    }
 	    catch (Exception e)

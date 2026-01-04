@@ -427,8 +427,6 @@ public class AsyncStepper
 
 	private async Task<(bool HandledByAsyncStepper, bool? ShouldStop)> HandleResumeBreakpoint(CorDebugThread thread)
 	{
-		var shouldStop = false;
-
 		// Check if this is the same thread
 		if (_currentAsyncStep!.ThreadId == thread.Id)
 		{
@@ -436,11 +434,9 @@ public class AsyncStepper
 			_debugger.SetupStepper(thread, _currentAsyncStep.InitialStepType);
 			_currentAsyncStep?.Dispose();
 			_currentAsyncStep = null;
-			return (true, shouldStop);
 		}
-
 		// Different thread - check async ID
-		if (_currentAsyncStep!.AsyncIdHandle is not null)
+		else if (_currentAsyncStep!.AsyncIdHandle is not null)
 		{
 			var currentAsyncId = await GetAsyncIdReference((CorDebugILFrame)thread.ActiveFrame);
 			if (currentAsyncId is not null)
@@ -459,7 +455,7 @@ public class AsyncStepper
 			}
 		}
 
-		return (true, shouldStop);
+		return (true, false);
 	}
 
 	private SymbolReader.AsyncAwaitInfo? FindNextAwaitInfo(SymbolReader.AsyncMethodSteppingInfo asyncInfo, uint currentOffset)

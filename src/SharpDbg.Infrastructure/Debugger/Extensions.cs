@@ -276,7 +276,7 @@ public static class Extensions
 	{
 		var corValue = eval.CreateValue(CorElementType.Boolean, null);
 
-		if (value && corValue is CorDebugGenericValue genValue)
+		if (value is true && corValue is CorDebugGenericValue genValue)
 		{
 			var size = genValue.Size;
 			var valueData = new byte[size];

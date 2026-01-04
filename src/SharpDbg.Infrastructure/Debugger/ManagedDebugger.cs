@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Runtime.InteropServices;
+using Ardalis.GuardClauses;
 using ClrDebug;
 using SharpDbg.Infrastructure.Debugger.ExpressionEvaluator;
 using SharpDbg.Infrastructure.Debugger.ExpressionEvaluator.Compiler;
@@ -236,8 +237,7 @@ public partial class ManagedDebugger : IDisposable
         else // StepOver
         {
             var symbolReader = _modules[frame.Function.Module.BaseAddress].SymbolReader;
-            if (symbolReader == null)
-                return null;
+            Guard.Against.Null(symbolReader);
 
             var currentIlOffset = ilFrame.IP.pnOffset;
             var (startIlOffset, endIlOffset) = symbolReader.GetStartAndEndSequencePointIlOffsetsForIlOffset(frame.Function.Token, currentIlOffset);

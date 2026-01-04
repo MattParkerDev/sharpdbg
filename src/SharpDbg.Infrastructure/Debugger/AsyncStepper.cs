@@ -461,10 +461,6 @@ public class AsyncStepper
                 }
             }
 
-            // Can't determine - set up stepper and clear async step
-            //_debugger.SetupStepper(thread, _currentAsyncStep.InitialStepType);
-            //_currentAsyncStep?.Dispose();
-            //_currentAsyncStep = null;
             return (true, shouldStop);
         }
         catch (Exception)

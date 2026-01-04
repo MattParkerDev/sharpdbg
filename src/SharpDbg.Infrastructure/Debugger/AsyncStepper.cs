@@ -409,7 +409,6 @@ public class AsyncStepper
             _currentAsyncStep!.AsyncIdHandle = asyncIdHandleValue;
 
             // Create resume breakpoint
-
             var resumeBreakpoint = ilCode.CreateBreakpoint((int)_currentAsyncStep!.ResumeOffset);
             resumeBreakpoint.Activate(true);
 

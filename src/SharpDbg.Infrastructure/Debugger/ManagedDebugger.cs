@@ -270,8 +270,7 @@ public partial class ManagedDebugger : IDisposable
 			if (_stepper is not null) throw new InvalidOperationException("A step operation is already in progress");
 
             // Try async stepping first
-            bool useSimpleStepper;
-            if (_asyncStepper != null && _asyncStepper.TrySetupAsyncStep(thread, AsyncStepper.StepType.StepOver, out useSimpleStepper))
+            if (_asyncStepper != null && _asyncStepper.TrySetupAsyncStep(thread, AsyncStepper.StepType.StepOver, out var useSimpleStepper))
             {
                 if (!useSimpleStepper)
                 {
@@ -301,8 +300,7 @@ public partial class ManagedDebugger : IDisposable
             if (frame != null)
             {
                 // Try async stepping first
-                bool useSimpleStepper;
-                if (_asyncStepper != null && _asyncStepper.TrySetupAsyncStep(thread, AsyncStepper.StepType.StepIn, out useSimpleStepper))
+                if (_asyncStepper != null && _asyncStepper.TrySetupAsyncStep(thread, AsyncStepper.StepType.StepIn, out var useSimpleStepper))
                 {
                     if (!useSimpleStepper)
                     {

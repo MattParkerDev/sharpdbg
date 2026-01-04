@@ -476,7 +476,6 @@ public class AsyncStepper
 				break;
 			}
 		}
-
 		return null;
 	}
 

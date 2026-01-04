@@ -588,24 +588,14 @@ public class AsyncStepper
 
     private bool MatchesBreakpoint(CorDebugFunctionBreakpoint breakpoint, AsyncBreakpoint asyncBp, CorDebugThread thread)
     {
-        try
-        {
-            var frame = thread.ActiveFrame;
-            if (frame == null)
-                return false;
+	    var frame = thread.ActiveFrame;
+        if (frame == null) return false;
 
-            var function = frame.Function;
-            var moduleAddress = (long)function.Module.BaseAddress;
-            var methodToken = function.Token;
+        var function = frame.Function;
+        var moduleAddress = function.Module.BaseAddress;
+        var methodToken = function.Token;
 
-            return moduleAddress == asyncBp.ModuleAddress &&
-                   methodToken == asyncBp.MethodToken &&
-                   breakpoint.Raw == asyncBp.Breakpoint?.Raw;
-        }
-        catch (Exception)
-        {
-            return false;
-        }
+        return moduleAddress == asyncBp.ModuleAddress && methodToken == asyncBp.MethodToken && breakpoint.Raw == asyncBp.Breakpoint?.Raw;
     }
 
     /// <summary>

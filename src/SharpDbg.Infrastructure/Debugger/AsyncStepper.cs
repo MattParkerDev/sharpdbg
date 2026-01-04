@@ -613,27 +613,17 @@ public class AsyncStepper
     /// </summary>
     private void DisableAllSimpleSteppers(CorDebugProcess process)
     {
-        try
-        {
-            var appDomains = process.EnumerateAppDomains();
-            foreach (var appDomain in appDomains)
-            {
-                var steppers = appDomain.EnumerateSteppers();
-                foreach (var stepper in steppers)
-                {
-                    stepper.Deactivate();
-                }
-            }
-        }
-        catch (Exception)
-        {
-            // Ignore errors disabling steppers
-        }
+	    var appDomains = process.EnumerateAppDomains();
+	    foreach (var appDomain in appDomains)
+	    {
+		    var steppers = appDomain.EnumerateSteppers();
+		    foreach (var stepper in steppers)
+		    {
+			    stepper.Deactivate();
+		    }
+	    }
     }
 
-    /// <summary>
-    /// Clear active async step if step completed without hitting async breakpoint
-    /// </summary>
     public void ClearActiveAsyncStep()
     {
         using (_lock2.Lock())

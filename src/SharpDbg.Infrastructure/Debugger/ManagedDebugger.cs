@@ -913,7 +913,6 @@ public partial class ManagedDebugger : IDisposable
         ContinueProcess();
     }
 
-    // TODO: Wrap in try catch
     private async void HandleBreakpoint(object? sender, BreakpointCorDebugManagedCallbackEventArgs breakpointCorDebugManagedCallbackEventArgs)
     {
 	    try

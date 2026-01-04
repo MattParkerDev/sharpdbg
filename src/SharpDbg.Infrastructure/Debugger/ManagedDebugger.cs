@@ -941,29 +941,23 @@ public partial class ManagedDebugger : IDisposable
 			    var (asyncHandled, shouldStop) = await _asyncStepper.TryHandleBreakpoint(corThread, functionBreakpoint);
 			    if (asyncHandled)
 			    {
-				    if (shouldStop is true)
-				    {
-					    IsRunning = false;
-					    if (_stepper is not null)
-					    {
-						    _stepper.Deactivate();
-						    _stepper = null;
-					    }
-					    var sourceInfoNullable = GetSourceInfoAtFrame(corThread.ActiveFrame);
-					    if (sourceInfoNullable is {} sourceInfo)
-					    {
-						    OnStopped2?.Invoke(corThread.Id, sourceInfo.FilePath, sourceInfo.StartLine, "step");
-					    }
-					    else
-					    {
-						    OnStopped?.Invoke(corThread.Id, "step");
-					    }
-				    }
-				    else
+				    if (shouldStop is false)
 				    {
 					    Continue();
+					    return;
 				    }
-				    return;
+				    IsRunning = false;
+				    if (_stepper is not null)
+				    {
+					    _stepper.Deactivate();
+					    _stepper = null;
+				    }
+				    var sourceInfo = GetSourceInfoAtFrame(corThread.ActiveFrame);
+				    if (sourceInfo is null)
+				    {
+					    StepOut(corThread.Id);
+					    return;
+				    }
 			    }
 		    }
 

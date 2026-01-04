@@ -270,4 +270,26 @@ public static class Extensions
 			evalCompleteTcs.SetResult();
 		}
 	}
+
+	public static CorDebugValue NewBooleanValue(this CorDebugEval eval, bool value)
+	{
+		var corValue = eval.CreateValue(CorElementType.Boolean, null);
+
+		if (value is true && corValue is CorDebugGenericValue genValue)
+		{
+			var size = genValue.Size;
+			var valueData = new byte[size];
+			valueData[0] = 1;
+			unsafe
+			{
+				fixed (byte* p = valueData)
+				{
+					var ptr = (IntPtr)p;
+					genValue.SetValue(ptr);
+				}
+			}
+		}
+
+		return corValue;
+	}
 }

@@ -63,7 +63,7 @@ public class AsyncStepper
             Breakpoint?.Dispose();
             try
             {
-                AsyncIdHandle?.Dereference();
+	            AsyncIdHandle?.Dispose();
             }
             catch
             {

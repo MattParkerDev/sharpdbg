@@ -982,7 +982,10 @@ public partial class ManagedDebugger : IDisposable
     {
 	    var corThread = stepCompleteCorDebugManagedCallbackEventArgs.Thread;
         IsRunning = false;
-        _asyncStepper?.ClearActiveAsyncStep(); // Only clear if step completed without hitting async breakpoint
+        // If we have an active async stepper, it means we would have a breakpoint set up for either yield or resume for the next await statement
+        // We would then have done a regular step over/in/out to get to that breakpoint
+        // Since the step has completed, it means we did not hit the breakpoint, so we can clear the active async step
+        _asyncStepper?.ClearActiveAsyncStep();
         var stepper = _stepper ?? throw new InvalidOperationException("No stepper found for step complete");
 		stepper.Deactivate(); // I really don't know if its necessary to deactivate the steppers once done
 		_stepper = null;

@@ -983,7 +983,8 @@ public partial class ManagedDebugger : IDisposable
 			// (Until we implement Source Link and/or Decompilation support)
 			// So for now, if this occurs, we are going to do a step out to get us back to a stop location with source info
 			// TODO: This should probably be more sophisticated - mark the CorDebugFunction as non user code - `JMCStatus = false`, enable JMC for the stepper and then step over, in case the non user code calls user code, e.g. LINQ methods
-			StepOut(corThread.Id);
+			SetupStepper(corThread, AsyncStepper.StepType.StepOut);
+			Continue();
 			return;
 		}
 		var (sourceFilePath, line, _) = sourceInfo.Value;

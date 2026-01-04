@@ -400,7 +400,7 @@ public class AsyncStepper
 		// Get async state machine ID for parallel execution tracking
 		var function = frame.Function;
 		var ilCode = function.ILCode;
-		var asyncIdHandleValue = await GetAsyncIdReference(thread, frame);
+		var asyncIdHandleValue = await GetAsyncIdReference(frame);
 		Guard.Against.Null(asyncIdHandleValue);
 		_currentAsyncStep!.AsyncIdHandle = asyncIdHandleValue;
 
@@ -442,7 +442,7 @@ public class AsyncStepper
 		// Different thread - check async ID
 		if (_currentAsyncStep!.AsyncIdHandle is not null)
 		{
-			var currentAsyncId = await GetAsyncIdReference(thread, thread.ActiveFrame as CorDebugILFrame);
+			var currentAsyncId = await GetAsyncIdReference((CorDebugILFrame)thread.ActiveFrame);
 			if (currentAsyncId is not null)
 			{
 				var currentAddress = currentAsyncId.Dereference().Address;
@@ -479,7 +479,7 @@ public class AsyncStepper
 		return null;
 	}
 
-	private async Task<CorDebugHandleValue?> GetAsyncIdReference(CorDebugThread thread, CorDebugILFrame frame)
+	private async Task<CorDebugHandleValue?> GetAsyncIdReference(CorDebugILFrame frame)
 	{
 		Guard.Against.Null(frame);
 		var builder = GetAsyncBuilder(frame);

@@ -271,7 +271,6 @@ public static class Extensions
 		}
 	}
 
-	// TODO: Consolidate with the instance method in CompiledExpressionInterpreter_ValueCreation.cs
 	public static CorDebugValue NewBooleanValue(this CorDebugEval eval, bool value)
 	{
 		var corValue = eval.CreateValue(CorElementType.Boolean, null);

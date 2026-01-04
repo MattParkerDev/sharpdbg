@@ -283,12 +283,9 @@ public partial class ManagedDebugger : IDisposable
             }
 
             var stepper = SetupStepper(thread, AsyncStepper.StepType.StepOver);
-            if (stepper != null)
-            {
-                IsRunning = true;
-                _variableManager.ClearAndDisposeHandleValues();
-                _rawProcess?.Continue(false);
-            }
+            IsRunning = true;
+            _variableManager.ClearAndDisposeHandleValues();
+            _rawProcess?.Continue(false);
         }
     }
 
@@ -317,12 +314,9 @@ public partial class ManagedDebugger : IDisposable
                 }
 
                 var stepper = SetupStepper(thread, AsyncStepper.StepType.StepIn);
-                if (stepper != null)
-                {
-                    IsRunning = true;
-                    _variableManager.ClearAndDisposeHandleValues();
-                    _rawProcess?.Continue(false);
-                }
+                IsRunning = true;
+                _variableManager.ClearAndDisposeHandleValues();
+                _rawProcess?.Continue(false);
             }
         }
     }

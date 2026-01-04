@@ -442,10 +442,10 @@ public class AsyncStepper
             }
 
             // Different thread - check async ID
-            if (_currentAsyncStep!.AsyncIdHandle != null)
+            if (_currentAsyncStep!.AsyncIdHandle is not null)
             {
                 var currentAsyncId = await GetAsyncIdReference(thread, thread.ActiveFrame as CorDebugILFrame);
-                if (currentAsyncId != null)
+                if (currentAsyncId is not null)
                 {
                     var currentAddress = currentAsyncId.Dereference().Address;
                     var dereferencedHandle = _currentAsyncStep!.AsyncIdHandle!.Dereference();
@@ -457,12 +457,6 @@ public class AsyncStepper
                         var stepper = _debugger.SetupStepper(thread, _currentAsyncStep.InitialStepType);
                         _currentAsyncStep?.Dispose();
                         _currentAsyncStep = null;
-                        //return (true, shouldStop);
-                    }
-                    else
-                    {
-                        // Different async instance - continue
-                        //return (true, shouldStop);
                     }
                 }
             }

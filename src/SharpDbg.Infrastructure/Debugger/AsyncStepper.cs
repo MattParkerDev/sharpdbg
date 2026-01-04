@@ -1,3 +1,4 @@
+using Ardalis.GuardClauses;
 using ClrDebug;
 using NeoSmart.AsyncLock;
 
@@ -403,14 +404,9 @@ public class AsyncStepper
             // Get async state machine ID for parallel execution tracking
             var function = frame.Function;
             var ilCode = function.ILCode;
-            var asyncId = await GetAsyncIdReference(thread, frame);
-            if (asyncId != null)
-            {
-                // Create strong handle to prevent invalidation
-                if (asyncId is not CorDebugHandleValue handleValue) throw new InvalidOperationException("Async ID is not a handle value");
-                //var strongHandle = process.CreateHandle(asyncId, CorDebugHandleType.HANDLE_STRONG);
-                _currentAsyncStep!.AsyncIdHandle = handleValue;
-            }
+            var asyncIdHandleValue = await GetAsyncIdReference(thread, frame);
+            Guard.Against.Null(asyncIdHandleValue);
+            _currentAsyncStep!.AsyncIdHandle = asyncIdHandleValue;
 
             // Create resume breakpoint
 

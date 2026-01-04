@@ -462,23 +462,23 @@ public class AsyncStepper
         return (true, shouldStop);
     }
 
-    private SymbolReader.AsyncAwaitInfo? FindNextAwaitInfo(SymbolReader.AsyncMethodSteppingInfo asyncInfo, uint currentOffset)
-    {
-        foreach (var awaitInfo in asyncInfo.AwaitInfos)
-        {
-            if (currentOffset <= awaitInfo.YieldOffset)
-            {
-                return awaitInfo;
-            }
-            // Stop search if we're inside an await block
-            else if (currentOffset < awaitInfo.ResumeOffset)
-            {
-                break;
-            }
-        }
+	private SymbolReader.AsyncAwaitInfo? FindNextAwaitInfo(SymbolReader.AsyncMethodSteppingInfo asyncInfo, uint currentOffset)
+	{
+		foreach (var awaitInfo in asyncInfo.AwaitInfos)
+		{
+			if (currentOffset <= awaitInfo.YieldOffset)
+			{
+				return awaitInfo;
+			}
+			// Stop search if we're inside an await block
+			if (currentOffset < awaitInfo.ResumeOffset)
+			{
+				break;
+			}
+		}
 
-        return null;
-    }
+		return null;
+	}
 
     private async Task<CorDebugHandleValue?> GetAsyncIdReference(CorDebugThread thread, CorDebugILFrame frame)
     {

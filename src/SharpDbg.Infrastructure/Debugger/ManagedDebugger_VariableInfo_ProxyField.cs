@@ -5,7 +5,7 @@ namespace SharpDbg.Infrastructure.Debugger;
 
 public partial class ManagedDebugger
 {
-	private CorDebugValue GetAsyncOrLambdaProxyFieldValue(CorDebugValue compilerGeneratedClassValue, MetaDataImport metadataImport)
+	private static CorDebugValue GetAsyncOrLambdaProxyFieldValue(CorDebugValue compilerGeneratedClassValue, MetaDataImport metadataImport)
 	{
 		var objectValue = compilerGeneratedClassValue.UnwrapDebugValueToObject();
 		var fields = metadataImport.EnumFields(objectValue.Class.Token);

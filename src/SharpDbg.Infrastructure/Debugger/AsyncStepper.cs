@@ -189,14 +189,12 @@ public class AsyncStepper
 	/// <param name="stepType">Type of step</param>
 	/// <param name="shouldUseSimpleStepper">Output: whether to use simple stepper</param>
 	/// <returns>True if async stepping was initiated, false otherwise</returns>
-	public bool TrySetupAsyncStep(CorDebugThread thread, StepType stepType, out bool shouldUseSimpleStepper)
+	public async Task<(bool HandledByAsyncStepper, bool? ShouldUseSimpleStepper)> TrySetupAsyncStep(CorDebugThread thread, StepType stepType)
 	{
-		shouldUseSimpleStepper = true;
-
 		try
 		{
 			var frame = thread.ActiveFrame;
-			if (frame == null) return false;
+			if (frame == null) return (false, null);
 
 			var function = frame.Function;
 			var moduleAddress = (long)function.Module.BaseAddress;
@@ -206,12 +204,12 @@ public class AsyncStepper
 
 			// Check if module has symbols
 			if (!_modules.TryGetValue(moduleAddress, out var moduleInfo) || moduleInfo.SymbolReader == null)
-				return false;
+				return (false, null);
 
 			// Check if method has async stepping info
 			var asyncInfo = moduleInfo.SymbolReader.GetAsyncMethodSteppingInfo(methodToken);
 			if (asyncInfo == null)
-				return false;
+				return (false, null);
 
 			// Check if we're at the end of an async method and need step-out behavior
 			if (stepType != StepType.StepOut)
@@ -233,7 +231,7 @@ public class AsyncStepper
 				}
 			}
 
-			using (_lock2.Lock())
+			using (await _lock2.LockAsync())
 			{
 				// Clean up any existing async step
 				_currentAsyncStep?.Dispose();
@@ -250,11 +248,11 @@ public class AsyncStepper
 						if (builderType == "System.Runtime.CompilerServices.AsyncVoidMethodBuilder")
 						{
 							// async void method - use normal step-out
-							return false;
+							return (false, null);
 						}
 
 						// Not async void - use NotifyDebuggerOfWaitCompletion magic
-						var success = SetNotificationForWaitCompletion(builder, frame as CorDebugILFrame, thread);
+						var success = await SetNotificationForWaitCompletion(builder, frame as CorDebugILFrame, thread);
 						if (success)
 						{
 							// Setup breakpoint in Task.NotifyDebuggerOfWaitCompletion
@@ -262,20 +260,19 @@ public class AsyncStepper
 							if (notifyBpSuccess)
 							{
 								// Async step-out handled - no need for stepper
-								shouldUseSimpleStepper = false;
-								return true;
+								return (true, false);
 							}
 						}
 					}
 
 					// Fall back to normal step-out
-					return false;
+					return (false, null);
 				}
 
 				// Find next await block after current offset
 				var ilFrame = frame as CorDebugILFrame;
 				if (ilFrame == null)
-					return false;
+					return (false, null);
 
 				var ipResult = ilFrame.IP;
 				var currentOffset = ipResult.pnOffset;
@@ -284,7 +281,7 @@ public class AsyncStepper
 				if (awaitInfo == null)
 				{
 					// No more await blocks - use simple stepper
-					return false;
+					return (false, null);
 				}
 
 				// Create yield breakpoint
@@ -308,14 +305,14 @@ public class AsyncStepper
 
 				// Don't set shouldUseSimpleStepper to false - the simple stepper should be created
 				// to handle stepping until the yield breakpoint is reached
-				return true;
+				return (true, true);
 			}
 		}
 		catch (Exception)
 		{
-			// If anything goes wrong, fall back to simple stepper
+			// If anything goes wrong, fall back to simple stepper, TODO remove this
 			throw;
-			return false;
+			return (false, null);
 		}
 	}
 

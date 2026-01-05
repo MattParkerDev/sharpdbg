@@ -1,6 +1,7 @@
 using Ardalis.GuardClauses;
 using ClrDebug;
 using NeoSmart.AsyncLock;
+using SharpDbg.Infrastructure.Debugger.ExpressionEvaluator.Interpreter;
 
 namespace SharpDbg.Infrastructure.Debugger;
 
@@ -87,36 +88,31 @@ public class AsyncStepper
 	/// <summary>
 	/// Call SetNotificationForWaitCompletion on the async builder
 	/// </summary>
-	private bool SetNotificationForWaitCompletion(CorDebugValue builder, CorDebugILFrame? frame, CorDebugThread thread)
+	private async Task<bool> SetNotificationForWaitCompletion(CorDebugValue builder, CorDebugILFrame? frame, CorDebugThread thread)
 	{
 		try
 		{
 			var objectValue = builder.UnwrapDebugValueToObject();
-			var @class = objectValue.Class;
-			var module = @class.Module;
-			var metadataImport = module.GetMetaDataInterface().MetaDataImport;
+
+			var eval = thread.CreateEval();
+			var boolValue = eval.NewBooleanValue(true);
 
 			// Find SetNotificationForWaitCompletion method
-			var methodDef = metadataImport.FindMethod(@class.Token, "SetNotificationForWaitCompletion", 0, 0);
-			if (methodDef.IsNil)
-				return false;
-
-			var function = module.GetFunctionFromToken(methodDef);
-			var eval = thread.CreateEval();
-
-			var boolValue = eval.NewBooleanValue(true);
+			var function = await CompiledExpressionInterpreter.FindMethodOnType(objectValue.ExactType, "SetNotificationForWaitCompletion", [boolValue], false, false);
+			Guard.Against.Null(function);
 
 			// Call builder.SetNotificationForWaitCompletion(true)
 			var typeParameterArgs = objectValue.ExactType.TypeParameters.Select(t => t.Raw).ToArray();
-			var result = eval.CallParameterizedFunctionAsync(
+			// result should be null, as SetNotificationForWaitCompletion returns void
+			var result = await eval.CallParameterizedFunctionAsync(
 				_managedCallback,
 				function,
 				typeParameterArgs.Length,
 				typeParameterArgs,
 				2,
 				[builder.Raw, boolValue.Raw]
-			).GetAwaiter().GetResult();
-
+			);
+			if (result is not null) throw new InvalidOperationException("SetNotificationForWaitCompletion returned a value when void was expected");
 			return true;
 		}
 		catch (Exception)

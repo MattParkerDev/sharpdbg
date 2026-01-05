@@ -5,9 +5,6 @@ using SharpDbg.Infrastructure.Debugger.ExpressionEvaluator.Interpreter;
 
 namespace SharpDbg.Infrastructure.Debugger;
 
-/// <summary>
-/// Handles stepping through async/await methods by managing breakpoints at yield/resume offsets
-/// </summary>
 public class AsyncStepper
 {
 	private readonly CorDebugManagedCallback _managedCallback;

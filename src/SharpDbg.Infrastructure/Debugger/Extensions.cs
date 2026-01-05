@@ -130,7 +130,8 @@ public static class Extensions
 		void OnCallbacksOnOnEvalComplete(object? s, EvalCompleteCorDebugManagedCallbackEventArgs e)
 		{
 			if (e.Eval.Raw != eval.Raw) return;
-			returnValue = e.Eval.Result;
+			var getResultResult = e.Eval.TryGetResult(out returnValue);
+			if (getResultResult is not HRESULT.CORDBG_S_FUNC_EVAL_HAS_NO_RESULT && returnValue is null) getResultResult.ThrowOnNotOK();
 			evalCompleteTcs.SetResult();
 		}
 		void CallbacksOnOnEvalException(object? sender, EvalExceptionCorDebugManagedCallbackEventArgs e)

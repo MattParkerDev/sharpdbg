@@ -224,7 +224,9 @@ public partial class ManagedDebugger : IDisposable
         if (_stepper is not null) throw new InvalidOperationException("A step operation is already in progress");
 
         CorDebugStepper stepper = frame.CreateStepper();
+        stepper.SetInterceptMask(CorDebugIntercept.INTERCEPT_ALL & ~(CorDebugIntercept.INTERCEPT_SECURITY | CorDebugIntercept.INTERCEPT_CLASS_INIT));
         stepper.SetUnmappedStopMask(CorDebugUnmappedStop.STOP_NONE);
+        //stepper.SetJMC(true);
 
         if (stepType == AsyncStepper.StepType.StepOut)
         {
@@ -964,10 +966,11 @@ public partial class ManagedDebugger : IDisposable
 	    }
     }
 
-    private void HandleStepComplete(object? sender, StepCompleteCorDebugManagedCallbackEventArgs stepCompleteCorDebugManagedCallbackEventArgs)
+    private void HandleStepComplete(object? sender, StepCompleteCorDebugManagedCallbackEventArgs stepCompleteEventArgs)
     {
-	    var corThread = stepCompleteCorDebugManagedCallbackEventArgs.Thread;
+	    var corThread = stepCompleteEventArgs.Thread;
         IsRunning = false;
+        var ilFrame = (CorDebugILFrame)corThread.ActiveFrame;
         // If we have an active async stepper, it means we would have a breakpoint set up for either yield or resume for the next await statement
         // We would then have done a regular step over/in/out to get to that breakpoint
         // Since the step has completed, it means we did not hit the breakpoint, so we can clear the active async step
@@ -975,7 +978,36 @@ public partial class ManagedDebugger : IDisposable
         var stepper = _stepper ?? throw new InvalidOperationException("No stepper found for step complete");
 		stepper.Deactivate(); // I really don't know if its necessary to deactivate the steppers once done
 		_stepper = null;
-		var sourceInfo = GetSourceInfoAtFrame(corThread.ActiveFrame);
+		var symbolReader = _modules[ilFrame.Function.Module.BaseAddress].SymbolReader;
+		if (symbolReader is null)
+		{
+			// We don't have symbols, but we're going to step in, in case this code calls user code that would be missed if we stepped out or over
+			// Alternative is to use JMC true - we'll never stop in non-user code, so in theory symbolReader would never be null
+			SetupStepper(corThread, AsyncStepper.StepType.StepIn);
+			Continue();
+			return;
+		}
+		var (currentIlOffset, nextUserCodeIlOffset) = symbolReader.GetFrameCurrentIlOffsetAndNextUserCodeIlOffset(ilFrame);
+		if (stepCompleteEventArgs.Reason is CorDebugStepReason.STEP_CALL && currentIlOffset < nextUserCodeIlOffset)
+		{
+			SetupStepper(corThread, AsyncStepper.StepType.StepOver);
+			Continue();
+			return;
+		}
+		if (nextUserCodeIlOffset is null)
+		{
+			// Check attributes
+			var metadataImport = ilFrame.Function.Module.GetMetaDataInterface().MetaDataImport;
+			var mdMethodDef = ilFrame.Function.Token;
+			var methodIsNotDebuggable = metadataImport.HasAnyAttribute(mdMethodDef, JmcConstants.JmcMethodAttributeNames);
+			if (methodIsNotDebuggable)
+			{
+				SetupStepper(corThread, AsyncStepper.StepType.StepIn);
+				Continue();
+				return;
+			}
+		}
+		var sourceInfo = GetSourceInfoAtFrame(ilFrame);
 		if (sourceInfo is null)
 		{
 			// sourceInfo will be null if we could not find a PDB for the module
@@ -983,7 +1015,7 @@ public partial class ManagedDebugger : IDisposable
 			// (Until we implement Source Link and/or Decompilation support)
 			// So for now, if this occurs, we are going to do a step out to get us back to a stop location with source info
 			// TODO: This should probably be more sophisticated - mark the CorDebugFunction as non user code - `JMCStatus = false`, enable JMC for the stepper and then step over, in case the non user code calls user code, e.g. LINQ methods
-			SetupStepper(corThread, AsyncStepper.StepType.StepOut);
+			SetupStepper(corThread, AsyncStepper.StepType.StepOver);
 			Continue();
 			return;
 		}

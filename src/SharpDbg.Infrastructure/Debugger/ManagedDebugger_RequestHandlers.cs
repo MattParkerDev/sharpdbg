@@ -1,6 +1,7 @@
 ﻿using ClrDebug;
 using SharpDbg.Infrastructure.Debugger.ExpressionEvaluator;
 using SharpDbg.Infrastructure.Debugger.ExpressionEvaluator.Compiler;
+using SharpDbg.Infrastructure.Debugger.PresentationHintModels;
 using SharpDbg.Infrastructure.Debugger.ResponseModels;
 using ZLinq;
 

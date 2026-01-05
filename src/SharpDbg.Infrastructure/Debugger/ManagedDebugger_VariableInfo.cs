@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics;
 using ClrDebug;
+using SharpDbg.Infrastructure.Debugger.PresentationHintModels;
 using SharpDbg.Infrastructure.Debugger.ResponseModels;
 using ZLinq;
 

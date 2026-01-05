@@ -1,5 +1,5 @@
-﻿using SharpDbg.Infrastructure.Debugger;
-using Debugger_VariablePresentationHint = SharpDbg.Infrastructure.Debugger.VariablePresentationHint;
+﻿using SharpDbg.Infrastructure.Debugger.PresentationHintModels;
+using Debugger_VariablePresentationHint = SharpDbg.Infrastructure.Debugger.PresentationHintModels.VariablePresentationHint;
 using VariablePresentationHint = Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages.VariablePresentationHint;
 
 namespace SharpDbg.Application;

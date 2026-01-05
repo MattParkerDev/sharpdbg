@@ -1,3 +1,5 @@
+using SharpDbg.Infrastructure.Debugger.PresentationHintModels;
+
 namespace SharpDbg.Infrastructure.Debugger.ResponseModels;
 
 public class VariableInfo

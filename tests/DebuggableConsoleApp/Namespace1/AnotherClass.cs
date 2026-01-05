@@ -15,7 +15,15 @@ public class AnotherClass
 
 	public static async Task<int> AnotherMethodAsync()
 	{
+		var test = 5;
 		await Task.Delay(10);
-		return 5;
+		return test;
+	}
+
+	public static async void AsyncVoidMethod()
+	{
+		var test = 5;
+		await Task.Delay(10);
+		;
 	}
 }

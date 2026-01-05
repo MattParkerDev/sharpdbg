@@ -1,4 +1,4 @@
-﻿using DebuggableConsoleApp.Namespace1;
+using DebuggableConsoleApp.Namespace1;
 
 namespace DebuggableConsoleApp;
 
@@ -10,6 +10,8 @@ public class MyAsyncClass
 		intVar = 10;
 		var result = await AnotherClass.AnotherMethodAsync();
 		var result2 = await AnotherClass.AnotherMethodAsync();
+		var result3 = await AnotherClass.AnotherMethodAsync();
+		AnotherClass.AsyncVoidMethod();
 		return result;
 	}
 

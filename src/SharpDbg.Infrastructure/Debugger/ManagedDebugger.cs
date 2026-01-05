@@ -262,7 +262,7 @@ public partial class ManagedDebugger : IDisposable
     /// <summary>
     /// Step to the next line
     /// </summary>
-    public void StepNext(int threadId)
+    public async void StepNext(int threadId)
     {
         _logger?.Invoke($"StepNext on thread {threadId}");
         if (_threads.TryGetValue(threadId, out var thread))
@@ -272,15 +272,17 @@ public partial class ManagedDebugger : IDisposable
 			if (_stepper is not null) throw new InvalidOperationException("A step operation is already in progress");
 
             // Try async stepping first
-            if (_asyncStepper != null && _asyncStepper.TrySetupAsyncStep(thread, AsyncStepper.StepType.StepOver, out var useSimpleStepper))
+            if (_asyncStepper is not null)
             {
-                if (!useSimpleStepper)
-                {
-                    IsRunning = true;
-                    _variableManager.ClearAndDisposeHandleValues();
-                    _rawProcess?.Continue(false);
-                    return;
-                }
+	            var (handledByAsyncStepper, useSimpleStepper) = await _asyncStepper.TrySetupAsyncStep(thread, AsyncStepper.StepType.StepOver);
+	            if (handledByAsyncStepper)
+	            {
+		            if (useSimpleStepper is false)
+		            {
+			            Continue();
+			            return;
+		            }
+	            }
             }
 
             var stepper = SetupStepper(thread, AsyncStepper.StepType.StepOver);

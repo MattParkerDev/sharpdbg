@@ -163,16 +163,13 @@ public class AsyncStepper
 			var breakpoint = ilCode.CreateBreakpoint(0);
 			breakpoint.Activate(true);
 
-			using (_lock2.Lock())
+			_notifyDebuggerBreakpoint = new AsyncBreakpoint
 			{
-				_notifyDebuggerBreakpoint = new AsyncBreakpoint
-				{
-					Breakpoint = breakpoint,
-					ModuleAddress = targetModule.BaseAddress,
-					MethodToken = methodDef,
-					ILOffset = 0
-				};
-			}
+				Breakpoint = breakpoint,
+				ModuleAddress = targetModule.BaseAddress,
+				MethodToken = methodDef,
+				ILOffset = 0
+			};
 
 			return true;
 		}

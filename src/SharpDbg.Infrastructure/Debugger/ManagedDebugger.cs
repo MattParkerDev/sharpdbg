@@ -949,7 +949,8 @@ public partial class ManagedDebugger : IDisposable
 				    var sourceInfo = GetSourceInfoAtFrame(corThread.ActiveFrame);
 				    if (sourceInfo is null)
 				    {
-					    StepOut(corThread.Id);
+					    SetupStepper(corThread, AsyncStepper.StepType.StepOut);
+					    Continue();
 					    return;
 				    }
 			    }

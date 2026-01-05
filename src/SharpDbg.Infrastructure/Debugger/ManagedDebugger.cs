@@ -37,8 +37,6 @@ public partial class ManagedDebugger : IDisposable
     public event Action<string>? OnOutput;
     public event Action<BreakpointManager.BreakpointInfo>? OnBreakpointChanged;
 
-    public BreakpointManager BreakpointManager => _breakpointManager;
-    public VariableManager VariableManager => _variableManager;
     public bool IsRunning { get; private set; }
     private CorDebugProcess? _rawProcess;
 

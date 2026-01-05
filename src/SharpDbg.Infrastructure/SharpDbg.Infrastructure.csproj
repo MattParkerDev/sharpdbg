@@ -7,7 +7,15 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
+	<ItemGroup>
+		<Publicize IncludeCompilerGeneratedMembers="false" Include="Microsoft.CodeAnalysis.CSharp" />
+	</ItemGroup>
+
   <ItemGroup>
+	<PackageReference Include="Krafs.Publicizer" Version="2.3.0">
+	  <PrivateAssets>all</PrivateAssets>
+	  <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+	</PackageReference>
     <PackageReference Include="Ardalis.GuardClauses" Version="5.0.0" />
     <PackageReference Include="ClrDebug" Version="0.3.4" />
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="5.0.0" />

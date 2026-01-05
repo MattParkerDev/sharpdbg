@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics;
 using ClrDebug;
+using Microsoft.CodeAnalysis.CSharp.Symbols;
 using SharpDbg.Infrastructure.Debugger.PresentationHintModels;
 using SharpDbg.Infrastructure.Debugger.ResponseModels;
 using ZLinq;
@@ -43,7 +44,19 @@ public partial class ManagedDebugger
 		var isStatic = methodProps.pdwAttr.IsMdStatic();
 		if (isStatic is false)
 		{
+			var methodName = methodProps.szMethod;
 			var implicitThisValue = corDebugIlFrame.Arguments[0];
+			if (methodName is "MoveNext" || methodName.Contains(">b")) // async or lambda
+			{
+				var containingClassName = metadataImport.GetTypeDefProps(corDebugFunction.Class.Token).szTypeDef;
+				var classGeneratedNameKind = GeneratedNameParser.GetKind(containingClassName);
+				if (classGeneratedNameKind is GeneratedNameKind.StateMachineType or GeneratedNameKind.LambdaDisplayClass)
+				{
+					// In this case, 'this' is actually a compiler generated class that contains a field pointing to the 'this' that the user expects
+					var proxyThisValue = GetAsyncOrLambdaProxyFieldValue(implicitThisValue, metadataImport);
+					implicitThisValue = proxyThisValue;
+				}
+			}
 			var (friendlyTypeName, value, debuggerProxyInstance, resultIsError) = await GetValueForCorDebugValueAsync(implicitThisValue, threadId, stackDepth);
 			VariablePresentationHint? variablePresentationHint = resultIsError ? new VariablePresentationHint { Attributes = AttributesValue.FailedEvaluation } : null;
 			var variableInfo = new VariableInfo

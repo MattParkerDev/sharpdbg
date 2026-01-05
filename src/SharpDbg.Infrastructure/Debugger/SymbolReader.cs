@@ -2,6 +2,7 @@ using System.Collections.Immutable;
 using System.Reflection.Metadata;
 using System.Reflection.Metadata.Ecma335;
 using System.Reflection.PortableExecutable;
+using ClrDebug;
 using ZLinq;
 
 namespace SharpDbg.Infrastructure.Debugger;
@@ -26,6 +27,20 @@ public class SymbolReader : IDisposable
         int EndLine,
         string DocumentPath
     );
+
+    /// <summary>
+    /// Information about an await block in an async method
+    /// </summary>
+    public record AsyncAwaitInfo(uint YieldOffset, uint ResumeOffset);
+
+    /// <summary>
+    /// Complete async method stepping information
+    /// </summary>
+    public class AsyncMethodSteppingInfo
+    {
+        public List<AsyncAwaitInfo> AwaitInfos { get; set; } = new();
+        public int LastUserCodeIlOffset { get; set; }
+    }
 
     private SymbolReader(MetadataReaderProvider provider, MetadataReader reader, MetadataReader peMetadataReader,
 	    string assemblyPath)
@@ -376,13 +391,12 @@ public class SymbolReader : IDisposable
 	    return null;
     }
 
-	public (int ilStartOffset, int ilEndOffset) GetStartAndEndSequencePointIlOffsetsForIlOffset(int methodToken, int ip)
+	public (int ilStartOffset, int ilEndOffset)? GetStartAndEndSequencePointIlOffsetsForIlOffset(int methodToken, int ip)
 	{
 		var methodHandle = MetadataTokens.MethodDefinitionHandle(methodToken);
 		var debugInfo = _reader.GetMethodDebugInformation(methodHandle);
 
-		if (debugInfo.SequencePointsBlob.IsNil)
-			return (0, 0);
+		if (debugInfo.SequencePointsBlob.IsNil) return null;
 
 		// Get valid, ordered sequence points
 		var points = debugInfo
@@ -392,20 +406,118 @@ public class SymbolReader : IDisposable
 			.Cast<SequencePoint?>()
 			.ToList();
 
-		if (points.Count is 0) return (0, 0);
+		if (points.Count is 0) return null;
 
 		// Find the last point at or before the IP
-		var startPoint = points.LastOrDefault(sp => sp!.Value.Offset <= ip) ?? points[0]!.Value;
+		var startPoint = points.LastOrDefault(sp => sp!.Value.Offset <= ip); // e.g. ip = 0, it is possible that there is no matching sequence point
 
 		// Find the first point after the IP
 		var endPoint = points.FirstOrDefault(sp => sp!.Value.Offset > ip);
 
-		var ilStartOffset = startPoint.Offset;
+		var ilStartOffset = startPoint?.Offset ?? ip;
 		var ilEndOffset = endPoint?.Offset ?? ilStartOffset;
 
 		// Calling method will handle when ilEndOffset == ilStartOffset, and change it to method size
 		return (ilStartOffset, ilEndOffset);
 	}
+
+	public (int currentIlOffset, int? nextUserCodeIlOffset) GetFrameCurrentIlOffsetAndNextUserCodeIlOffset(CorDebugILFrame ilFrame)
+	{
+		var method = ilFrame.Function;
+		var code = method.ILCode;
+		var methodToken = method.Token;
+		var ipResult = ilFrame.IP;
+		if (ipResult.pMappingResult is CorDebugMappingResult.MAPPING_UNMAPPED_ADDRESS or CorDebugMappingResult.MAPPING_NO_INFO)
+		{
+			throw new InvalidOperationException("IL Frame IP is unmapped or has no info");
+		}
+		var nextUserCodeIlOffset = GetNextUserCodeIlOffset(methodToken, ipResult.pnOffset);
+		return (ipResult.pnOffset, nextUserCodeIlOffset);
+	}
+
+	public int? GetNextUserCodeIlOffset(int methodToken, int currentIlOffset)
+	{
+		var methodHandle = MetadataTokens.MethodDefinitionHandle(methodToken);
+		var debugInfo = _reader.GetMethodDebugInformation(methodHandle);
+		foreach (var sequencePoint in debugInfo.GetSequencePoints())
+		{
+			if (sequencePoint.StartLine is 0 or SequencePoint.HiddenLine)
+				continue;
+
+			if (sequencePoint.Offset >= currentIlOffset)
+			{
+				var nextUserCodeIlOffset = sequencePoint.Offset;
+				return nextUserCodeIlOffset;
+			}
+		}
+		return null;
+	}
+
+	// Guid for async method stepping information from Roslyn
+	// https://github.com/dotnet/roslyn/blob/afd10305a37c0ffb2cfb2c2d8446154c68cfa87a/src/Dependencies/CodeAnalysis.Debugging/PortableCustomDebugInfoKinds.cs#L13
+	private static readonly Guid _asyncMethodSteppingInformationBlob = new("54FD2AC5-E925-401A-9C2A-F94F171072F8");
+
+    /// <summary>
+    /// Get async method stepping information for a method.
+    /// This includes await block yield/resume offsets and last user code IL offset.
+    /// </summary>
+    /// <param name="methodToken">Method token</param>
+    /// <returns>Async method stepping info if method has await blocks, null otherwise</returns>
+    public AsyncMethodSteppingInfo? GetAsyncMethodSteppingInfo(int methodToken)
+    {
+        var methodHandle = MetadataTokens.MethodDefinitionHandle(methodToken);
+        //var methodDebugInfoHandle = methodHandle.ToDebugInformationHandle();
+        var entityHandle = MetadataTokens.EntityHandle(methodToken);
+
+        var result = new AsyncMethodSteppingInfo();
+        bool foundOffset = false;
+        foreach (var cdiHandle in _reader.GetCustomDebugInformation(entityHandle))
+        {
+            var cdi = _reader.GetCustomDebugInformation(cdiHandle);
+
+            if (_reader.GetGuid(cdi.Kind) == _asyncMethodSteppingInformationBlob)
+            {
+                var blobReader = _reader.GetBlobReader(cdi.Value);
+
+                // Skip catch_handler_offset
+                blobReader.ReadUInt32();
+
+                // Read yield_offset, resume_offset, compressed_token tuples
+                while (blobReader.Offset < blobReader.Length)
+                {
+                    var yieldOffset = blobReader.ReadUInt32();
+                    var resumeOffset = blobReader.ReadUInt32();
+                    var token = (uint)blobReader.ReadCompressedInteger();
+
+                    result.AwaitInfos.Add(new AsyncAwaitInfo(yieldOffset, resumeOffset));
+                }
+            }
+        }
+
+        if (result.AwaitInfos.Count == 0)
+            return null;
+
+        // Find last IL offset for user code in this method
+        var debugInfo = _reader.GetMethodDebugInformation(methodHandle);
+
+        if (!debugInfo.SequencePointsBlob.IsNil)
+        {
+            foreach (var sp in debugInfo.GetSequencePoints())
+            {
+                // Skip hidden sequence points and invalid lines
+                if (sp.StartLine == 0 || sp.IsHidden || sp.Offset < 0)
+                    continue;
+
+                result.LastUserCodeIlOffset = sp.Offset;
+                foundOffset = true;
+            }
+        }
+
+        if (!foundOffset)
+            return null;
+
+        return result;
+    }
 
     /// <summary>
     /// Get all source files referenced in the PDB

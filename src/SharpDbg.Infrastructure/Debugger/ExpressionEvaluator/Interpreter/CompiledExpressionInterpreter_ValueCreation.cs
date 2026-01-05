@@ -27,23 +27,7 @@ public partial class CompiledExpressionInterpreter
 	private async Task<CorDebugValue> CreateBooleanValue(bool value)
 	{
 		var eval = _context.Thread.CreateEval();
-		var corValue = eval.CreateValue(CorElementType.Boolean, null);
-
-		if (value && corValue is CorDebugGenericValue genValue)
-		{
-			var size = genValue.Size;
-			var valueData = new byte[size];
-			valueData[0] = 1;
-			unsafe
-			{
-				fixed (byte* p = valueData)
-				{
-					var ptr = (IntPtr)p;
-					genValue.SetValue(ptr);
-				}
-			}
-		}
-
+		var corValue = eval.NewBooleanValue(value);
 		return corValue;
 	}
 

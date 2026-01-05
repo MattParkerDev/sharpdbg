@@ -154,7 +154,7 @@ public partial class ManagedDebugger
 	    return value;
     }
 
-    private static string GetCorDebugTypeFriendlyName(CorDebugType corDebugType)
+    internal static string GetCorDebugTypeFriendlyName(CorDebugType corDebugType)
     {
 	    var primitiveName = GetFriendlyTypeName(corDebugType.Type);
 	    if (primitiveName is not null) return primitiveName;

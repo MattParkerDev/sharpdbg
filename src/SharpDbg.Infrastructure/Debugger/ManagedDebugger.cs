@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Runtime.InteropServices;
+using Ardalis.GuardClauses;
 using ClrDebug;
 using SharpDbg.Infrastructure.Debugger.ExpressionEvaluator;
 using SharpDbg.Infrastructure.Debugger.ExpressionEvaluator.Compiler;
@@ -22,6 +23,7 @@ public partial class ManagedDebugger : IDisposable
     private bool _stopAtEntry;
     private bool _isAttached;
     private int? _pendingAttachProcessId;
+    private AsyncStepper? _asyncStepper;
 
     public event Action<int, string>? OnStopped;
     // ThreadId, FilePath, Line, Reason
@@ -46,6 +48,7 @@ public partial class ManagedDebugger : IDisposable
         _breakpointManager = new BreakpointManager();
         _variableManager = new VariableManager();
         _callbacks = new CorDebugManagedCallback();
+        _asyncStepper = new AsyncStepper(_modules, _callbacks, this);
 
         // Subscribe to callback events
         _callbacks.OnAnyEvent += OnAnyEvent;
@@ -205,14 +208,65 @@ public partial class ManagedDebugger : IDisposable
         {
             _rawProcess.Stop(0);
             IsRunning = false;
+            _asyncStepper?.Disable();
         }
     }
 
     private CorDebugStepper? _stepper;
+
+    /// <summary>
+    /// Setup a stepper without continuing execution
+    /// </summary>
+    internal CorDebugStepper SetupStepper(CorDebugThread thread, AsyncStepper.StepType stepType)
+    {
+        var frame = thread.ActiveFrame;
+        if (frame is not CorDebugILFrame ilFrame) throw new InvalidOperationException("Active frame is not an IL frame");
+        if (_stepper is not null) throw new InvalidOperationException("A step operation is already in progress");
+
+        CorDebugStepper stepper = frame.CreateStepper();
+        stepper.SetInterceptMask(CorDebugIntercept.INTERCEPT_ALL & ~(CorDebugIntercept.INTERCEPT_SECURITY | CorDebugIntercept.INTERCEPT_CLASS_INIT));
+        stepper.SetUnmappedStopMask(CorDebugUnmappedStop.STOP_NONE);
+        //stepper.SetJMC(true);
+
+        if (stepType == AsyncStepper.StepType.StepOut)
+        {
+            stepper.StepOut();
+        }
+        else // StepIn or StepOver
+        {
+            var symbolReader = _modules[frame.Function.Module.BaseAddress].SymbolReader;
+
+            var currentIlOffset = ilFrame.IP.pnOffset;
+            var nullableResult = symbolReader?.GetStartAndEndSequencePointIlOffsetsForIlOffset(frame.Function.Token, currentIlOffset);
+            if (nullableResult is var (startIlOffset, endIlOffset))
+            {
+	            if (startIlOffset == endIlOffset)
+	            {
+		            endIlOffset = frame.Function.ILCode.Size;
+	            }
+	            var stepRange = new COR_DEBUG_STEP_RANGE
+	            {
+		            startOffset = startIlOffset,
+		            endOffset = endIlOffset
+	            };
+	            var stepIn = stepType is AsyncStepper.StepType.StepIn;
+	            stepper.StepRange(stepIn, [stepRange], 1);
+            }
+            else
+            {
+	            var stepIn = stepType is AsyncStepper.StepType.StepIn;
+	            stepper.Step(stepIn);
+            }
+        }
+
+        _stepper = stepper;
+        return stepper;
+    }
+
     /// <summary>
     /// Step to the next line
     /// </summary>
-    public void StepNext(int threadId)
+    public async void StepNext(int threadId)
     {
         _logger?.Invoke($"StepNext on thread {threadId}");
         if (_threads.TryGetValue(threadId, out var thread))
@@ -220,28 +274,23 @@ public partial class ManagedDebugger : IDisposable
             var frame = thread.ActiveFrame;
             if (frame is not CorDebugILFrame ilFrame) throw new InvalidOperationException("Active frame is not an IL frame");
 			if (_stepper is not null) throw new InvalidOperationException("A step operation is already in progress");
-            CorDebugStepper stepper = frame.CreateStepper();
-            //stepper.SetInterceptMask(CorDebugIntercept.INTERCEPT_NONE);
-            stepper.SetUnmappedStopMask(CorDebugUnmappedStop.STOP_NONE);
-            //stepper.SetJMC(true);
-            // we need to get the start IL Offset of the current sequence point, and the start IL Offset of the next sequence point
-            // This is our step range
-            var symbolReader = _modules[frame.Function.Module.BaseAddress].SymbolReader;
-			if (symbolReader == null) throw new InvalidOperationException("No symbol reader for module");
-			var currentIlOffset = ilFrame.IP.pnOffset;
-            var (startIlOffset, endIlOffset) = symbolReader.GetStartAndEndSequencePointIlOffsetsForIlOffset(frame.Function.Token, currentIlOffset);
-            if (startIlOffset == endIlOffset)
+
+            // Try async stepping first
+            if (_asyncStepper is not null)
             {
-	            endIlOffset = frame.Function.ILCode.Size;
+	            var (handledByAsyncStepper, useSimpleStepper) = await _asyncStepper.TrySetupAsyncStep(thread, AsyncStepper.StepType.StepOver);
+	            if (handledByAsyncStepper)
+	            {
+		            if (useSimpleStepper is false)
+		            {
+			            Continue();
+			            return;
+		            }
+	            }
             }
-            var stepRange = new COR_DEBUG_STEP_RANGE
-            {
-	            startOffset = startIlOffset,
-	            endOffset = endIlOffset
-            };
-            stepper.StepRange(false, [stepRange], 1);
+
+            var stepper = SetupStepper(thread, AsyncStepper.StepType.StepOver);
             IsRunning = true;
-            _stepper = stepper;
             _variableManager.ClearAndDisposeHandleValues();
             _rawProcess?.Continue(false);
         }
@@ -250,7 +299,7 @@ public partial class ManagedDebugger : IDisposable
     /// <summary>
     /// Step into
     /// </summary>
-    public void StepIn(int threadId)
+    public async void StepIn(int threadId)
     {
         _logger?.Invoke($"StepIn on thread {threadId}");
         if (_threads.TryGetValue(threadId, out var thread))
@@ -258,11 +307,22 @@ public partial class ManagedDebugger : IDisposable
             var frame = thread.ActiveFrame;
             if (frame != null)
             {
-                var stepper = frame.CreateStepper();
-                stepper.SetUnmappedStopMask(CorDebugUnmappedStop.STOP_NONE);
-                stepper.Step(true);
+	            // Try async stepping first
+	            if (_asyncStepper is not null)
+	            {
+		            var (handledByAsyncStepper, useSimpleStepper) = await _asyncStepper.TrySetupAsyncStep(thread, AsyncStepper.StepType.StepIn);
+		            if (handledByAsyncStepper)
+		            {
+			            if (useSimpleStepper is false)
+			            {
+				            Continue();
+				            return;
+			            }
+		            }
+	            }
+
+                var stepper = SetupStepper(thread, AsyncStepper.StepType.StepIn);
                 IsRunning = true;
-                _stepper = stepper;
                 _variableManager.ClearAndDisposeHandleValues();
                 _rawProcess?.Continue(false);
             }
@@ -272,7 +332,7 @@ public partial class ManagedDebugger : IDisposable
     /// <summary>
     /// Step out
     /// </summary>
-    public void StepOut(int threadId)
+    public async void StepOut(int threadId)
     {
         _logger?.Invoke($"StepOut on thread {threadId}");
         if (_threads.TryGetValue(threadId, out var thread))
@@ -280,13 +340,27 @@ public partial class ManagedDebugger : IDisposable
             var frame = thread.ActiveFrame;
             if (frame != null)
             {
-                var stepper = frame.CreateStepper();
-                stepper.SetUnmappedStopMask(CorDebugUnmappedStop.STOP_NONE);
-                stepper.StepOut();
-                IsRunning = true;
-                _stepper = stepper;
-                _variableManager.ClearAndDisposeHandleValues();
-                _rawProcess?.Continue(false);
+	            // Try async stepping first
+	            if (_asyncStepper is not null)
+	            {
+		            var (handledByAsyncStepper, useSimpleStepper) = await _asyncStepper.TrySetupAsyncStep(thread, AsyncStepper.StepType.StepOut);
+		            if (handledByAsyncStepper)
+		            {
+			            if (useSimpleStepper is false)
+			            {
+				            Continue();
+				            return;
+			            }
+		            }
+	            }
+
+                var stepper = SetupStepper(thread, AsyncStepper.StepType.StepOut);
+                if (stepper != null)
+                {
+                    IsRunning = true;
+                    _variableManager.ClearAndDisposeHandleValues();
+                    _rawProcess?.Continue(false);
+                }
             }
         }
     }
@@ -717,6 +791,7 @@ public partial class ManagedDebugger : IDisposable
 
     private void Cleanup()
     {
+        _asyncStepper?.Disable();
         _threads.Clear();
         _breakpointManager.Clear();
         _variableManager.ClearAndDisposeHandleValues();
@@ -842,37 +917,108 @@ public partial class ManagedDebugger : IDisposable
         ContinueProcess();
     }
 
-    private void HandleBreakpoint(object? sender, BreakpointCorDebugManagedCallbackEventArgs breakpointCorDebugManagedCallbackEventArgs)
+    private async void HandleBreakpoint(object? sender, BreakpointCorDebugManagedCallbackEventArgs breakpointCorDebugManagedCallbackEventArgs)
     {
-	    //System.Diagnostics.Debugger.Launch();
-	    var breakpoint = breakpointCorDebugManagedCallbackEventArgs.Breakpoint;
-	    ArgumentNullException.ThrowIfNull(breakpoint);
-	    if (breakpoint is not CorDebugFunctionBreakpoint functionBreakpoint)
+	    try
 	    {
-		    _logger?.Invoke("Unknown breakpoint type hit");
-		    ContinueProcess(); // may be incorrect
-		    return;
+		    //System.Diagnostics.Debugger.Launch();
+		    var breakpoint = breakpointCorDebugManagedCallbackEventArgs.Breakpoint;
+		    ArgumentNullException.ThrowIfNull(breakpoint);
+
+		    if (_stepper is not null)
+		    {
+			    _stepper.Deactivate();
+			    _stepper = null;
+		    }
+
+		    if (breakpoint is not CorDebugFunctionBreakpoint functionBreakpoint)
+		    {
+			    _logger?.Invoke("Unknown breakpoint type hit");
+			    ContinueProcess(); // may be incorrect
+			    return;
+		    }
+		    var corThread = breakpointCorDebugManagedCallbackEventArgs.Thread;
+
+		    // Check if async stepper handles this breakpoint
+		    if (_asyncStepper != null)
+		    {
+			    var (asyncHandled, shouldStop) = await _asyncStepper.TryHandleBreakpoint(corThread, functionBreakpoint);
+			    if (asyncHandled)
+			    {
+				    if (shouldStop is false)
+				    {
+					    Continue();
+					    return;
+				    }
+				    IsRunning = false;
+				    if (_stepper is not null)
+				    {
+					    _stepper.Deactivate();
+					    _stepper = null;
+				    }
+				    var sourceInfo = GetSourceInfoAtFrame(corThread.ActiveFrame);
+				    if (sourceInfo is null)
+				    {
+					    SetupStepper(corThread, AsyncStepper.StepType.StepOut);
+					    Continue();
+					    return;
+				    }
+			    }
+		    }
+
+		    var managedBreakpoint = _breakpointManager.FindByCorBreakpoint(functionBreakpoint.Raw);
+		    ArgumentNullException.ThrowIfNull(managedBreakpoint);
+		    IsRunning = false;
+		    OnStopped2?.Invoke(corThread.Id, managedBreakpoint.FilePath, managedBreakpoint.Line, "breakpoint");
 	    }
-	    var managedBreakpoint = _breakpointManager.FindByCorBreakpoint(functionBreakpoint.Raw);
-	    ArgumentNullException.ThrowIfNull(managedBreakpoint);
-	    var corThread = breakpointCorDebugManagedCallbackEventArgs.Thread;
-        IsRunning = false;
-        if (_stepper is not null)
-        {
-	        _stepper.Deactivate();
-	        _stepper = null;
-        }
-        OnStopped2?.Invoke(corThread.Id, managedBreakpoint.FilePath, managedBreakpoint.Line, "breakpoint");
+	    catch (Exception e)
+	    {
+		    throw; // TODO handle exception
+	    }
     }
 
-    private void HandleStepComplete(object? sender, StepCompleteCorDebugManagedCallbackEventArgs stepCompleteCorDebugManagedCallbackEventArgs)
+    private void HandleStepComplete(object? sender, StepCompleteCorDebugManagedCallbackEventArgs stepCompleteEventArgs)
     {
-	    var corThread = stepCompleteCorDebugManagedCallbackEventArgs.Thread;
+	    var corThread = stepCompleteEventArgs.Thread;
         IsRunning = false;
+        var ilFrame = (CorDebugILFrame)corThread.ActiveFrame;
+        // If we have an active async stepper, it means we would have a breakpoint set up for either yield or resume for the next await statement
+        // We would then have done a regular step over/in/out to get to that breakpoint
+        // Since the step has completed, it means we did not hit the breakpoint, so we can clear the active async step
+        _asyncStepper?.ClearActiveAsyncStep();
         var stepper = _stepper ?? throw new InvalidOperationException("No stepper found for step complete");
 		stepper.Deactivate(); // I really don't know if its necessary to deactivate the steppers once done
 		_stepper = null;
-		var sourceInfo = GetSourceInfoAtFrame(corThread.ActiveFrame);
+		var symbolReader = _modules[ilFrame.Function.Module.BaseAddress].SymbolReader;
+		if (symbolReader is null)
+		{
+			// We don't have symbols, but we're going to step in, in case this code calls user code that would be missed if we stepped out or over
+			// Alternative is to use JMC true - we'll never stop in non-user code, so in theory symbolReader would never be null
+			SetupStepper(corThread, AsyncStepper.StepType.StepIn);
+			Continue();
+			return;
+		}
+		var (currentIlOffset, nextUserCodeIlOffset) = symbolReader.GetFrameCurrentIlOffsetAndNextUserCodeIlOffset(ilFrame);
+		if (stepCompleteEventArgs.Reason is CorDebugStepReason.STEP_CALL && currentIlOffset < nextUserCodeIlOffset)
+		{
+			SetupStepper(corThread, AsyncStepper.StepType.StepOver);
+			Continue();
+			return;
+		}
+		if (nextUserCodeIlOffset is null)
+		{
+			// Check attributes
+			var metadataImport = ilFrame.Function.Module.GetMetaDataInterface().MetaDataImport;
+			var mdMethodDef = ilFrame.Function.Token;
+			var methodIsNotDebuggable = metadataImport.HasAnyAttribute(mdMethodDef, JmcConstants.JmcMethodAttributeNames);
+			if (methodIsNotDebuggable)
+			{
+				SetupStepper(corThread, AsyncStepper.StepType.StepIn);
+				Continue();
+				return;
+			}
+		}
+		var sourceInfo = GetSourceInfoAtFrame(ilFrame);
 		if (sourceInfo is null)
 		{
 			// sourceInfo will be null if we could not find a PDB for the module
@@ -880,7 +1026,8 @@ public partial class ManagedDebugger : IDisposable
 			// (Until we implement Source Link and/or Decompilation support)
 			// So for now, if this occurs, we are going to do a step out to get us back to a stop location with source info
 			// TODO: This should probably be more sophisticated - mark the CorDebugFunction as non user code - `JMCStatus = false`, enable JMC for the stepper and then step over, in case the non user code calls user code, e.g. LINQ methods
-			StepOut(corThread.Id);
+			SetupStepper(corThread, AsyncStepper.StepType.StepOver);
+			Continue();
 			return;
 		}
 		var (sourceFilePath, line, _) = sourceInfo.Value;
@@ -891,6 +1038,7 @@ public partial class ManagedDebugger : IDisposable
     {
         var corThread = breakCorDebugManagedCallbackEventArgs.Thread;
         IsRunning = false;
+        _asyncStepper?.Disable();
         if (_stepper is not null)
         {
 	        _stepper.Deactivate();
@@ -903,6 +1051,7 @@ public partial class ManagedDebugger : IDisposable
     {
 	    var corThread = exceptionCorDebugManagedCallbackEventArgs.Thread;
         IsRunning = false;
+        _asyncStepper?.Disable();
         if (_stepper is not null)
         {
 	        _stepper.Deactivate();
@@ -916,6 +1065,8 @@ public partial class ManagedDebugger : IDisposable
         Cleanup();
         _process = null;
         _corDebug = null;
+        _asyncStepper?.Dispose();
+        _asyncStepper = null;
     }
 
     // Helper classes for scope tracking

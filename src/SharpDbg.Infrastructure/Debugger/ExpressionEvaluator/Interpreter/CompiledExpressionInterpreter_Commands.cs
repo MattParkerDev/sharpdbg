@@ -213,7 +213,8 @@ public partial class CompiledExpressionInterpreter
 		}
 	}
 
-	private static async Task<CorDebugFunction?> FindMethodOnType(
+	// TODO: Refactor - this doesn't belong in this class
+	public static async Task<CorDebugFunction?> FindMethodOnType(
 		CorDebugType type,
 		string methodName,
 		CorDebugValue?[] args,

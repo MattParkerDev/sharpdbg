@@ -94,6 +94,18 @@ public static class Extensions
 		return null;
 	}
 
+	public static bool HasAnyAttribute(this MetaDataImport metadataImport, mdToken token, string[] attributeNames)
+	{
+		foreach (var attributeName in attributeNames)
+		{
+			if (metadataImport.TryGetCustomAttributeByName(token, attributeName, out _) is HRESULT.S_OK)
+			{
+				return true;
+			}
+		}
+		return false;
+	}
+
 	public static async Task<CorDebugValue?> CallParameterlessInstanceMethodAsync(this CorDebugEval eval, CorDebugManagedCallback managedCallback, CorDebugFunction corDebugFunction, CorDebugValue corDebugValue)
 	{
 		const bool isStatic = false;
@@ -130,7 +142,8 @@ public static class Extensions
 		void OnCallbacksOnOnEvalComplete(object? s, EvalCompleteCorDebugManagedCallbackEventArgs e)
 		{
 			if (e.Eval.Raw != eval.Raw) return;
-			returnValue = e.Eval.Result;
+			var getResultResult = e.Eval.TryGetResult(out returnValue);
+			if (getResultResult is not HRESULT.CORDBG_S_FUNC_EVAL_HAS_NO_RESULT && returnValue is null) getResultResult.ThrowOnNotOK();
 			evalCompleteTcs.SetResult();
 		}
 		void CallbacksOnOnEvalException(object? sender, EvalExceptionCorDebugManagedCallbackEventArgs e)
@@ -269,5 +282,27 @@ public static class Extensions
 			returnValue = e.Eval.Result;
 			evalCompleteTcs.SetResult();
 		}
+	}
+
+	public static CorDebugValue NewBooleanValue(this CorDebugEval eval, bool value)
+	{
+		var corValue = eval.CreateValue(CorElementType.Boolean, null);
+
+		if (value is true && corValue is CorDebugGenericValue genValue)
+		{
+			var size = genValue.Size;
+			var valueData = new byte[size];
+			valueData[0] = 1;
+			unsafe
+			{
+				fixed (byte* p = valueData)
+				{
+					var ptr = (IntPtr)p;
+					genValue.SetValue(ptr);
+				}
+			}
+		}
+
+		return corValue;
 	}
 }

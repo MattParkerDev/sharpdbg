@@ -5,10 +5,10 @@ using SharpDbg.Cli.Tests.Helpers;
 
 namespace SharpDbg.Cli.Tests;
 
-public class SharpDbgTests(ITestOutputHelper testOutputHelper)
+public class VariablesTests(ITestOutputHelper testOutputHelper)
 {
 	[Fact]
-    public async Task SharpDbgCli_ScopesRequest_Returns_V2()
+    public async Task SyncMethod_VariablesRequest_ReturnsCorrectVariables()
     {
 	    var startSuspended = true;
 

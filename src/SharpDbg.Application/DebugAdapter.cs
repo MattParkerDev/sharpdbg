@@ -34,6 +34,22 @@ public class DebugAdapter : DebugAdapterBase
         InitializeProtocolClient(input, output);
     }
 
+    protected static T ExecuteWithExceptionHandling<T>(Func<T> func)
+    {
+	    try
+	    {
+		    return func();
+	    }
+	    catch (ProtocolException)
+	    {
+		    throw;
+	    }
+	    catch (Exception ex)
+	    {
+		    throw new ProtocolException(ex.Message, ex);
+	    }
+    }
+
     // Helper method to extract configuration properties from LaunchArguments/AttachArguments
     private static T? GetConfigValue<T>(Dictionary<string, JToken>? config, string key)
     {
@@ -227,37 +243,43 @@ public class DebugAdapter : DebugAdapterBase
 
     protected override ConfigurationDoneResponse HandleConfigurationDoneRequest(ConfigurationDoneArguments arguments)
     {
-        _logger?.Invoke("Configuration done");
-        _debugger.ConfigurationDone();
-        return new ConfigurationDoneResponse();
+	    return ExecuteWithExceptionHandling(() =>
+	    {
+		    _logger?.Invoke("Configuration done");
+		    _debugger.ConfigurationDone();
+		    return new ConfigurationDoneResponse();
+	    });
     }
 
     protected override SetBreakpointsResponse HandleSetBreakpointsRequest(SetBreakpointsArguments arguments)
     {
-        if (arguments.Source?.Path == null)
-        {
-            throw new ProtocolException("Missing source path");
-        }
+	    return ExecuteWithExceptionHandling(() =>
+	    {
+		    if (arguments.Source?.Path == null)
+		    {
+			    throw new ProtocolException("Missing source path");
+		    }
 
-        var lines = arguments.Breakpoints?.Select(bp => ConvertClientLineToDebugger(bp.Line)).ToArray() ?? Array.Empty<int>();
-        var breakpoints = _debugger.SetBreakpoints(arguments.Source.Path, lines);
+		    var lines = arguments.Breakpoints?.Select(bp => ConvertClientLineToDebugger(bp.Line)).ToArray() ?? Array.Empty<int>();
+		    var breakpoints = _debugger.SetBreakpoints(arguments.Source.Path, lines);
 
-        var responseBreakpoints = breakpoints.Select(bp => new MSBreakpoint
-        {
-            Id = bp.Id,
-            Verified = bp.Verified,
-            Line = ConvertDebuggerLineToClient(bp.Line),
-            Message = bp.Message,
-            Source = new Source
-            {
-                Path = bp.FilePath
-            }
-        }).ToList();
+		    var responseBreakpoints = breakpoints.Select(bp => new MSBreakpoint
+		    {
+			    Id = bp.Id,
+			    Verified = bp.Verified,
+			    Line = ConvertDebuggerLineToClient(bp.Line),
+			    Message = bp.Message,
+			    Source = new Source
+			    {
+				    Path = bp.FilePath
+			    }
+		    }).ToList();
 
-        return new SetBreakpointsResponse
-        {
-            Breakpoints = responseBreakpoints
-        };
+		    return new SetBreakpointsResponse
+		    {
+			    Breakpoints = responseBreakpoints
+		    };
+	    });
     }
 
     protected override SetFunctionBreakpointsResponse HandleSetFunctionBreakpointsRequest(SetFunctionBreakpointsArguments arguments)
@@ -279,57 +301,66 @@ public class DebugAdapter : DebugAdapterBase
 
     protected override ThreadsResponse HandleThreadsRequest(ThreadsArguments arguments)
     {
-        var threads = _debugger.GetThreads();
+	    return ExecuteWithExceptionHandling(() =>
+	    {
+		    var threads = _debugger.GetThreads();
 
-        var responseThreads = threads.Select(t => new MSThread
-        {
-            Id = t.id,
-            Name = t.name
-        }).ToList();
+		    var responseThreads = threads.Select(t => new MSThread
+		    {
+			    Id = t.id,
+			    Name = t.name
+		    }).ToList();
 
-        return new ThreadsResponse
-        {
-            Threads = responseThreads
-        };
+		    return new ThreadsResponse
+		    {
+			    Threads = responseThreads
+		    };
+	    });
     }
 
     protected override StackTraceResponse HandleStackTraceRequest(StackTraceArguments arguments)
     {
-        var frames = _debugger.GetStackTrace(arguments.ThreadId, arguments.StartFrame ?? 0, arguments.Levels);
+	    return ExecuteWithExceptionHandling(() =>
+	    {
+		    var frames = _debugger.GetStackTrace(arguments.ThreadId, arguments.StartFrame ?? 0, arguments.Levels);
 
-        var responseFrames = frames.Select(f => new MSStackFrame
-        {
-            Id = f.Id,
-            Name = f.Name,
-            Line = ConvertDebuggerLineToClient(f.Line),
-            EndLine = ConvertDebuggerLineToClient(f.EndLine),
-            Column = ConvertDebuggerColumnToClient(f.Column),
-            EndColumn =  ConvertDebuggerColumnToClient(f.EndColumn),
-            Source = f.Source != null ? new Source { Path = f.Source } : null
-        }).ToList();
+		    var responseFrames = frames.Select(f => new MSStackFrame
+		    {
+			    Id = f.Id,
+			    Name = f.Name,
+			    Line = ConvertDebuggerLineToClient(f.Line),
+			    EndLine = ConvertDebuggerLineToClient(f.EndLine),
+			    Column = ConvertDebuggerColumnToClient(f.Column),
+			    EndColumn =  ConvertDebuggerColumnToClient(f.EndColumn),
+			    Source = f.Source != null ? new Source { Path = f.Source } : null
+		    }).ToList();
 
-        return new StackTraceResponse
-        {
-            StackFrames = responseFrames,
-            TotalFrames = responseFrames.Count
-        };
+		    return new StackTraceResponse
+		    {
+			    StackFrames = responseFrames,
+			    TotalFrames = responseFrames.Count
+		    };
+	    });
     }
 
     protected override ScopesResponse HandleScopesRequest(ScopesArguments arguments)
     {
-        var scopes = _debugger.GetScopes(arguments.FrameId);
+	    return ExecuteWithExceptionHandling(() =>
+	    {
+		    var scopes = _debugger.GetScopes(arguments.FrameId);
 
-        var responseScopes = scopes.Select(s => new Scope
-        {
-            Name = s.Name,
-            VariablesReference = s.VariablesReference,
-            Expensive = s.Expensive
-        }).ToList();
+		    var responseScopes = scopes.Select(s => new Scope
+		    {
+			    Name = s.Name,
+			    VariablesReference = s.VariablesReference,
+			    Expensive = s.Expensive
+		    }).ToList();
 
-        return new ScopesResponse
-        {
-            Scopes = responseScopes
-        };
+		    return new ScopesResponse
+		    {
+			    Scopes = responseScopes
+		    };
+	    });
     }
 
     protected override async void HandleVariablesRequestAsync(IRequestResponder<VariablesArguments, VariablesResponse> responder)
@@ -385,54 +416,68 @@ public class DebugAdapter : DebugAdapterBase
 
     protected override ContinueResponse HandleContinueRequest(ContinueArguments arguments)
     {
-        _debugger.Continue();
-
-        return new ContinueResponse
-        {
-            AllThreadsContinued = true
-        };
+	    return ExecuteWithExceptionHandling(() =>
+	    {
+		    _debugger.Continue();
+		    return new ContinueResponse
+		    {
+			    AllThreadsContinued = true
+		    };
+	    });
     }
 
     protected override NextResponse HandleNextRequest(NextArguments arguments)
     {
-        _debugger.StepNext(arguments.ThreadId);
-
-        return new NextResponse();
+	    return ExecuteWithExceptionHandling(() =>
+	    {
+		    _debugger.StepNext(arguments.ThreadId);
+		    return new NextResponse();
+	    });
     }
 
     protected override StepInResponse HandleStepInRequest(StepInArguments arguments)
     {
-        _debugger.StepIn(arguments.ThreadId);
-
-        return new StepInResponse();
+	    return ExecuteWithExceptionHandling(() =>
+	    {
+		    _debugger.StepIn(arguments.ThreadId);
+		    return new StepInResponse();
+	    });
     }
 
     protected override StepOutResponse HandleStepOutRequest(StepOutArguments arguments)
     {
-        _debugger.StepOut(arguments.ThreadId);
-
-        return new StepOutResponse();
+	    return ExecuteWithExceptionHandling(() =>
+	    {
+		    _debugger.StepOut(arguments.ThreadId);
+		    return new StepOutResponse();
+	    });
     }
 
     protected override PauseResponse HandlePauseRequest(PauseArguments arguments)
     {
-        _debugger.Pause();
-
-        return new PauseResponse();
+	    return ExecuteWithExceptionHandling(() =>
+	    {
+		    _debugger.Pause();
+		    return new PauseResponse();
+	    });
     }
 
     protected override DisconnectResponse HandleDisconnectRequest(DisconnectArguments arguments)
     {
-        _debugger.Disconnect(arguments?.TerminateDebuggee ?? false);
-
-        return new DisconnectResponse();
+	    return ExecuteWithExceptionHandling(() =>
+	    {
+		    _debugger.Disconnect(arguments?.TerminateDebuggee ?? false);
+		    return new DisconnectResponse();
+	    });
     }
 
     protected override TerminateResponse HandleTerminateRequest(TerminateArguments arguments)
     {
-        _debugger.Terminate();
-
-        return new TerminateResponse();
+	    return ExecuteWithExceptionHandling(() =>
+	    {
+		    _debugger.Terminate();
+		    return new TerminateResponse();
+	    });
     }
 
     // Coordinate conversion helpers

@@ -177,7 +177,7 @@ public partial class ManagedDebugger
 		return hasStaticMembers | await AddMembers(corDebugValue, baseType, threadId, stackDepth, result);
 	}
 
-	private async Task AddStaticMembers(CorDebugValue corDebugValue, CorDebugType corDebugType, VariablesReference variablesReference, List<VariableInfo> result)
+	private async Task AddStaticMembers(CorDebugValue corDebugValue, CorDebugType corDebugType, ThreadId threadId, FrameStackDepth stackDepth, List<VariableInfo> result)
 	{
 		var corDebugClass = corDebugType.Class;
 		var module = corDebugClass.Module;
@@ -186,16 +186,16 @@ public partial class ManagedDebugger
 		var staticFieldDefs = metadataImport.EnumFields(mdTypeDef).AsValueEnumerable().Where(s => s.IsStatic(metadataImport)).ToArray();
 		var staticProperties = metadataImport.EnumProperties(mdTypeDef).AsValueEnumerable().Where(s => s.IsStatic(metadataImport)).ToArray();
 
-		await AddFields(staticFieldDefs, metadataImport, corDebugClass, corDebugValue, result, variablesReference.ThreadId, variablesReference.FrameStackDepth);
+		await AddFields(staticFieldDefs, metadataImport, corDebugClass, corDebugValue, result, threadId, stackDepth);
 		// We need to pass the un-unwrapped reference value here, as we need to invoke CallParameterizedFunction with the correct parameters
-		await AddProperties(staticProperties, metadataImport, corDebugClass, variablesReference.ThreadId, variablesReference.FrameStackDepth, corDebugValue, result);
+		await AddProperties(staticProperties, metadataImport, corDebugClass, threadId, stackDepth, corDebugValue, result);
 
 		// Handle members on base types recursively
 		var baseType = corDebugType.Base;
 		if (baseType is null) return;
 		var baseTypeName = GetCorDebugTypeFriendlyName(baseType);
 		if (baseTypeName is "System.Object" or "System.ValueType" or "System.Enum") return;
-		await AddStaticMembers(corDebugValue, baseType, variablesReference, result);
+		await AddStaticMembers(corDebugValue, baseType, threadId, stackDepth, result);
 	}
 
 	private async Task AddFields(mdFieldDef[] mdFieldDefs, MetaDataImport metadataImport, CorDebugClass corDebugClass, CorDebugValue corDebugValue, List<VariableInfo> result, ThreadId threadId, FrameStackDepth stackDepth)

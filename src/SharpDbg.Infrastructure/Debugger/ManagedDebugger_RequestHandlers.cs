@@ -397,7 +397,7 @@ public partial class ManagedDebugger
 			else if (variablesReference.ReferenceKind is StoredReferenceKind.StaticClassVariable)
 			{
 				var objectValue = variablesReference.ObjectValue!.UnwrapDebugValueToObject();
-				await AddStaticMembers(variablesReference.ObjectValue!, objectValue.ExactType, variablesReference, result);
+				await AddStaticMembers(variablesReference.ObjectValue!, objectValue.ExactType, variablesReference.ThreadId, variablesReference.FrameStackDepth, result);
 			}
 		}
 		catch (Exception ex)

@@ -324,7 +324,7 @@ public partial class ManagedDebugger : IDisposable
     /// <summary>
     /// Step out
     /// </summary>
-    public void StepOut(int threadId)
+    public async void StepOut(int threadId)
     {
         _logger?.Invoke($"StepOut on thread {threadId}");
         if (_threads.TryGetValue(threadId, out var thread))
@@ -332,17 +332,19 @@ public partial class ManagedDebugger : IDisposable
             var frame = thread.ActiveFrame;
             if (frame != null)
             {
-                // Try async stepping first
-                if (_asyncStepper != null && _asyncStepper.TrySetupAsyncStep(thread, AsyncStepper.StepType.StepOut, out var useSimpleStepper))
-                {
-                    if (!useSimpleStepper)
-                    {
-                        IsRunning = true;
-                        _variableManager.ClearAndDisposeHandleValues();
-                        _rawProcess?.Continue(false);
-                        return;
-                    }
-                }
+	            // Try async stepping first
+	            if (_asyncStepper is not null)
+	            {
+		            var (handledByAsyncStepper, useSimpleStepper) = await _asyncStepper.TrySetupAsyncStep(thread, AsyncStepper.StepType.StepOut);
+		            if (handledByAsyncStepper)
+		            {
+			            if (useSimpleStepper is false)
+			            {
+				            Continue();
+				            return;
+			            }
+		            }
+	            }
 
                 var stepper = SetupStepper(thread, AsyncStepper.StepType.StepOut);
                 if (stepper != null)

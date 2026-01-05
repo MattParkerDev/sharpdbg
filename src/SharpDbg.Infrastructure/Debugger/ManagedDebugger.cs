@@ -232,27 +232,31 @@ public partial class ManagedDebugger : IDisposable
         {
             stepper.StepOut();
         }
-        else if (stepType == AsyncStepper.StepType.StepIn)
-        {
-            stepper.Step(true);
-        }
-        else // StepOver
+        else // StepIn or StepOver
         {
             var symbolReader = _modules[frame.Function.Module.BaseAddress].SymbolReader;
-            Guard.Against.Null(symbolReader);
 
             var currentIlOffset = ilFrame.IP.pnOffset;
-            var (startIlOffset, endIlOffset) = symbolReader.GetStartAndEndSequencePointIlOffsetsForIlOffset(frame.Function.Token, currentIlOffset);
-            if (startIlOffset == endIlOffset)
+            var nullableResult = symbolReader?.GetStartAndEndSequencePointIlOffsetsForIlOffset(frame.Function.Token, currentIlOffset);
+            if (nullableResult is var (startIlOffset, endIlOffset))
             {
-                endIlOffset = frame.Function.ILCode.Size;
+	            if (startIlOffset == endIlOffset)
+	            {
+		            endIlOffset = frame.Function.ILCode.Size;
+	            }
+	            var stepRange = new COR_DEBUG_STEP_RANGE
+	            {
+		            startOffset = startIlOffset,
+		            endOffset = endIlOffset
+	            };
+	            var stepIn = stepType is AsyncStepper.StepType.StepIn;
+	            stepper.StepRange(stepIn, [stepRange], 1);
             }
-            var stepRange = new COR_DEBUG_STEP_RANGE
+            else
             {
-                startOffset = startIlOffset,
-                endOffset = endIlOffset
-            };
-            stepper.StepRange(false, [stepRange], 1);
+	            var stepIn = stepType is AsyncStepper.StepType.StepIn;
+	            stepper.Step(stepIn);
+            }
         }
 
         _stepper = stepper;

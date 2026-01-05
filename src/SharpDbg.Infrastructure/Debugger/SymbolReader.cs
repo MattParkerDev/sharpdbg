@@ -391,13 +391,12 @@ public class SymbolReader : IDisposable
 	    return null;
     }
 
-	public (int ilStartOffset, int ilEndOffset) GetStartAndEndSequencePointIlOffsetsForIlOffset(int methodToken, int ip)
+	public (int ilStartOffset, int ilEndOffset)? GetStartAndEndSequencePointIlOffsetsForIlOffset(int methodToken, int ip)
 	{
 		var methodHandle = MetadataTokens.MethodDefinitionHandle(methodToken);
 		var debugInfo = _reader.GetMethodDebugInformation(methodHandle);
 
-		if (debugInfo.SequencePointsBlob.IsNil)
-			return (0, 0);
+		if (debugInfo.SequencePointsBlob.IsNil) return null;
 
 		// Get valid, ordered sequence points
 		var points = debugInfo
@@ -407,22 +406,22 @@ public class SymbolReader : IDisposable
 			.Cast<SequencePoint?>()
 			.ToList();
 
-		if (points.Count is 0) return (0, 0);
+		if (points.Count is 0) return null;
 
 		// Find the last point at or before the IP
-		var startPoint = points.LastOrDefault(sp => sp!.Value.Offset <= ip) ?? points[0]!.Value;
+		var startPoint = points.LastOrDefault(sp => sp!.Value.Offset <= ip); // e.g. ip = 0, it is possible that there is no matching sequence point
 
 		// Find the first point after the IP
 		var endPoint = points.FirstOrDefault(sp => sp!.Value.Offset > ip);
 
-		var ilStartOffset = startPoint.Offset;
+		var ilStartOffset = startPoint?.Offset ?? ip;
 		var ilEndOffset = endPoint?.Offset ?? ilStartOffset;
 
 		// Calling method will handle when ilEndOffset == ilStartOffset, and change it to method size
 		return (ilStartOffset, ilEndOffset);
 	}
 
-	public (int currentIlOffset, int nextUserCodeIlOffset)? GetFrameCurrentIlOffsetAndNextUserCodeIlOffset(CorDebugILFrame ilFrame)
+	public (int currentIlOffset, int? nextUserCodeIlOffset) GetFrameCurrentIlOffsetAndNextUserCodeIlOffset(CorDebugILFrame ilFrame)
 	{
 		var method = ilFrame.Function;
 		var code = method.ILCode;
@@ -433,8 +432,7 @@ public class SymbolReader : IDisposable
 			throw new InvalidOperationException("IL Frame IP is unmapped or has no info");
 		}
 		var nextUserCodeIlOffset = GetNextUserCodeIlOffset(methodToken, ipResult.pnOffset);
-		if (nextUserCodeIlOffset is null) return null;
-		return (ipResult.pnOffset, nextUserCodeIlOffset.Value);
+		return (ipResult.pnOffset, nextUserCodeIlOffset);
 	}
 
 	public int? GetNextUserCodeIlOffset(int methodToken, int currentIlOffset)

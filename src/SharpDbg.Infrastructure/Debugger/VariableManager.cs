@@ -35,58 +35,58 @@ public record struct VariablesReference(StoredReferenceKind ReferenceKind, CorDe
 /// </summary>
 public class VariableManager
 {
-    private int _nextReference = 1;
-    private readonly Dictionary<int, VariablesReference> _references = new();
-    private readonly Lock _lock = new();
+	private int _nextReference = 1;
+	private readonly Dictionary<int, VariablesReference> _references = new();
+	private readonly Lock _lock = new();
 
-    /// <summary>
-    /// Create a reference for an object
-    /// </summary>
-    public int CreateReference(VariablesReference obj)
-    {
-        lock (_lock)
-        {
-            var reference = _nextReference++;
-            _references[reference] = obj;
-            return reference;
-        }
-    }
+	/// <summary>
+	/// Create a reference for an object
+	/// </summary>
+	public int CreateReference(VariablesReference obj)
+	{
+		lock (_lock)
+		{
+			var reference = _nextReference++;
+			_references[reference] = obj;
+			return reference;
+		}
+	}
 
-    /// <summary>
-    /// Get an object by reference
-    /// </summary>
-    public VariablesReference? GetReference(int reference)
-    {
-        lock (_lock)
-        {
-            if (_references.TryGetValue(reference, out var obj))
-            {
-	            return obj;
-            }
-            return null;
-        }
-    }
+	/// <summary>
+	/// Get an object by reference
+	/// </summary>
+	public VariablesReference? GetReference(int reference)
+	{
+		lock (_lock)
+		{
+			if (_references.TryGetValue(reference, out var obj))
+			{
+				return obj;
+			}
+			return null;
+		}
+	}
 
-    /// <summary>
-    /// Clear all references
-    /// </summary>
-    public void ClearAndDisposeHandleValues()
-    {
-        lock (_lock)
-        {
-	        var handleReferences = _references.Values.SelectMany(GetHandleValues).ToList();
-	        handleReferences.ForEach(h => h.Dispose());
-            _references.Clear();
-            _nextReference = 1;
-        }
-    }
+	/// <summary>
+	/// Clear all references
+	/// </summary>
+	public void ClearAndDisposeHandleValues()
+	{
+		lock (_lock)
+		{
+			var handleReferences = _references.Values.SelectMany(GetHandleValues).ToList();
+			handleReferences.ForEach(h => h.Dispose());
+			_references.Clear();
+			_nextReference = 1;
+		}
+	}
 
-    private static IEnumerable<CorDebugHandleValue> GetHandleValues(VariablesReference r)
-    {
-	    if (r.ObjectValue is CorDebugHandleValue ov)
-		    yield return ov;
+	private static IEnumerable<CorDebugHandleValue> GetHandleValues(VariablesReference r)
+	{
+		if (r.ObjectValue is CorDebugHandleValue ov)
+			yield return ov;
 
-	    if (r.DebuggerProxyInstance is CorDebugHandleValue dp)
-		    yield return dp;
-    }
+		if (r.DebuggerProxyInstance is CorDebugHandleValue dp)
+			yield return dp;
+	}
 }

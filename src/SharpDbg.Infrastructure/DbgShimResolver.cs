@@ -69,7 +69,7 @@ internal static class DbgShimResolver
 
 		return ResolveFromRID(runtimesDirectory, rid, fileName);
 #else
-            return null;
+			return null;
 #endif
 	}
 

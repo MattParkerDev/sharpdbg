@@ -9,9 +9,9 @@ public class ExpressionSyntaxVisitor(List<CommandBase> commands, bool isDebugger
 	bool ExpressionStatementBody = false;
 	public int ExpressionStatementCount = 0;
 #if DEBUG_STACKMACHINE
-        // Gather AST data for DebugText.
-        List<string> ST = new List<string>();
-        int CurrentNodeDepth = 0;
+		// Gather AST data for DebugText.
+		List<string> ST = new List<string>();
+		int CurrentNodeDepth = 0;
 #endif
 
 	// CheckedExpression/UncheckedExpression syntax kind related
@@ -59,11 +59,11 @@ public class ExpressionSyntaxVisitor(List<CommandBase> commands, bool isDebugger
 					break;
 			}
 #if DEBUG_STACKMACHINE
-            CurrentNodeDepth++;
+			CurrentNodeDepth++;
 
-            // Gather AST data for DebugText.
-            var indents = new String(' ', CurrentNodeDepth * 4);
-            ST.Add(indents + node.Kind() + " --- " + node.ToString());
+			// Gather AST data for DebugText.
+			var indents = new String(' ', CurrentNodeDepth * 4);
+			ST.Add(indents + node.Kind() + " --- " + node.ToString());
 #endif
 			// Visit nested Kinds in proper order.
 			// Note, we should setup flags before and parse Kinds after this call.
@@ -71,7 +71,7 @@ public class ExpressionSyntaxVisitor(List<CommandBase> commands, bool isDebugger
 			else base.Visit(node);
 
 #if DEBUG_STACKMACHINE
-            CurrentNodeDepth--;
+			CurrentNodeDepth--;
 #endif
 			switch (nodeSyntaxKind)
 			{
@@ -136,7 +136,7 @@ public class ExpressionSyntaxVisitor(List<CommandBase> commands, bool isDebugger
 
 				case SyntaxKind.InvocationExpression:
 /* TODO
-                    case SyntaxKind.ObjectCreationExpression:
+					case SyntaxKind.ObjectCreationExpression:
 */
 					// InvocationExpression/ObjectCreationExpression
 					//     \ ArgumentList
@@ -213,9 +213,9 @@ public class ExpressionSyntaxVisitor(List<CommandBase> commands, bool isDebugger
 				case SyntaxKind.ParenthesizedExpression:
 				case SyntaxKind.TypeArgumentList:
 /* TODO
-                    case SyntaxKind.OmittedTypeArgument:
-                    case SyntaxKind.UncheckedExpression:
-                    case SyntaxKind.CheckedExpression:
+					case SyntaxKind.OmittedTypeArgument:
+					case SyntaxKind.UncheckedExpression:
+					case SyntaxKind.CheckedExpression:
 */
 					break;
 
@@ -251,20 +251,20 @@ public class ExpressionSyntaxVisitor(List<CommandBase> commands, bool isDebugger
 				case SyntaxKind.CoalesceExpression:
 
 /* TODO
-                    case SyntaxKind.AliasQualifiedName:
-                    case SyntaxKind.ConditionalExpression:
-                    case SyntaxKind.PointerMemberAccessExpression:
-                    case SyntaxKind.CastExpression:
-                    case SyntaxKind.AsExpression:
-                    case SyntaxKind.IsExpression:
-                    case SyntaxKind.PreIncrementExpression:
-                    case SyntaxKind.PostIncrementExpression:
-                    case SyntaxKind.PreDecrementExpression:
-                    case SyntaxKind.PostDecrementExpression:
+					case SyntaxKind.AliasQualifiedName:
+					case SyntaxKind.ConditionalExpression:
+					case SyntaxKind.PointerMemberAccessExpression:
+					case SyntaxKind.CastExpression:
+					case SyntaxKind.AsExpression:
+					case SyntaxKind.IsExpression:
+					case SyntaxKind.PreIncrementExpression:
+					case SyntaxKind.PostIncrementExpression:
+					case SyntaxKind.PreDecrementExpression:
+					case SyntaxKind.PostDecrementExpression:
 */
 				case SyntaxKind.SizeOfExpression:
 /*
-                    case SyntaxKind.TypeOfExpression:
+					case SyntaxKind.TypeOfExpression:
 */
 					_commands.Add(new NoOperandsCommand(nodeSyntaxKind, CurrentScopeFlags.Peek()));
 					break;
@@ -283,25 +283,25 @@ public class ExpressionSyntaxVisitor(List<CommandBase> commands, bool isDebugger
 	}
 
 #if DEBUG_STACKMACHINE
-        public string GenerateDebugText()
-        {
-            // We cannot derive from sealed type 'StringBuilder' and it use platform-dependant Environment.NewLine for new line.
-            // Use '\n' directly, since netcoredbg use only '\n' for new line.
-            StringBuilder sb = new StringBuilder();
-            sb.Append("=======================================\n");
-            sb.Append("Source tree:\n");
-            foreach (var line in ST)
-            {
-                sb.AppendFormat("{0}\n", line);
-            }
-            sb.Append("=======================================\n");
-            sb.Append("Stack machine commands:\n");
-            foreach (var command in Commands)
-            {
-                sb.AppendFormat("    {0}\n", command.ToString());
-            }
-            return sb.ToString();
-        }
+		public string GenerateDebugText()
+		{
+			// We cannot derive from sealed type 'StringBuilder' and it use platform-dependant Environment.NewLine for new line.
+			// Use '\n' directly, since netcoredbg use only '\n' for new line.
+			StringBuilder sb = new StringBuilder();
+			sb.Append("=======================================\n");
+			sb.Append("Source tree:\n");
+			foreach (var line in ST)
+			{
+				sb.AppendFormat("{0}\n", line);
+			}
+			sb.Append("=======================================\n");
+			sb.Append("Stack machine commands:\n");
+			foreach (var command in Commands)
+			{
+				sb.AppendFormat("    {0}\n", command.ToString());
+			}
+			return sb.ToString();
+		}
 #endif
 }
 

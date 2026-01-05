@@ -35,44 +35,44 @@ public partial class ManagedDebugger
 	}
 
 	private static string GetFlagsEnumValue(MetaDataImport metaDataImport, CorDebugObjectValue corDebugObjectValue, string valueAsString)
-    {
-	    if (!ulong.TryParse(valueAsString, out var enumValue))
-		    return valueAsString;
+	{
+		if (!ulong.TryParse(valueAsString, out var enumValue))
+			return valueAsString;
 
-	    ulong remaining = enumValue;
+		ulong remaining = enumValue;
 
-	    // value -> name, ordered by value (ascending)
-	    var flags = new SortedDictionary<ulong, string>();
+		// value -> name, ordered by value (ascending)
+		var flags = new SortedDictionary<ulong, string>();
 
-	    foreach (var field in metaDataImport.EnumFields(corDebugObjectValue.Class.Token))
-	    {
-		    const CorFieldAttr requiredAttributesForEnumOption = CorFieldAttr.fdPublic | CorFieldAttr.fdStatic | CorFieldAttr.fdLiteral | CorFieldAttr.fdHasDefault;
+		foreach (var field in metaDataImport.EnumFields(corDebugObjectValue.Class.Token))
+		{
+			const CorFieldAttr requiredAttributesForEnumOption = CorFieldAttr.fdPublic | CorFieldAttr.fdStatic | CorFieldAttr.fdLiteral | CorFieldAttr.fdHasDefault;
 
-		    var fieldProps = metaDataImport.GetFieldProps(field);
-		    if ((fieldProps.pdwAttr & requiredAttributesForEnumOption) != requiredAttributesForEnumOption) continue;
+			var fieldProps = metaDataImport.GetFieldProps(field);
+			if ((fieldProps.pdwAttr & requiredAttributesForEnumOption) != requiredAttributesForEnumOption) continue;
 
-		    var fieldValueObj = GetLiteralValue(fieldProps.ppValue, fieldProps.pdwCPlusTypeFlag);
+			var fieldValueObj = GetLiteralValue(fieldProps.ppValue, fieldProps.pdwCPlusTypeFlag);
 
-		    ulong fieldValue = Convert.ToUInt64(fieldValueObj);
+			ulong fieldValue = Convert.ToUInt64(fieldValueObj);
 
-		    // Zero flag is excluded from OR expressions
-		    if (fieldValue is 0) continue;
+			// Zero flag is excluded from OR expressions
+			if (fieldValue is 0) continue;
 
-		    // Exact match already handled earlier
-		    if ((fieldValue & remaining) == fieldValue)
-		    {
-			    flags[fieldValue] = fieldProps.szField;
-			    remaining &= ~fieldValue;
-		    }
-	    }
+			// Exact match already handled earlier
+			if ((fieldValue & remaining) == fieldValue)
+			{
+				flags[fieldValue] = fieldProps.szField;
+				remaining &= ~fieldValue;
+			}
+		}
 
-	    // Only return flags if we fully decomposed the value
-	    if (flags.Count > 0 && remaining == 0)
-	    {
-		    return string.Join(" | ", flags.Values);
-	    }
+		// Only return flags if we fully decomposed the value
+		if (flags.Count > 0 && remaining == 0)
+		{
+			return string.Join(" | ", flags.Values);
+		}
 
-	    // Fallback: numeric value
-	    return enumValue.ToString();
-    }
+		// Fallback: numeric value
+		return enumValue.ToString();
+	}
 }

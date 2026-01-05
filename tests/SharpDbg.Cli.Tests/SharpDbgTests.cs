@@ -87,7 +87,7 @@ public class SharpDbgTests(ITestOutputHelper testOutputHelper)
     }
 }
 
-public static class TestExtensions
+file static class TestExtensions
 {
 	public static void AssertStructMemberVariables(this DebugProtocolHost debugProtocolHost, int variablesReference)
 	{

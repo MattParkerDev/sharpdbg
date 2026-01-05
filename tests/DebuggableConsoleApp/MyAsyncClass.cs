@@ -4,7 +4,7 @@ namespace DebuggableConsoleApp;
 
 public class MyAsyncClass
 {
-	public async Task<int> MyMethodAsync()
+	public async Task<int> MyMethodAsync(int myParam)
 	{
 		var intVar = 10;
 		intVar = 10;
@@ -24,4 +24,6 @@ public class MyAsyncClass
 		var result3 = AnotherClass.AnotherMethodAsync().GetAwaiter().GetResult();
 		return result;
 	}
+
+	private int _fieldInAsyncClass = 42;
 }

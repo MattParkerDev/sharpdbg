@@ -15,7 +15,7 @@ public static class Program
 			// Keep the application running to allow debugging
 			myClass.MyMethod(13, 6);
 			myClassNoMembers.MyMethod(42);
-			var asyncResult = myAsyncClass.MyMethodAsync().GetAwaiter().GetResult();
+			var asyncResult = myAsyncClass.MyMethodAsync(4).GetAwaiter().GetResult();
 			Thread.Sleep(100);
 			//await Task.Delay(500);
 		}

@@ -94,6 +94,18 @@ public static class Extensions
 		return null;
 	}
 
+	public static bool HasAnyAttribute(this MetaDataImport metadataImport, mdToken token, string[] attributeNames)
+	{
+		foreach (var attributeName in attributeNames)
+		{
+			if (metadataImport.TryGetCustomAttributeByName(token, attributeName, out _) is HRESULT.S_OK)
+			{
+				return true;
+			}
+		}
+		return false;
+	}
+
 	public static async Task<CorDebugValue?> CallParameterlessInstanceMethodAsync(this CorDebugEval eval, CorDebugManagedCallback managedCallback, CorDebugFunction corDebugFunction, CorDebugValue corDebugValue)
 	{
 		const bool isStatic = false;

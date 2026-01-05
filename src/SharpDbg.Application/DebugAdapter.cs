@@ -34,7 +34,7 @@ public class DebugAdapter : DebugAdapterBase
         InitializeProtocolClient(input, output);
     }
 
-    protected static T ExecuteWithExceptionHandling<T>(Func<T> func)
+    private static T ExecuteWithExceptionHandling<T>(Func<T> func)
     {
 	    try
 	    {

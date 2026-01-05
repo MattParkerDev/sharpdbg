@@ -1,5 +1,4 @@
-﻿using System.Diagnostics;
-using ClrDebug;
+﻿using ClrDebug;
 using SharpDbg.Infrastructure.Debugger.ExpressionEvaluator;
 using SharpDbg.Infrastructure.Debugger.ExpressionEvaluator.Compiler;
 using ZLinq;
@@ -11,56 +10,9 @@ public partial class ManagedDebugger
 	/// <summary>
 	/// Launch a process to debug
 	/// </summary>
-	public void Launch(string program, string[] args, string? workingDirectory, Dictionary<string, string>? env,
-		bool stopAtEntry)
+	public void Launch(string program, string[] args, string? workingDirectory, Dictionary<string, string>? env, bool stopAtEntry)
 	{
-		throw new NotImplementedException(
-			"Launch is not implemented, use Attach instead. Use DOTNET_DefaultDiagnosticPortSuspend=1 env var to have the process wait for debugger attach, the resume it yourself after attaching with `new DiagnosticsClient(debuggableProcess.Id).ResumeRuntime()`");
-		_logger?.Invoke($"Launching: {program}");
-		_stopAtEntry = stopAtEntry;
-
-		// Initialize the debugger
-		_corDebug = new CorDebug();
-		_corDebug.Initialize();
-		_corDebug.SetManagedHandler(_callbacks);
-
-		workingDirectory ??= Path.GetDirectoryName(program) ?? Environment.CurrentDirectory;
-
-		// Create and start the process using Process.Start for simplicity
-		// Then attach the debugger
-		var psi = new ProcessStartInfo
-		{
-			FileName = program,
-			WorkingDirectory = workingDirectory,
-			UseShellExecute = false
-		};
-
-		// Use ArgumentList for safe argument passing (no injection risk)
-		foreach (var arg in args)
-		{
-			psi.ArgumentList.Add(arg);
-		}
-
-		if (env != null)
-		{
-			foreach (var kvp in env)
-			{
-				psi.Environment[kvp.Key] = kvp.Value;
-			}
-		}
-
-		var systemProcess = Process.Start(psi);
-		if (systemProcess == null)
-		{
-			throw new Exception("Failed to start process");
-		}
-
-		// Attach debugger to the started process
-		_process = _corDebug.DebugActiveProcess(systemProcess.Id, false);
-		_rawProcess = _process;
-		_isAttached = true;
-		IsRunning = !_stopAtEntry;
-		_logger?.Invoke($"Process created and attached with PID: {systemProcess.Id}");
+		throw new NotImplementedException("Launch is not implemented, use Attach instead. Use DOTNET_DefaultDiagnosticPortSuspend=1 env var to have the process wait for debugger attach, the resume it yourself after attaching with `new DiagnosticsClient(debuggableProcess.Id).ResumeRuntime()`");
 	}
 
 	/// <summary>

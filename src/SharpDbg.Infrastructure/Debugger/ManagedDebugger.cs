@@ -24,6 +24,7 @@ public partial class ManagedDebugger : IDisposable
     private bool _isAttached;
     private int? _pendingAttachProcessId;
     private AsyncStepper? _asyncStepper;
+	private CompiledExpressionInterpreter? _expressionInterpreter;
 
     public event Action<int, string>? OnStopped;
     // ThreadId, FilePath, Line, Reason
@@ -246,8 +247,6 @@ public partial class ManagedDebugger : IDisposable
 	    if (frame is not CorDebugILFrame ilFrame) throw new InvalidOperationException("Frame is not an IL frame");
 	    return ilFrame;
 	}
-
-	private CompiledExpressionInterpreter? _expressionInterpreter;
 
 	private void Cleanup()
     {

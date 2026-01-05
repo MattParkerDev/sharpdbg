@@ -538,34 +538,6 @@ public partial class ManagedDebugger : IDisposable
     }
 }
 
-// Helper classes for returning data
-public class StackFrameInfo
-{
-    public required int Id { get; set; }
-    public required string Name { get; set; }
-    public required int Line { get; set; }
-    public required int EndLine { get; set; }
-    public required int Column { get; set; }
-    public required int EndColumn { get; set; }
-    public required string? Source { get; set; }
-}
-
-public class ScopeInfo
-{
-    public required string Name { get; set; }
-    public required int VariablesReference { get; set; }
-    public required bool Expensive { get; set; }
-}
-
-public class VariableInfo
-{
-    public required string Name { get; set; }
-    public required string Value { get; set; }
-    public required string? Type { get; set; }
-    public required int VariablesReference { get; set; }
-	public VariablePresentationHint? PresentationHint { get; set; }
-}
-
 public record struct VariablePresentationHint
 {
 	public PresentationHintKind? Kind { get; set; }

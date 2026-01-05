@@ -366,7 +366,7 @@ public partial class ManagedDebugger
 				{
 					// get the public members of the debugger proxy instance instead
 					var objectValue = variablesReference.DebuggerProxyInstance.UnwrapDebugValueToObject();
-					await AddMembersAndStaticPseudoVariable(variablesReference.DebuggerProxyInstance, objectValue.ExactType, variablesReference, result, false);
+					await AddMembersAndStaticPseudoVariable(variablesReference.DebuggerProxyInstance, objectValue.ExactType, variablesReference.ThreadId, variablesReference.FrameStackDepth, result, false);
 					var rawValueVariablesReference = _variableManager.CreateReference(new VariablesReference(StoredReferenceKind.StackVariable, variablesReference.ObjectValue, variablesReference.ThreadId, variablesReference.FrameStackDepth, null));
 					var rawValuePseudoVariable = new VariableInfo
 					{
@@ -387,7 +387,7 @@ public partial class ManagedDebugger
 				}
 				else if (unwrappedDebugValue is CorDebugObjectValue objectValue)
 				{
-					await AddMembersAndStaticPseudoVariable(variablesReference.ObjectValue!, objectValue.ExactType, variablesReference, result);
+					await AddMembersAndStaticPseudoVariable(variablesReference.ObjectValue!, objectValue.ExactType, variablesReference.ThreadId, variablesReference.FrameStackDepth, result);
 				}
 				else
 				{

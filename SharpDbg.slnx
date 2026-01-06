@@ -10,6 +10,7 @@
     <Project Path="src/SharpDbg.Application/SharpDbg.Application.csproj" />
     <Project Path="src/SharpDbg.Cli/SharpDbg.Cli.csproj" />
     <Project Path="src/SharpDbg.Infrastructure/SharpDbg.Infrastructure.csproj" />
+    <Project Path="src/SharpDbg.InMemory/SharpDbg.InMemory.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/DebuggableConsoleApp/DebuggableConsoleApp.csproj" />

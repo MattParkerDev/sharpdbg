@@ -9,8 +9,14 @@ namespace SharpDbg.Infrastructure.Debugger;
 
 public partial class ManagedDebugger
 {
-	private async Task AddLocalVariables(ModuleInfo module, CorDebugFunction corDebugFunction, List<VariableInfo> result, ThreadId threadId, FrameStackDepth stackDepth)
+	private async Task AddLocalVariables(ModuleInfo module, CorDebugFunction corDebugFunction, List<VariableInfo> result, ThreadId threadId, FrameStackDepth stackDepth, CorDebugValue? classContainingHoistedLocalsValue)
 	{
+		if (classContainingHoistedLocalsValue is not null)
+		{
+			// If we have a classContainingHoistedLocalsValue, it means our actual local variables are bogus, and that we need to get the locals that the user expects from classContainingHoistedLocalsValue instead
+			await AddMembers(classContainingHoistedLocalsValue, classContainingHoistedLocalsValue.ExactType, threadId, stackDepth, result);
+			return;
+		}
 		var corDebugIlFrame = GetFrameForThreadIdAndStackDepth(threadId, stackDepth);
 		if (corDebugIlFrame.LocalVariables.Length is 0) return;
 		foreach (var (index, localVariableCorDebugValue) in corDebugIlFrame.LocalVariables.Index())
@@ -31,10 +37,11 @@ public partial class ManagedDebugger
 		}
 	}
 
-	private async Task AddArguments(ModuleInfo module, CorDebugFunction corDebugFunction, List<VariableInfo> result, ThreadId threadId, FrameStackDepth stackDepth)
+	/// Returns classContainingHoistedLocalsValue if applicable
+	private async Task<CorDebugValue?> AddArguments(ModuleInfo module, CorDebugFunction corDebugFunction, List<VariableInfo> result, ThreadId threadId, FrameStackDepth stackDepth)
 	{
 		var corDebugIlFrame = GetFrameForThreadIdAndStackDepth(threadId, stackDepth);
-		if (corDebugIlFrame.Arguments.Length is 0) return;
+		if (corDebugIlFrame.Arguments.Length is 0) return null;
 		var metadataImport = module.Module.GetMetaDataInterface().MetaDataImport;
 
 		// localsScope.Frame.Arguments includes the implicit "this" parameter for instance methods,
@@ -42,6 +49,7 @@ public partial class ManagedDebugger
 		// so we need to check the method attributes to see if it's static or instance, to conditionally handle "this"
 		var methodProps = metadataImport!.GetMethodProps(corDebugFunction.Token);
 		var isStatic = methodProps.pdwAttr.IsMdStatic();
+		CorDebugValue? classContainingHoistedLocalsValue = null;
 		if (isStatic is false)
 		{
 			var methodName = methodProps.szMethod;
@@ -53,8 +61,9 @@ public partial class ManagedDebugger
 				if (classGeneratedNameKind is GeneratedNameKind.StateMachineType or GeneratedNameKind.LambdaDisplayClass)
 				{
 					// In this case, 'this' is actually a compiler generated class that contains a field pointing to the 'this' that the user expects
-					var proxyThisValue = GetAsyncOrLambdaProxyFieldValue(implicitThisValue, metadataImport);
-					implicitThisValue = proxyThisValue;
+					// We are also going to use this to decide that the containing class contains hoisted locals, so we should return it
+					classContainingHoistedLocalsValue = implicitThisValue;
+					implicitThisValue = GetAsyncOrLambdaProxyFieldValue(implicitThisValue, metadataImport);
 				}
 			}
 			var (friendlyTypeName, value, debuggerProxyInstance, resultIsError) = await GetValueForCorDebugValueAsync(implicitThisValue, threadId, stackDepth);
@@ -90,6 +99,7 @@ public partial class ManagedDebugger
 			};
 			result.Add(variableInfo);
 		}
+		return classContainingHoistedLocalsValue;
 	}
 
 	private int GetVariablesReference(CorDebugValue corDebugValue, string friendlyTypeName, ThreadId threadId, FrameStackDepth stackDepth, CorDebugValue? debuggerProxyInstance)
@@ -205,7 +215,18 @@ public partial class ManagedDebugger
 			var fieldProps = metadataImport.GetFieldProps(mdFieldDef);
 			var fieldName = fieldProps.szField;
 			if (fieldName is null) continue;
-			if (Extensions.IsCompilerGeneratedFieldName(fieldName)) continue;
+			GeneratedNameParser.TryParseGeneratedName(fieldName, out var generatedNameKind, out var openBracketOffset, out var closeBracketOffset);
+			if (generatedNameKind is GeneratedNameKind.HoistedLocalField)
+			{
+				// e.g. we are in an async method - local variables in the user's method are stored in fields on a generated class, e.g. "<intVar>5__1"
+				// we want to extract "intVar"
+				var originalLocalVariableName = fieldName.AsSpan()[(openBracketOffset + 1)..closeBracketOffset];
+				fieldName = originalLocalVariableName.ToString();
+			}
+			else if (generatedNameKind is not GeneratedNameKind.None)
+			{
+				continue;
+			}
 			var isStatic = fieldProps.pdwAttr.IsFdStatic();
 			var isLiteral = fieldProps.pdwAttr.IsFdLiteral();
 			var debuggerBrowsableRootHidden = false;

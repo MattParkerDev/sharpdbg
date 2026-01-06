@@ -357,8 +357,8 @@ public partial class ManagedDebugger
 			{
 				var corDebugFunction = ilFrame.Function;
 				var module = _modules[corDebugFunction.Module.BaseAddress];
-				await AddArguments(module, corDebugFunction, result, variablesReference.ThreadId, variablesReference.FrameStackDepth);
-				await AddLocalVariables(module, corDebugFunction, result, variablesReference.ThreadId, variablesReference.FrameStackDepth);
+				var classContainingHoistedLocalsValue = await AddArguments(module, corDebugFunction, result, variablesReference.ThreadId, variablesReference.FrameStackDepth);
+				await AddLocalVariables(module, corDebugFunction, result, variablesReference.ThreadId, variablesReference.FrameStackDepth, classContainingHoistedLocalsValue);
 			}
 			else if (variablesReference.ReferenceKind is StoredReferenceKind.StackVariable)
 			{

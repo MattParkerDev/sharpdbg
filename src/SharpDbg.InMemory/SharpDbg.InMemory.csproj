@@ -4,14 +4,43 @@
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+	<GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+	<PublishRepositoryUrl>true</PublishRepositoryUrl>
+
+	<PackageId>SharpDbg</PackageId>
+	<Authors>MattParkerDev</Authors>
+	<PackageLicenseExpression>MIT</PackageLicenseExpression>
+	<PackageReadmeFile>readme.md</PackageReadmeFile>
+	<PackageVersion>0.1.0-preview1</PackageVersion>
+	<PackageProjectUrl>https://github.com/MattParkerDev/sharpdbg</PackageProjectUrl>
+	<Description>A managed .NET Debugger implementing the Debug Adapter Protocol</Description>
+	<PackageTags>Csharp Dotnet Debugger Debugging ICorDebug</PackageTags>
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\SharpDbg.Application\SharpDbg.Application.csproj" />
+    <ProjectReference Include="..\SharpDbg.Application\SharpDbg.Application.csproj" PrivateAssets="all" />
+	<ProjectReference Include="..\SharpDbg.Infrastructure\SharpDbg.Infrastructure.csproj" PrivateAssets="all" />
   </ItemGroup>
 
 	<ItemGroup>
+		<PackageReference Include="Tenekon.MSBuild.Packaging.ProjectBuildInPackage" Version="2.0.0">
+			<PrivateAssets>all</PrivateAssets>
+			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+		</PackageReference>
+		
 		<PackageReference Include="Microsoft.Diagnostics.DbgShim" Version="9.0.652701" />
+
+		<!-- We must include all package references required by projects that we reference -->
+		<PackageReference Include="Microsoft.VisualStudio.Shared.VSCodeDebugProtocol" Version="18.0.10427.1" />
+		<PackageReference Include="Ardalis.GuardClauses" Version="5.0.0" />
+		<PackageReference Include="ClrDebug" Version="0.3.4" />
+		<PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="5.0.0" />
+		<PackageReference Include="NeoSmart.AsyncLock" Version="3.2.1" />
+		<PackageReference Include="ZLinq" Version="1.5.4" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<None Include="readme.md" Pack="true" PackagePath="\" />
 	</ItemGroup>
 
 </Project>

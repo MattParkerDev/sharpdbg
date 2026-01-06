@@ -49,16 +49,32 @@ public class AsyncVariablesTests(ITestOutputHelper testOutputHelper)
 	    variables.Should().HaveCount(6);
 	    variables.Should().BeEquivalentTo(expectedVariables);
 
+	    var stoppedEvent2 = await debugProtocolHost.WithStepInRequest(stoppedEvent.ThreadId!.Value).WaitForStoppedEvent(stoppedEventTcs);
+	    var stopInfo = stoppedEvent2.ReadStopInfo();
+	    stopInfo.filePath.Should().EndWith("AnotherClass.cs");
+	    stopInfo.line.Should().Be(17);
 
-	    var stoppedEvent2 = await debugProtocolHost
+	    debugProtocolHost
+		    .WithStackTraceRequest(stoppedEvent.ThreadId!.Value, out var stackTraceResponse2)
+		    .WithScopesRequest(stackTraceResponse2.StackFrames!.First().Id, out var scopesResponse2)
+		    .WithVariablesRequest(scopesResponse2.Scopes.Single().VariablesReference, out var variables2);
+
+	    List<Variable> staticAsyncMethodExpectedVariables =
+	    [
+		    new() {Name = "test", Value = "0", Type = "int", EvaluateName = "test" },
+	    ];
+
+	    variables2.Should().BeEquivalentTo(staticAsyncMethodExpectedVariables);
+
+	    var stoppedEvent3 = await debugProtocolHost
 		    .WithContinueRequest()
 		    .WaitForStoppedEvent(stoppedEventTcs);
 	    debugProtocolHost
-		    .WithStackTraceRequest(stoppedEvent2.ThreadId!.Value, out var stackTraceResponse2)
-		    .WithScopesRequest(stackTraceResponse2.StackFrames!.First().Id, out var scopesResponse2)
-		    .WithVariablesRequest(scopesResponse2.Scopes.Single().VariablesReference, out var variables2);
+		    .WithStackTraceRequest(stoppedEvent3.ThreadId!.Value, out var stackTraceResponse3)
+		    .WithScopesRequest(stackTraceResponse3.StackFrames!.First().Id, out var scopesResponse3)
+		    .WithVariablesRequest(scopesResponse3.Scopes.Single().VariablesReference, out var variables3);
 	    // Assert the variables reference count resets on continue, by asserting the variables are the same as the first time (code is in a while loop)
-	    variables2.Should().BeEquivalentTo(expectedVariables);
+	    variables3.Should().BeEquivalentTo(expectedVariables);
     }
 }
 

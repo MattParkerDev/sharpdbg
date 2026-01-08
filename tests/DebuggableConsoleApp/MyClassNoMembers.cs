@@ -7,6 +7,11 @@ public class MyClassNoMembers
 		var myInt = 4;
 		var anotherVar = "asdf";
 	}
+
+	public string Test(int test)
+	{
+		return "stringValue2";
+	}
 }
 
 public class MyClassWithGeneric<T>

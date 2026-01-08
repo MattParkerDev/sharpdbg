@@ -104,6 +104,9 @@ public class EvalTests(ITestOutputHelper testOutputHelper)
 	    evaluateResponse24.Result.Should().Be("Count = 4");
 	    debugProtocolHost.WithEvaluateRequest(stackFrameId, "$\"Count = {_intList.Count}\"", out var evaluateResponse25);
 	    evaluateResponse25.Result.Should().Be("Count = 4");
-
+	    debugProtocolHost.WithEvaluateRequest(stackFrameId, "_classWithDebugDisplay2", out var evaluateResponse26);
+	    evaluateResponse26.Result.Should().Be("Test = stringValue1");
+	    debugProtocolHost.WithEvaluateRequest(stackFrameId, "_classWithDebugDisplay3", out var evaluateResponse27);
+	    evaluateResponse27.Result.Should().Be("Test = stringValue2");
     }
 }

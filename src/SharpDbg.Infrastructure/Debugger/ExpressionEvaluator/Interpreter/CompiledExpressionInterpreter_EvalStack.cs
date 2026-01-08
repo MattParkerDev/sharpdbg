@@ -14,6 +14,10 @@ public partial class CompiledExpressionInterpreter
 		if (_context.RootValue is not null && entry.CorDebugValue is null)
 		{
 			if (entry.CorDebugValue is not null) throw new InvalidOperationException("Both root value and entry value are set");
+			if (entry.Identifiers is ["this"])
+			{
+				return _context.RootValue;
+			}
 			optionalRootValue = _context.RootValue;
 		}
 		return await _debugger.ResolveIdentifiers(entry.Identifiers, _context.ThreadId, _context.StackDepth, entry.CorDebugValue, optionalRootValue);

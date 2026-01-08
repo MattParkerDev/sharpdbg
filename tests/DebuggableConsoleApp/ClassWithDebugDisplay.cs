@@ -8,6 +8,19 @@ public class ClassWithDebugDisplay
 {
 	public int IntProperty { get; set; } = 14;
 }
+[DebuggerDisplay("Test = {DebuggerToString(),nq}")]
+public class ClassWithDebugDisplay2
+{
+	public string DebuggerToString()
+	{
+		return "stringValue1";
+	}
+}
+[DebuggerDisplay("Test = {Nested.Test(4),nq}")]
+public class ClassWithDebugDisplay3
+{
+	public MyClassNoMembers Nested { get; set; } = new();
+}
 
 public class ClassWithDebugDisplayDebugView
 {

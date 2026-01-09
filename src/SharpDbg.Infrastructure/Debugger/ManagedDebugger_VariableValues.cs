@@ -33,7 +33,7 @@ public partial class ManagedDebugger
 			var eval = thread.CreateEval();
 			var module = corDebugValue.ExactType.Class.Module;
 			var metadataImport = module.GetMetaDataInterface().MetaDataImport;
-			var debugProxyCorDebugTypeDef = metadataImport.FindTypeDefByNameOrNull(debuggerProxyTypeName, mdToken.Nil);
+			var debugProxyCorDebugTypeDef = metadataImport.FindMaybeNestedTypeDefByNameOrNull(debuggerProxyTypeName);
 			ArgumentNullException.ThrowIfNull(debugProxyCorDebugTypeDef);
 			var debugProxyCorDebugClass = module.GetClassFromToken(debugProxyCorDebugTypeDef.Value);
 

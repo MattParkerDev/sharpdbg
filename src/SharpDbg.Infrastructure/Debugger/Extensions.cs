@@ -48,6 +48,20 @@ public static class Extensions
 		return isStatic;
 	}
 
+	// To my knowledge, only strings from CustomAttributes 'Type' ctor use this '+' format
+	public static mdTypeDef? FindMaybeNestedTypeDefByNameOrNull(this MetaDataImport metadataImport, string typeName)
+	{
+		var nestedClasses = typeName.Split('+');
+		mdTypeDef? enclosingClass = null;
+		foreach (var nestedClass in nestedClasses)
+		{
+			var mdTypeDef = metadataImport.FindTypeDefByNameOrNull(nestedClass, enclosingClass ?? mdToken.Nil);
+			if (mdTypeDef is null) return null;
+			enclosingClass = mdTypeDef;
+		}
+		return enclosingClass;
+	}
+
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	public static mdTypeDef? FindTypeDefByNameOrNull(this MetaDataImport metadataImport, string typeName, mdToken enclosingClass)
 	{

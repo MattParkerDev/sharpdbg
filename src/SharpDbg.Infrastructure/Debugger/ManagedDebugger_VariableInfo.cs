@@ -63,20 +63,24 @@ public partial class ManagedDebugger
 					// In this case, 'this' is actually a compiler generated class that contains a field pointing to the 'this' that the user expects
 					// We are also going to use this to decide that the containing class contains hoisted locals, so we should return it
 					classContainingHoistedLocalsValue = implicitThisValue;
+					// This may return null, as even though we have checked isStatic is true, that is for the MoveNext method - the user's method may be static, and therefore would have no 'this' proxy field
 					implicitThisValue = GetAsyncOrLambdaProxyFieldValue(implicitThisValue, metadataImport);
 				}
 			}
-			var (friendlyTypeName, value, debuggerProxyInstance, resultIsError) = await GetValueForCorDebugValueAsync(implicitThisValue, threadId, stackDepth);
-			VariablePresentationHint? variablePresentationHint = resultIsError ? new VariablePresentationHint { Attributes = AttributesValue.FailedEvaluation } : null;
-			var variableInfo = new VariableInfo
+			if (implicitThisValue is not null)
 			{
-				Name = "this", // Hardcoded - 'this' has no metadata
-				Value = value,
-				Type = friendlyTypeName,
-				PresentationHint = variablePresentationHint,
-				VariablesReference = GetVariablesReference(implicitThisValue, friendlyTypeName, threadId, stackDepth, debuggerProxyInstance)
-			};
-			result.Add(variableInfo);
+				var (friendlyTypeName, value, debuggerProxyInstance, resultIsError) = await GetValueForCorDebugValueAsync(implicitThisValue, threadId, stackDepth);
+				VariablePresentationHint? variablePresentationHint = resultIsError ? new VariablePresentationHint { Attributes = AttributesValue.FailedEvaluation } : null;
+				var variableInfo = new VariableInfo
+				{
+					Name = "this", // Hardcoded - 'this' has no metadata
+					Value = value,
+					Type = friendlyTypeName,
+					PresentationHint = variablePresentationHint,
+					VariablesReference = GetVariablesReference(implicitThisValue, friendlyTypeName, threadId, stackDepth, debuggerProxyInstance)
+				};
+				result.Add(variableInfo);
+			}
 		}
 		var skipCount = isStatic ? 0 : 1; // Skip 'this' for instance methods, as we already handled it
 		foreach (var (index, argumentCorDebugValue) in corDebugIlFrame.Arguments.Skip(skipCount).Index())

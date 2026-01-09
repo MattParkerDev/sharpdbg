@@ -5,7 +5,7 @@ namespace SharpDbg.Infrastructure.Debugger;
 
 public partial class ManagedDebugger
 {
-	private static CorDebugValue GetAsyncOrLambdaProxyFieldValue(CorDebugValue compilerGeneratedClassValue, MetaDataImport metadataImport)
+	private static CorDebugValue? GetAsyncOrLambdaProxyFieldValue(CorDebugValue compilerGeneratedClassValue, MetaDataImport metadataImport)
 	{
 		var objectValue = compilerGeneratedClassValue.UnwrapDebugValueToObject();
 		var fields = metadataImport.EnumFields(objectValue.Class.Token);
@@ -24,6 +24,8 @@ public partial class ManagedDebugger
 				throw new NotImplementedException();
 			}
 		}
-		throw new InvalidOperationException("Value for proxy field not found");
+
+		// E.g. in a static async method, there is no 'this' proxy field.
+		return null;
 	}
 }

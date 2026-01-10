@@ -10,7 +10,7 @@ var gitRootDirectory = GitRoot.GetGitRootPath();
 
 var result = await Cli.Wrap("dotnet")
 	.WithArguments("build -c Release")
-	.WithWorkingDirectory(Path.Combine(gitRootDirectory, "src", nugetPackageId))
+	.WithWorkingDirectory(Path.Combine(gitRootDirectory, "src", $"{nugetPackageId}.InMemory"))
 	.ExecuteBufferedAsync();
 
 Console.WriteLine(result.StandardOutput);

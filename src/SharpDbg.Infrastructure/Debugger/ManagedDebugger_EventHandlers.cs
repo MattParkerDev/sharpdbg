@@ -10,10 +10,6 @@ public partial class ManagedDebugger
 	{
 		_logger?.Invoke("Process created event");
 		_rawProcess = createProcessCorDebugManagedCallbackEventArgs.Process;
-		if (_stopAtEntry)
-		{
-			OnStopped?.Invoke(0, "entry");
-		}
 
 		ContinueProcess();
 	}

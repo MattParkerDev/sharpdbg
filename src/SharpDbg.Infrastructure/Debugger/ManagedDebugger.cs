@@ -20,7 +20,6 @@ public partial class ManagedDebugger : IDisposable
 	private readonly Action<string>? _logger;
 	private readonly Dictionary<int, CorDebugThread> _threads = new();
 	private readonly Dictionary<long, ModuleInfo> _modules = new();
-	private bool _stopAtEntry;
 	private bool _isAttached;
 	private int? _pendingAttachProcessId;
 	private AsyncStepper? _asyncStepper;

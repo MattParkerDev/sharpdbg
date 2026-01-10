@@ -1,0 +1,38 @@
+name: Publish NuGet Package
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  determine-if-publish-necessary:
+    runs-on: ubuntu-latest
+    outputs:
+      publish-necessary: ${{ steps.determine-if-publish-necessary.outputs.publish-necessary }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+      - name: dotnet run DetermineIfPublishNecessary
+        id: determine-if-publish-necessary
+        shell: bash
+        run: |
+          dotnet run --project ./iac/DetermineIfPublishNecessary/DetermineIfPublishNecessary.csproj
+      - name: Debug Output
+        run: |
+          echo Publish necessary: ${{ steps.determine-if-publish-necessary.outputs.publish-necessary }}
+  nuget-approval:
+    runs-on: ubuntu-latest
+    environment: "nuget-publish-approval"
+    needs: determine-if-publish-necessary
+    if: needs.determine-if-publish-necessary.outputs.publish-necessary == 'true'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+      - name: Publish to NuGet
+        shell: bash
+        env:
+          NUGET_AUTH_TOKEN: ${{ secrets.NUGET_TOKEN }}
+        run: |
+          dotnet run --project ./iac/PublishToNuget/PublishToNuget.csproj
+

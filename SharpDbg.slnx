@@ -1,4 +1,12 @@
 <Solution>
+  <Folder Name="/.github/" />
+  <Folder Name="/.github/workflows/">
+    <File Path=".github/workflows/publish-nuget-package.yml" />
+  </Folder>
+  <Folder Name="/iac/">
+    <Project Path="iac/DetermineIfPublishNecessary/DetermineIfPublishNecessary.csproj" />
+    <Project Path="iac/PublishToNuget/PublishToNuget.csproj" />
+  </Folder>
   <Folder Name="/Solution Items/">
     <File Path=".editorconfig" />
     <File Path=".gitignore" />

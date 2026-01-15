@@ -48,12 +48,23 @@ public class BreakpointManager
 
 		/// <summary>Module base address where breakpoint is bound</summary>
 		public long? ModuleBaseAddress { get; set; }
+
+		// Conditional breakpoint support
+
+		/// <summary>Conditional expression to evaluate when breakpoint is hit</summary>
+		public string? Condition { get; set; }
+
+		/// <summary>Hit count condition (e.g., ">=10", "==5", "%3")</summary>
+		public string? HitCondition { get; set; }
+
+		/// <summary>Current hit count for this breakpoint</summary>
+		public int HitCount { get; set; }
 	}
 
 	/// <summary>
 	/// Create a new breakpoint
 	/// </summary>
-	public BreakpointInfo CreateBreakpoint(string filePath, int line)
+	public BreakpointInfo CreateBreakpoint(string filePath, int line, string? condition = null, string? hitCondition = null)
 	{
 		lock (_lock)
 		{
@@ -63,7 +74,10 @@ public class BreakpointManager
 				Id = id,
 				FilePath = filePath,
 				Line = line,
-				Verified = false
+				Verified = false,
+				Condition = condition,
+				HitCondition = hitCondition,
+				HitCount = 0
 			};
 
 			_breakpoints[id] = bp;
@@ -75,6 +89,20 @@ public class BreakpointManager
 			_breakpointsByFile[filePath].Add(id);
 
 			return bp;
+		}
+	}
+
+	/// <summary>
+	/// Reset hit counts for all breakpoints (e.g., when restarting debugging)
+	/// </summary>
+	public void ResetHitCounts()
+	{
+		lock (_lock)
+		{
+			foreach (var bp in _breakpoints.Values)
+			{
+				bp.HitCount = 0;
+			}
 		}
 	}
 

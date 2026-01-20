@@ -228,7 +228,7 @@ public class SymbolReader : IDisposable
 					continue;
 
 				// Check if this sequence point covers or is at/after the requested line
-				if (sp.StartLine <= line && sp.EndLine >= line)
+				if (sp.StartLine <= line && sp.EndLine >= line && sp.StartLine == sp.EndLine)
 				{
 					// Exact match - line is within this sequence point
 					var methodToken = MetadataTokens.GetToken(methodDebugInfoHandle.ToDefinitionHandle());

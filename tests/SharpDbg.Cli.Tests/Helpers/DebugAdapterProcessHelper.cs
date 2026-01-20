@@ -100,4 +100,14 @@ public static class DebugAdapterProcessHelper
 		};
 		return setBreakpointsRequest;
 	}
+
+	public static SetBreakpointsRequest GetSetBreakpointsRequest(int[] lines, string filePath)
+	{
+		var setBreakpointsRequest = new SetBreakpointsRequest
+		{
+			Source = new Source { Path = filePath },
+			Breakpoints = lines.Select(line => new SourceBreakpoint { Line = line }).ToList()
+		};
+		return setBreakpointsRequest;
+	}
 }

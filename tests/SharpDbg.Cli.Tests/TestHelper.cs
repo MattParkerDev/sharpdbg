@@ -63,6 +63,13 @@ public static partial class TestHelper
 		return stoppedEvent;
 	}
 
+	public static DebugProtocolHost WithBreakpointsRequest(this DebugProtocolHost debugProtocolHost, int[] lines, string filePath)
+	{
+		var setBreakpointsRequest = DebugAdapterProcessHelper.GetSetBreakpointsRequest(lines, filePath);
+		if (File.Exists(setBreakpointsRequest.Source.Path) is false) throw new FileNotFoundException("Source file for breakpoint not found", setBreakpointsRequest.Source.Path);
+		debugProtocolHost.SendRequestSync(setBreakpointsRequest);
+		return debugProtocolHost;
+	}
 	public static DebugProtocolHost WithBreakpointsRequest(this DebugProtocolHost debugProtocolHost, int? line = null, string? filePath = null)
 	{
 		var setBreakpointsRequest = DebugAdapterProcessHelper.GetSetBreakpointsRequest(line, filePath);

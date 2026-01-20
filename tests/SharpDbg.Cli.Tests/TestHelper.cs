@@ -11,7 +11,7 @@ public class TcsContainer
 	public required TaskCompletionSource<StoppedEvent> Tcs { get; set; }
 }
 
-public static class TestHelper
+public static partial class TestHelper
 {
 	public static (DebugProtocolHost, TaskCompletionSource InitializedEventTcs, TcsContainer StoppedEventTcs, OopOrInProcDebugAdapter DebugAdapterProcess, Process DebuggableProcess) GetRunningDebugProtocolHostOop(ITestOutputHelper testOutputHelper, bool startSuspended)
 	{
@@ -59,6 +59,7 @@ public static class TestHelper
 	{
 		var stoppedEvent = await stoppedEventTcsContainer.Tcs.Task.WaitAsync(TestContext.Current.CancellationToken);
 		stoppedEventTcsContainer.Tcs = new TaskCompletionSource<StoppedEvent>(TaskCreationOptions.RunContinuationsAsynchronously);
+		FillingMissingNetCoreDbgStopInfo(debugProtocolHost, stoppedEvent);
 		return stoppedEvent;
 	}
 

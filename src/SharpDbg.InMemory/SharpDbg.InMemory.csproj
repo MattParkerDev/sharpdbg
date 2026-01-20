@@ -11,7 +11,7 @@
 	<Authors>MattParkerDev</Authors>
 	<PackageLicenseExpression>MIT</PackageLicenseExpression>
 	<PackageReadmeFile>readme.md</PackageReadmeFile>
-	<PackageVersion>0.1.0-preview3</PackageVersion>
+	<PackageVersion>0.1.0-preview4</PackageVersion>
 	<PackageProjectUrl>https://github.com/MattParkerDev/sharpdbg</PackageProjectUrl>
 	<Description>A managed .NET Debugger implementing the Debug Adapter Protocol</Description>
 	<PackageTags>Csharp Dotnet Debugger Debugging ICorDebug</PackageTags>

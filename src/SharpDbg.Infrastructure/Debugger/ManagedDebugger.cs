@@ -242,23 +242,9 @@ public partial class ManagedDebugger : IDisposable
 	{
 		// We need to re-obtain the IlFrame in case it has been neutered
 		var thread = _process!.Threads.Single(s => s.Id == threadId.Value);
-		int desired = stackDepth.Value;
-		int absoluteIndex = 0;
-		foreach (var chain in thread.EnumerateChains())
-		{
-			var frames = chain.Frames;
-			for (int i = 0; i < frames.Length; i++)
-			{
-				if (absoluteIndex == desired)
-				{
-					var frame = frames[i];
-					if (frame is not CorDebugILFrame ilFrame) throw new InvalidOperationException("Frame is not an IL frame");
-					return ilFrame;
-				}
-				absoluteIndex++;
-			}
-		}
-		throw new InvalidOperationException("Frame not found for given stack depth");
+		var frame = thread.ActiveChain.Frames[stackDepth.Value];
+		if (frame is not CorDebugILFrame ilFrame) throw new InvalidOperationException("Frame is not an IL frame");
+		return ilFrame;
 	}
 
 	private void Cleanup()

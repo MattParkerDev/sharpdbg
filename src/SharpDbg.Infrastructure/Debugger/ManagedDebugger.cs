@@ -242,9 +242,23 @@ public partial class ManagedDebugger : IDisposable
 	{
 		// We need to re-obtain the IlFrame in case it has been neutered
 		var thread = _process!.Threads.Single(s => s.Id == threadId.Value);
-		var frame = thread.ActiveChain.Frames[stackDepth.Value];
-		if (frame is not CorDebugILFrame ilFrame) throw new InvalidOperationException("Frame is not an IL frame");
-		return ilFrame;
+		int desired = stackDepth.Value;
+		int absoluteIndex = 0;
+		foreach (var chain in thread.EnumerateChains())
+		{
+			var frames = chain.Frames;
+			for (int i = 0; i < frames.Length; i++)
+			{
+				if (absoluteIndex == desired)
+				{
+					var frame = frames[i];
+					if (frame is not CorDebugILFrame ilFrame) throw new InvalidOperationException("Frame is not an IL frame");
+					return ilFrame;
+				}
+				absoluteIndex++;
+			}
+		}
+		throw new InvalidOperationException("Frame not found for given stack depth");
 	}
 
 	private void Cleanup()
@@ -288,6 +302,15 @@ public partial class ManagedDebugger : IDisposable
 
 	public void Dispose()
 	{
+		// Attempt a graceful disconnect from the debuggee without terminating it
+		Disconnect(terminateDebuggee: false);
+
+		// Remove our managed handler from ICorDebug so native code can release references
+		_corDebug?.SetManagedHandler(null);
+
+		// Unsubscribe from callbacks to avoid any further event dispatch
+		_callbacks.OnAnyEvent -= OnAnyEvent;
+
 		Cleanup();
 		_process = null;
 		_corDebug = null;

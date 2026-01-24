@@ -22,7 +22,7 @@ public partial class ManagedDebugger
 	/// Launch a process to debug using DbgShim's CreateProcessForLaunch.
 	/// This properly launches the process suspended and waits for CLR startup.
 	/// </summary>
-	public void Launch(string program, string[] args, string? workingDirectory, Dictionary<string, string>? env, bool stopAtEntry, string? diagPort = null)
+	public void Launch(string program, string[] args, string? workingDirectory, Dictionary<string, string>? env, bool stopAtEntry)
 	{
 		_logger?.Invoke($"Launching program: {program} {string.Join(' ', args ?? Array.Empty<string>())}");
 

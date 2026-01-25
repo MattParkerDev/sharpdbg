@@ -186,6 +186,24 @@ public class BreakpointManager
 	}
 
 	/// <summary>
+	/// Remove a breakpoint by id
+	/// </summary>
+	public bool RemoveBreakpoint(int id)
+	{
+		lock (_lock)
+		{
+			if (!_breakpoints.TryGetValue(id, out var bp)) return false;
+			_breakpoints.Remove(id);
+			if (_breakpointsByFile.TryGetValue(bp.FilePath, out var ids))
+			{
+				ids.Remove(id);
+				if (ids.Count == 0) _breakpointsByFile.Remove(bp.FilePath);
+			}
+			return true;
+		}
+	}
+
+	/// <summary>
 	/// Clear all breakpoints
 	/// </summary>
 	public void Clear()

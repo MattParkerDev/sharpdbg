@@ -288,6 +288,15 @@ public partial class ManagedDebugger : IDisposable
 
 	public void Dispose()
 	{
+		// Attempt a graceful disconnect from the debuggee without terminating it
+		Disconnect(terminateDebuggee: false);
+
+		// Remove our managed handler from ICorDebug so native code can release references
+		_corDebug?.SetManagedHandler(null);
+
+		// Unsubscribe from callbacks to avoid any further event dispatch
+		_callbacks.OnAnyEvent -= OnAnyEvent;
+
 		Cleanup();
 		_process = null;
 		_corDebug = null;

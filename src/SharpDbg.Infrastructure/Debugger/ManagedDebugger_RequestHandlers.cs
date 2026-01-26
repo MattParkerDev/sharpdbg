@@ -53,6 +53,8 @@ public partial class ManagedDebugger
 		_pendingLaunchProgram = null;
 		_pendingLaunchArgs = null;
 		_pendingLaunchWorkingDirectory = null;
+		_stopAtEntryActive = stopAtEntry;
+		_stopAtEntrySignaled = false;
 
 		// Build command line: "program" "arg1" "arg2" ...
 		var commandLine = new StringBuilder();
@@ -191,6 +193,11 @@ public partial class ManagedDebugger
 		_logger?.Invoke("Continue");
 		if (_rawProcess != null)
 		{
+			if (_stopAtEntryActive)
+			{
+				_stopAtEntryActive = false;
+				_stopAtEntrySignaled = false;
+			}
 			IsRunning = true;
 			_variableManager.ClearAndDisposeHandleValues();
 			_rawProcess.Continue(false);
@@ -217,6 +224,11 @@ public partial class ManagedDebugger
 	public async void StepNext(int threadId)
 	{
 		_logger?.Invoke($"StepNext on thread {threadId}");
+		if (_stopAtEntryActive)
+		{
+			_stopAtEntryActive = false;
+			_stopAtEntrySignaled = false;
+		}
 		if (_threads.TryGetValue(threadId, out var thread))
 		{
 			var frame = thread.ActiveFrame;
@@ -250,6 +262,11 @@ public partial class ManagedDebugger
 	public async void StepIn(int threadId)
 	{
 		_logger?.Invoke($"StepIn on thread {threadId}");
+		if (_stopAtEntryActive)
+		{
+			_stopAtEntryActive = false;
+			_stopAtEntrySignaled = false;
+		}
 		if (_threads.TryGetValue(threadId, out var thread))
 		{
 			var frame = thread.ActiveFrame;
@@ -283,6 +300,11 @@ public partial class ManagedDebugger
 	public async void StepOut(int threadId)
 	{
 		_logger?.Invoke($"StepOut on thread {threadId}");
+		if (_stopAtEntryActive)
+		{
+			_stopAtEntryActive = false;
+			_stopAtEntrySignaled = false;
+		}
 		if (_threads.TryGetValue(threadId, out var thread))
 		{
 			var frame = thread.ActiveFrame;

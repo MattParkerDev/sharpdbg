@@ -180,9 +180,6 @@ public partial class ManagedDebugger
 		}
 	}
 
-	/// <summary>
-	/// Evaluate a breakpoint condition expression
-	/// </summary>
 	private async Task<bool> EvaluateBreakpointCondition(CorDebugThread corThread, string condition)
 	{
 		try
@@ -209,9 +206,6 @@ public partial class ManagedDebugger
 		}
 	}
 
-	/// <summary>
-	/// Evaluate a hit count condition
-	/// </summary>
 	private static bool EvaluateHitCondition(int hitCount, string hitCondition)
 	{
 		// Support common hit count formats:

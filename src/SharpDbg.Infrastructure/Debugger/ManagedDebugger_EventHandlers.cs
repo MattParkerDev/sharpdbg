@@ -150,25 +150,18 @@ public partial class ManagedDebugger
 
 			managedBreakpoint.HitCount++;
 
-			if (managedBreakpoint.HitCondition is not null)
+			if (managedBreakpoint.HitCondition is not null && EvaluateHitCondition(managedBreakpoint.HitCount, managedBreakpoint.HitCondition) is false)
 			{
-				if (!EvaluateHitCondition(managedBreakpoint.HitCount, managedBreakpoint.HitCondition))
-				{
-					_logger?.Invoke($"Hit count condition not met: count={managedBreakpoint.HitCount}, condition={managedBreakpoint.HitCondition}");
-					Continue();
-					return;
-				}
+				_logger?.Invoke($"Hit count condition not met: count={managedBreakpoint.HitCount}, condition={managedBreakpoint.HitCondition}");
+				Continue();
+				return;
 			}
 
-			if (managedBreakpoint.Condition is not null)
+			if (managedBreakpoint.Condition is not null && await EvaluateBreakpointCondition(corThread, managedBreakpoint.Condition) is false)
 			{
-				var conditionResult = await EvaluateBreakpointCondition(corThread, managedBreakpoint.Condition);
-				if (!conditionResult)
-				{
-					_logger?.Invoke($"Conditional breakpoint condition not met: {managedBreakpoint.Condition}");
-					Continue();
-					return;
-				}
+				_logger?.Invoke($"Conditional breakpoint condition not met: {managedBreakpoint.Condition}");
+				Continue();
+				return;
 			}
 
 			IsRunning = false;

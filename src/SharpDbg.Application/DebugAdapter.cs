@@ -266,7 +266,7 @@ public class DebugAdapter : DebugAdapterBase
 					ConvertClientLineToDebugger(bp.Line),
 					bp.Condition,
 					bp.HitCondition))
-				.ToArray() ?? Array.Empty<BreakpointRequest>();
+				.ToArray() ?? [];
 
 			var breakpoints = _debugger.SetBreakpoints(arguments.Source.Path, breakpointRequests);
 

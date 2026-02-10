@@ -23,7 +23,7 @@ public partial class ManagedDebugger : IDisposable
 	private bool _isAttached;
 	private int? _pendingAttachProcessId;
 	private AsyncStepper? _asyncStepper;
-	private CompiledExpressionInterpreter? _expressionInterpreter;
+	private CompiledExpressionInterpreter _expressionInterpreter = null!;
 
 	public event Action<int, string>? OnStopped;
 	// ThreadId, FilePath, Line, Reason

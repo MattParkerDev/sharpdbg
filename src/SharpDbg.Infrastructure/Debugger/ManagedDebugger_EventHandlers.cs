@@ -187,12 +187,6 @@ public partial class ManagedDebugger
 	{
 		try
 		{
-			if (_expressionInterpreter is null)
-			{
-				_logger?.Invoke("Expression interpreter not initialized, condition evaluation skipped");
-				return true; // Stop anyway if we can't evaluate
-			}
-
 			var threadId = new ThreadId(corThread.Id);
 			var frameStackDepth = new FrameStackDepth(0); // Top frame
 

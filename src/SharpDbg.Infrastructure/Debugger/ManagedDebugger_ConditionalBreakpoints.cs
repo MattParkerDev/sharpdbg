@@ -48,7 +48,7 @@ public partial class ManagedDebugger
 			if (int.TryParse(hitCondition[2..], out var threshold))
 				return hitCount >= threshold;
 		}
-		else if (hitCondition.StartsWith(">"))
+		else if (hitCondition.StartsWith('>'))
 		{
 			if (int.TryParse(hitCondition[1..], out var threshold))
 				return hitCount > threshold;
@@ -58,12 +58,12 @@ public partial class ManagedDebugger
 			if (int.TryParse(hitCondition[2..], out var threshold))
 				return hitCount <= threshold;
 		}
-		else if (hitCondition.StartsWith("<"))
+		else if (hitCondition.StartsWith('<'))
 		{
 			if (int.TryParse(hitCondition[1..], out var threshold))
 				return hitCount < threshold;
 		}
-		else if (hitCondition.StartsWith("%"))
+		else if (hitCondition.StartsWith('%'))
 		{
 			if (int.TryParse(hitCondition[1..], out var modulo) && modulo > 0)
 				return hitCount % modulo == 0;
@@ -94,7 +94,7 @@ public partial class ManagedDebugger
 
 		if (unwrapped is CorDebugGenericValue genericValue)
 		{
-			IntPtr buffer = Marshal.AllocHGlobal(genericValue.Size);
+			var buffer = Marshal.AllocHGlobal(genericValue.Size);
 			try
 			{
 				genericValue.GetValue(buffer);
@@ -105,10 +105,8 @@ public partial class ManagedDebugger
 					CorElementType.I2 or CorElementType.U2 => Marshal.ReadInt16(buffer) != 0,
 					CorElementType.I4 or CorElementType.U4 => Marshal.ReadInt32(buffer) != 0,
 					CorElementType.I8 or CorElementType.U8 => Marshal.ReadInt64(buffer) != 0,
-					CorElementType.R4 => BitConverter.ToSingle(BitConverter.GetBytes(Marshal.ReadInt32(buffer)), 0) !=
-					                     0,
-					CorElementType.R8 => BitConverter.ToDouble(BitConverter.GetBytes(Marshal.ReadInt64(buffer)), 0) !=
-					                     0,
+					CorElementType.R4 => BitConverter.ToSingle(BitConverter.GetBytes(Marshal.ReadInt32(buffer)), 0) != 0,
+					CorElementType.R8 => BitConverter.ToDouble(BitConverter.GetBytes(Marshal.ReadInt64(buffer)), 0) != 0,
 					_ => true // Unknown types - default to true
 				};
 			}

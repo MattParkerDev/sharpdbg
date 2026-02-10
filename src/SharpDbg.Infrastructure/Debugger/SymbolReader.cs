@@ -13,6 +13,7 @@ namespace SharpDbg.Infrastructure.Debugger;
 public class SymbolReader : IDisposable
 {
 	private readonly MetadataReaderProvider _provider;
+	private readonly PEReader _peReader;
 	private readonly MetadataReader _reader;
 	private readonly MetadataReader _peMetadataReader;
 	private string _path;
@@ -42,10 +43,10 @@ public class SymbolReader : IDisposable
 		public int LastUserCodeIlOffset { get; set; }
 	}
 
-	private SymbolReader(MetadataReaderProvider provider, MetadataReader reader, MetadataReader peMetadataReader,
-		string assemblyPath)
+	private SymbolReader(MetadataReaderProvider provider, PEReader peReader, MetadataReader reader, MetadataReader peMetadataReader, string assemblyPath)
 	{
 		_provider = provider;
+		_peReader = peReader;
 		_reader = reader;
 		_peMetadataReader = peMetadataReader;
 		_path = assemblyPath;
@@ -138,6 +139,7 @@ public class SymbolReader : IDisposable
 			if (!File.Exists(pdbPath))
 				return null;
 
+			// Don't need to dispose stream, FromPortablePdbStream disposes of it internally
 			var pdbStream = File.OpenRead(pdbPath);
 			var provider = MetadataReaderProvider.FromPortablePdbStream(pdbStream);
 			var reader = provider.GetMetadataReader();
@@ -149,7 +151,7 @@ public class SymbolReader : IDisposable
 			if (codeViewData.Age == 1 && pdbId == expectedId)
 			{
 				var peMetadataReader = peReader.GetMetadataReader(MetadataReaderOptions.None);
-				return new SymbolReader(provider, reader, peMetadataReader, assemblyPath);
+				return new SymbolReader(provider, peReader, reader, peMetadataReader, assemblyPath);
 			}
 
 			// PDB doesn't match, dispose and return null
@@ -169,7 +171,7 @@ public class SymbolReader : IDisposable
 			var provider = peReader.ReadEmbeddedPortablePdbDebugDirectoryData(embeddedPdbEntry);
 			var reader = provider.GetMetadataReader();
 			var peMetadataReader = peReader.GetMetadataReader(MetadataReaderOptions.None);
-			return new SymbolReader(provider, reader, peMetadataReader, null!);
+			return new SymbolReader(provider, peReader, reader, peMetadataReader, null!);
 		}
 		catch
 		{
@@ -228,7 +230,7 @@ public class SymbolReader : IDisposable
 					continue;
 
 				// Check if this sequence point covers or is at/after the requested line
-				if (sp.StartLine <= line && sp.EndLine >= line)
+				if (sp.StartLine <= line && sp.EndLine >= line && sp.StartLine == sp.EndLine)
 				{
 					// Exact match - line is within this sequence point
 					var methodToken = MetadataTokens.GetToken(methodDebugInfoHandle.ToDefinitionHandle());
@@ -565,5 +567,6 @@ public class SymbolReader : IDisposable
 	public void Dispose()
 	{
 		_provider.Dispose();
+		_peReader.Dispose();
 	}
 }

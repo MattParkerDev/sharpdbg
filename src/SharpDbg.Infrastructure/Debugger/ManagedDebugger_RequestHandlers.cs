@@ -1,4 +1,7 @@
-﻿using ClrDebug;
+﻿using System.Diagnostics;
+using System.Runtime.InteropServices;
+using System.Text;
+using ClrDebug;
 using SharpDbg.Infrastructure.Debugger.ExpressionEvaluator;
 using SharpDbg.Infrastructure.Debugger.ExpressionEvaluator.Compiler;
 using SharpDbg.Infrastructure.Debugger.PresentationHintModels;
@@ -14,12 +17,145 @@ public record BreakpointRequest(int Line, string? Condition = null, string? HitC
 
 public partial class ManagedDebugger
 {
+	// Store launch info for deferred attach in ConfigurationDone
+	private string? _pendingLaunchProgram;
+	private string[]? _pendingLaunchArgs;
+	private string? _pendingLaunchWorkingDirectory;
+	private bool _pendingLaunchStopAtEntry;
+
 	/// <summary>
-	/// Launch a process to debug
+	/// Launch a process to debug using DbgShim's CreateProcessForLaunch.
+	/// This properly launches the process suspended and waits for CLR startup.
 	/// </summary>
 	public void Launch(string program, string[] args, string? workingDirectory, Dictionary<string, string>? env, bool stopAtEntry)
 	{
-		throw new NotImplementedException("Launch is not implemented, use Attach instead. Use DOTNET_DefaultDiagnosticPortSuspend=1 env var to have the process wait for debugger attach, the resume it yourself after attaching with `new DiagnosticsClient(debuggableProcess.Id).ResumeRuntime()`");
+		_logger?.Invoke($"Launching program: {program} {string.Join(' ', args ?? Array.Empty<string>())}");
+
+		// Store launch parameters for deferred execution in ConfigurationDone
+		_pendingLaunchProgram = program;
+		_pendingLaunchArgs = args;
+		_pendingLaunchWorkingDirectory = workingDirectory;
+		_pendingLaunchStopAtEntry = stopAtEntry;
+	}
+
+	/// <summary>
+	/// Actually perform the launch using DbgShim APIs
+	/// </summary>
+	private void PerformLaunch()
+	{
+		if (_pendingLaunchProgram == null)
+		{
+			_logger?.Invoke("No pending launch to perform");
+			return;
+		}
+
+		var program = _pendingLaunchProgram;
+		var args = _pendingLaunchArgs ?? Array.Empty<string>();
+		var workingDirectory = _pendingLaunchWorkingDirectory;
+		var stopAtEntry = _pendingLaunchStopAtEntry;
+
+		// Clear pending launch
+		_pendingLaunchProgram = null;
+		_pendingLaunchArgs = null;
+		_pendingLaunchWorkingDirectory = null;
+
+		// Build command line: "program" "arg1" "arg2" ...
+		var commandLine = new StringBuilder();
+		commandLine.Append('"').Append(program).Append('"');
+		foreach (var arg in args)
+		{
+			commandLine.Append(' ').Append('"').Append(arg.Replace("\"", "\\\"")).Append('"');
+		}
+
+		_logger?.Invoke($"Creating process for launch: {commandLine}");
+
+		// Initialize DbgShim
+		var dbgShimPath = DbgShimResolver.Resolve();
+		var dbgshim = new DbgShim(NativeLibrary.Load(dbgShimPath));
+
+		// Create process suspended
+		var result = dbgshim.CreateProcessForLaunch(
+			commandLine.ToString(),
+			bSuspendProcess: true,
+			lpEnvironment: IntPtr.Zero, // TODO: support environment variables
+			lpCurrentDirectory: workingDirectory);
+
+		var processId = result.ProcessId;
+		var resumeHandle = result.ResumeHandle;
+
+		_logger?.Invoke($"Process created suspended with PID: {processId}");
+
+		// Register for runtime startup callback
+		IntPtr unregisterToken = IntPtr.Zero;
+		var wait = new AutoResetEvent(false);
+		CorDebug? cordebug = null;
+		HRESULT callbackHr = HRESULT.E_FAIL;
+
+		try
+		{
+			unregisterToken = dbgshim.RegisterForRuntimeStartup(processId, (pCordb, parameter, hr) =>
+			{
+				cordebug = pCordb;
+				callbackHr = hr;
+				wait.Set();
+			});
+
+			// Resume the process so CLR can start
+			_logger?.Invoke("Resuming process...");
+			dbgshim.ResumeProcess(resumeHandle);
+			dbgshim.CloseResumeHandle(resumeHandle);
+
+			// Wait for CLR startup (with timeout)
+			if (!wait.WaitOne(TimeSpan.FromSeconds(30)))
+			{
+				throw new InvalidOperationException("Timeout waiting for CLR to start in target process");
+			}
+		}
+		finally
+		{
+			if (unregisterToken != IntPtr.Zero)
+			{
+				dbgshim.UnregisterForRuntimeStartup(unregisterToken);
+			}
+		}
+
+		if (cordebug == null)
+		{
+			throw new DebugException(callbackHr);
+		}
+
+		_logger?.Invoke($"CLR started, initializing debugger for PID: {processId}");
+
+		// Initialize debugging session
+		_corDebug = cordebug;
+		_corDebug.Initialize();
+		_corDebug.SetManagedHandler(_callbacks);
+
+		// Attach to the process (it's already waiting for us due to RegisterForRuntimeStartup)
+		_process = _corDebug.DebugActiveProcess(processId, false);
+		_isAttached = true;
+		IsRunning = true;
+
+		_logger?.Invoke($"Successfully attached to process: {processId}");
+	}
+
+	public bool RemoveBreakpoint(int id)
+	{
+		_logger?.Invoke($"RemoveBreakpoint: {id}");
+		var bp = _breakpointManager.GetBreakpoint(id);
+		if (bp == null) return false;
+		if (bp.CorBreakpoint != null)
+		{
+			try
+			{
+				bp.CorBreakpoint.Activate(false);
+			}
+			catch (Exception ex)
+			{
+				_logger?.Invoke($"Error deactivating breakpoint: {ex.Message}");
+			}
+		}
+		return _breakpointManager.RemoveBreakpoint(id);
 	}
 
 	/// <summary>
@@ -32,14 +168,20 @@ public partial class ManagedDebugger
 	}
 
 	/// <summary>
-	/// Called when DAP configuration is complete - performs deferred attach
+	/// Called when DAP configuration is complete - performs deferred launch or attach
 	/// </summary>
 	public void ConfigurationDone()
 	{
 		//System.Diagnostics.Debugger.Launch();
 		_logger?.Invoke("ConfigurationDone");
 
-		if (_pendingAttachProcessId.HasValue)
+		// If we have a pending launch, perform it
+		if (_pendingLaunchProgram != null)
+		{
+			PerformLaunch();
+		}
+		// Otherwise check for pending attach
+		else if (_pendingAttachProcessId.HasValue)
 		{
 			PerformAttach(_pendingAttachProcessId.Value);
 			_pendingAttachProcessId = null;

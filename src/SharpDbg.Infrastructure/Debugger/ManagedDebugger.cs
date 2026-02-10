@@ -50,24 +50,24 @@ public partial class ManagedDebugger : IDisposable
 
 		// Subscribe to callback events
 		_callbacks.OnAnyEvent += OnAnyEvent;
-		_callbacks.OnCreateProcess += HandleProcessCreated;
-		_callbacks.OnExitProcess += HandleProcessExited;
-		_callbacks.OnCreateThread += HandleThreadCreated;
-		_callbacks.OnExitThread += HandleThreadExited;
-		_callbacks.OnLoadModule += HandleModuleLoaded;
-		_callbacks.OnBreakpoint += HandleBreakpoint;
-		_callbacks.OnStepComplete += HandleStepComplete;
-		_callbacks.OnBreak += HandleBreak;
-		_callbacks.OnException += HandleException;
-		//_callbacks.OnAnyEvent += (s, e) => e.Controller.Continue(false);
 	}
 
 	private void OnAnyEvent(object? sender, CorDebugManagedCallbackEventArgs e)
 	{
 		_logger?.Invoke($"Event: {e.GetType().Name}");
-		if (e is CreateAppDomainCorDebugManagedCallbackEventArgs or LoadAssemblyCorDebugManagedCallbackEventArgs or NameChangeCorDebugManagedCallbackEventArgs)
+		switch (e)
 		{
-			e.Controller.Continue(false);
+			case CreateProcessCorDebugManagedCallbackEventArgs a: HandleProcessCreated(sender, a); break;
+			case ExitProcessCorDebugManagedCallbackEventArgs a: HandleProcessExited(sender, a); break;
+			case CreateThreadCorDebugManagedCallbackEventArgs a: HandleThreadCreated(sender, a); break;
+			case ExitThreadCorDebugManagedCallbackEventArgs a: HandleThreadExited(sender, a); break;
+			case LoadModuleCorDebugManagedCallbackEventArgs a: HandleModuleLoaded(sender, a); break;
+			case BreakpointCorDebugManagedCallbackEventArgs a: HandleBreakpoint(sender, a); break;
+			case StepCompleteCorDebugManagedCallbackEventArgs a: HandleStepComplete(sender, a); break;
+			case BreakCorDebugManagedCallbackEventArgs a: HandleBreak(sender, a); break;
+			case ExceptionCorDebugManagedCallbackEventArgs a: HandleException(sender, a); break;
+			case EvalCompleteCorDebugManagedCallbackEventArgs or EvalExceptionCorDebugManagedCallbackEventArgs: break; // don't continue on these, as they are being used for expression evaluation
+			default: e.Controller.Continue(false); break;
 		}
 	}
 
@@ -288,6 +288,15 @@ public partial class ManagedDebugger : IDisposable
 
 	public void Dispose()
 	{
+		// Attempt a graceful disconnect from the debuggee without terminating it
+		Disconnect(terminateDebuggee: false);
+
+		// Remove our managed handler from ICorDebug so native code can release references
+		_corDebug?.SetManagedHandler(null);
+
+		// Unsubscribe from callbacks to avoid any further event dispatch
+		_callbacks.OnAnyEvent -= OnAnyEvent;
+
 		Cleanup();
 		_process = null;
 		_corDebug = null;

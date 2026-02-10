@@ -5,16 +5,16 @@ namespace SharpDbg.InMemory;
 
 public static class SharpDbgInMemory
 {
-	public static (Stream Input, Stream Output) NewDebugAdapterStreams()
+	public static (Stream Input, Stream Output) NewDebugAdapterStreams(Action<string>? logAction = null)
 	{
-		var (input, output, _) = InMemoryDebugAdapterHelper.GetAdapterStreams();
+		var (input, output, _) = InMemoryDebugAdapterHelper.GetAdapterStreams(logAction);
 		return  (input, output);
 	}
 }
 
 internal static class InMemoryDebugAdapterHelper
 {
-	public static (AnonymousPipeServerStream input, AnonymousPipeClientStream output, DebugAdapter debugAdapter) GetAdapterStreams()
+	public static (AnonymousPipeServerStream input, AnonymousPipeClientStream output, DebugAdapter debugAdapter) GetAdapterStreams(Action<string>? logAction = null)
 	{
 		var stdInServer = new AnonymousPipeServerStream(PipeDirection.Out); // write
 		var stdInClient = new AnonymousPipeClientStream(PipeDirection.In, stdInServer.ClientSafePipeHandle); // std in read
@@ -22,7 +22,7 @@ internal static class InMemoryDebugAdapterHelper
 		var stdOutServer = new AnonymousPipeServerStream(PipeDirection.Out); // write
 		var stdOutClient = new AnonymousPipeClientStream(PipeDirection.In, stdOutServer.ClientSafePipeHandle); // std out read
 
-		var adapter = new DebugAdapter(Log);
+		var adapter = new DebugAdapter(logAction ?? Log);
 		adapter.Initialize(stdInClient, stdOutServer);
 		adapter.Protocol.VerifySynchronousOperationAllowed();
 		adapter.Protocol.Run();

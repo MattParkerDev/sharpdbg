@@ -150,7 +150,7 @@ public partial class ManagedDebugger
 
 			managedBreakpoint.HitCount++;
 
-			if (!string.IsNullOrEmpty(managedBreakpoint.HitCondition))
+			if (managedBreakpoint.HitCondition is not null)
 			{
 				if (!EvaluateHitCondition(managedBreakpoint.HitCount, managedBreakpoint.HitCondition))
 				{
@@ -160,7 +160,7 @@ public partial class ManagedDebugger
 				}
 			}
 
-			if (!string.IsNullOrEmpty(managedBreakpoint.Condition))
+			if (managedBreakpoint.Condition is not null)
 			{
 				var conditionResult = await EvaluateBreakpointCondition(corThread, managedBreakpoint.Condition);
 				if (!conditionResult)

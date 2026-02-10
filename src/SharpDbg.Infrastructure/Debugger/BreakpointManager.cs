@@ -69,6 +69,8 @@ public class BreakpointManager
 		lock (_lock)
 		{
 			var id = _nextBreakpointId++;
+			if (string.IsNullOrWhiteSpace(condition)) condition = null;
+			if (string.IsNullOrWhiteSpace(hitCondition)) hitCondition = null;
 			var bp = new BreakpointInfo
 			{
 				Id = id,

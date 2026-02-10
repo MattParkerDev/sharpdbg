@@ -224,6 +224,7 @@ public class DebugAdapter : DebugAdapterBase
 	protected override AttachResponse HandleAttachRequest(AttachArguments arguments)
 	{
 		var processId = GetConfigValue<int?>(arguments.ConfigurationProperties, "processId");
+		var stopAtEntry = GetConfigValue<bool?>(arguments.ConfigurationProperties, "stopAtEntry") ?? false;
 		if (processId == null)
 		{
 			throw new ProtocolException("Missing process ID");
@@ -231,7 +232,7 @@ public class DebugAdapter : DebugAdapterBase
 
 		try
 		{
-			_debugger.Attach(processId.Value);
+			_debugger.Attach(processId.Value, stopAtEntry);
 			return new AttachResponse();
 		}
 		catch (Exception ex)

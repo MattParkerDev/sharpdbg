@@ -1,4 +1,5 @@
 using AwesomeAssertions;
+using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
 using SharpDbg.Cli.Tests.Helpers;
 
 namespace SharpDbg.Cli.Tests;
@@ -16,7 +17,7 @@ public class StopAtEntryTests(ITestOutputHelper testOutputHelper)
 
         await debugProtocolHost
             .WithInitializeRequest()
-            .WithAttachRequest(p2.Id)
+            .WithAttachRequest(p2.Id, stopAtEntry: true)
             .WaitForInitializedEvent(initializedEventTcs);
 
         // Compute a sensible breakpoint line inside Program.cs (the "Log2" WriteLine)
@@ -25,11 +26,16 @@ public class StopAtEntryTests(ITestOutputHelper testOutputHelper)
         var bpLine = Array.FindIndex(lines, l => l.Contains("Log2")) + 1;
         if (bpLine == 0) bpLine = 4; // fallback
 
-        debugProtocolHost.WithBreakpointsRequest(bpLine, programPath)
-            .WithConfigurationDoneRequest()
+        debugProtocolHost.WithConfigurationDoneRequest()
             .WithOptionalResumeRuntime(p2.Id, startSuspended);
 
-        // Now we should hit the breakpoint we just set
+        var entryStoppedEvent = await stoppedEventTcs.Tcs.Task.WaitAsync(TimeSpan.FromSeconds(15));
+        stoppedEventTcs.Tcs = new TaskCompletionSource<StoppedEvent>(TaskCreationOptions.RunContinuationsAsynchronously);
+        entryStoppedEvent.Reason.Should().Be(StoppedEvent.ReasonValue.Entry);
+
+        debugProtocolHost.WithBreakpointsRequest(bpLine, programPath)
+            .WithContinueRequest();
+
         var stoppedEvent2 = await debugProtocolHost.WaitForStoppedEvent(stoppedEventTcs).WaitAsync(TimeSpan.FromSeconds(15));
         var stopInfo2 = stoppedEvent2.ReadStopInfo();
         stopInfo2.filePath.Should().EndWith("Program.cs");

@@ -10,17 +10,8 @@ public partial class ManagedDebugger
 	{
 		_logger?.Invoke("Process created event");
 		_rawProcess = createProcessCorDebugManagedCallbackEventArgs.Process;
-		CorDebugThread? corThread = null;
-		foreach (var thread in _rawProcess.EnumerateThreads())
-		{
-			corThread = thread;
-			break;
-		}
-		if (corThread != null)
-		{
-			_threads[corThread.Id] = corThread;
-			OnThreadStarted?.Invoke(corThread.Id, $"Thread {corThread.Id}");
-		}
+		var corThread = _rawProcess.EnumerateThreads().FirstOrDefault();
+		if (corThread != null) _threads.TryAdd(corThread.Id, corThread);
 
 		if (_stopAtEntryActive && !_stopAtEntrySignaled && corThread != null)
 		{
@@ -44,8 +35,9 @@ public partial class ManagedDebugger
 	private void HandleThreadCreated(object? sender, CreateThreadCorDebugManagedCallbackEventArgs createThreadCorDebugManagedCallbackEventArgs)
 	{
 		var corThread = createThreadCorDebugManagedCallbackEventArgs.Thread;
+		var threadAlreadyKnown = _threads.ContainsKey(corThread.Id);
 		_threads[corThread.Id] = corThread;
-		OnThreadStarted?.Invoke(corThread.Id, $"Thread {corThread.Id}");
+		if (!threadAlreadyKnown) OnThreadStarted?.Invoke(corThread.Id, $"Thread {corThread.Id}");
 		if (_stopAtEntryActive && !_stopAtEntrySignaled)
 		{
 			_stopAtEntrySignaled = true;

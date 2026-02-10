@@ -319,15 +319,6 @@ public partial class ManagedDebugger
 	}
 
 	/// <summary>
-	/// Set breakpoints for a source file without conditions
-	/// </summary>
-	public List<BreakpointManager.BreakpointInfo> SetBreakpoints(string filePath, int[] lines)
-	{
-		var requests = lines.Select(line => new BreakpointRequest(line)).ToArray();
-		return SetBreakpoints(filePath, requests);
-	}
-
-	/// <summary>
 	/// Set breakpoints for a source file with optional conditions
 	/// </summary>
 	public List<BreakpointManager.BreakpointInfo> SetBreakpoints(string filePath, BreakpointRequest[] breakpoints)

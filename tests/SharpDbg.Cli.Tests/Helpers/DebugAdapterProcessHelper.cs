@@ -72,7 +72,7 @@ public static class DebugAdapterProcessHelper
 		};
 	}
 
-	public static AttachRequest GetAttachRequest(int processId)
+	public static AttachRequest GetAttachRequest(int processId, bool stopAtEntry = false)
 	{
 		return new AttachRequest
 		{
@@ -81,6 +81,7 @@ public static class DebugAdapterProcessHelper
 				["name"] = "AttachRequestName",
 				["type"] = "coreclr",
 				["processId"] = processId,
+				["stopAtEntry"] = stopAtEntry,
 				["console"] = "internalConsole", // integratedTerminal, externalTerminal, internalConsole
 			}
 		};

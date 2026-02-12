@@ -10,6 +10,11 @@ using ZLinq;
 
 namespace SharpDbg.Infrastructure.Debugger;
 
+/// <summary>
+/// Request to set a breakpoint with optional condition and hit condition
+/// </summary>
+public record BreakpointRequest(int Line, string? Condition = null, string? HitCondition = null);
+
 public partial class ManagedDebugger
 {
 	// Store launch info for deferred attach in ConfigurationDone
@@ -314,12 +319,12 @@ public partial class ManagedDebugger
 	}
 
 	/// <summary>
-	/// Set breakpoints for a source file
+	/// Set breakpoints for a source file with optional conditions
 	/// </summary>
-	public List<BreakpointManager.BreakpointInfo> SetBreakpoints(string filePath, int[] lines)
+	public List<BreakpointManager.BreakpointInfo> SetBreakpoints(string filePath, BreakpointRequest[] breakpoints)
 	{
 		//System.Diagnostics.Debugger.Launch();
-		_logger?.Invoke($"SetBreakpoints: {filePath}, lines: {string.Join(",", lines)}");
+		_logger?.Invoke($"SetBreakpoints: {filePath}, breakpoints: {string.Join(",", breakpoints.Select(b => $"L{b.Line}" + (b.Condition != null ? $"[{b.Condition}]" : "")))}");
 
 		// Deactivate and clear existing breakpoints for this file
 		var existingBreakpoints = _breakpointManager.GetBreakpointsForFile(filePath);
@@ -341,9 +346,9 @@ public partial class ManagedDebugger
 
 		// Create new breakpoints
 		var result = new List<BreakpointManager.BreakpointInfo>();
-		foreach (var line in lines)
+		foreach (var request in breakpoints)
 		{
-			var bp = _breakpointManager.CreateBreakpoint(filePath, line);
+			var bp = _breakpointManager.CreateBreakpoint(filePath, request.Line, request.Condition, request.HitCondition);
 
 			// Try to bind the breakpoint if we have a process
 			if (_process != null)

@@ -1,5 +1,7 @@
-﻿using ClrDebug;
+﻿using System.Runtime.InteropServices;
+using ClrDebug;
 using SharpDbg.Infrastructure.Debugger.ExpressionEvaluator;
+using SharpDbg.Infrastructure.Debugger.ExpressionEvaluator.Compiler;
 using SharpDbg.Infrastructure.Debugger.ExpressionEvaluator.Interpreter;
 
 namespace SharpDbg.Infrastructure.Debugger;
@@ -145,6 +147,23 @@ public partial class ManagedDebugger
 
 			var managedBreakpoint = _breakpointManager.FindByCorBreakpoint(functionBreakpoint.Raw);
 			ArgumentNullException.ThrowIfNull(managedBreakpoint);
+
+			managedBreakpoint.HitCount++;
+
+			if (managedBreakpoint.HitCondition is not null && EvaluateHitCondition(managedBreakpoint.HitCount, managedBreakpoint.HitCondition) is false)
+			{
+				_logger?.Invoke($"Hit count condition not met: count={managedBreakpoint.HitCount}, condition={managedBreakpoint.HitCondition}");
+				Continue();
+				return;
+			}
+
+			if (managedBreakpoint.Condition is not null && await EvaluateBreakpointCondition(corThread, managedBreakpoint.Condition) is false)
+			{
+				_logger?.Invoke($"Conditional breakpoint condition not met: {managedBreakpoint.Condition}");
+				Continue();
+				return;
+			}
+
 			IsRunning = false;
 			OnStopped2?.Invoke(corThread.Id, managedBreakpoint.FilePath, managedBreakpoint.Line, "breakpoint");
 		}

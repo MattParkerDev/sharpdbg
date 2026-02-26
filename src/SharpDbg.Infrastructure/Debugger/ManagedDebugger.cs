@@ -27,7 +27,7 @@ public partial class ManagedDebugger : IDisposable
 
 	public event Action<int, string>? OnStopped;
 	// ThreadId, FilePath, Line, Reason
-	public event Action<int, string, int, string>? OnStopped2;
+	public event Action<int, string, int, string, DecompiledSourceInfo?>? OnStopped2;
 	public event Action<int>? OnContinued;
 	public event Action? OnExited;
 	public event Action? OnTerminated;

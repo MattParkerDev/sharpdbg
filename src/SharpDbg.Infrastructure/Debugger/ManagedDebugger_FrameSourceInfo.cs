@@ -26,7 +26,7 @@ public partial class ManagedDebugger
 			throw new InvalidOperationException("Active frame is not an IL frame");
 		var function = ilFrame.Function;
 		var module = _modules[function.Module.BaseAddress];
-		if (module.SymbolReader is null)
+		if (module.SymbolReader is null && _justMyCode is false)
 		{
 			if (module.IsUserCode) throw new InvalidOperationException("The module we are decompiling is user code - this should never happen, we should only be decompiling non user code modules");
 			// No PDB on disk — generate one via decompilation and update the module entry

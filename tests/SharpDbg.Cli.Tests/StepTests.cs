@@ -95,7 +95,7 @@ public class StepTests(ITestOutputHelper testOutputHelper)
 
 	    await debugProtocolHost
 		    .WithInitializeRequest()
-		    .WithAttachRequest(p2.Id)
+		    .WithAttachRequest(p2.Id, false)
 		    .WaitForInitializedEvent(initializedEventTcs);
 	    debugProtocolHost
 		    .WithBreakpointsRequest(15)

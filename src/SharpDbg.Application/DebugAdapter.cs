@@ -229,10 +229,10 @@ public class DebugAdapter : DebugAdapterBase
 		{
 			throw new ProtocolException("Missing process ID");
 		}
-
+		var justMyCode = GetConfigValue<bool?>(arguments.ConfigurationProperties, "justMyCode") ?? true;
 		try
 		{
-			_debugger.Attach(processId.Value);
+			_debugger.Attach(processId.Value, justMyCode);
 			return new AttachResponse();
 		}
 		catch (Exception ex)

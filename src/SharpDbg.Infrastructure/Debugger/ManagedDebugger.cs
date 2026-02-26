@@ -22,6 +22,7 @@ public partial class ManagedDebugger : IDisposable
 	private readonly Dictionary<long, ModuleInfo> _modules = new();
 	private bool _isAttached;
 	private int? _pendingAttachProcessId;
+	private bool _justMyCode;
 	private AsyncStepper? _asyncStepper;
 	private CompiledExpressionInterpreter? _expressionInterpreter;
 

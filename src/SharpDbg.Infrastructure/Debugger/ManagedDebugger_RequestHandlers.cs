@@ -156,9 +156,10 @@ public partial class ManagedDebugger
 	/// <summary>
 	/// Store process ID for later attach (actual attach happens in ConfigurationDone)
 	/// </summary>
-	public void Attach(int processId)
+	public void Attach(int processId, bool justMyCode)
 	{
 		_logger?.Invoke($"Storing attach target: {processId}");
+		_justMyCode = justMyCode;
 		_pendingAttachProcessId = processId;
 	}
 

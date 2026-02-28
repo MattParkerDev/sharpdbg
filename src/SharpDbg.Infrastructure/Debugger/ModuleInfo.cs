@@ -31,7 +31,7 @@ public class ModuleInfo : IDisposable
 	/// <summary>
 	/// Base address of the module in memory
 	/// </summary>
-	public long BaseAddress { get; }
+	public CORDB_ADDRESS BaseAddress { get; }
 	public bool IsUserCode { get; }
 
 	public ModuleInfo(CorDebugModule module, string modulePath, SymbolReader? symbolReader, bool isUserCode)
@@ -41,7 +41,7 @@ public class ModuleInfo : IDisposable
 		IsUserCode = isUserCode;
 		ModuleName = Path.GetFileName(modulePath);
 		SymbolReader = symbolReader;
-		BaseAddress = (long)module.BaseAddress;
+		BaseAddress = module.BaseAddress;
 	}
 
 	/// <summary>

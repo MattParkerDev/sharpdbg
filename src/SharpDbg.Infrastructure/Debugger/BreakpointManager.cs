@@ -24,7 +24,7 @@ public class BreakpointManager
 		public int? ResolvedEndLine { get; set; }
 		public int? MethodToken { get; set; }
 		public int? ILOffset { get; set; }
-		public long? ModuleBaseAddress { get; set; }
+		public CORDB_ADDRESS? ModuleBaseAddress { get; set; }
 	}
 
 	/// <summary>

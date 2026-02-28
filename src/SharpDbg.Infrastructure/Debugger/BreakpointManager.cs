@@ -159,7 +159,7 @@ public class BreakpointManager
 	{
 		lock (_lock)
 		{
-			return _breakpoints.Values.FirstOrDefault(bp => bp.CorBreakpoint!.Raw == corBreakpoint);
+			return _breakpoints.Values.FirstOrDefault(bp => bp.CorBreakpoint?.Raw == corBreakpoint);
 		}
 	}
 

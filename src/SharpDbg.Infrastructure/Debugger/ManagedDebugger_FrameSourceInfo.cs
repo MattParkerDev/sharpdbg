@@ -9,7 +9,7 @@ using SharpDbg.Infrastructure.Debugger.Decompilation;
 
 namespace SharpDbg.Infrastructure.Debugger;
 
-public readonly record struct SourceInfo(string FilePath, int StartLine, int StartColumn, DecompiledSourceInfo? DecompilationReproductionInfo);
+public readonly record struct SourceInfo(string FilePath, int StartLine, int StartColumn, DecompiledSourceInfo? DecompiledSourceInfo);
 public class DecompiledSourceInfo
 {
 	public required string TypeFullName { get; init; }

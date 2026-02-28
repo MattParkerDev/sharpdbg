@@ -79,36 +79,6 @@ public class BreakpointManager
 	}
 
 	/// <summary>
-	/// Update breakpoint with ClrDebug breakpoint
-	/// </summary>
-	public void SetCorBreakpoint(int id, CorDebugFunctionBreakpoint corBreakpoint)
-	{
-		lock (_lock)
-		{
-			if (_breakpoints.TryGetValue(id, out var bp))
-			{
-				bp.CorBreakpoint = corBreakpoint;
-				bp.Verified = true;
-			}
-		}
-	}
-
-	/// <summary>
-	/// Set breakpoint verification status
-	/// </summary>
-	public void SetVerified(int id, bool verified, string? message = null)
-	{
-		lock (_lock)
-		{
-			if (_breakpoints.TryGetValue(id, out var bp))
-			{
-				bp.Verified = verified;
-				bp.Message = message;
-			}
-		}
-	}
-
-	/// <summary>
 	/// Get breakpoint by ID
 	/// </summary>
 	public BreakpointInfo? GetBreakpoint(int id)

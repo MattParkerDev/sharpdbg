@@ -141,12 +141,12 @@ public partial class ManagedDebugger
 				var pdbDirectory = Path.GetDirectoryName(pdbPathToWriteTo)!;
 				if (!Directory.Exists(pdbDirectory)) Directory.CreateDirectory(pdbDirectory);
 				using var pdbStream = File.Create(pdbPathToWriteTo);
-				// noLogo: true until https://github.com/icsharpcode/ILSpy/pull/3667 is merged
 				PortablePdbWriter2.WritePdb(file, decompilerTypeSystem, decompilerSettings, pdbStream, noLogo: true);
 			}
 			catch (Exception ex)
 			{
 				_logger?.Invoke($"GeneratePdb: exception writing PDB: {ex}");
+				File.Delete(pdbPathToWriteTo);
 				return null;
 			}
 

@@ -9,6 +9,7 @@
 
 	<ItemGroup>
 		<Publicize IncludeCompilerGeneratedMembers="false" Include="Microsoft.CodeAnalysis.CSharp" />
+		<Publicize IncludeCompilerGeneratedMembers="false" Include="ICSharpCode.Decompiler" MemberPattern="^ICSharpCode\.Decompiler\.(CSharp\.Transforms\.RemoveEmbeddedAttributes|DebugInfo)\..*" />
 	</ItemGroup>
 
   <ItemGroup>

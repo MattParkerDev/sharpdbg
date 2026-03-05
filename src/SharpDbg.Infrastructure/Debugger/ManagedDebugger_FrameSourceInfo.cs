@@ -5,6 +5,7 @@ using ICSharpCode.Decompiler.CSharp;
 using ICSharpCode.Decompiler.CSharp.Transforms;
 using ICSharpCode.Decompiler.DebugInfo;
 using ICSharpCode.Decompiler.Metadata;
+using ICSharpCode.Decompiler.TypeSystem;
 using SharpDbg.Infrastructure.Debugger.Decompilation;
 
 namespace SharpDbg.Infrastructure.Debugger;
@@ -132,16 +133,7 @@ public partial class ManagedDebugger
 		using (file)
 		{
 			var decompilerSettings = new DecompilerSettings();
-			var decompiler = new CSharpDecompiler(file, resolver, decompilerSettings)
-			{
-				AstTransforms = {
-					new TransformFieldAndConstructorInitializers(),
-					new AddXmlDocumentationTransform(),
-					new EscapeInvalidIdentifiers(),
-					new FixNameCollisions(),
-					new ReplaceMethodCallsWithOperators()
-				}
-			};
+			var decompilerTypeSystem = new DecompilerTypeSystem(file, resolver, decompilerSettings);
 
 			_logger?.Invoke($"GeneratePdb: writing PDB to '{pdbPathToWriteTo}' for '{assemblyPath}'");
 			try
@@ -150,7 +142,7 @@ public partial class ManagedDebugger
 				if (!Directory.Exists(pdbDirectory)) Directory.CreateDirectory(pdbDirectory);
 				using var pdbStream = File.Create(pdbPathToWriteTo);
 				// noLogo: true until https://github.com/icsharpcode/ILSpy/pull/3667 is merged
-				PortablePdbWriter.WritePdb(file, decompiler, decompilerSettings, pdbStream, noLogo: true);
+				PortablePdbWriter2.WritePdb(file, decompilerTypeSystem, decompilerSettings, pdbStream, noLogo: true);
 			}
 			catch (Exception ex)
 			{

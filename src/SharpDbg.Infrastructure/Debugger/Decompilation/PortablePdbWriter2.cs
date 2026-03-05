@@ -51,12 +51,9 @@ public class PortablePdbWriter2
 		var decompiler = new CSharpDecompiler(decompilerTypeSystem, decompilerSettings)
 		{
 			AstTransforms = {
-				new TransformFieldAndConstructorInitializers(),
-				new AddXmlDocumentationTransform(),
 				new EscapeInvalidIdentifiers(),
-				new FixNameCollisions(),
-				new RemoveCLSCompliantAttribute(),
-				new ReplaceMethodCallsWithOperators()
+				new RemoveCLSCompliantAttribute()
+				// most other transforms are already present by default
 			}
 		};
 		return decompiler;

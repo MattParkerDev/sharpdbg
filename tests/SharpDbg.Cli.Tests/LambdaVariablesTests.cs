@@ -19,7 +19,7 @@ public class LambdaVariablesTests(ITestOutputHelper testOutputHelper)
 		    .WithAttachRequest(p2.Id)
 		    .WaitForInitializedEvent(initializedEventTcs);
 	    debugProtocolHost
-		    .WithBreakpointsRequest([11], Path.JoinFromGitRoot("tests", "DebuggableConsoleApp", "Lambdas", "MyLambdaClass.cs"))
+		    .WithBreakpointsRequest([13], Path.JoinFromGitRoot("tests", "DebuggableConsoleApp", "Lambdas", "MyLambdaClass.cs"))
 		    .WithConfigurationDoneRequest()
 		    .WithOptionalResumeRuntime(p2.Id, startSuspended);
 
@@ -27,7 +27,7 @@ public class LambdaVariablesTests(ITestOutputHelper testOutputHelper)
 	    var stoppedEvent = await debugProtocolHost.WaitForStoppedEvent(stoppedEventTcs);
 	    var stopInfo = stoppedEvent.ReadStopInfo();
 	    stopInfo.filePath.Should().EndWith("MyLambdaClass.cs");
-	    stopInfo.line.Should().Be(11);
+	    stopInfo.line.Should().Be(13);
 
 	    debugProtocolHost
 		    .WithStackTraceRequest(stoppedEvent.ThreadId!.Value, out var stackTraceResponse)

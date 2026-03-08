@@ -9,6 +9,7 @@ public class MyLambdaClass
 	    Func<int, int> square = x =>
 		{
 			var capturedString = test;
+			var capturedIntField = _capturedIntField;
 			int result = x * x; // set breakpoint here
 			return result;
 		};
@@ -16,4 +17,6 @@ public class MyLambdaClass
 		int squaredValue = square(value);
 		return value;
     }
+    private int _capturedIntField = 4;
+    private int _uncapturedIntField = 5;
 }

@@ -13,9 +13,11 @@ public partial class ManagedDebugger
 	{
 		if (classContainingHoistedLocalsValue is not null)
 		{
-			// If we have a classContainingHoistedLocalsValue, it means our actual local variables are bogus, and that we need to get the locals that the user expects from classContainingHoistedLocalsValue instead
+			// If we have a classContainingHoistedLocalsValue, it means captured variables from the outer scope are stored
+			// as fields on the compiler-generated closure class - read those first.
+			// We do NOT return here: non-captured locals declared inside the lambda body are still plain IL locals
+			// on the lambda method frame and must also be read below.
 			await AddMembers(classContainingHoistedLocalsValue, classContainingHoistedLocalsValue.ExactType, threadId, stackDepth, result);
-			return;
 		}
 		var corDebugIlFrame = GetFrameForThreadIdAndStackDepth(threadId, stackDepth);
 		if (corDebugIlFrame.LocalVariables.Length is 0) return;

@@ -18,29 +18,29 @@ public class LambdaStepTests(ITestOutputHelper testOutputHelper)
 		    .WithAttachRequest(p2.Id)
 		    .WaitForInitializedEvent(initializedEventTcs);
 	    debugProtocolHost
-		    .WithBreakpointsRequest([13, 16], Path.JoinFromGitRoot("tests", "DebuggableConsoleApp", "Lambdas", "MyLambdaClass.cs"))
+		    .WithBreakpointsRequest([21, 34], Path.JoinFromGitRoot("tests", "DebuggableConsoleApp", "Lambdas", "MyLambdaClass.cs"))
 		    .WithConfigurationDoneRequest()
 		    .WithOptionalResumeRuntime(p2.Id, startSuspended);
 
-	    // we should not stop at line 13, as it is within the lambda, and it has not been invoked yet
+	    // we should not stop at line 21, as it is within the lambda, and it has not been invoked yet
 	    var stoppedEvent = await debugProtocolHost.WaitForStoppedEvent(stoppedEventTcs);
 	    var stopInfo = stoppedEvent.ReadStopInfo();
 	    stopInfo.filePath.Should().EndWith("MyLambdaClass.cs");
-	    stopInfo.line.Should().Be(16);
+	    stopInfo.line.Should().Be(34);
 
-	    // continue, and now we should stop at line 13 within the lambda
+	    // continue, and now we should stop at line 21 within the lambda
 	    var stoppedEvent2 = await debugProtocolHost.WithContinueRequest().WaitForStoppedEvent(stoppedEventTcs);
 	    var stopInfo2 = stoppedEvent2.ReadStopInfo();
 	    stopInfo2.filePath.Should().EndWith("MyLambdaClass.cs");
-	    stopInfo2.line.Should().Be(13);
+	    stopInfo2.line.Should().Be(21);
 
 	    // Set breakpoint at lambda declaration
-	    debugProtocolHost.WithBreakpointsRequest(9, Path.JoinFromGitRoot("tests", "DebuggableConsoleApp", "Lambdas", "MyLambdaClass.cs"));
+	    debugProtocolHost.WithBreakpointsRequest(14, Path.JoinFromGitRoot("tests", "DebuggableConsoleApp", "Lambdas", "MyLambdaClass.cs"));
 
 	    // Continue (while loop), and we should hit the lambda declaration breakpoint
 	    var stoppedEvent3 = await debugProtocolHost.WithContinueRequest().WaitForStoppedEvent(stoppedEventTcs);
 	    var stopInfo3 = stoppedEvent3.ReadStopInfo();
 	    stopInfo3.filePath.Should().EndWith("MyLambdaClass.cs");
-	    stopInfo3.line.Should().Be(9);
+	    stopInfo3.line.Should().Be(14);
     }
 }

@@ -18,21 +18,21 @@ public class LambdaStepTests(ITestOutputHelper testOutputHelper)
 		    .WithAttachRequest(p2.Id)
 		    .WaitForInitializedEvent(initializedEventTcs);
 	    debugProtocolHost
-		    .WithBreakpointsRequest([11, 15], Path.JoinFromGitRoot("tests", "DebuggableConsoleApp", "Lambdas", "MyLambdaClass.cs"))
+		    .WithBreakpointsRequest([13, 16], Path.JoinFromGitRoot("tests", "DebuggableConsoleApp", "Lambdas", "MyLambdaClass.cs"))
 		    .WithConfigurationDoneRequest()
 		    .WithOptionalResumeRuntime(p2.Id, startSuspended);
 
-	    // we should not stop at line 11, as it is within the lambda, and it has not been invoked yet
+	    // we should not stop at line 13, as it is within the lambda, and it has not been invoked yet
 	    var stoppedEvent = await debugProtocolHost.WaitForStoppedEvent(stoppedEventTcs);
 	    var stopInfo = stoppedEvent.ReadStopInfo();
 	    stopInfo.filePath.Should().EndWith("MyLambdaClass.cs");
-	    stopInfo.line.Should().Be(15);
+	    stopInfo.line.Should().Be(16);
 
-	    // continue, and now we should stop at line 11 within the lambda
+	    // continue, and now we should stop at line 13 within the lambda
 	    var stoppedEvent2 = await debugProtocolHost.WithContinueRequest().WaitForStoppedEvent(stoppedEventTcs);
 	    var stopInfo2 = stoppedEvent2.ReadStopInfo();
 	    stopInfo2.filePath.Should().EndWith("MyLambdaClass.cs");
-	    stopInfo2.line.Should().Be(11);
+	    stopInfo2.line.Should().Be(13);
 
 	    // Set breakpoint at lambda declaration
 	    debugProtocolHost.WithBreakpointsRequest(9, Path.JoinFromGitRoot("tests", "DebuggableConsoleApp", "Lambdas", "MyLambdaClass.cs"));

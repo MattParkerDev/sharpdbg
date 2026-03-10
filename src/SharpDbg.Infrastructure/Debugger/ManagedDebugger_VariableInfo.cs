@@ -14,10 +14,11 @@ public partial class ManagedDebugger
 		if (classContainingHoistedLocalsValue is not null)
 		{
 			// If we have a classContainingHoistedLocalsValue, it means captured variables from the outer scope are stored
-			// as fields on the compiler-generated closure class - read those first.
+			// as fields on the compiler-generated closure class - read those first, walking the full closure chain
+			// so that variables captured from enclosing lambdas are also included.
 			// We do NOT return here: non-captured locals declared inside the lambda body are still plain IL locals
 			// on the lambda method frame and must also be read below.
-			await AddMembers(classContainingHoistedLocalsValue, classContainingHoistedLocalsValue.ExactType, threadId, stackDepth, result);
+			await AddClosureChainMembers(classContainingHoistedLocalsValue, threadId, stackDepth, result);
 		}
 		var corDebugIlFrame = GetFrameForThreadIdAndStackDepth(threadId, stackDepth);
 		if (corDebugIlFrame.LocalVariables.Length is 0) return;
@@ -36,6 +37,29 @@ public partial class ManagedDebugger
 				VariablesReference = GetVariablesReference(localVariableCorDebugValue, friendlyTypeName, threadId, stackDepth, debuggerProxyInstance)
 			};
 			result.Add(variableInfo);
+		}
+	}
+
+	/// Walks the compiler-generated closure chain starting at <paramref name="closureValue"/>,
+	/// calling AddMembers on each closure class. Parent closures are linked via a field of
+	/// kind <see cref="GeneratedNameKind.DisplayClassLocalOrField"/> (e.g. "&lt;&gt;8__1").
+	private async Task AddClosureChainMembers(CorDebugValue closureValue, ThreadId threadId, FrameStackDepth stackDepth, List<VariableInfo> result)
+	{
+		await AddMembers(closureValue, closureValue.ExactType, threadId, stackDepth, result);
+
+		// Follow the DisplayClassLocalOrField link to the parent closure, if any
+		var objectValue = closureValue.UnwrapDebugValueToObject();
+		var metadataImport = objectValue.Class.Module.GetMetaDataInterface().MetaDataImport;
+		var fields = metadataImport.EnumFields(objectValue.Class.Token);
+		foreach (var field in fields)
+		{
+			var fieldProps = metadataImport.GetFieldProps(field);
+			if (GeneratedNameParser.GetKind(fieldProps.szField) is GeneratedNameKind.DisplayClassLocalOrField)
+			{
+				var parentClosureValue = objectValue.GetFieldValue(objectValue.Class.Raw, field);
+				await AddClosureChainMembers(parentClosureValue, threadId, stackDepth, result);
+				break; // only one parent link per closure class
+			}
 		}
 	}
 

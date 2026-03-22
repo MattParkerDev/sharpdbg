@@ -72,7 +72,7 @@ public class DebugAdapter : DebugAdapterBase
 			});
 		};
 
-		_debugger.OnStopped2 += (threadId, filePath, line, reason) =>
+		_debugger.OnStopped2 += (threadId, filePath, line, reason, decompiledSourceInfo) =>
 		{
 			var source = new Source { Path = filePath };
 			var stoppedEvent = new StoppedEvent
@@ -83,6 +83,7 @@ public class DebugAdapter : DebugAdapterBase
 			};
 			stoppedEvent.AdditionalProperties["source"] = JToken.FromObject(source);
 			stoppedEvent.AdditionalProperties["line"] = JToken.FromObject(line);
+			stoppedEvent.AdditionalProperties["decompiledSourceInfo"] = decompiledSourceInfo is null ? null : JToken.FromObject(decompiledSourceInfo);
 			Protocol.SendEvent(stoppedEvent);
 		};
 
@@ -229,10 +230,10 @@ public class DebugAdapter : DebugAdapterBase
 		{
 			throw new ProtocolException("Missing process ID");
 		}
-
+		var justMyCode = GetConfigValue<bool?>(arguments.ConfigurationProperties, "justMyCode") ?? true;
 		try
 		{
-			_debugger.Attach(processId.Value);
+			_debugger.Attach(processId.Value, justMyCode);
 			return new AttachResponse();
 		}
 		catch (Exception ex)

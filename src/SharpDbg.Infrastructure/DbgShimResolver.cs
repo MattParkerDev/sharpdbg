@@ -1,4 +1,5 @@
-﻿using System.Runtime.InteropServices;
+﻿using System.Diagnostics.CodeAnalysis;
+using System.Runtime.InteropServices;
 
 namespace SharpDbg.Infrastructure;
 
@@ -26,7 +27,7 @@ internal static class DbgShimResolver
 		return result;
 	}
 
-	private static string ResolveInternal()
+	private static string? ResolveInternal()
 	{
 		if (!TryGetPlatformInfo(out var runtimePrefix, out var fileName))
 			return null;
@@ -73,7 +74,7 @@ internal static class DbgShimResolver
 #endif
 	}
 
-	private static string ResolveFromRID(string runtimesDirectory, string rid, string fileName)
+	private static string? ResolveFromRID(string runtimesDirectory, string rid, string fileName)
 	{
 		//Do we have a directory for our target runtime? (e.g. win-x64)
 		var runtimeDirectory = Path.Combine(
@@ -110,7 +111,7 @@ internal static class DbgShimResolver
 		return null;
 	}
 
-	private static bool TryGetPlatformInfo(out string runtimePrefix, out string fileName)
+	private static bool TryGetPlatformInfo(out string? runtimePrefix, [NotNullWhen(true)] out string? fileName)
 	{
 		//RuntimeInformation.IsOSPlatform requires at least .NET Framework 4.7.1
 

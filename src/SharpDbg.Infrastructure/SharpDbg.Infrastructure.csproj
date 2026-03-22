@@ -9,9 +9,11 @@
 
 	<ItemGroup>
 		<Publicize IncludeCompilerGeneratedMembers="false" Include="Microsoft.CodeAnalysis.CSharp" />
+		<Publicize IncludeCompilerGeneratedMembers="false" Include="ICSharpCode.Decompiler" MemberPattern="^ICSharpCode\.Decompiler\.(CSharp\.Transforms\.RemoveEmbeddedAttributes|DebugInfo)\..*" />
 	</ItemGroup>
 
   <ItemGroup>
+	<PackageReference Include="ICSharpCode.Decompiler" Version="10.0.0.8282-preview2" />
 	<PackageReference Include="Krafs.Publicizer" Version="2.3.0">
 	  <PrivateAssets>all</PrivateAssets>
 	  <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>

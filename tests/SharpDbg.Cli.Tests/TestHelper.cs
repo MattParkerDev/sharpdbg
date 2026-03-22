@@ -44,9 +44,9 @@ public static partial class TestHelper
 		return debugProtocolHost;
 	}
 
-	public static DebugProtocolHost WithAttachRequest(this DebugProtocolHost debugProtocolHost, int debuggableProcessId)
+	public static DebugProtocolHost WithAttachRequest(this DebugProtocolHost debugProtocolHost, int debuggableProcessId, bool justMyCode = true)
 	{
-		var attachRequest = DebugAdapterProcessHelper.GetAttachRequest(debuggableProcessId);
+		var attachRequest = DebugAdapterProcessHelper.GetAttachRequest(debuggableProcessId, justMyCode);
 		debugProtocolHost.SendRequestSync(attachRequest);
 		return debugProtocolHost;
 	}

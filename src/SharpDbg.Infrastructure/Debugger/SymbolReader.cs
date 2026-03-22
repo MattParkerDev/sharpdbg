@@ -67,6 +67,26 @@ public class SymbolReader : IDisposable
 		return null;
 	}
 
+	public static SymbolReader? TryLoadWithPdbPath(string assemblyPath, string pdbPath)
+	{
+		if (File.Exists(assemblyPath) is false || File.Exists(pdbPath) is false) return null;
+
+		try
+		{
+			using var peStream = File.OpenRead(assemblyPath);
+			var peReader = new PEReader(peStream);
+			using var pdbStream = File.OpenRead(pdbPath);
+			var provider = MetadataReaderProvider.FromPortablePdbStream(pdbStream, MetadataStreamOptions.PrefetchMetadata);
+			var metadataReader = provider.GetMetadataReader();
+			var peMetadataReader = peReader.GetMetadataReader(MetadataReaderOptions.None);
+			return new SymbolReader(provider, peReader, metadataReader, peMetadataReader, assemblyPath);
+		}
+		catch
+		{
+			return null;
+		}
+	}
+
 	private static SymbolReader? TryLoadFromAssembly(string assemblyPath)
 	{
 		if (!File.Exists(assemblyPath))

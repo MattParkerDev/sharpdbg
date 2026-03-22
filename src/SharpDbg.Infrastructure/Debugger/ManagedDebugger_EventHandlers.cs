@@ -1,7 +1,6 @@
-﻿using System.Runtime.InteropServices;
+using System.Diagnostics;
 using ClrDebug;
 using SharpDbg.Infrastructure.Debugger.ExpressionEvaluator;
-using SharpDbg.Infrastructure.Debugger.ExpressionEvaluator.Compiler;
 using SharpDbg.Infrastructure.Debugger.ExpressionEvaluator.Interpreter;
 
 namespace SharpDbg.Infrastructure.Debugger;
@@ -68,8 +67,10 @@ public partial class ManagedDebugger
 			_logger?.Invoke($"  Error loading symbols for {moduleName}: {ex.Message}");
 		}
 
-		// Store module info
-		var moduleInfo = new ModuleInfo(corModule, modulePath, symbolReader);
+		// EnC is enabled for assemblies/projects that are authored by the user, so we can use it as a heuristic to determine if this is user code or system code.
+		var isUserCode = corModule.JITCompilerFlags is CorDebugJITCompilerFlags.CORDEBUG_JIT_DISABLE_OPTIMIZATION or CorDebugJITCompilerFlags.CORDEBUG_JIT_ENABLE_ENC;
+
+		var moduleInfo = new ModuleInfo(corModule, modulePath, symbolReader, isUserCode);
 		_modules[baseAddress] = moduleInfo;
 
 		if (moduleName is "System.Private.CoreLib.dll")
@@ -165,7 +166,7 @@ public partial class ManagedDebugger
 			}
 
 			IsRunning = false;
-			OnStopped2?.Invoke(corThread.Id, managedBreakpoint.FilePath, managedBreakpoint.Line, "breakpoint");
+			OnStopped2?.Invoke(corThread.Id, managedBreakpoint.FilePath, managedBreakpoint.Line, "breakpoint", null);
 		}
 		catch (Exception e)
 		{
@@ -185,15 +186,20 @@ public partial class ManagedDebugger
 		var stepper = _stepper ?? throw new InvalidOperationException("No stepper found for step complete");
 		stepper.Deactivate(); // I really don't know if its necessary to deactivate the steppers once done
 		_stepper = null;
-		var symbolReader = _modules[ilFrame.Function.Module.BaseAddress].SymbolReader;
-		if (symbolReader is null)
+		var module = _modules[ilFrame.Function.Module.BaseAddress];
+		var sourceInfo = GetSourceInfoAtFrame(ilFrame);
+		if (sourceInfo is null)
 		{
-			// We don't have symbols, but we're going to step in, in case this code calls user code that would be missed if we stepped out or over
-			// Alternative is to use JMC true - we'll never stop in non-user code, so in theory symbolReader would never be null
+			// sourceInfo will be null if we could not find a PDB for the module
+			// Bottom line - if we have no PDB, we have no source info, and there is no possible way for the user to map the stop location to a source file/line
+			// Either justMyCode is enabled, or this is a genuinely unmapped method, ie compiler generated with DebuggerStepThrough etc
+			// also, landing in an async state machine will not have source info, allowing us to keep stepping to the MoveNext
+			// TODO: This should probably be more sophisticated - mark the CorDebugFunction as non user code - `JMCStatus = false`, enable JMC for the stepper and then step over, in case the non user code calls user code, e.g. LINQ methods
 			SetupStepper(corThread, AsyncStepper.StepType.StepIn);
 			Continue();
 			return;
 		}
+		var symbolReader = module.SymbolReader ?? throw new UnreachableException("Source info was found, but no symbol reader is available for the module - this should never happen");
 
 		var (currentIlOffset, nextUserCodeIlOffset) = symbolReader.GetFrameCurrentIlOffsetAndNextUserCodeIlOffset(ilFrame);
 		if (stepCompleteEventArgs.Reason is CorDebugStepReason.STEP_CALL && currentIlOffset < nextUserCodeIlOffset)
@@ -218,21 +224,8 @@ public partial class ManagedDebugger
 			}
 		}
 
-		var sourceInfo = GetSourceInfoAtFrame(ilFrame);
-		if (sourceInfo is null)
-		{
-			// sourceInfo will be null if we could not find a PDB for the module
-			// Bottom line - if we have no PDB, we have no source info, and there is no possible way for the user to map the stop location to a source file/line
-			// (Until we implement Source Link and/or Decompilation support)
-			// So for now, if this occurs, we are going to do a step out to get us back to a stop location with source info
-			// TODO: This should probably be more sophisticated - mark the CorDebugFunction as non user code - `JMCStatus = false`, enable JMC for the stepper and then step over, in case the non user code calls user code, e.g. LINQ methods
-			SetupStepper(corThread, AsyncStepper.StepType.StepOver);
-			Continue();
-			return;
-		}
-
-		var (sourceFilePath, line, _) = sourceInfo.Value;
-		OnStopped2?.Invoke(corThread.Id, sourceFilePath, line, "step");
+		var (sourceFilePath, line, _, decompiledSourceInfo) = sourceInfo.Value;
+		OnStopped2?.Invoke(corThread.Id, sourceFilePath, line, "step", decompiledSourceInfo);
 	}
 
 	private void HandleBreak(object? sender,

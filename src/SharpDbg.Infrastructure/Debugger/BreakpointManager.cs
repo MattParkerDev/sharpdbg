@@ -14,40 +14,17 @@ public class BreakpointManager
 
 	public class BreakpointInfo
 	{
-		/// <summary>Unique breakpoint ID</summary>
 		public int Id { get; set; }
-
-		/// <summary>Requested source file path</summary>
 		public string FilePath { get; set; } = string.Empty;
-
-		/// <summary>Requested line number (1-based)</summary>
 		public int Line { get; set; }
-
-		/// <summary>Whether the breakpoint has been bound to actual code</summary>
 		public bool Verified { get; set; }
-
-		/// <summary>The ICorDebugFunctionBreakpoint if bound</summary>
 		public CorDebugFunctionBreakpoint? CorBreakpoint { get; set; }
-
-		/// <summary>Status message (e.g., why unverified)</summary>
 		public string? Message { get; set; }
-
-		// Resolution info (populated when bound)
-
-		/// <summary>Resolved line number (may differ from requested Line)</summary>
 		public int? ResolvedLine { get; set; }
-
-		/// <summary>Resolved end line number</summary>
 		public int? ResolvedEndLine { get; set; }
-
-		/// <summary>Method token where breakpoint is set</summary>
 		public int? MethodToken { get; set; }
-
-		/// <summary>IL offset within the method</summary>
 		public int? ILOffset { get; set; }
-
-		/// <summary>Module base address where breakpoint is bound</summary>
-		public long? ModuleBaseAddress { get; set; }
+		public CORDB_ADDRESS? ModuleBaseAddress { get; set; }
 
 		// Conditional breakpoint support
 
@@ -91,36 +68,6 @@ public class BreakpointManager
 			_breakpointsByFile[filePath].Add(id);
 
 			return bp;
-		}
-	}
-
-	/// <summary>
-	/// Update breakpoint with ClrDebug breakpoint
-	/// </summary>
-	public void SetCorBreakpoint(int id, CorDebugFunctionBreakpoint corBreakpoint)
-	{
-		lock (_lock)
-		{
-			if (_breakpoints.TryGetValue(id, out var bp))
-			{
-				bp.CorBreakpoint = corBreakpoint;
-				bp.Verified = true;
-			}
-		}
-	}
-
-	/// <summary>
-	/// Set breakpoint verification status
-	/// </summary>
-	public void SetVerified(int id, bool verified, string? message = null)
-	{
-		lock (_lock)
-		{
-			if (_breakpoints.TryGetValue(id, out var bp))
-			{
-				bp.Verified = verified;
-				bp.Message = message;
-			}
 		}
 	}
 
@@ -175,7 +122,7 @@ public class BreakpointManager
 	{
 		lock (_lock)
 		{
-			return _breakpoints.Values.FirstOrDefault(bp => bp.CorBreakpoint!.Raw == corBreakpoint);
+			return _breakpoints.Values.FirstOrDefault(bp => bp.CorBreakpoint?.Raw == corBreakpoint);
 		}
 	}
 

@@ -25,20 +25,23 @@ public class ModuleInfo : IDisposable
 	/// <summary>
 	/// Symbol reader for this module (null if no PDB available)
 	/// </summary>
-	public SymbolReader? SymbolReader { get; }
+	public SymbolReader? SymbolReader { get; set; }
+	public bool SymbolReaderFromDecompiled { get; set; }
 
 	/// <summary>
 	/// Base address of the module in memory
 	/// </summary>
-	public long BaseAddress { get; }
+	public CORDB_ADDRESS BaseAddress { get; }
+	public bool IsUserCode { get; }
 
-	public ModuleInfo(CorDebugModule module, string modulePath, SymbolReader? symbolReader)
+	public ModuleInfo(CorDebugModule module, string modulePath, SymbolReader? symbolReader, bool isUserCode)
 	{
 		Module = module;
 		ModulePath = modulePath;
+		IsUserCode = isUserCode;
 		ModuleName = Path.GetFileName(modulePath);
 		SymbolReader = symbolReader;
-		BaseAddress = (long)module.BaseAddress;
+		BaseAddress = module.BaseAddress;
 	}
 
 	/// <summary>

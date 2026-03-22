@@ -21,7 +21,11 @@ public partial class ManagedDebugger
 			}
 			else if (generatedNameKind is GeneratedNameKind.DisplayClassLocalOrField)
 			{
-				throw new NotImplementedException();
+				// This field points to a parent closure class - follow the chain to find 'this'
+				var parentClosureValue = objectValue.GetFieldValue(objectValue.Class.Raw, field);
+				var parentObjectValue = parentClosureValue.UnwrapDebugValueToObject();
+				var parentMetadataImport = parentObjectValue.Class.Module.GetMetaDataInterface().MetaDataImport;
+				return GetAsyncOrLambdaProxyFieldValue(parentClosureValue, parentMetadataImport);
 			}
 		}
 

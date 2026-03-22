@@ -22,12 +22,13 @@ public partial class ManagedDebugger : IDisposable
 	private readonly Dictionary<long, ModuleInfo> _modules = new();
 	private bool _isAttached;
 	private int? _pendingAttachProcessId;
+	private bool _justMyCode;
 	private AsyncStepper? _asyncStepper;
 	private CompiledExpressionInterpreter _expressionInterpreter = null!;
 
 	public event Action<int, string>? OnStopped;
 	// ThreadId, FilePath, Line, Reason
-	public event Action<int, string, int, string>? OnStopped2;
+	public event Action<int, string, int, string, DecompiledSourceInfo?>? OnStopped2;
 	public event Action<int>? OnContinued;
 	public event Action? OnExited;
 	public event Action? OnTerminated;

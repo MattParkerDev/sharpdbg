@@ -166,7 +166,7 @@ public partial class ManagedDebugger
 			}
 
 			IsRunning = false;
-			OnStopped2?.Invoke(corThread.Id, managedBreakpoint.FilePath, managedBreakpoint.Line, "breakpoint", null);
+			OnStopped2?.Invoke(corThread.Id, managedBreakpoint.FilePath, managedBreakpoint.Line, 0, "breakpoint", null);
 		}
 		catch (Exception e)
 		{
@@ -224,8 +224,8 @@ public partial class ManagedDebugger
 			}
 		}
 
-		var (sourceFilePath, line, _, decompiledSourceInfo) = sourceInfo.Value;
-		OnStopped2?.Invoke(corThread.Id, sourceFilePath, line, "step", decompiledSourceInfo);
+		var (sourceFilePath, line, column, decompiledSourceInfo) = sourceInfo.Value;
+		OnStopped2?.Invoke(corThread.Id, sourceFilePath, line, column, "step", decompiledSourceInfo);
 	}
 
 	private void HandleBreak(object? sender,

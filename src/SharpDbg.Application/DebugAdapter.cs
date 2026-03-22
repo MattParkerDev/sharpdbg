@@ -72,7 +72,7 @@ public class DebugAdapter : DebugAdapterBase
 			});
 		};
 
-		_debugger.OnStopped2 += (threadId, filePath, line, reason, decompiledSourceInfo) =>
+		_debugger.OnStopped2 += (threadId, filePath, line, column, reason, decompiledSourceInfo) =>
 		{
 			var source = new Source { Path = filePath };
 			var stoppedEvent = new StoppedEvent
@@ -83,6 +83,7 @@ public class DebugAdapter : DebugAdapterBase
 			};
 			stoppedEvent.AdditionalProperties["source"] = JToken.FromObject(source);
 			stoppedEvent.AdditionalProperties["line"] = JToken.FromObject(line);
+			stoppedEvent.AdditionalProperties["column"] = JToken.FromObject(column);
 			stoppedEvent.AdditionalProperties["decompiledSourceInfo"] = decompiledSourceInfo is null ? null : JToken.FromObject(decompiledSourceInfo);
 			Protocol.SendEvent(stoppedEvent);
 		};

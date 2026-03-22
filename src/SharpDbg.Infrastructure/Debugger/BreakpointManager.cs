@@ -95,20 +95,6 @@ public class BreakpointManager
 	}
 
 	/// <summary>
-	/// Reset hit counts for all breakpoints (e.g., when restarting debugging)
-	/// </summary>
-	public void ResetHitCounts()
-	{
-		lock (_lock)
-		{
-			foreach (var bp in _breakpoints.Values)
-			{
-				bp.HitCount = 0;
-			}
-		}
-	}
-
-	/// <summary>
 	/// Update breakpoint with ClrDebug breakpoint
 	/// </summary>
 	public void SetCorBreakpoint(int id, CorDebugFunctionBreakpoint corBreakpoint)

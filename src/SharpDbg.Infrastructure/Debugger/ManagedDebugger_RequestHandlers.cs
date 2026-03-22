@@ -10,9 +10,6 @@ using ZLinq;
 
 namespace SharpDbg.Infrastructure.Debugger;
 
-/// <summary>
-/// Request to set a breakpoint with optional condition and hit condition
-/// </summary>
 public record BreakpointRequest(int Line, string? Condition = null, string? HitCondition = null);
 
 public partial class ManagedDebugger

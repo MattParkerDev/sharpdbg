@@ -21,14 +21,14 @@ public class ConditionalBreakpointTests(ITestOutputHelper testOutputHelper)
 			.WaitForInitializedEvent(initializedEventTcs);
 
 		debugProtocolHost
-			.WithConditionalBreakpointsRequest(22, condition: "myInt == 4")
+			.WithBreakpointsRequest(Path.JoinFromGitRoot("tests", "DebuggableConsoleApp", "MyClass.cs"), [new SharpDbgBreakpointRequest(15, "myInt == 4")])
 			.WithConfigurationDoneRequest()
 			.WithOptionalResumeRuntime(p2.Id, startSuspended);
 
 		var stoppedEvent = await debugProtocolHost.WaitForStoppedEvent(stoppedEventTcs);
 		var stopInfo = stoppedEvent.ReadStopInfo();
 		stopInfo.filePath.Should().EndWith("MyClass.cs");
-		stopInfo.line.Should().Be(22);
+		stopInfo.line.Should().Be(15);
 	}
 
 	[Fact]

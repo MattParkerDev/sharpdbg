@@ -183,7 +183,8 @@ public class DebugAdapter : DebugAdapterBase
 		{
 			SupportsConfigurationDoneRequest = true,
 			SupportsFunctionBreakpoints = true,
-			SupportsConditionalBreakpoints = false,
+			SupportsConditionalBreakpoints = true,
+			SupportsHitConditionalBreakpoints = true,
 			SupportsEvaluateForHovers = true,
 			SupportsStepBack = false,
 			SupportsSetVariable = false,
@@ -261,8 +262,14 @@ public class DebugAdapter : DebugAdapterBase
 				throw new ProtocolException("Missing source path");
 			}
 
-			var lines = arguments.Breakpoints?.Select(bp => ConvertClientLineToDebugger(bp.Line)).ToArray() ?? Array.Empty<int>();
-			var breakpoints = _debugger.SetBreakpoints(arguments.Source.Path, lines);
+			var breakpointRequests = arguments.Breakpoints?
+				.Select(bp => new SharpDbgBreakpointRequest(
+					ConvertClientLineToDebugger(bp.Line),
+					bp.Condition,
+					bp.HitCondition))
+				.ToArray() ?? [];
+
+			var breakpoints = _debugger.SetBreakpoints(arguments.Source.Path, breakpointRequests);
 
 			var responseBreakpoints = breakpoints.Select(bp => new MSBreakpoint
 			{

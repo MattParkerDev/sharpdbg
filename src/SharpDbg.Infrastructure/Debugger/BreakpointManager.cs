@@ -25,22 +25,36 @@ public class BreakpointManager
 		public int? MethodToken { get; set; }
 		public int? ILOffset { get; set; }
 		public CORDB_ADDRESS? ModuleBaseAddress { get; set; }
+
+		/// <summary>Conditional expression to evaluate when breakpoint is hit</summary>
+		public string? Condition { get; set; }
+
+		/// <summary>Hit count condition (e.g., ">=10", "==5", "%3")</summary>
+		public string? HitCondition { get; set; }
+
+		/// <summary>Current hit count for this breakpoint</summary>
+		public int HitCount { get; set; }
 	}
 
 	/// <summary>
 	/// Create a new breakpoint
 	/// </summary>
-	public BreakpointInfo CreateBreakpoint(string filePath, int line)
+	public BreakpointInfo CreateBreakpoint(string filePath, int line, string? condition = null, string? hitCondition = null)
 	{
 		lock (_lock)
 		{
 			var id = _nextBreakpointId++;
+			if (string.IsNullOrWhiteSpace(condition)) condition = null;
+			if (string.IsNullOrWhiteSpace(hitCondition)) hitCondition = null;
 			var bp = new BreakpointInfo
 			{
 				Id = id,
 				FilePath = filePath,
 				Line = line,
-				Verified = false
+				Verified = false,
+				Condition = condition,
+				HitCondition = hitCondition,
+				HitCount = 0
 			};
 
 			_breakpoints[id] = bp;

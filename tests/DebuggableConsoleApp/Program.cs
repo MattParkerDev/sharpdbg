@@ -13,12 +13,14 @@ public static class Program
 		var myClass = new MyClass();
 		var myAsyncClass = new MyAsyncClass();
 		var myClassNoMembers = new MyClassNoMembers();
+		var hitConditionClass = new HitConditionClass();
 		while (true)
 		{
 			// Keep the application running to allow debugging
 			myLambdaClass.Test();
 			myClass.MyMethod(13, 6);
 			myClassNoMembers.MyMethod(42);
+			hitConditionClass.Test();
 			var asyncResult = myAsyncClass.MyMethodAsync(4).GetAwaiter().GetResult();
 			Thread.Sleep(100);
 			//await Task.Delay(500);

@@ -77,7 +77,7 @@ public class ConditionalBreakpointTests(ITestOutputHelper testOutputHelper)
 			.WaitForInitializedEvent(initializedEventTcs);
 
 		debugProtocolHost
-			.WithConditionalBreakpointsRequest(10, hitCondition: "==2", filePath: hitConditionFilePath)
+			.WithBreakpointsRequest(hitConditionFilePath, [new SharpDbgBreakpointRequest(10, HitCondition: "==2")])
 			.WithConfigurationDoneRequest()
 			.WithOptionalResumeRuntime(p2.Id, startSuspended);
 
@@ -109,7 +109,7 @@ public class ConditionalBreakpointTests(ITestOutputHelper testOutputHelper)
 			.WaitForInitializedEvent(initializedEventTcs);
 
 		debugProtocolHost
-			.WithConditionalBreakpointsRequest(10, hitCondition: ">=2", filePath: hitConditionFilePath)
+			.WithBreakpointsRequest(hitConditionFilePath, [new SharpDbgBreakpointRequest(10, HitCondition: ">=2")])
 			.WithConfigurationDoneRequest()
 			.WithOptionalResumeRuntime(p2.Id, startSuspended);
 
@@ -152,7 +152,7 @@ public class ConditionalBreakpointTests(ITestOutputHelper testOutputHelper)
 			.WaitForInitializedEvent(initializedEventTcs);
 
 		debugProtocolHost
-			.WithConditionalBreakpointsRequest(10, hitCondition: "%2", filePath: hitConditionFilePath)
+			.WithBreakpointsRequest(hitConditionFilePath, [new SharpDbgBreakpointRequest(10, HitCondition: "%2")])
 			.WithConfigurationDoneRequest()
 			.WithOptionalResumeRuntime(p2.Id, startSuspended);
 

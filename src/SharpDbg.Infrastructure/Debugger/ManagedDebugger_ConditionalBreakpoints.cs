@@ -42,45 +42,17 @@ public partial class ManagedDebugger
 		// "%10" - break every 10th hit (modulo)
 
 		hitCondition = hitCondition.Trim();
-
-		if (hitCondition.StartsWith(">="))
+		return hitCondition switch
 		{
-			if (int.TryParse(hitCondition[2..], out var threshold))
-				return hitCount >= threshold;
-		}
-		else if (hitCondition.StartsWith('>'))
-		{
-			if (int.TryParse(hitCondition[1..], out var threshold))
-				return hitCount > threshold;
-		}
-		else if (hitCondition.StartsWith("<="))
-		{
-			if (int.TryParse(hitCondition[2..], out var threshold))
-				return hitCount <= threshold;
-		}
-		else if (hitCondition.StartsWith('<'))
-		{
-			if (int.TryParse(hitCondition[1..], out var threshold))
-				return hitCount < threshold;
-		}
-		else if (hitCondition.StartsWith('%'))
-		{
-			if (int.TryParse(hitCondition[1..], out var modulo) && modulo > 0)
-				return hitCount % modulo == 0;
-		}
-		else if (hitCondition.StartsWith("=="))
-		{
-			if (int.TryParse(hitCondition[2..], out var target))
-				return hitCount == target;
-		}
-		else
-		{
-			// Plain number means "break when hit count equals this"
-			if (int.TryParse(hitCondition, out var target))
-				return hitCount == target;
-		}
-
-		return false;
+			_ when hitCondition.StartsWith(">=") && int.TryParse(hitCondition[2..], out var threshold) => hitCount >= threshold,
+			_ when hitCondition.StartsWith('>') && int.TryParse(hitCondition[1..], out var threshold) => hitCount > threshold,
+			_ when hitCondition.StartsWith("<=") && int.TryParse(hitCondition[2..], out var threshold) => hitCount <= threshold,
+			_ when hitCondition.StartsWith('<') && int.TryParse(hitCondition[1..], out var threshold) => hitCount < threshold,
+			_ when hitCondition.StartsWith('%') && int.TryParse(hitCondition[1..], out var modulo) && modulo > 0 => hitCount % modulo == 0,
+			_ when hitCondition.StartsWith("==") && int.TryParse(hitCondition[2..], out var target) => hitCount == target,
+			_ when int.TryParse(hitCondition, out var target) => hitCount == target, // Plain number means break when hit count = number
+			_ => false
+		};
 	}
 
 	/// <summary>

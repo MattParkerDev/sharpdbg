@@ -10,7 +10,7 @@ using ZLinq;
 
 namespace SharpDbg.Infrastructure.Debugger;
 
-public record BreakpointRequest(int Line, string? Condition = null, string? HitCondition = null);
+public record SharpDbgBreakpointRequest(int Line, string? Condition = null, string? HitCondition = null);
 
 public partial class ManagedDebugger
 {
@@ -319,7 +319,7 @@ public partial class ManagedDebugger
 	/// <summary>
 	/// Set breakpoints for a source file with optional conditions
 	/// </summary>
-	public List<BreakpointManager.BreakpointInfo> SetBreakpoints(string filePath, BreakpointRequest[] breakpoints)
+	public List<BreakpointManager.BreakpointInfo> SetBreakpoints(string filePath, SharpDbgBreakpointRequest[] breakpoints)
 	{
 		//System.Diagnostics.Debugger.Launch();
 		_logger?.Invoke($"SetBreakpoints: {filePath}, breakpoints: {string.Join(",", breakpoints.Select(b => $"L{b.Line}" + (b.Condition != null ? $"[{b.Condition}]" : "")))}");

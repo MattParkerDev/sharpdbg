@@ -263,7 +263,7 @@ public class DebugAdapter : DebugAdapterBase
 			}
 
 			var breakpointRequests = arguments.Breakpoints?
-				.Select(bp => new BreakpointRequest(
+				.Select(bp => new SharpDbgBreakpointRequest(
 					ConvertClientLineToDebugger(bp.Line),
 					bp.Condition,
 					bp.HitCondition))

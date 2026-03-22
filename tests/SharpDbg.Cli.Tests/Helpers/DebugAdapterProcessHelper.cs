@@ -2,6 +2,7 @@
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol;
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
 using Newtonsoft.Json.Linq;
+using SharpDbg.Infrastructure.Debugger;
 
 namespace SharpDbg.Cli.Tests.Helpers;
 
@@ -108,6 +109,21 @@ public static class DebugAdapterProcessHelper
 		{
 			Source = new Source { Path = filePath },
 			Breakpoints = lines.Select(line => new SourceBreakpoint { Line = line }).ToList()
+		};
+		return setBreakpointsRequest;
+	}
+
+	public static SetBreakpointsRequest GetSetBreakpointsRequest(List<SharpDbgBreakpointRequest> breakpointRequests, string filePath)
+	{
+		var setBreakpointsRequest = new SetBreakpointsRequest
+		{
+			Source = new Source { Path = filePath },
+			Breakpoints = breakpointRequests.Select(s => new SourceBreakpoint
+			{
+				Line = s.Line,
+				Condition = s.Condition,
+				HitCondition = s.HitCondition
+			}).ToList()
 		};
 		return setBreakpointsRequest;
 	}

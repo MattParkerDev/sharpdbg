@@ -1,5 +1,6 @@
 using AwesomeAssertions;
 using SharpDbg.Cli.Tests.Helpers;
+using SharpDbg.Infrastructure.Debugger;
 
 namespace SharpDbg.Cli.Tests;
 
@@ -45,8 +46,11 @@ public class ConditionalBreakpointTests(ITestOutputHelper testOutputHelper)
 			.WaitForInitializedEvent(initializedEventTcs);
 
 		debugProtocolHost
-			.WithConditionalBreakpointsRequest(15, condition: "myInt == 999")
-			.WithBreakpointsRequest(22, Path.JoinFromGitRoot("tests", "DebuggableConsoleApp", "MyClass.cs"))
+			.WithBreakpointsRequest(Path.JoinFromGitRoot("tests", "DebuggableConsoleApp", "MyClass.cs"),
+				[
+					new SharpDbgBreakpointRequest(15, "myInt == 999"),
+					new SharpDbgBreakpointRequest(22)
+				])
 			.WithConfigurationDoneRequest()
 			.WithOptionalResumeRuntime(p2.Id, startSuspended);
 

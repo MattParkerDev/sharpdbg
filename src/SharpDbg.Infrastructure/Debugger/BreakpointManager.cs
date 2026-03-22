@@ -26,8 +26,6 @@ public class BreakpointManager
 		public int? ILOffset { get; set; }
 		public CORDB_ADDRESS? ModuleBaseAddress { get; set; }
 
-		// Conditional breakpoint support
-
 		/// <summary>Conditional expression to evaluate when breakpoint is hit</summary>
 		public string? Condition { get; set; }
 

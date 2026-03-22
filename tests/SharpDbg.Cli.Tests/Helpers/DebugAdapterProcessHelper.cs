@@ -88,7 +88,7 @@ public static class DebugAdapterProcessHelper
 		};
 	}
 
-	public static SetBreakpointsRequest GetSetBreakpointsRequest(int? line = null, string? filePath = null, string? condition = null, string? hitCondition = null)
+	public static SetBreakpointsRequest GetSetBreakpointsRequest(int? line = null, string? filePath = null)
 	{
 		line ??= 22;
 		filePath ??= Path.JoinFromGitRoot("tests", "DebuggableConsoleApp", "MyClass.cs");
@@ -98,7 +98,7 @@ public static class DebugAdapterProcessHelper
 		var setBreakpointsRequest = new SetBreakpointsRequest
 		{
 			Source = new Source { Path = debugFilePath },
-			Breakpoints = [new SourceBreakpoint { Line = debugFileBreakpointLine, Condition = condition, HitCondition = hitCondition }]
+			Breakpoints = [new SourceBreakpoint { Line = debugFileBreakpointLine }]
 		};
 		return setBreakpointsRequest;
 	}

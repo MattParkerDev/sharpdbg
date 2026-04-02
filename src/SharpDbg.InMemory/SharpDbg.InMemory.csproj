@@ -28,15 +28,15 @@
 			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 		</PackageReference>
 
-		<PackageReference Include="Microsoft.Diagnostics.DbgShim" Version="9.0.652701" />
+		<PackageReference Include="Microsoft.Diagnostics.DbgShim" Version="9.0.661903" />
 
 		<!-- We must include all package references required by projects that we reference -->
 		<PackageReference Include="Microsoft.VisualStudio.Shared.VSCodeDebugProtocol" Version="18.0.10427.1" />
 		<PackageReference Include="Ardalis.GuardClauses" Version="5.0.0" />
 		<PackageReference Include="ClrDebug" Version="0.3.4" />
-		<PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="5.0.0" />
+		<PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="5.3.0" />
 		<PackageReference Include="NeoSmart.AsyncLock" Version="3.2.1" />
-		<PackageReference Include="ZLinq" Version="1.5.4" />
+		<PackageReference Include="ZLinq" Version="1.5.5" />
 	</ItemGroup>
 
 	<ItemGroup>

@@ -12,7 +12,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.Diagnostics.DbgShim" Version="9.0.652701" />
+    <PackageReference Include="Microsoft.Diagnostics.DbgShim" Version="9.0.661903" />
   </ItemGroup>
 
 </Project>

@@ -8,8 +8,8 @@
     </PropertyGroup>
 
 	<ItemGroup>
-		<PackageReference Include="Microsoft.Build" ExcludeAssets="runtime" Version="18.0.2" />
+		<PackageReference Include="Microsoft.Build" ExcludeAssets="runtime" Version="18.4.0" />
 		<PackageReference Include="Microsoft.Build.Locator" Version="1.10.12" />
-		<PackageReference Include="NuGet.Protocol" Version="7.0.1" />
+		<PackageReference Include="NuGet.Protocol" Version="7.3.0" />
 	</ItemGroup>
 </Project>

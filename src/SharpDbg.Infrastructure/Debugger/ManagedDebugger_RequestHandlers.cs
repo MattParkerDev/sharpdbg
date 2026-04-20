@@ -33,6 +33,8 @@ public partial class ManagedDebugger
 		_pendingLaunchArgs = args;
 		_pendingLaunchWorkingDirectory = workingDirectory;
 		_pendingLaunchStopAtEntry = stopAtEntry;
+		_launchTargetPath = ResolveLaunchTargetPath(program, args ?? Array.Empty<string>());
+		_stopAtEntryPending = stopAtEntry;
 	}
 
 	/// <summary>
@@ -55,6 +57,7 @@ public partial class ManagedDebugger
 		_pendingLaunchProgram = null;
 		_pendingLaunchArgs = null;
 		_pendingLaunchWorkingDirectory = null;
+		_pendingLaunchStopAtEntry = false;
 
 		// Build command line: "program" "arg1" "arg2" ...
 		var commandLine = new StringBuilder();
@@ -132,8 +135,26 @@ public partial class ManagedDebugger
 		_process = _corDebug.DebugActiveProcess(processId, false);
 		_isAttached = true;
 		IsRunning = true;
+		_stopAtEntryPending = stopAtEntry;
+		_stopAtEntryBreakpoint = null;
+		if (_stopAtEntryPending)
+		{
+			_logger?.Invoke("stopAtEntry enabled; user breakpoints will remain inactive until the entry stop is reached");
+		}
 
 		_logger?.Invoke($"Successfully attached to process: {processId}");
+	}
+
+	private static string? ResolveLaunchTargetPath(string program, string[] args)
+	{
+		if (string.Equals(Path.GetFileNameWithoutExtension(program), "dotnet", StringComparison.OrdinalIgnoreCase) &&
+			args.Length > 0 &&
+			(args[0].EndsWith(".dll", StringComparison.OrdinalIgnoreCase) || args[0].EndsWith(".exe", StringComparison.OrdinalIgnoreCase)))
+		{
+			return args[0];
+		}
+
+		return program;
 	}
 
 	public bool RemoveBreakpoint(int id)

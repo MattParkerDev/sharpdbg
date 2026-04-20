@@ -45,11 +45,36 @@ public static partial class TestHelper
 		return debugProtocolHost;
 	}
 
-	public static DebugProtocolHost WithAttachRequest(this DebugProtocolHost debugProtocolHost, int debuggableProcessId, bool justMyCode = true)
+	public static DebugProtocolHost WithAttachRequest(this DebugProtocolHost debugProtocolHost, int debuggableProcessId, bool justMyCode = true, bool stopAtEntry = false)
 	{
-		var attachRequest = DebugAdapterProcessHelper.GetAttachRequest(debuggableProcessId, justMyCode);
+		var attachRequest = DebugAdapterProcessHelper.GetAttachRequest(debuggableProcessId, justMyCode, stopAtEntry);
 		debugProtocolHost.SendRequestSync(attachRequest);
 		return debugProtocolHost;
+	}
+
+	public static DebugProtocolHost WithLaunchRequest(this DebugProtocolHost debugProtocolHost, string program, string[] args, bool stopAtEntry = false)
+	{
+		var launchRequest = DebugAdapterProcessHelper.GetLaunchRequest(program, args, stopAtEntry);
+		debugProtocolHost.SendRequestSync(launchRequest);
+		return debugProtocolHost;
+	}
+
+	public static DebugProtocolHost WithDisconnectRequest(this DebugProtocolHost debugProtocolHost, bool terminateDebuggee = true)
+	{
+		var disconnectRequest = new DisconnectRequest { TerminateDebuggee = terminateDebuggee };
+		debugProtocolHost.SendRequestSync(disconnectRequest);
+		return debugProtocolHost;
+	}
+
+	public static (DebugProtocolHost, TaskCompletionSource InitializedEventTcs, TcsContainer StoppedEventTcs, OopOrInProcDebugAdapter DebugAdapter) GetRunningDebugProtocolHostForLaunch(ITestOutputHelper testOutputHelper)
+	{
+		var (input, output, adapter) = InMemoryDebugAdapterHelper.GetAdapterStreams(testOutputHelper);
+		var initializedEventTcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+		var debugProtocolHost = DebugAdapterProcessHelper.GetDebugProtocolHost(input, output, testOutputHelper, initializedEventTcs);
+		var stoppedEventTcs = new TcsContainer { Tcs = new TaskCompletionSource<StoppedEvent>(TaskCreationOptions.RunContinuationsAsynchronously) };
+		debugProtocolHost.RegisterEventType<StoppedEvent>(@event => stoppedEventTcs.Tcs.TrySetResult(@event));
+		debugProtocolHost.Run();
+		return (debugProtocolHost, initializedEventTcs, stoppedEventTcs, new OopOrInProcDebugAdapter(adapter));
 	}
 	public static async Task<DebugProtocolHost> WaitForInitializedEvent(this DebugProtocolHost debugProtocolHost, TaskCompletionSource initializedEventTcs)
 	{

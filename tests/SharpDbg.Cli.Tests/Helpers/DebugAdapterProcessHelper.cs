@@ -73,7 +73,22 @@ public static class DebugAdapterProcessHelper
 		};
 	}
 
-	public static AttachRequest GetAttachRequest(int processId, bool justMyCode = true)
+	public static LaunchRequest GetLaunchRequest(string program, string[] args, bool stopAtEntry = false)
+	{
+		return new LaunchRequest
+		{
+			ConfigurationProperties = new Dictionary<string, JToken>
+			{
+				["name"] = "LaunchRequestName",
+				["type"] = "coreclr",
+				["program"] = program,
+				["args"] = JToken.FromObject(args),
+				["stopAtEntry"] = stopAtEntry
+			}
+		};
+	}
+
+	public static AttachRequest GetAttachRequest(int processId, bool justMyCode = true, bool stopAtEntry = false)
 	{
 		return new AttachRequest
 		{
@@ -83,7 +98,8 @@ public static class DebugAdapterProcessHelper
 				["type"] = "coreclr",
 				["processId"] = processId,
 				["console"] = "internalConsole", // integratedTerminal, externalTerminal, internalConsole
-				["justMyCode"] = justMyCode
+				["justMyCode"] = justMyCode,
+				["stopAtEntry"] = stopAtEntry
 			}
 		};
 	}

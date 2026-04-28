@@ -187,6 +187,7 @@ public class DebugAdapter : DebugAdapterBase
 			SupportsConditionalBreakpoints = true,
 			SupportsHitConditionalBreakpoints = true,
 			SupportsEvaluateForHovers = true,
+			SupportsExceptionInfoRequest = true,
 			SupportsStepBack = false,
 			SupportsSetVariable = false,
 			SupportsRestartFrame = false,
@@ -349,6 +350,37 @@ public class DebugAdapter : DebugAdapterBase
 				StackFrames = responseFrames,
 				TotalFrames = responseFrames.Count
 			};
+		});
+	}
+
+	protected override ExceptionInfoResponse HandleExceptionInfoRequest(ExceptionInfoArguments arguments)
+	{
+		return ExecuteWithExceptionHandling(() =>
+		{
+			if (arguments == null || arguments.ThreadId == 0)
+			{
+				throw new ProtocolException("Missing thread id");
+			}
+			var threadId = arguments.ThreadId;
+			var ex = _debugger.GetExceptionInfoForThread(threadId);
+			if (ex is null)
+			{
+				var id = $"ex-{threadId}";
+				var resp = new ExceptionInfoResponse(id, ExceptionBreakMode.Unhandled);
+				resp.Description = $"Exception on thread {threadId}";
+				return resp;
+			}
+			var details = new ExceptionDetails();
+			details.Message = ex.Message ?? string.Empty;
+			details.TypeName = ex.TypeName ?? ex.FullTypeName ?? "Exception";
+			details.FullTypeName = ex.FullTypeName ?? ex.TypeName ?? string.Empty;
+			details.EvaluateName = ex.EvaluateName ?? null;
+			details.StackTrace = ex.StackTrace ?? string.Empty;
+			details.FormattedDescription = ex.Message ?? string.Empty;
+			var resp2 = new ExceptionInfoResponse(ex.ExceptionId, ExceptionBreakMode.Unhandled);
+			resp2.Description = ex.Message ?? string.Empty;
+			resp2.Details = details;
+			return resp2;
 		});
 	}
 

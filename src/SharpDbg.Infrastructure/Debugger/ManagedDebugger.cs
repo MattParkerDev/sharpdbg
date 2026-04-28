@@ -67,6 +67,7 @@ public partial class ManagedDebugger : IDisposable
 			case StepCompleteCorDebugManagedCallbackEventArgs a: HandleStepComplete(sender, a); break;
 			case BreakCorDebugManagedCallbackEventArgs a: HandleBreak(sender, a); break;
 			case ExceptionCorDebugManagedCallbackEventArgs a: HandleException(sender, a); break;
+			case Exception2CorDebugManagedCallbackEventArgs a: HandleException2(sender, a); break;
 			case EvalCompleteCorDebugManagedCallbackEventArgs or EvalExceptionCorDebugManagedCallbackEventArgs: break; // don't continue on these, as they are being used for expression evaluation
 			default: e.Controller.Continue(false); break;
 		}

@@ -158,7 +158,15 @@ public partial class ManagedDebugger
 	{
 		var primitiveName = GetFriendlyTypeName(corDebugType.Type);
 		if (primitiveName is not null) return primitiveName;
-		var corDebugClass = corDebugType.Class;
+		CorDebugClass corDebugClass;
+		try
+		{
+			corDebugClass = corDebugType.Class;
+		}
+		catch (Exception)
+		{
+			return "object";
+		}
 		// The specific CorDebugType may have type parameters, but they could be for its enclosing type (e.g. a class defined inside a generic class)
 		// So we get them here, and pass it into the recursive GetCorDebugTypeFriendlyNameInternal. Starting from the bottom (highest enclosing type), each level will consume the type parameters it needs, based on its arity, indicated in the name (`1, `2, etc.)
 		// e.g. for MyClassContainingAnotherClass<string, int>.MyNestedClass<long, float>, type parameters contains [string, int, long, float]

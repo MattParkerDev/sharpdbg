@@ -20,10 +20,7 @@ public class BreakpointManager
 		public bool Verified { get; set; }
 		public CorDebugFunctionBreakpoint? CorBreakpoint { get; set; }
 		public string? Message { get; set; }
-		public int? ResolvedLine { get; set; }
-		public int? ResolvedEndLine { get; set; }
-		public int? MethodToken { get; set; }
-		public int? ILOffset { get; set; }
+		public SymbolReader.ResolvedBreakpoint? ResolvedBreakpointFromPdb { get; set; }
 		public CORDB_ADDRESS? ModuleBaseAddress { get; set; }
 
 		/// <summary>Conditional expression to evaluate when breakpoint is hit</summary>

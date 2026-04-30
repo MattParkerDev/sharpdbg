@@ -183,7 +183,7 @@ public partial class ManagedDebugger : IDisposable
 				}
 			}
 
-			if (targetModule == null || resolved == null)
+			if (targetModule == null || resolved is null)
 			{
 				// No module found with symbols for this file
 				bp.Verified = false;
@@ -203,10 +203,7 @@ public partial class ManagedDebugger : IDisposable
 			// Update breakpoint info
 			bp.CorBreakpoint = corBreakpoint;
 			bp.Verified = true;
-			bp.ResolvedLine = resolved.StartLine;
-			bp.ResolvedEndLine = resolved.EndLine;
-			bp.MethodToken = resolved.MethodToken;
-			bp.ILOffset = resolved.ILOffset;
+			bp.ResolvedBreakpointFromPdb = resolved;
 			bp.ModuleBaseAddress = targetModule.BaseAddress;
 			bp.Message = null;
 

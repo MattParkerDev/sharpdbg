@@ -18,14 +18,14 @@ public class SymbolReader : IDisposable
 	private readonly MetadataReader _peMetadataReader;
 	private string? _path;
 
-	/// <summary>
-	/// Result of resolving a breakpoint location
-	/// </summary>
+	/// Lines and columns are 1 based
 	public record ResolvedBreakpoint(
 		int MethodToken,
 		int ILOffset,
 		int StartLine,
 		int EndLine,
+		int StartColumn,
+		int EndColumn,
 		string DocumentPath
 	);
 
@@ -285,6 +285,8 @@ public class SymbolReader : IDisposable
 						sp.Offset,
 						sp.StartLine,
 						sp.EndLine,
+						sp.StartColumn,
+						sp.EndColumn,
 						docPath
 					);
 				}
@@ -299,6 +301,8 @@ public class SymbolReader : IDisposable
 						sp.Offset,
 						sp.StartLine,
 						sp.EndLine,
+						sp.StartColumn,
+						sp.EndColumn,
 						docPath
 					);
 

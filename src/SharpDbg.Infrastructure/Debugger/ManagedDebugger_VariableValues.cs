@@ -77,9 +77,8 @@ public partial class ManagedDebugger
 
 	public static CorDebugValueValueResult Get_CorDebugArrayValue_AsString(CorDebugArrayValue corDebugArrayValue)
 	{
-		var elementName = GetFriendlyTypeName(corDebugArrayValue.ElementType);
-		var typeName = $"{elementName}[]";
-		return new(typeName, $"{elementName}[{corDebugArrayValue.Count}]", false, null);
+		var typeName = GetCorDebugTypeFriendlyName(corDebugArrayValue.ExactType);
+		return new(typeName, $"{typeName.AsSpan()[..^2]}[{corDebugArrayValue.Count}]", false, null);
 	}
 
 	public static CorDebugValueValueResult GetCorDebugBoxValue_Value_AsString(CorDebugBoxValue corDebugBoxValue)
@@ -158,6 +157,12 @@ public partial class ManagedDebugger
 	{
 		var primitiveName = GetFriendlyTypeName(corDebugType.Type);
 		if (primitiveName is not null) return primitiveName;
+		if (corDebugType.Type is CorElementType.SZArray or CorElementType.Array)
+		{
+			var arrayElementType = corDebugType.FirstTypeParameter;
+			var elementName = GetCorDebugTypeFriendlyName(arrayElementType);
+			return $"{elementName}[]";
+		}
 		var corDebugClass = corDebugType.Class;
 		// The specific CorDebugType may have type parameters, but they could be for its enclosing type (e.g. a class defined inside a generic class)
 		// So we get them here, and pass it into the recursive GetCorDebugTypeFriendlyNameInternal. Starting from the bottom (highest enclosing type), each level will consume the type parameters it needs, based on its arity, indicated in the name (`1, `2, etc.)

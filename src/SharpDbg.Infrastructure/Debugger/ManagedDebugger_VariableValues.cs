@@ -141,7 +141,6 @@ public partial class ManagedDebugger
 
 	public static CorDebugValueValueResult GetCorDebugReferenceValue_Value_AsString(CorDebugReferenceValue corDebugReferenceValue)
 	{
-		//if (corDebugReferenceValue.IsNull) return ("TODO", "null");
 		if (corDebugReferenceValue.IsNull)
 		{
 			// Get the type information even though the reference is null

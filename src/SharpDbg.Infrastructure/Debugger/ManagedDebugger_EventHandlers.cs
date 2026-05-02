@@ -405,28 +405,4 @@ public partial class ManagedDebugger
 		}
 		return null;
 	}
-
-	private void TryArmStopAtEntryBreakpoint(ModuleInfo moduleInfo)
-	{
-		try
-		{
-			using var stream = File.OpenRead(moduleInfo.ModulePath);
-			using var peReader = new PEReader(stream);
-			var corHeader = peReader.PEHeaders.CorHeader;
-			if (corHeader == null || corHeader.EntryPointTokenOrRelativeVirtualAddress == 0)
-			{
-				_logger?.Invoke($"No managed entry point found for {moduleInfo.ModulePath}");
-				return;
-			}
-
-			var function = moduleInfo.Module.GetFunctionFromToken(corHeader.EntryPointTokenOrRelativeVirtualAddress);
-			var breakpoint = function.ILCode.CreateBreakpoint(0);
-			breakpoint.Activate(true);
-			_logger?.Invoke($"Armed stopAtEntry breakpoint in {moduleInfo.ModuleName} at token 0x{corHeader.EntryPointTokenOrRelativeVirtualAddress:X}");
-		}
-		catch (Exception ex)
-		{
-			_logger?.Invoke($"Could not arm stopAtEntry breakpoint for {moduleInfo.ModulePath}: {ex.Message}");
-		}
-	}
 }

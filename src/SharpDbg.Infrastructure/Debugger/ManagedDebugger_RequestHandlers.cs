@@ -62,7 +62,7 @@ public partial class ManagedDebugger
 		     program.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)))
 		{
 			_logger?.Invoke($"Non-Windows: prepending dotnet host for assembly launch");
-			args = args != null ? [program, ..args] : [program];
+			args = args.Length > 0 ? [program, ..args] : [program];
 			program = "dotnet";
 		}
 

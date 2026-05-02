@@ -603,9 +603,9 @@ public partial class ManagedDebugger
 		if (!string.IsNullOrEmpty(expression) && expression.StartsWith("$exception"))
 		{
 			// expression may be "$exception" or "$exception{threadId}"
-			var suffix = expression.Substring("$exception".Length);
+			var suffix = expression.AsSpan()["$exception".Length..];
 			int parsedThreadId = 0;
-			if (!string.IsNullOrEmpty(suffix) && int.TryParse(suffix, out var tmp)) parsedThreadId = tmp;
+			if (suffix.IsEmpty is false && int.TryParse(suffix, out var tmp)) parsedThreadId = tmp;
 
 			ExceptionState? state = null;
 			if (parsedThreadId != 0)

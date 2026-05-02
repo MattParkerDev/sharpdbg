@@ -57,7 +57,7 @@ public partial class ManagedDebugger
 		_pendingLaunchWorkingDirectory = null;
 
 		// On non-Windows, .dll/.exe assemblies cannot be exec'd directly; wrap with dotnet host
-		if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows) &&
+		if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows) is false &&
 		    (program.EndsWith(".dll", StringComparison.OrdinalIgnoreCase) ||
 		     program.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)))
 		{

@@ -10,7 +10,7 @@ using ZLinq;
 namespace SharpDbg.Infrastructure.Debugger;
 
 // v1 of this class was AI generated, and could definitely do with some cleaning up
-public partial class ManagedDebugger : IDisposable
+public partial class ManagedDebugger
 {
 	private CorDebug? _corDebug;
 	private CorDebugProcess? _process;
@@ -262,7 +262,8 @@ public partial class ManagedDebugger : IDisposable
 		}
 	}
 
-	public void Dispose()
+	// Not intended to implement IDisposable - it is intended that this is called via Disconnect()
+	private void Dispose()
 	{
 		// Deactivate all breakpoints
 		foreach (var bp in _breakpointManager.GetAllBreakpoints().Where(b => b.CorBreakpoint != null))

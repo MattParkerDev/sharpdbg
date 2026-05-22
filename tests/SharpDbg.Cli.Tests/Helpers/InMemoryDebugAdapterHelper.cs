@@ -5,7 +5,7 @@ namespace SharpDbg.Cli.Tests.Helpers;
 
 public static class InMemoryDebugAdapterHelper
 {
-	public static (AnonymousPipeServerStream input, AnonymousPipeClientStream output, DebugAdapter debugAdapter) GetAdapterStreams(ITestOutputHelper testOutputHelper)
+	public static (AnonymousPipeServerStream input, AnonymousPipeClientStream output, IDisposable debugAdapterDisposable) GetAdapterStreams(ITestOutputHelper testOutputHelper)
 	{
 		var stdInServer = new AnonymousPipeServerStream(PipeDirection.Out); // write
 		var stdInClient = new AnonymousPipeClientStream(PipeDirection.In, stdInServer.ClientSafePipeHandle); // std in read
@@ -26,11 +26,39 @@ public static class InMemoryDebugAdapterHelper
 			stdOutClient.Dispose();
 		});
 
-		return (stdInServer, stdOutClient, adapter);
+		var disposable = new InMemoryDebugAdapterDisposable(stdInServer, stdOutServer, stdInClient, stdOutClient, adapter);
+		return (stdInServer, stdOutClient, disposable);
 
 		void Log(string message)
 		{
 			testOutputHelper.WriteLine($"Log [SharpDbg]: {message}");
 		}
+	}
+}
+
+public class InMemoryDebugAdapterDisposable(
+	AnonymousPipeServerStream stdInServer,
+	AnonymousPipeServerStream stdOutServer,
+	AnonymousPipeClientStream stdInClient,
+	AnonymousPipeClientStream stdOutClient,
+	DebugAdapter debugAdapter)
+	: IDisposable
+{
+	private readonly AnonymousPipeServerStream _stdInServer = stdInServer;
+	private readonly AnonymousPipeServerStream _stdOutServer = stdOutServer;
+	private readonly AnonymousPipeClientStream _stdInClient = stdInClient;
+	private readonly AnonymousPipeClientStream _stdOutClient = stdOutClient;
+
+	private readonly DebugAdapter _debugAdapter = debugAdapter;
+
+	public void Dispose()
+	{
+		GC.SuppressFinalize(this);
+		_debugAdapter.Protocol.Stop();
+		_debugAdapter.Protocol.WaitForReader();
+		_stdInServer.Dispose();
+		_stdOutServer.Dispose();
+		_stdInClient.Dispose();
+		_stdOutClient.Dispose();
 	}
 }

@@ -102,6 +102,7 @@ public partial class CompiledExpressionInterpreter(RuntimeAssemblyPrimitiveTypeC
 			case eOpCode.CoalesceExpression: await CoalesceExpression(evalStack); break;
 			case eOpCode.ThisExpression: evalStack.AddFirst(new EvalStackEntry { Identifiers = ["this"], Editable = true }); break;
 			case eOpCode.ElementBindingExpression: await ElementAccessExpression((command as OneOperandCommand)!, evalStack); break;
+			case eOpCode.SimpleAssignmentExpression: await SimpleAssignmentExpression(evalStack); break;
 			default: throw new NotImplementedException($"OpCode {command.OpCode} is not implemented");
 		}
 	}

@@ -97,6 +97,7 @@ internal static class CompilerConstants
 		{ SyntaxKind.SizeOfExpression,              eOpCode.SizeOfExpression },
 		{ SyntaxKind.TypeOfExpression,              eOpCode.TypeOfExpression },
 		{ SyntaxKind.CoalesceExpression,            eOpCode.CoalesceExpression },
-		{ SyntaxKind.ThisExpression,                eOpCode.ThisExpression }
+		{ SyntaxKind.ThisExpression,                eOpCode.ThisExpression },
+		{ SyntaxKind.SimpleAssignmentExpression,    eOpCode.SimpleAssignmentExpression }
 	};
 }

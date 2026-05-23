@@ -249,6 +249,8 @@ public class ExpressionSyntaxVisitor(List<CommandBase> commands, bool isDebugger
 				case SyntaxKind.LessThanOrEqualExpression:
 				case SyntaxKind.QualifiedName:
 				case SyntaxKind.CoalesceExpression:
+				case SyntaxKind.SizeOfExpression:
+				case SyntaxKind.SimpleAssignmentExpression:
 
 /* TODO
 					case SyntaxKind.AliasQualifiedName:
@@ -261,9 +263,6 @@ public class ExpressionSyntaxVisitor(List<CommandBase> commands, bool isDebugger
 					case SyntaxKind.PostIncrementExpression:
 					case SyntaxKind.PreDecrementExpression:
 					case SyntaxKind.PostDecrementExpression:
-*/
-				case SyntaxKind.SizeOfExpression:
-/*
 					case SyntaxKind.TypeOfExpression:
 */
 					_commands.Add(new NoOperandsCommand(nodeSyntaxKind, CurrentScopeFlags.Peek()));

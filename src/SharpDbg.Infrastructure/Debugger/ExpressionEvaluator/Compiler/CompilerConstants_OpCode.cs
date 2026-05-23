@@ -55,5 +55,6 @@ public enum eOpCode
 	SizeOfExpression,
 	TypeOfExpression,
 	CoalesceExpression,
-	ThisExpression
+	ThisExpression,
+	SimpleAssignmentExpression
 }

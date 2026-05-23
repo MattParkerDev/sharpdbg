@@ -569,6 +569,47 @@ public partial class CompiledExpressionInterpreter
 		entry.CorDebugValue = await CreatePrimitiveValue(CorElementType.U4, BitConverter.GetBytes((uint)size));
 	}
 
+	private async Task SimpleAssignmentExpression(LinkedList<EvalStackEntry> evalStack)
+	{
+		// Stack: RHS is on top, LHS is underneath
+		var rhsValue = await GetFrontStackEntryValue(evalStack);
+		evalStack.RemoveFirst();
+
+		var lhsEntry = evalStack.First!.Value;
+		if (!lhsEntry.Editable) throw new InvalidOperationException("Left-hand side of assignment is not editable");
+
+		var lhsValue = await GetFrontStackEntryValue(evalStack);
+
+		var unwrappedLhs = lhsValue.UnwrapDebugValue();
+		var unwrappedRhs = rhsValue.UnwrapDebugValue();
+
+		if (unwrappedLhs is CorDebugGenericValue lhsGeneric && unwrappedRhs is CorDebugGenericValue rhsGeneric)
+		{
+			// Primitive / value type assignment: copy raw bytes from RHS into LHS
+			var data = rhsGeneric.GetValueAsBytes();
+			unsafe
+			{
+				fixed (byte* p = data)
+				{
+					lhsGeneric.SetValue((IntPtr)p);
+				}
+			}
+		}
+		else if (lhsValue is CorDebugReferenceValue lhsRef && rhsValue is CorDebugReferenceValue rhsRef)
+		{
+			// Reference type assignment: point LHS reference at the same object as RHS
+			lhsRef.Value = rhsRef.Value;
+		}
+		else
+		{
+			throw new NotImplementedException($"SimpleAssignmentExpression: unsupported combination of LHS type '{unwrappedLhs.GetType().Name}' and RHS type '{unwrappedRhs.GetType().Name}'");
+		}
+
+		// Leave the assigned value on the stack (assignment expressions return the assigned value)
+		lhsEntry.CorDebugValue = lhsValue;
+		lhsEntry.Identifiers.Clear();
+	}
+
 	private async Task CoalesceExpression(LinkedList<EvalStackEntry> evalStack)
 	{
 		var rightEntry = evalStack.First.Value;

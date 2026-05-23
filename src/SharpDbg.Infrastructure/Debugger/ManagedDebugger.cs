@@ -272,15 +272,12 @@ public partial class ManagedDebugger
 		}
 		_modules.Clear();
 
-		var processIsDead = false;
-
 		// Deactivate all breakpoints
 		foreach (var bp in _breakpointManager.GetAllBreakpoints().Where(b => b.CorBreakpoint != null))
 		{
 			var hResult = bp.CorBreakpoint!.TryActivate(false);
 			if (hResult is HRESULT.CORDBG_E_PROCESS_TERMINATED)
 			{
-				processIsDead = true;
 				break;
 			}
 			_logger?.Invoke($"Failed to deactivate breakpoint during Dispose at {bp.FilePath}:{bp.Line}: {hResult}");

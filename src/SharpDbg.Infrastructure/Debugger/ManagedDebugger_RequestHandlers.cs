@@ -611,7 +611,8 @@ public partial class ManagedDebugger
 		{
 			if (_process != null && _isAttached && _process?.TryIsRunning(out var isRunning) is HRESULT.S_OK && isRunning)
 			{
-				_process.Stop(0);
+				var hResult = _process.TryStop(0);
+				if (hResult is not (HRESULT.S_OK or HRESULT.CORDBG_E_PROCESS_TERMINATED)) _logger?.Invoke($"Error stopping process during disconnect: {hResult}");
 			}
 			Dispose();
 		}

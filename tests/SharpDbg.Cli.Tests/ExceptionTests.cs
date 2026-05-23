@@ -22,21 +22,34 @@ public class ExceptionTests(ITestOutputHelper testOutputHelper)
 		debugProtocolHost.SendRequestSync(new SetExceptionBreakpointsRequest { Filters = [], FilterOptions = [new("all"), new ("user-unhandled")]});
 		var breakpointedFilePath = Path.JoinFromGitRoot("tests", "DebuggableConsoleApp", "Exceptions.cs");
 		debugProtocolHost
+			.WithBreakpointsRequest([21], Path.JoinFromGitRoot("tests", "DebuggableConsoleApp", "Program.cs"))
 			.WithBreakpointsRequest([17], breakpointedFilePath)
 			.WithConfigurationDoneRequest()
 			.WithOptionalResumeRuntime(p2.Id, startSuspended);
 
 		var stoppedEvent = await debugProtocolHost.WaitForStoppedEvent(stoppedEventTcs);
 		var stopInfo = stoppedEvent.ReadStopInfo();
-		stopInfo.filePath.Should().EndWith("Exceptions.cs");
-		stopInfo.line.Should().Be(12); // Where the exception is thrown
+		stopInfo.filePath.Should().EndWith("Program.cs");
+		stopInfo.line.Should().Be(21);
+
+		// set 'throwException' to true - we do not want other tests to stop at the 'exception' stop event, only this one
+		debugProtocolHost.WithStackTraceRequest(stoppedEvent.ThreadId!.Value, out var stackTraceResponse);
+		debugProtocolHost.WithEvaluateRequest(stackTraceResponse.StackFrames.First().Id, "throwException = true", out var evaluateResponse);
+		evaluateResponse.Result.Should().Be("true");
+
+		debugProtocolHost.WithContinueRequest();
+
+		var stoppedEvent2 = await debugProtocolHost.WaitForStoppedEvent(stoppedEventTcs);
+		var stopInfo2 = stoppedEvent2.ReadStopInfo();
+		stopInfo2.filePath.Should().EndWith("Exceptions.cs");
+		stopInfo2.line.Should().Be(12); // Where the exception is thrown
 
 		debugProtocolHost
-			.WithStackTraceRequest(stoppedEvent.ThreadId!.Value, out var stackTraceResponse)
-			.WithScopesRequest(stackTraceResponse.StackFrames!.First().Id, out var scopesResponse);
+			.WithStackTraceRequest(stoppedEvent2.ThreadId!.Value, out var stackTraceResponse2)
+			.WithScopesRequest(stackTraceResponse2.StackFrames!.First().Id, out var scopesResponse2);
 
-		scopesResponse.Scopes.Should().HaveCount(1);
-		var scope = scopesResponse.Scopes.Single();
+		scopesResponse2.Scopes.Should().HaveCount(1);
+		var scope = scopesResponse2.Scopes.Single();
 
 		List<Variable> expectedVariables =
 		[

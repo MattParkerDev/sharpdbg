@@ -297,14 +297,7 @@ public partial class ManagedDebugger
 		_callbacks.OnAnyEvent -= OnAnyEvent;
 
 		// Detach from the process
-		try
-		{
-			_process?.Detach();
-		}
-		catch
-		{
-			// ignore failure, e.g. if process was terminated
-		}
+		_process?.TryDetach();
 
 		_isAttached = false;
 		_process = null;

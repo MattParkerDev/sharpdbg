@@ -19,7 +19,6 @@ SharpDbg uses the [ClrDebug](https://github.com/lordmilko/ClrDebug) managed wrap
 
 SharpDbg is actively developed, and some features are still being worked on:
 
-- Stepping & variables in lambdas
 - Source Link support
 
 ## Architecture

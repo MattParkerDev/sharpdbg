@@ -38,7 +38,23 @@ public class BreakpointTests(ITestOutputHelper testOutputHelper)
 		};
 		var breakpointEvent = await debugProtocolHost.WaitForEvent<BreakpointEvent>(debugEventTcs);
 		breakpointEvent.Should().BeEquivalentTo(expectedBreakpointEvent1);
-		;
+
+		var expectedBreakpointEvent2 = new BreakpointEvent
+		{
+			Reason = BreakpointEvent.ReasonValue.Changed,
+			Breakpoint = new Breakpoint
+			{
+				Id = 1,
+				Verified = true,
+				Line = 11,
+				EndLine = 11,
+				Offset = 0,
+				Source = new Source { Path = breakpointedFilePath, Name = "MyClass.cs", SourceReference = 0 }
+			}
+		};
+
+		var breakpointEvent2 = await debugProtocolHost.WaitForEvent<BreakpointEvent>(debugEventTcs);
+		breakpointEvent2.Should().BeEquivalentTo(expectedBreakpointEvent2, options => options.Excluding(s => s.Breakpoint.Source.Checksums).Excluding(s => s.Breakpoint.Source.VsSourceLinkInfo));
 
 		var stoppedEvent = await debugProtocolHost.WaitForStoppedEvent(debugEventTcs);
 		var stopInfo = stoppedEvent.ReadStopInfo();

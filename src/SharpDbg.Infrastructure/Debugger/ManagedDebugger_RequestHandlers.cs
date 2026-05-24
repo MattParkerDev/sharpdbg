@@ -95,7 +95,6 @@ public partial class ManagedDebugger
 		_corDebug.Initialize();
 		_corDebug.SetManagedHandler(_callbacks);
 
-		// Attach to the process (it's already waiting for us due to RegisterForRuntimeStartup)
 		_process = _corDebug.DebugActiveProcess(processId, false);
 		_isAttached = true;
 

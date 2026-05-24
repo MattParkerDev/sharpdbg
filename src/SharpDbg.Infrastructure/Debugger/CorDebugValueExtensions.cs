@@ -71,16 +71,31 @@ public static class CorDebugValueExtensions
 
 	public static CorDebugValue? GetClassFieldValue(this CorDebugObjectValue objectValue, CorDebugILFrame ilFrame, string fieldName)
 	{
-		var corDebugClass = objectValue.Class;
-		var module = corDebugClass.Module;
-		var mdTypeDef = corDebugClass.Token;
-		var metadataImport = module.GetMetaDataInterface().MetaDataImport;
+		CorDebugType? currentType = objectValue.ExactType;
+		mdFieldDef foundFieldDef = default;
+		CorDebugClass? foundClass = null;
+		MetaDataImport? foundMetadata = null;
 
-		var mdFieldDef = metadataImport.EnumFieldsWithName(mdTypeDef, fieldName).SingleOrDefault();
-		if (mdFieldDef.IsNil) return null;
-		var isStatic = mdFieldDef.IsStatic(metadataImport);
+		// Find field on base type if necessary
+		while (currentType != null)
+		{
+			var cls = currentType.Class;
+			var meta = cls.Module.GetMetaDataInterface().MetaDataImport;
+			var field = meta.EnumFieldsWithName(cls.Token, fieldName).SingleOrDefault();
+			if (field.IsNil is false)
+			{
+				foundFieldDef = field;
+				foundClass = cls;
+				foundMetadata = meta;
+				break;
+			}
+			currentType = currentType.Base;
+		}
 
-		var fieldCorDebugValue = isStatic ? corDebugClass.GetStaticFieldValue(mdFieldDef, ilFrame.Raw) : objectValue.GetFieldValue(corDebugClass.Raw, mdFieldDef);
+		if (foundClass is null || foundMetadata is null || foundFieldDef.IsNil) return null;
+
+		var isStatic = foundFieldDef.IsStatic(foundMetadata);
+		var fieldCorDebugValue = isStatic ? foundClass.GetStaticFieldValue(foundFieldDef, ilFrame.Raw) : objectValue.GetFieldValue(foundClass.Raw, foundFieldDef);
 		return fieldCorDebugValue;
 	}
 

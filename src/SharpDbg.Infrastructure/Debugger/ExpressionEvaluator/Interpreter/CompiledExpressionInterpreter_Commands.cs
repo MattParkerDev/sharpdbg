@@ -57,14 +57,14 @@ public partial class CompiledExpressionInterpreter
 		if (argCount < 0)
 			throw new ArgumentException("Invalid argument count");
 
-		var args = new CorDebugValue?[argCount];
+		var args = new CorDebugValue[argCount];
 		for (var i = argCount - 1; i >= 0; i--)
 		{
 			args[i] = await GetFrontStackEntryValue(evalStack);
 			evalStack.RemoveFirst();
 		}
 
-		var entry = evalStack.First.Value;
+		var entry = evalStack.First!.Value;
 		if (entry.PreventBinding)
 			return;
 
@@ -218,7 +218,7 @@ public partial class CompiledExpressionInterpreter
 	public static async Task<CorDebugFunction?> FindMethodOnType(
 		CorDebugType type,
 		string methodName,
-		CorDebugValue?[] args,
+		CorDebugValue[] args,
 		bool searchStatic,
 		bool idsEmpty)
 	{
@@ -256,7 +256,7 @@ public partial class CompiledExpressionInterpreter
 		return null;
 	}
 
-	private static bool IsMethodParameterMatch(CorDebugFunction method, CorDebugValue?[] args)
+	private static bool IsMethodParameterMatch(CorDebugFunction method, CorDebugValue[] args)
 	{
 		var metaDataImport = method. Class.Module.GetMetaDataInterface().MetaDataImport;
 
@@ -273,9 +273,6 @@ public partial class CompiledExpressionInterpreter
 		// Compare each parameter type
 		for (var i = 0; i < args.Length; i++)
 		{
-			if (args[i] == null)
-				continue;
-
 			var argType = args[i].ExactType?. Type ??  args[i].Type; // Get the actual type
 
 			if (!IsTypeMatch(parameterTypes[i], argType, args[i]))

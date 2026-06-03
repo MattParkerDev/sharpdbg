@@ -36,7 +36,7 @@
     <PackageReference Include="CliWrap" Version="3.10.1" />
     <PackageReference Include="Microsoft.Diagnostics.NETCore.Client" Version="0.2.661903" />
     <PackageReference Include="Microsoft.VisualStudio.Shared.VSCodeDebugProtocol" Version="18.0.10427.1" />
-    <PackageReference Include="Verify.XunitV3" Version="31.16.2" />
+    <PackageReference Include="Verify.XunitV3" Version="31.19.0" />
     <PackageReference Include="xunit.v3.mtp-v2" Version="3.2.2" />
   </ItemGroup>
 

@@ -13,7 +13,7 @@
 	</ItemGroup>
 
   <ItemGroup>
-	<PackageReference Include="ICSharpCode.Decompiler" Version="10.0.1.8346" />
+	<PackageReference Include="ICSharpCode.Decompiler" Version="10.1.0.8386" />
 	<PackageReference Include="Krafs.Publicizer" Version="2.3.0">
 	  <PrivateAssets>all</PrivateAssets>
 	  <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>

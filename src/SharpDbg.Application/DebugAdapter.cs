@@ -99,9 +99,9 @@ public class DebugAdapter : DebugAdapterBase
 					Id = breakpoint.Id,
 					Verified = breakpoint.Verified,
 					Line = ConvertDebuggerLineToClient(breakpoint.Line),
-					Column = breakpoint.Verified && breakpoint.Column is not null ? ConvertDebuggerColumnToClient(breakpoint.Column.Value) : null,
+					Column = breakpoint is { Verified: true, Column: not null } ? ConvertDebuggerColumnToClient(breakpoint.Column.Value) : null,
 					EndLine = breakpoint.Verified ? breakpoint.EndLine : null,
-					EndColumn = breakpoint.Verified && breakpoint.EndColumn is not null ? ConvertDebuggerColumnToClient(breakpoint.EndColumn.Value) : null,
+					EndColumn = breakpoint is { Verified: true, EndColumn: not null } ? ConvertDebuggerColumnToClient(breakpoint.EndColumn.Value) : null,
 					Offset = breakpoint.Verified ? 0 : null,
 					Message = breakpoint.Message,
 					Source = breakpoint.Verified is false ? null : new Source
@@ -286,9 +286,9 @@ public class DebugAdapter : DebugAdapterBase
 				Id = bp.Id,
 				Verified = bp.Verified,
 				Line = ConvertDebuggerLineToClient(bp.Line),
-				Column = bp.Verified && bp.Column is not null ? ConvertDebuggerColumnToClient(bp.Column.Value) : null,
+				Column = bp is { Verified: true, Column: not null } ? ConvertDebuggerColumnToClient(bp.Column.Value) : null,
 				EndLine = bp.Verified ? bp.EndLine : null,
-				EndColumn = bp.Verified && bp.EndColumn is not null ? ConvertDebuggerColumnToClient(bp.EndColumn.Value) : null,
+				EndColumn = bp is { Verified: true, EndColumn: not null } ? ConvertDebuggerColumnToClient(bp.EndColumn.Value) : null,
 				Message = bp.Message,
 				Source = new Source
 				{

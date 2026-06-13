@@ -110,6 +110,42 @@ public class BreakpointTests(ITestOutputHelper testOutputHelper)
 	}
 
 	[Fact]
+	public async Task SharpDbgCli_SetBreakpoint_WithoutColumnOnMultiStatementLine_StopsAtFirstStatementColumn()
+	{
+		var startSuspended = true;
+		var (debugProtocolHost, initializedEventTcs, debugEventTcs, adapter, p2) = TestHelper.GetRunningDebugProtocolHostInProc(testOutputHelper, startSuspended);
+		using var _ = adapter;
+		using var __ = new ProcessKiller(p2);
+		using var ___ = debugProtocolHost;
+
+		await debugProtocolHost
+			.WithInitializeRequest()
+			.WithAttachRequest(p2.Id)
+			.WaitForInitializedEvent(initializedEventTcs);
+
+		var breakpointedFilePath = Path.JoinFromGitRoot("tests", "DebuggableConsoleApp", "ColumnBreakpointClass.cs");
+		var line = GetLineNumber(breakpointedFilePath, "column-breakpoint-line");
+		var expectedColumn = GetColumnNumber(breakpointedFilePath, line, "var first");
+
+		SendSetBreakpointsRequest(debugProtocolHost, breakpointedFilePath, new SourceBreakpoint
+		{
+			Line = line
+		});
+
+		debugProtocolHost
+			.WithConfigurationDoneRequest()
+			.WithOptionalResumeRuntime(p2.Id, startSuspended);
+
+		var stoppedEvent = await debugProtocolHost.WaitForStoppedEvent(debugEventTcs);
+		debugProtocolHost.WithStackTraceRequest(stoppedEvent.ThreadId!.Value, out var stackTraceResponse);
+		var topFrame = stackTraceResponse.StackFrames.Single();
+
+		topFrame.Source.Path.Should().EndWith("ColumnBreakpointClass.cs");
+		topFrame.Line.Should().Be(line);
+		topFrame.Column.Should().Be(expectedColumn);
+	}
+
+	[Fact]
 	public async Task SharpDbgCli_SetBreakpoint_WithColumnOnMultilineStatement_StopsAtStatementStartColumn()
 	{
 		var startSuspended = true;
@@ -152,7 +188,52 @@ public class BreakpointTests(ITestOutputHelper testOutputHelper)
 		topFrame.Column.Should().Be(expectedColumn);
 	}
 
-	private static void SendSetBreakpointsRequest(DebugProtocolHost debugProtocolHost, string filePath, params SourceBreakpoint[] breakpoints)
+	[Fact]
+	public async Task SharpDbgCli_SetBreakpoint_AfterSymbolsLoaded_ResponseIncludesResolvedColumns()
+	{
+		var startSuspended = true;
+		var (debugProtocolHost, initializedEventTcs, debugEventTcs, adapter, p2) = TestHelper.GetRunningDebugProtocolHostInProc(testOutputHelper, startSuspended);
+		using var _ = adapter;
+		using var __ = new ProcessKiller(p2);
+		using var ___ = debugProtocolHost;
+
+		await debugProtocolHost
+			.WithInitializeRequest()
+			.WithAttachRequest(p2.Id)
+			.WaitForInitializedEvent(initializedEventTcs);
+
+		var breakpointedFilePath = Path.JoinFromGitRoot("tests", "DebuggableConsoleApp", "ColumnBreakpointClass.cs");
+		var line = GetLineNumber(breakpointedFilePath, "column-breakpoint-line");
+
+		SendSetBreakpointsRequest(debugProtocolHost, breakpointedFilePath, new SourceBreakpoint
+		{
+			Line = line
+		});
+
+		debugProtocolHost
+			.WithConfigurationDoneRequest()
+			.WithOptionalResumeRuntime(p2.Id, startSuspended);
+
+		await debugProtocolHost.WaitForStoppedEvent(debugEventTcs);
+
+		var column = GetColumnNumber(breakpointedFilePath, line, "var second");
+		var endColumn = column + "var second = first + 1;".Length;
+
+		var response = SendSetBreakpointsRequest(debugProtocolHost, breakpointedFilePath, new SourceBreakpoint
+		{
+			Line = line,
+			Column = column
+		});
+		var breakpoint = response.Breakpoints.Single();
+
+		breakpoint.Verified.Should().BeTrue();
+		breakpoint.Line.Should().Be(line);
+		breakpoint.Column.Should().Be(column);
+		breakpoint.EndLine.Should().Be(line);
+		breakpoint.EndColumn.Should().Be(endColumn);
+	}
+
+	private static SetBreakpointsResponse SendSetBreakpointsRequest(DebugProtocolHost debugProtocolHost, string filePath, params SourceBreakpoint[] breakpoints)
 	{
 		var response = debugProtocolHost.SendRequestSync(new SetBreakpointsRequest
 		{
@@ -161,6 +242,7 @@ public class BreakpointTests(ITestOutputHelper testOutputHelper)
 		});
 
 		response.Breakpoints.Should().HaveCount(breakpoints.Length);
+		return response;
 	}
 
 	private static async Task<BreakpointEvent> WaitForVerifiedBreakpointEvent(DebugProtocolHost debugProtocolHost, TcsContainer debugEventTcs)

@@ -128,7 +128,7 @@ public partial class SymbolReader
 		new(token, sp.Offset, sp.StartLine, sp.EndLine, sp.StartColumn, sp.EndColumn, docPath);
 }
 
-readonly record struct LineCol(int Line, int Column) : IComparable<LineCol>
+internal readonly record struct LineCol(int Line, int Column) : IComparable<LineCol>
 {
 	public int CompareTo(LineCol other)
 	{

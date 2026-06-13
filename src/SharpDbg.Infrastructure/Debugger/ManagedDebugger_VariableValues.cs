@@ -135,6 +135,11 @@ public partial class ManagedDebugger
 		{
 			return new(typeName, "{ToString()}", true, debugProxyTypeName);
 		}
+		if (typeName == "decimal")
+		{
+			var decimalString = GetDecimalValueString(corDebugObjectValue);
+			return new(typeName, decimalString, false, null);
+		}
 
 		return new(typeName, $"{{{typeName}}}", false, debugProxyTypeName);
 	}
@@ -236,6 +241,7 @@ public partial class ManagedDebugger
 		{
 			"System.String" => "string",
 			"System.Object" => "object",
+			"System.Decimal" => "decimal",
 			_ => className
 		};
 		return className;

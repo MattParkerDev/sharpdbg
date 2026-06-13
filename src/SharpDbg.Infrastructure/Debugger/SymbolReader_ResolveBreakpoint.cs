@@ -79,20 +79,19 @@ public partial class SymbolReader
 	    SequencePoint? lastSP     = null;
 	    SequencePoint? coveringSP = null;
 	    string? docPath = null;
-	    LineCol? requestedPosition = column is null ? null : new LineCol(line, column.Value);
 
 	    foreach (var sp in info.GetSequencePoints())
 	    {
 	        if (sp.IsHidden) continue;
 	        var spDoc = sp.Document.IsNil ? info.Document : sp.Document;
-	        if (spDoc != docHandle || IsBeforeRequestedPosition(sp, line, requestedPosition)) continue;
+	        if (spDoc != docHandle || IsBeforeRequestedPosition(sp, line, column)) continue;
 
 	        docPath ??= _reader.GetString(_reader.GetDocument(spDoc).Name);
 
 	        if (firstSP == null || sp.End() < firstSP.Value.End()) firstSP = sp;
 	        if (lastSP  == null || sp.End() > lastSP.Value.End())  lastSP  = sp;
 
-	        if (CoversRequestedPosition(sp, line, requestedPosition) && ShouldReplaceCoveringSequencePoint(sp, coveringSP, requestedPosition))
+	        if (CoversRequestedPosition(sp, line, column) && ShouldReplaceCoveringSequencePoint(sp, coveringSP, column))
 	            coveringSP = sp;
 	    }
 
@@ -100,28 +99,28 @@ public partial class SymbolReader
 	    return new MethodCandidate(MetadataTokens.GetToken(handle.ToDefinitionHandle()), firstSP.Value, lastSP!.Value, coveringSP, docPath!);
 	}
 
-	private static bool IsBeforeRequestedPosition(SequencePoint sp, int line, LineCol? requestedPosition)
+	private static bool IsBeforeRequestedPosition(SequencePoint sp, int requestedLine, int? requestedColumn)
 	{
-		return requestedPosition is null
-			? sp.EndLine < line
-			: sp.End() < requestedPosition.Value;
+		return requestedColumn is null
+			? sp.EndLine < requestedLine
+			: sp.End() < new LineCol(requestedLine, requestedColumn.Value);
 	}
 
-	private static bool CoversRequestedPosition(SequencePoint sp, int line, LineCol? requestedPosition)
+	private static bool CoversRequestedPosition(SequencePoint sp, int requestedLine, int? requestedColumn)
 	{
-		return requestedPosition is null
-			? sp.StartLine <= line
-			: sp.Start() <= requestedPosition.Value && requestedPosition.Value <= sp.End();
+		return requestedColumn is null
+			? sp.StartLine <= requestedLine
+			: new LineCol(requestedLine, requestedColumn.Value) is var requestedPosition && sp.Start() <= requestedPosition && requestedPosition <= sp.End();
 	}
 
-	private static bool ShouldReplaceCoveringSequencePoint(SequencePoint sp, SequencePoint? coveringSP, LineCol? requestedPosition)
+	private static bool ShouldReplaceCoveringSequencePoint(SequencePoint sp, SequencePoint? coveringSp, int? requestedColumn)
 	{
-		if (coveringSP is null) return true;
+		if (coveringSp is null) return true;
 
-		return requestedPosition is null
-			? sp.StartLine > coveringSP.Value.StartLine ||
-			  (sp.StartLine == coveringSP.Value.StartLine && sp.StartColumn < coveringSP.Value.StartColumn)
-			: sp.Start() > coveringSP.Value.Start();
+		return requestedColumn is null
+			? sp.StartLine > coveringSp.Value.StartLine ||
+			  (sp.StartLine == coveringSp.Value.StartLine && sp.StartColumn < coveringSp.Value.StartColumn)
+			: sp.Start() > coveringSp.Value.Start();
 	}
 
 	private static ResolvedBreakpoint NewResolvedBreakpoint(int token, SequencePoint sp, string docPath) =>

@@ -22,7 +22,7 @@ public class ExceptionTests(ITestOutputHelper testOutputHelper)
 		debugProtocolHost.SendRequestSync(new SetExceptionBreakpointsRequest { Filters = [], FilterOptions = [new("all"), new ("user-unhandled")]});
 		var breakpointedFilePath = Path.JoinFromGitRoot("tests", "DebuggableConsoleApp", "Exceptions.cs");
 		debugProtocolHost
-			.WithBreakpointsRequest([23], Path.JoinFromGitRoot("tests", "DebuggableConsoleApp", "Program.cs"))
+			.WithBreakpointsRequest([24], Path.JoinFromGitRoot("tests", "DebuggableConsoleApp", "Program.cs"))
 			.WithBreakpointsRequest([17], breakpointedFilePath)
 			.WithConfigurationDoneRequest()
 			.WithOptionalResumeRuntime(p2.Id, startSuspended);
@@ -30,7 +30,7 @@ public class ExceptionTests(ITestOutputHelper testOutputHelper)
 		var stoppedEvent = await debugProtocolHost.WaitForStoppedEvent(debugEventTcs);
 		var stopInfo = stoppedEvent.ReadStopInfo();
 		stopInfo.filePath.Should().EndWith("Program.cs");
-		stopInfo.line.Should().Be(23);
+		stopInfo.line.Should().Be(24);
 
 		// set 'throwException' to true - we do not want other tests to stop at the 'exception' stop event, only this one
 		debugProtocolHost.WithStackTraceRequest(stoppedEvent.ThreadId!.Value, out var stackTraceResponse);

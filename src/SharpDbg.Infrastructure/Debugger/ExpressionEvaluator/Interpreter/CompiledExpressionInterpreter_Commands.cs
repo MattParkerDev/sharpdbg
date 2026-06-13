@@ -147,7 +147,7 @@ public partial class CompiledExpressionInterpreter
 
 		if (objType != null)
 		{
-			function = await FindMethodOnType(objType, methodName, args, searchStatic.Value, idsEmpty);
+			function = FindMethodOnType(objType, methodName, args, searchStatic.Value, idsEmpty);
 		}
 
 		if (function == null)
@@ -215,7 +215,7 @@ public partial class CompiledExpressionInterpreter
 	}
 
 	// TODO: Refactor - this doesn't belong in this class
-	public static async Task<CorDebugFunction?> FindMethodOnType(
+	public static CorDebugFunction? FindMethodOnType(
 		CorDebugType type,
 		string methodName,
 		CorDebugValue[] args,
@@ -250,7 +250,7 @@ public partial class CompiledExpressionInterpreter
 		var baseType = type.Base;
 		if (baseType != null)
 		{
-			return await FindMethodOnType(baseType, methodName, args, searchStatic, idsEmpty);
+			return FindMethodOnType(baseType, methodName, args, searchStatic, idsEmpty);
 		}
 
 		return null;
@@ -431,7 +431,7 @@ public partial class CompiledExpressionInterpreter
 				value = await CreateValueType(boxedClass, data);
 			}
 		}
-		var corDebugFunction = await FindMethodOnType(value.ExactType, "ToString", [], false, true);
+		var corDebugFunction = FindMethodOnType(value.ExactType, "ToString", [], false, true);
 		if (corDebugFunction is null) throw new InvalidOperationException("ToString method not found");
 		var eval = _context.Thread.CreateEval();
 		var result = await eval.CallParameterlessInstanceMethodAsync(_debuggerManagedCallback, _debugger.EvalStatus, corDebugFunction, value);

@@ -95,7 +95,7 @@ public class AsyncStepper
 			var boolValue = eval.NewBooleanValue(true);
 
 			// Find SetNotificationForWaitCompletion method
-			var function = await CompiledExpressionInterpreter.FindMethodOnType(objectValue.ExactType, "SetNotificationForWaitCompletion", [boolValue], false, false);
+			var function = CompiledExpressionInterpreter.FindMethodOnType(objectValue.ExactType, "SetNotificationForWaitCompletion", [boolValue], false, false);
 			Guard.Against.Null(function);
 
 			// Call builder.SetNotificationForWaitCompletion(true)

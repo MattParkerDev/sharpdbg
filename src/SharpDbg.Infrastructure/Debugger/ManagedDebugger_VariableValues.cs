@@ -138,11 +138,41 @@ public partial class ManagedDebugger
 		}
 		if (typeName == "decimal")
 		{
+			// This technically isn't necessary - System.Decimal overrides ToString, which we call below. This might technically be faster? This is how it is implemented in netcoredbg, but they don't handle overridden ToString's
 			var decimalString = GetDecimalValueString(corDebugObjectValue);
 			return new(typeName, decimalString, false, null);
 		}
+		if (TypeOverridesToString(corDebugObjectValue.ExactType))
+		{
+			return new(typeName, "{ToString()}", true, debugProxyTypeName);
+		}
 
 		return new(typeName, $"{{{typeName}}}", false, debugProxyTypeName);
+	}
+
+	/// Returns true if <paramref name="corDebugType"/> or any of its base types (up to but not
+	/// including System.Object / System.ValueType) declares a no-arg "ToString" method directly on itself.
+	private static bool TypeOverridesToString(CorDebugType corDebugType)
+	{
+		var type = corDebugType;
+		while (type is not null)
+		{
+			var cls = type.Class;
+			var module = cls.Module;
+			var metaDataImport = module.GetMetaDataInterface().MetaDataImport;
+			var typeName = metaDataImport.GetTypeDefProps(cls.Token).szTypeDef;
+			if (typeName is "System.Object" or "System.ValueType") return false;
+
+			foreach (var methodToken in metaDataImport.EnumMethods(cls.Token))
+			{
+				var methodProps = metaDataImport.GetMethodProps(methodToken);
+				var methodAttr = methodProps.pdwAttr;
+				if (methodProps.szMethod is "ToString" && methodAttr.IsMdStatic() is false && methodAttr.IsMdVirtual() && methodAttr.IsMdNewSlot() is false && Marshal.ReadByte(methodProps.ppvSigBlob, 1) is var parameterCount && parameterCount is 0)
+					return true;
+			}
+			type = type.Base;
+		}
+		return false;
 	}
 
 	private static CorDebugValue? GetUnderlyingValueOrNullFromNullableStruct(CorDebugObjectValue corDebugObjectValue)

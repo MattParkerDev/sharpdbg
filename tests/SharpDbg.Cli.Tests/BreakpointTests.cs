@@ -48,7 +48,9 @@ public class BreakpointTests(ITestOutputHelper testOutputHelper)
 				Id = 1,
 				Verified = true,
 				Line = 11,
+				Column = 3,
 				EndLine = 11,
+				EndColumn = 17,
 				Offset = 0,
 				Source = new Source { Path = breakpointedFilePath, Name = "MyClass.cs", SourceReference = 0 }
 			}
@@ -136,6 +138,10 @@ public class BreakpointTests(ITestOutputHelper testOutputHelper)
 		debugProtocolHost
 			.WithConfigurationDoneRequest()
 			.WithOptionalResumeRuntime(p2.Id, startSuspended);
+
+		var breakpointEvent = await WaitForVerifiedBreakpointEvent(debugProtocolHost, debugEventTcs);
+		breakpointEvent.Breakpoint.Line.Should().Be(statementStartLine);
+		breakpointEvent.Breakpoint.Column.Should().Be(expectedColumn);
 
 		var stoppedEvent = await debugProtocolHost.WaitForStoppedEvent(debugEventTcs);
 		debugProtocolHost.WithStackTraceRequest(stoppedEvent.ThreadId!.Value, out var stackTraceResponse);

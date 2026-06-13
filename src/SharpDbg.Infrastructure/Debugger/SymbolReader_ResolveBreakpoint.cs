@@ -10,13 +10,13 @@ public partial class SymbolReader
     int Token,
     SequencePoint FirstSp,      // smallest End where EndLine >= line (next-line snapping)
     SequencePoint LastSp,       // largest End where EndLine >= line
-    SequencePoint? CoveringSp,  // latest Start where StartLine <= line AND EndLine >= line
+    SequencePoint? CoveringSp,  // latest Start where the requested source position is covered
     string DocPath)
 	{
 	    public bool CoversLine => CoveringSp.HasValue;
 	}
 
-	public ResolvedBreakpoint? ResolveBreakpoint(string sourceFilePath, int line)
+	public ResolvedBreakpoint? ResolveBreakpoint(string sourceFilePath, int line, int? column = null)
 	{
 	    var normalizedPath = NormalizePath(sourceFilePath);
 
@@ -25,7 +25,7 @@ public partial class SymbolReader
 	    if (documentHandle.IsNil) return null;
 
 	    var candidates = _reader.MethodDebugInformation
-	        .Select(h => CollectCandidate(h, documentHandle, line))
+	        .Select(h => CollectCandidate(h, documentHandle, line, column))
 	        .OfType<MethodCandidate>()
 	        .ToList();
 
@@ -70,7 +70,7 @@ public partial class SymbolReader
 	    return NewResolvedBreakpoint(outer.Token, outer.CoveringSp!.Value, outer.DocPath);
 	}
 
-	private MethodCandidate? CollectCandidate(MethodDebugInformationHandle handle, DocumentHandle docHandle, int line)
+	private MethodCandidate? CollectCandidate(MethodDebugInformationHandle handle, DocumentHandle docHandle, int line, int? column)
 	{
 	    var info = _reader.GetMethodDebugInformation(handle);
 	    if (info.SequencePointsBlob.IsNil) return null;
@@ -79,32 +79,56 @@ public partial class SymbolReader
 	    SequencePoint? lastSP     = null;
 	    SequencePoint? coveringSP = null;
 	    string? docPath = null;
+	    LineCol? requestedPosition = column is null ? null : new LineCol(line, column.Value);
 
 	    foreach (var sp in info.GetSequencePoints())
 	    {
 	        if (sp.IsHidden) continue;
 	        var spDoc = sp.Document.IsNil ? info.Document : sp.Document;
-	        if (spDoc != docHandle || sp.EndLine < line) continue;
+	        if (spDoc != docHandle || IsBeforeRequestedPosition(sp, line, requestedPosition)) continue;
 
 	        docPath ??= _reader.GetString(_reader.GetDocument(spDoc).Name);
 
 	        if (firstSP == null || sp.End() < firstSP.Value.End()) firstSP = sp;
 	        if (lastSP  == null || sp.End() > lastSP.Value.End())  lastSP  = sp;
 
-        if (sp.StartLine <= line && (coveringSP == null ||
-                sp.StartLine > coveringSP.Value.StartLine ||
-                (sp.StartLine == coveringSP.Value.StartLine && sp.StartColumn < coveringSP.Value.StartColumn)))
-                coveringSP = sp;
+	        if (CoversRequestedPosition(sp, line, requestedPosition) && ShouldReplaceCoveringSequencePoint(sp, coveringSP, requestedPosition))
+	            coveringSP = sp;
 	    }
 
 	    if (firstSP == null) return null;
 	    return new MethodCandidate(MetadataTokens.GetToken(handle.ToDefinitionHandle()), firstSP.Value, lastSP!.Value, coveringSP, docPath!);
 	}
+
+	private static bool IsBeforeRequestedPosition(SequencePoint sp, int line, LineCol? requestedPosition)
+	{
+		return requestedPosition is null
+			? sp.EndLine < line
+			: sp.End() < requestedPosition.Value;
+	}
+
+	private static bool CoversRequestedPosition(SequencePoint sp, int line, LineCol? requestedPosition)
+	{
+		return requestedPosition is null
+			? sp.StartLine <= line
+			: sp.Start() <= requestedPosition.Value && requestedPosition.Value <= sp.End();
+	}
+
+	private static bool ShouldReplaceCoveringSequencePoint(SequencePoint sp, SequencePoint? coveringSP, LineCol? requestedPosition)
+	{
+		if (coveringSP is null) return true;
+
+		return requestedPosition is null
+			? sp.StartLine > coveringSP.Value.StartLine ||
+			  (sp.StartLine == coveringSP.Value.StartLine && sp.StartColumn < coveringSP.Value.StartColumn)
+			: sp.Start() > coveringSP.Value.Start();
+	}
+
 	private static ResolvedBreakpoint NewResolvedBreakpoint(int token, SequencePoint sp, string docPath) =>
 		new(token, sp.Offset, sp.StartLine, sp.EndLine, sp.StartColumn, sp.EndColumn, docPath);
 }
 
-file readonly record struct LineCol(int Line, int Column) : IComparable<LineCol>
+readonly record struct LineCol(int Line, int Column) : IComparable<LineCol>
 {
 	public int CompareTo(LineCol other)
 	{

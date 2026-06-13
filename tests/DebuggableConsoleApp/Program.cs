@@ -16,6 +16,7 @@ public static class Program
 		var myClassNoMembers = new MyClassNoMembers();
 		var hitConditionClass = new HitConditionClass();
 		var variablesClass = new VariablesClass();
+		var columnBreakpointClass = new ColumnBreakpointClass();
 		var throwException = false;
 		while (true)
 		{
@@ -25,6 +26,7 @@ public static class Program
 			myClassNoMembers.MyMethod(42);
 			hitConditionClass.Test();
 			variablesClass.Test();
+			columnBreakpointClass.Test();
 			MultilineSwitchInMethodCall.Test();
 			var asyncResult = myAsyncClass.MyMethodAsync(4).GetAwaiter().GetResult();
 			myAsyncMethodEvalClass.Test().GetAwaiter().GetResult();

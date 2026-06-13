@@ -118,6 +118,7 @@ public static class DebugAdapterProcessHelper
 			Breakpoints = breakpointRequests.Select(s => new SourceBreakpoint
 			{
 				Line = s.Line,
+				Column = s.Column,
 				Condition = s.Condition,
 				HitCondition = s.HitCondition
 			}).ToList()

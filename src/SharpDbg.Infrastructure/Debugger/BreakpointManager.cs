@@ -17,7 +17,9 @@ public class BreakpointManager
 		public int Id { get; set; }
 		public string FilePath { get; set; } = string.Empty;
 		public int Line { get; set; }
+		public int? Column { get; set; }
 		public int EndLine { get; set; }
+		public int? EndColumn { get; set; }
 		public bool Verified { get; set; }
 		public CorDebugFunctionBreakpoint? CorBreakpoint { get; set; }
 		public string? Message { get; set; }
@@ -37,7 +39,7 @@ public class BreakpointManager
 	/// <summary>
 	/// Create a new breakpoint
 	/// </summary>
-	public BreakpointInfo CreateBreakpoint(string filePath, int line, string? condition = null, string? hitCondition = null)
+	public BreakpointInfo CreateBreakpoint(string filePath, int line, int? column = null, string? condition = null, string? hitCondition = null)
 	{
 		lock (_lock)
 		{
@@ -49,6 +51,7 @@ public class BreakpointManager
 				Id = id,
 				FilePath = filePath,
 				Line = line,
+				Column = column,
 				Verified = false,
 				Condition = condition,
 				HitCondition = hitCondition,

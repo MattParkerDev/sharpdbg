@@ -99,7 +99,9 @@ public class DebugAdapter : DebugAdapterBase
 					Id = breakpoint.Id,
 					Verified = breakpoint.Verified,
 					Line = ConvertDebuggerLineToClient(breakpoint.Line),
+					Column = breakpoint is { Verified: true, Column: not null } ? ConvertDebuggerColumnToClient(breakpoint.Column.Value) : null,
 					EndLine = breakpoint.Verified ? breakpoint.EndLine : null,
+					EndColumn = breakpoint is { Verified: true, EndColumn: not null } ? ConvertDebuggerColumnToClient(breakpoint.EndColumn.Value) : null,
 					Offset = breakpoint.Verified ? 0 : null,
 					Message = breakpoint.Message,
 					Source = breakpoint.Verified is false ? null : new Source
@@ -273,7 +275,8 @@ public class DebugAdapter : DebugAdapterBase
 				.Select(bp => new SharpDbgBreakpointRequest(
 					ConvertClientLineToDebugger(bp.Line),
 					bp.Condition,
-					bp.HitCondition))
+					bp.HitCondition,
+					bp.Column is null ? null : ConvertClientColumnToDebugger(bp.Column.Value)))
 				.ToArray() ?? [];
 
 			var breakpoints = _debugger.SetBreakpoints(arguments.Source.Path, breakpointRequests);
@@ -283,6 +286,9 @@ public class DebugAdapter : DebugAdapterBase
 				Id = bp.Id,
 				Verified = bp.Verified,
 				Line = ConvertDebuggerLineToClient(bp.Line),
+				Column = bp is { Verified: true, Column: not null } ? ConvertDebuggerColumnToClient(bp.Column.Value) : null,
+				EndLine = bp.Verified ? bp.EndLine : null,
+				EndColumn = bp is { Verified: true, EndColumn: not null } ? ConvertDebuggerColumnToClient(bp.EndColumn.Value) : null,
 				Message = bp.Message,
 				Source = new Source
 				{

@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using AwesomeAssertions;
 using Microsoft.Diagnostics.NETCore.Client;
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol;
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
@@ -68,21 +69,27 @@ public static partial class TestHelper
 		return stoppedEvent;
 	}
 
-	public static async Task<T> WaitForEvent<T>(this DebugProtocolHost host, TcsContainer tcsContainer) where T : DebugEvent
+	public static async Task<T> WaitForEvent<T>(this DebugProtocolHost host, TcsContainer tcsContainer, Predicate<T>? condition = null) where T : DebugEvent
 	{
 		while (true)
 		{
 			var e = await tcsContainer.Tcs.Task.WaitAsync(TestContext.Current.CancellationToken);
 			tcsContainer.Tcs = new TaskCompletionSource<DebugEvent>(TaskCreationOptions.RunContinuationsAsynchronously);
-			if (e is T correctEventType) return correctEventType;
+			if (e is T correctEventType)
+			{
+				if (condition?.Invoke(correctEventType) is false) continue;
+				return correctEventType;
+			}
 		}
 	}
 
-	public static DebugProtocolHost WithBreakpointsRequest(this DebugProtocolHost debugProtocolHost, string filePath, List<SharpDbgBreakpointRequest> breakpointRequests)
+	public static DebugProtocolHost WithBreakpointsRequest(this DebugProtocolHost debugProtocolHost, string filePath, List<SharpDbgBreakpointRequest> breakpointRequests) => debugProtocolHost.WithBreakpointsRequest(filePath, breakpointRequests, out _);
+	public static DebugProtocolHost WithBreakpointsRequest(this DebugProtocolHost debugProtocolHost, string filePath, List<SharpDbgBreakpointRequest> breakpointRequests, out SetBreakpointsResponse setBreakpointsResponse)
 	{
 		var setBreakpointsRequest = DebugAdapterProcessHelper.GetSetBreakpointsRequest(breakpointRequests, filePath);
 		if (File.Exists(setBreakpointsRequest.Source.Path) is false) throw new FileNotFoundException("Source file for breakpoint not found", setBreakpointsRequest.Source.Path);
-		debugProtocolHost.SendRequestSync(setBreakpointsRequest);
+		setBreakpointsResponse = debugProtocolHost.SendRequestSync(setBreakpointsRequest);
+		setBreakpointsResponse.Breakpoints.Count.Should().Be(breakpointRequests.Count);
 		return debugProtocolHost;
 	}
 

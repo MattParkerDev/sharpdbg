@@ -180,7 +180,7 @@ public partial class ManagedDebugger
 				if (moduleInfo.SymbolReader == null)
 					continue;
 
-				resolved = moduleInfo.SymbolReader.ResolveBreakpoint(bp.FilePath, bp.Line);
+				resolved = moduleInfo.SymbolReader.ResolveBreakpoint(bp.FilePath, bp.Line, bp.Column);
 				if (resolved != null)
 				{
 					targetModule = moduleInfo;
@@ -209,7 +209,9 @@ public partial class ManagedDebugger
 			bp.CorBreakpoint = corBreakpoint;
 			bp.Verified = true;
 			bp.Line = resolved.StartLine;
+			bp.Column = resolved.StartColumn;
 			bp.EndLine = resolved.EndLine;
+			bp.EndColumn = resolved.EndColumn;
 			bp.ResolvedBreakpointFromPdb = resolved;
 			bp.ModuleBaseAddress = targetModule.BaseAddress;
 			bp.Message = null;

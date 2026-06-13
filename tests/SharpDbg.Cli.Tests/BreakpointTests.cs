@@ -2,6 +2,7 @@
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol;
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
 using SharpDbg.Cli.Tests.Helpers;
+using SharpDbg.Infrastructure.Debugger;
 
 namespace SharpDbg.Cli.Tests;
 
@@ -84,13 +85,8 @@ public class BreakpointTests(ITestOutputHelper testOutputHelper)
 		var column = GetColumnNumber(breakpointedFilePath, line, "var third");
 		var endColumn = column + "var third = second + 1;".Length;
 
-		SendSetBreakpointsRequest(debugProtocolHost, breakpointedFilePath, new SourceBreakpoint
-		{
-			Line = line,
-			Column = column
-		});
-
 		debugProtocolHost
+			.WithBreakpointsRequest(breakpointedFilePath, [new SharpDbgBreakpointRequest(line, Column: column)])
 			.WithConfigurationDoneRequest()
 			.WithOptionalResumeRuntime(p2.Id, startSuspended);
 
@@ -127,12 +123,8 @@ public class BreakpointTests(ITestOutputHelper testOutputHelper)
 		var line = GetLineNumber(breakpointedFilePath, "column-breakpoint-line");
 		var expectedColumn = GetColumnNumber(breakpointedFilePath, line, "var first");
 
-		SendSetBreakpointsRequest(debugProtocolHost, breakpointedFilePath, new SourceBreakpoint
-		{
-			Line = line
-		});
-
 		debugProtocolHost
+			.WithBreakpointsRequest(breakpointedFilePath, [new SharpDbgBreakpointRequest(line)])
 			.WithConfigurationDoneRequest()
 			.WithOptionalResumeRuntime(p2.Id, startSuspended);
 
@@ -165,13 +157,8 @@ public class BreakpointTests(ITestOutputHelper testOutputHelper)
 		var requestedColumn = GetColumnNumber(breakpointedFilePath, requestedLine, "1 + 25");
 		var expectedColumn = GetColumnNumber(breakpointedFilePath, statementStartLine, "var multi");
 
-		SendSetBreakpointsRequest(debugProtocolHost, breakpointedFilePath, new SourceBreakpoint
-		{
-			Line = requestedLine,
-			Column = requestedColumn
-		});
-
 		debugProtocolHost
+			.WithBreakpointsRequest(breakpointedFilePath, [new SharpDbgBreakpointRequest(requestedLine, Column: requestedColumn)])
 			.WithConfigurationDoneRequest()
 			.WithOptionalResumeRuntime(p2.Id, startSuspended);
 
@@ -205,12 +192,8 @@ public class BreakpointTests(ITestOutputHelper testOutputHelper)
 		var breakpointedFilePath = Path.JoinFromGitRoot("tests", "DebuggableConsoleApp", "ColumnBreakpointClass.cs");
 		var line = GetLineNumber(breakpointedFilePath, "column-breakpoint-line");
 
-		SendSetBreakpointsRequest(debugProtocolHost, breakpointedFilePath, new SourceBreakpoint
-		{
-			Line = line
-		});
-
 		debugProtocolHost
+			.WithBreakpointsRequest(breakpointedFilePath, [new SharpDbgBreakpointRequest(line)])
 			.WithConfigurationDoneRequest()
 			.WithOptionalResumeRuntime(p2.Id, startSuspended);
 
@@ -219,11 +202,8 @@ public class BreakpointTests(ITestOutputHelper testOutputHelper)
 		var column = GetColumnNumber(breakpointedFilePath, line, "var second");
 		var endColumn = column + "var second = first + 1;".Length;
 
-		var response = SendSetBreakpointsRequest(debugProtocolHost, breakpointedFilePath, new SourceBreakpoint
-		{
-			Line = line,
-			Column = column
-		});
+		debugProtocolHost.WithBreakpointsRequest(breakpointedFilePath, [new SharpDbgBreakpointRequest(line, Column: column)], out var response);
+
 		var breakpoint = response.Breakpoints.Single();
 
 		breakpoint.Verified.Should().BeTrue();
@@ -231,18 +211,6 @@ public class BreakpointTests(ITestOutputHelper testOutputHelper)
 		breakpoint.Column.Should().Be(column);
 		breakpoint.EndLine.Should().Be(line);
 		breakpoint.EndColumn.Should().Be(endColumn);
-	}
-
-	private static SetBreakpointsResponse SendSetBreakpointsRequest(DebugProtocolHost debugProtocolHost, string filePath, params SourceBreakpoint[] breakpoints)
-	{
-		var response = debugProtocolHost.SendRequestSync(new SetBreakpointsRequest
-		{
-			Source = new Source { Path = filePath },
-			Breakpoints = breakpoints.ToList()
-		});
-
-		response.Breakpoints.Should().HaveCount(breakpoints.Length);
-		return response;
 	}
 
 	private static async Task<BreakpointEvent> WaitForVerifiedBreakpointEvent(DebugProtocolHost debugProtocolHost, TcsContainer debugEventTcs)

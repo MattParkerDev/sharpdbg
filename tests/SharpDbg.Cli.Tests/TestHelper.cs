@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using AwesomeAssertions;
 using Microsoft.Diagnostics.NETCore.Client;
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol;
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
@@ -78,11 +79,13 @@ public static partial class TestHelper
 		}
 	}
 
-	public static DebugProtocolHost WithBreakpointsRequest(this DebugProtocolHost debugProtocolHost, string filePath, List<SharpDbgBreakpointRequest> breakpointRequests)
+	public static DebugProtocolHost WithBreakpointsRequest(this DebugProtocolHost debugProtocolHost, string filePath, List<SharpDbgBreakpointRequest> breakpointRequests) => debugProtocolHost.WithBreakpointsRequest(filePath, breakpointRequests, out _);
+	public static DebugProtocolHost WithBreakpointsRequest(this DebugProtocolHost debugProtocolHost, string filePath, List<SharpDbgBreakpointRequest> breakpointRequests, out SetBreakpointsResponse setBreakpointsResponse)
 	{
 		var setBreakpointsRequest = DebugAdapterProcessHelper.GetSetBreakpointsRequest(breakpointRequests, filePath);
 		if (File.Exists(setBreakpointsRequest.Source.Path) is false) throw new FileNotFoundException("Source file for breakpoint not found", setBreakpointsRequest.Source.Path);
-		debugProtocolHost.SendRequestSync(setBreakpointsRequest);
+		setBreakpointsResponse = debugProtocolHost.SendRequestSync(setBreakpointsRequest);
+		setBreakpointsResponse.Breakpoints.Count.Should().Be(breakpointRequests.Count);
 		return debugProtocolHost;
 	}
 

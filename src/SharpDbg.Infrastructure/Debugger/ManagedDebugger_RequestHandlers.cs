@@ -282,7 +282,7 @@ public partial class ManagedDebugger
 	public List<BreakpointManager.BreakpointInfo> SetBreakpoints(string filePath, SharpDbgBreakpointRequest[] breakpoints)
 	{
 		//System.Diagnostics.Debugger.Launch();
-		_logger?.Invoke($"SetBreakpoints: {filePath}, breakpoints: {string.Join(",", breakpoints.Select(b => $"L{b.Line}" + (b.Column is not null ? $"C{b.Column}" : "") + (b.Condition != null ? $"[{b.Condition}]" : "")))}");
+		_logger?.Invoke($"SetBreakpoints: {filePath}, breakpoints: {string.Join(",", breakpoints.Select(b => $"L{b.Line} {(b.Column is not null ? $"C{b.Column}" : null)} {(b.Condition != null ? $"[{b.Condition}]" : null)}"))}");
 
 		// Deactivate and clear existing breakpoints for this file
 		var existingBreakpoints = _breakpointManager.GetBreakpointsForFile(filePath);

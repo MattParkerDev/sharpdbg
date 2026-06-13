@@ -84,45 +84,20 @@ public partial class SymbolReader
 	    {
 	        if (sp.IsHidden) continue;
 	        var spDoc = sp.Document.IsNil ? info.Document : sp.Document;
-	        if (spDoc != docHandle || IsBeforeRequestedPosition(sp, line, column)) continue;
+	        if (spDoc != docHandle || sp.IsBeforeRequestedPosition(line, column)) continue;
 
 	        docPath ??= _reader.GetString(_reader.GetDocument(spDoc).Name);
 
 	        if (firstSP == null || sp.End() < firstSP.Value.End()) firstSP = sp;
 	        if (lastSP  == null || sp.End() > lastSP.Value.End())  lastSP  = sp;
 
-	        if (CoversRequestedPosition(sp, line, column) && ShouldReplaceCoveringSequencePoint(sp, coveringSP, column))
+	        if (sp.CoversRequestedPosition(line, column) && sp.ShouldReplaceCoveringSequencePoint(coveringSP, column))
 	            coveringSP = sp;
 	    }
 
 	    if (firstSP == null) return null;
 	    return new MethodCandidate(MetadataTokens.GetToken(handle.ToDefinitionHandle()), firstSP.Value, lastSP!.Value, coveringSP, docPath!);
 	}
-
-	private static bool IsBeforeRequestedPosition(SequencePoint sp, int requestedLine, int? requestedColumn)
-	{
-		return requestedColumn is null
-			? sp.EndLine < requestedLine
-			: sp.End() < new LineCol(requestedLine, requestedColumn.Value);
-	}
-
-	private static bool CoversRequestedPosition(SequencePoint sp, int requestedLine, int? requestedColumn)
-	{
-		return requestedColumn is null
-			? sp.StartLine <= requestedLine
-			: new LineCol(requestedLine, requestedColumn.Value) is var requestedPosition && sp.Start() <= requestedPosition && requestedPosition <= sp.End();
-	}
-
-	private static bool ShouldReplaceCoveringSequencePoint(SequencePoint sp, SequencePoint? coveringSp, int? requestedColumn)
-	{
-		if (coveringSp is null) return true;
-
-		return requestedColumn is null
-			? sp.StartLine > coveringSp.Value.StartLine ||
-			  (sp.StartLine == coveringSp.Value.StartLine && sp.StartColumn < coveringSp.Value.StartColumn)
-			: sp.Start() > coveringSp.Value.Start();
-	}
-
 	private static ResolvedBreakpoint NewResolvedBreakpoint(int token, SequencePoint sp, string docPath) =>
 		new(token, sp.Offset, sp.StartLine, sp.EndLine, sp.StartColumn, sp.EndColumn, docPath);
 }
@@ -144,4 +119,30 @@ file static class LineColExtensions
 {
 	public static LineCol Start(this SequencePoint sp) => new(sp.StartLine, sp.StartColumn);
 	public static LineCol End(this SequencePoint sp) => new(sp.EndLine, sp.EndColumn);
+}
+file static class SequencePointExtensions
+{
+	public static bool IsBeforeRequestedPosition(this SequencePoint sp, int requestedLine, int? requestedColumn)
+	{
+		return requestedColumn is null
+			? sp.EndLine < requestedLine
+			: sp.End() < new LineCol(requestedLine, requestedColumn.Value);
+	}
+
+	public static bool CoversRequestedPosition(this SequencePoint sp, int requestedLine, int? requestedColumn)
+	{
+		return requestedColumn is null
+			? sp.StartLine <= requestedLine
+			: new LineCol(requestedLine, requestedColumn.Value) is var requestedPosition && sp.Start() <= requestedPosition && requestedPosition <= sp.End();
+	}
+
+	public static bool ShouldReplaceCoveringSequencePoint(this SequencePoint sp, SequencePoint? coveringSp, int? requestedColumn)
+	{
+		if (coveringSp is null) return true;
+
+		return requestedColumn is null
+			? sp.StartLine > coveringSp.Value.StartLine ||
+			  (sp.StartLine == coveringSp.Value.StartLine && sp.StartColumn < coveringSp.Value.StartColumn)
+			: sp.Start() > coveringSp.Value.Start();
+	}
 }

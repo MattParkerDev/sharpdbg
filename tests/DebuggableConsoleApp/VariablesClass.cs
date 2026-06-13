@@ -132,7 +132,7 @@ public class VariablesClass
 		dynamic localDynamic = 241;
 		var localAnonymous = new { Id = 1, Name = "Anonymous" };
 
-		DateTime localDateTime = DateTime.Parse("13/06/2026 5:42:39 AM");
+		DateTime localDateTime = new(2026, 6, 13, 5, 42, 39);
 		Guid localGuid = new Guid("27de5b68-af24-4e59-a785-dde52e2ea7af");
 		;
 	}

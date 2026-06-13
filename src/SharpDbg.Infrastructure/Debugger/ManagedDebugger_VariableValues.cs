@@ -138,6 +138,7 @@ public partial class ManagedDebugger
 		}
 		if (typeName == "decimal")
 		{
+			// This technically isn't necessary - System.Decimal overrides ToString, which we call below. This might technically be faster? This is how it is implemented in netcoredbg, but they don't handle overridden ToString's
 			var decimalString = GetDecimalValueString(corDebugObjectValue);
 			return new(typeName, decimalString, false, null);
 		}

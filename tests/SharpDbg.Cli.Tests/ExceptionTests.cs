@@ -51,8 +51,8 @@ public class ExceptionTests(ITestOutputHelper testOutputHelper)
 		scopesResponse2.Scopes.Should().HaveCount(1);
 		var scope = scopesResponse2.Scopes.Single();
 
-			List<Variable> expectedVariables =
-			[
+		List<Variable> expectedVariables =
+		[
 			new() { Name = "$exception",  EvaluateName = "$exception",  Value = $"System.InvalidOperationException: Test exception{Environment.NewLine}   at DebuggableConsoleApp.Exceptions.Test(Boolean shouldThrow) in {breakpointedFilePath}:line 12", Type = "System.InvalidOperationException", VariablesReference = 4 },
 			new() { Name = "shouldThrow", EvaluateName = "shouldThrow", Value = "true",  Type = "bool" },
 			new() { Name = "test", EvaluateName = "test", Value = "true",  Type = "bool" },

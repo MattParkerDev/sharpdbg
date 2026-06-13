@@ -176,6 +176,8 @@ public partial class ManagedDebugger
 			if (type is CorElementType.String) return 0;
 			// Decimal is a struct but should be treated as a primitive
 			if (friendlyTypeName is "decimal" or "decimal?") return 0;
+			// a boxed primitive is CorElementType.ValueType but should be displayed as a primitive. They can never be nullable.
+			if (friendlyTypeName is "bool" or "byte" or "sbyte" or "char" or "short" or "ushort" or "int" or "uint" or "long" or "ulong" or "float" or "double" or "nint" or "nuint") return 0;
 			if (type is CorElementType.Class or CorElementType.ValueType or CorElementType.SZArray or CorElementType.Array)
 			{
 				return GenerateUniqueVariableReference(corDebugValue, threadId, stackDepth, debuggerProxyInstance);

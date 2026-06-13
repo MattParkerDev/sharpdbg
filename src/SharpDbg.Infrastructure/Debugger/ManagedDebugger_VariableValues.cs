@@ -18,7 +18,8 @@ public partial class ManagedDebugger
 		var (friendlyTypeName, value, valueRequiresDebuggerDisplayEval, debuggerProxyTypeName) = GetValueForCorDebugValue(corDebugValue);
 		if (valueRequiresDebuggerDisplayEval)
 		{
-			var compiledExpression = ExpressionCompiler.Compile($"$\"{value}\"", true);
+			var expressionString = $"$\"{value}\"";
+			var compiledExpression = ExpressionCompiler.Compile(expressionString, true);
 			var thread = _process!.GetThread(threadId.Value);
 			var evalContext = new CompiledExpressionEvaluationContext(thread, threadId, frameStackDepth, corDebugValue);
 			var result = await _expressionInterpreter!.Interpret(compiledExpression, evalContext);
@@ -273,6 +274,23 @@ public partial class ManagedDebugger
 			"System.String" => "string",
 			"System.Object" => "object",
 			"System.Decimal" => "decimal",
+
+			// These will be hit in the case that a primitive is boxed, e.g. object myInt = 4;
+			"System.Boolean" => "bool",
+			"System.Byte"    => "byte",
+			"System.SByte"   => "sbyte",
+			"System.Char"    => "char",
+			"System.Int16"   => "short",
+			"System.UInt16"  => "ushort",
+			"System.Int32"   => "int",
+			"System.UInt32"  => "uint",
+			"System.Int64"   => "long",
+			"System.UInt64"  => "ulong",
+			"System.Single"  => "float",
+			"System.Double"  => "double",
+			"System.IntPtr"  => "nint",
+			"System.UIntPtr" => "nuint",
+
 			_ => className
 		};
 		return className;

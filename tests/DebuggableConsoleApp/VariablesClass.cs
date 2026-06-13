@@ -111,6 +111,7 @@ public class VariablesClass
 
 		object localObject = new();
 		object? localNullableObject = null;
+		object localBoxedInt = 42;
 
 		int[] localArray = [1, 2, 3];
 

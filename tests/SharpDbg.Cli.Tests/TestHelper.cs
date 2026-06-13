@@ -69,13 +69,17 @@ public static partial class TestHelper
 		return stoppedEvent;
 	}
 
-	public static async Task<T> WaitForEvent<T>(this DebugProtocolHost host, TcsContainer tcsContainer) where T : DebugEvent
+	public static async Task<T> WaitForEvent<T>(this DebugProtocolHost host, TcsContainer tcsContainer, Predicate<T>? condition = null) where T : DebugEvent
 	{
 		while (true)
 		{
 			var e = await tcsContainer.Tcs.Task.WaitAsync(TestContext.Current.CancellationToken);
 			tcsContainer.Tcs = new TaskCompletionSource<DebugEvent>(TaskCreationOptions.RunContinuationsAsynchronously);
-			if (e is T correctEventType) return correctEventType;
+			if (e is T correctEventType)
+			{
+				if (condition?.Invoke(correctEventType) is false) continue;
+				return correctEventType;
+			}
 		}
 	}
 

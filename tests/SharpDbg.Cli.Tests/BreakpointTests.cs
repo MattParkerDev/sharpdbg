@@ -90,7 +90,7 @@ public class BreakpointTests(ITestOutputHelper testOutputHelper)
 			.WithConfigurationDoneRequest()
 			.WithOptionalResumeRuntime(p2.Id, startSuspended);
 
-		var breakpointEvent = await WaitForVerifiedBreakpointEvent(debugProtocolHost, debugEventTcs);
+		var breakpointEvent = await debugProtocolHost.WaitForEvent<BreakpointEvent>(debugEventTcs, s => s.Breakpoint.Verified);
 		breakpointEvent.Breakpoint.Line.Should().Be(line);
 		breakpointEvent.Breakpoint.Column.Should().Be(column);
 		breakpointEvent.Breakpoint.EndColumn.Should().Be(endColumn);
@@ -162,7 +162,7 @@ public class BreakpointTests(ITestOutputHelper testOutputHelper)
 			.WithConfigurationDoneRequest()
 			.WithOptionalResumeRuntime(p2.Id, startSuspended);
 
-		var breakpointEvent = await WaitForVerifiedBreakpointEvent(debugProtocolHost, debugEventTcs);
+		var breakpointEvent = await debugProtocolHost.WaitForEvent<BreakpointEvent>(debugEventTcs, s => s.Breakpoint.Verified);
 		breakpointEvent.Breakpoint.Line.Should().Be(statementStartLine);
 		breakpointEvent.Breakpoint.Column.Should().Be(expectedColumn);
 
@@ -211,15 +211,6 @@ public class BreakpointTests(ITestOutputHelper testOutputHelper)
 		breakpoint.Column.Should().Be(column);
 		breakpoint.EndLine.Should().Be(line);
 		breakpoint.EndColumn.Should().Be(endColumn);
-	}
-
-	private static async Task<BreakpointEvent> WaitForVerifiedBreakpointEvent(DebugProtocolHost debugProtocolHost, TcsContainer debugEventTcs)
-	{
-		while (true)
-		{
-			var breakpointEvent = await debugProtocolHost.WaitForEvent<BreakpointEvent>(debugEventTcs);
-			if (breakpointEvent.Breakpoint.Verified is true) return breakpointEvent;
-		}
 	}
 
 	private static int GetLineNumber(string filePath, string marker)

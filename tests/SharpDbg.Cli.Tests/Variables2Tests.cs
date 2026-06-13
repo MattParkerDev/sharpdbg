@@ -36,6 +36,7 @@ public class Variables2Tests(ITestOutputHelper testOutputHelper)
 		scopesResponse.Scopes.Should().HaveCount(1);
 		var scope = scopesResponse.Scopes.Single();
 
+		var expectedDateTimeString = new DateTime(2026, 6, 13, 5, 42, 39).ToString();
 		List<Variable> expectedVariables =
 		[
 			new() { VariablesReference = 3,  Name = "this",						EvaluateName = "this",                 		Value = "{DebuggableConsoleApp.VariablesClass}",	Type = "DebuggableConsoleApp.VariablesClass" },
@@ -73,7 +74,7 @@ public class Variables2Tests(ITestOutputHelper testOutputHelper)
 			new() { VariablesReference = 15, Name = "localGeneric",         	EvaluateName = "localGeneric",         		Value = "{DebuggableConsoleApp.GenericBox<int>}",	Type = "DebuggableConsoleApp.GenericBox<int>" },
 			new() { VariablesReference = 0,  Name = "localDynamic",         	EvaluateName = "localDynamic",         		Value = "241",                                  	Type = "object {int}" },
 			new() { VariablesReference = 16, Name = "localAnonymous",       	EvaluateName = "localAnonymous",       		Value = "{ Id = 1, Name = \"Anonymous\" }",         Type = "<>f__AnonymousType0<int, string>" },
-			new() { VariablesReference = 17, Name = "localDateTime",        	EvaluateName = "localDateTime",        		Value = "13/06/2026 5:42:39 AM",					Type = "System.DateTime" },
+			new() { VariablesReference = 17, Name = "localDateTime",        	EvaluateName = "localDateTime",        		Value = expectedDateTimeString,						Type = "System.DateTime" },
 			new() { VariablesReference = 18, Name = "localGuid",            	EvaluateName = "localGuid",            		Value = "27de5b68-af24-4e59-a785-dde52e2ea7af",		Type = "System.Guid" },
 		];
 

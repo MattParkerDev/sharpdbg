@@ -35,8 +35,8 @@ public class MyClass : MyClassBase
 	private int[] _intArray = [2, 3, 5, 7];
 	private static List<int> _staticIntList = [1, 4, 8, 25];
 	private static Dictionary<MyClass2, MyClass> _fieldDictionary = [];
-	private static DateTime _utcNow = DateTime.UtcNow;
-	private static DateTime? _nullableUtcNow = DateTime.UtcNow;
+	private static DateTime _utcNow = DateTime.Parse("13/06/2026 7:18:38 AM");
+	private static DateTime? _nullableUtcNow = DateTime.Parse("13/06/2026 7:18:38 AM");
 	private int _instanceField = 5;
 	private static int _instanceStaticField = 6;
 	public int IntProperty { get; set; } = 10;

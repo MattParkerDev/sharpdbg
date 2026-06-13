@@ -143,8 +143,8 @@ file static class TestExtensions
 			new() { Name = "_staticClassField", EvaluateName = "_staticClassField", Value = "{DebuggableConsoleApp.MyClass2}", Type = "DebuggableConsoleApp.MyClass2", VariablesReference = 18 },
 			new() { Name = "_staticIntList", EvaluateName = "_staticIntList", Value = "Count = 4", Type = "System.Collections.Generic.List<int>", VariablesReference = 19 },
 			new() { Name = "_fieldDictionary", EvaluateName = "_fieldDictionary", Value = "Count = 0", Type = "System.Collections.Generic.Dictionary<DebuggableConsoleApp.MyClass2, DebuggableConsoleApp.MyClass>", VariablesReference = 20 },
-			new() { Name = "_utcNow", EvaluateName = "_utcNow", Value = "{System.DateTime}", Type = "System.DateTime", VariablesReference = 21 },
-			new() { Name = "_nullableUtcNow", EvaluateName = "_nullableUtcNow", Value = "{System.DateTime}", Type = "System.DateTime?", VariablesReference = 22 },
+			new() { Name = "_utcNow", EvaluateName = "_utcNow", Value = "13/06/2026 7:18:38 AM", Type = "System.DateTime", VariablesReference = 21 },
+			new() { Name = "_nullableUtcNow", EvaluateName = "_nullableUtcNow", Value = "13/06/2026 7:18:38 AM", Type = "System.DateTime?", VariablesReference = 22 },
 			new() { Name = "_instanceStaticField", EvaluateName = "_instanceStaticField", Value = "6", Type = "int" },
 			new() { Name = "StaticFieldFromBase", EvaluateName = "StaticFieldFromBase", Value = "168", Type = "int" },
 		];

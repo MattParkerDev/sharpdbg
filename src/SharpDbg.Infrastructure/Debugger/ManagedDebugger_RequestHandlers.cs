@@ -5,6 +5,7 @@ using Ardalis.GuardClauses;
 using ClrDebug;
 using SharpDbg.Infrastructure.Debugger.ExpressionEvaluator;
 using SharpDbg.Infrastructure.Debugger.ExpressionEvaluator.Compiler;
+using SharpDbg.Infrastructure.Debugger.Models;
 using SharpDbg.Infrastructure.Debugger.Models.Response;
 using SharpDbg.Infrastructure.Debugger.PresentationHintModels;
 using ZLinq;
@@ -20,20 +21,20 @@ public partial class ManagedDebugger
 	private string[]? _pendingLaunchArgs;
 	private string? _pendingLaunchWorkingDirectory;
 	private bool _pendingLaunchStopAtEntry;
+	private LaunchRequestConsoleType? _launchRequestConsoleType;
 
 	/// <summary>
-	/// Launch a process to debug using DbgShim's CreateProcessForLaunch.
-	/// This properly launches the process suspended and waits for CLR startup.
+	/// Stores the launch request info for use in handling ConfigurationDone
 	/// </summary>
-	public void Launch(string program, string[] args, string? workingDirectory, Dictionary<string, string>? env, bool stopAtEntry)
+	public void Launch(string program, string[] args, string? workingDirectory, Dictionary<string, string>? env, bool stopAtEntry, LaunchRequestConsoleType launchRequestConsoleType)
 	{
 		_logger?.Invoke($"Launching program: {program} {string.Join(' ', args ?? [])}");
 
-		// Store launch parameters for deferred execution in ConfigurationDone
 		_pendingLaunchProgram = program;
 		_pendingLaunchArgs = args;
 		_pendingLaunchWorkingDirectory = workingDirectory;
 		_pendingLaunchStopAtEntry = stopAtEntry;
+		_launchRequestConsoleType = launchRequestConsoleType;
 	}
 
 	/// <summary>
@@ -51,11 +52,13 @@ public partial class ManagedDebugger
 		var args = _pendingLaunchArgs ?? [];
 		var workingDirectory = _pendingLaunchWorkingDirectory;
 		var stopAtEntry = _pendingLaunchStopAtEntry;
+		var launchRequestConsoleType = _launchRequestConsoleType;
 
 		// Clear pending launch
 		_pendingLaunchProgram = null;
 		_pendingLaunchArgs = null;
 		_pendingLaunchWorkingDirectory = null;
+		_launchRequestConsoleType = null;
 
 		// Build command line: "program" "arg1" "arg2" ...
 		var commandLine = new StringBuilder();

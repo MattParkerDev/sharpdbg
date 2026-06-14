@@ -234,7 +234,7 @@ public class DebugAdapter : DebugAdapterBase
 
 			try
 			{
-				_debugger.Launch(program, args, cwd, env, stopAtEntry);
+				_debugger.Launch(program, args, cwd, env, stopAtEntry, launchRequestConsoleType);
 				return new LaunchResponse();
 			}
 			catch (Exception ex)

@@ -193,6 +193,9 @@ public class DebugAdapter : DebugAdapterBase
 				Title = $"{Path.GetFileName(launchInfo.Program)} [DEBUG]"
 			};
 			var resp = Protocol.SendClientRequestSync(runInTerminalRequest);
+			// https://github.com/microsoft/vscode/issues/61640 - ProcessId will not be returned for integratedTerminal or externalTerminal
+			// ShellProcessId will be returned for integratedTerminal but not externalTerminal
+			if (resp.ProcessId is null) throw new InvalidOperationException("RunInTerminalRequest did not return a process ID. VSCode does not return a process ID for integratedTerminal or externalTerminal. Use internalConsole instead, or use a compliant DAP client. See: https://github.com/microsoft/vscode/issues/61640");
 			return resp.ProcessId;
 		 };
 	}

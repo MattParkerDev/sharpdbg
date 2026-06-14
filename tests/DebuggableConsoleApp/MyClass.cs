@@ -1,4 +1,4 @@
-﻿using DebuggableConsoleApp.Namespace1;
+using DebuggableConsoleApp.Namespace1;
 
 namespace DebuggableConsoleApp;
 
@@ -43,8 +43,8 @@ public class MyClass : MyClassBase
 	private ClassWithDebugDisplay _classWithDebugDisplay = new ClassWithDebugDisplay();
 	private ClassWithDebugDisplay2 _classWithDebugDisplay2 = new ClassWithDebugDisplay2();
 	private ClassWithDebugDisplay3 _classWithDebugDisplay3 = new ClassWithDebugDisplay3();
-	private MyClassWithGeneric<int> _myClassWithGeneric = new MyClassWithGeneric<int> { GenericItems = [42], GenericItemsField = [43]};
-	private Dictionary<int, int> _intDictionary = new Dictionary<int, int>() { {5, 50}, {10, 100}, {15, 150} };
+	private MyClassWithGeneric<int> _myClassWithGeneric = new MyClassWithGeneric<int> { GenericItems = [42], GenericItemsField = [43] };
+	private Dictionary<int, int> _intDictionary = new Dictionary<int, int>() { { 5, 50 }, { 10, 100 }, { 15, 150 } };
 	private int Get14() => 14;
 	private int DoubleNumber(int number) => number * 2;
 	private float DoubleNumber(float number) => number * 2;

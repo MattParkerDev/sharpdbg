@@ -1,4 +1,4 @@
-﻿using SharpDbg.Infrastructure.Debugger.ExpressionEvaluator.Compiler;
+using SharpDbg.Infrastructure.Debugger.ExpressionEvaluator.Compiler;
 
 namespace SharpDbg.Infrastructure.Debugger.ExpressionEvaluator;
 

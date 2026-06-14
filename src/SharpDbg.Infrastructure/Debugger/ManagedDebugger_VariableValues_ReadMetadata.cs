@@ -1,4 +1,4 @@
-﻿using System.Reflection.Metadata;
+using System.Reflection.Metadata;
 using System.Runtime.InteropServices;
 using ClrDebug;
 
@@ -42,7 +42,7 @@ public partial class ManagedDebugger
 
 	private static unsafe (string?, string?) GetCustomAttributeCtorStringArgAndNamedArg(IntPtr ppData, int pcbData, string namedArgumentName)
 	{
-		var reader = new BlobReader((byte*) ppData, pcbData);
+		var reader = new BlobReader((byte*)ppData, pcbData);
 
 		// 1. Prolog (must be 0x0001)
 		ushort prolog = reader.ReadUInt16();

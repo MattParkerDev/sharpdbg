@@ -1,4 +1,4 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Text;
 using Ardalis.GuardClauses;
@@ -124,7 +124,7 @@ public partial class ManagedDebugger
 		//System.Diagnostics.Debugger.Launch();
 		_logger?.Invoke("ConfigurationDone");
 
-		if (_pendingLaunchInfo is {LaunchRequestConsoleType: LaunchRequestConsoleType.ExternalTerminal or LaunchRequestConsoleType.IntegratedTerminal})
+		if (_pendingLaunchInfo is { LaunchRequestConsoleType: LaunchRequestConsoleType.ExternalTerminal or LaunchRequestConsoleType.IntegratedTerminal })
 		{
 			var launchedProcessId = await Task.Run(() => SendRunInTerminalRequest.Invoke(_pendingLaunchInfo)); // get off the dispatcher thread
 			_pendingLaunchInfo = null;
@@ -393,9 +393,9 @@ public partial class ManagedDebugger
 							Id = frameId,
 							Name = GetFunctionFormattedName(function),
 							Line = line,
-							EndLine =  endLine,
+							EndLine = endLine,
 							Column = column,
-							EndColumn =  endColumn,
+							EndColumn = endColumn,
 							Source = sourceFilePath
 						});
 					}
@@ -429,7 +429,7 @@ public partial class ManagedDebugger
 		if (localVariables.Length is 0 && arguments.Length is 0 && !hasCurrentException) return result;
 
 		// can this just be the same reference?
-		var localsRef = _variableManager.CreateReference(new  VariablesReference(StoredReferenceKind.Scope, null, variablesReference.Value.ThreadId, variablesReference.Value.FrameStackDepth, null));
+		var localsRef = _variableManager.CreateReference(new VariablesReference(StoredReferenceKind.Scope, null, variablesReference.Value.ThreadId, variablesReference.Value.FrameStackDepth, null));
 		result.Add(new ScopeInfo
 		{
 			Name = "Locals",

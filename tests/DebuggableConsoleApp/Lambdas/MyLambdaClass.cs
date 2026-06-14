@@ -1,4 +1,4 @@
-﻿namespace DebuggableConsoleApp.Lambdas;
+namespace DebuggableConsoleApp.Lambdas;
 
 public class MyLambdaClass
 {

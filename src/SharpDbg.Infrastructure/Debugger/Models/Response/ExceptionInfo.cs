@@ -1,4 +1,4 @@
-﻿namespace SharpDbg.Infrastructure.Debugger.Models.Response;
+namespace SharpDbg.Infrastructure.Debugger.Models.Response;
 
 public class ExceptionInfo
 {

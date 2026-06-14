@@ -1,4 +1,4 @@
-﻿using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using SharpDbg.Infrastructure.Debugger.ExpressionEvaluator.Interpreter;
 

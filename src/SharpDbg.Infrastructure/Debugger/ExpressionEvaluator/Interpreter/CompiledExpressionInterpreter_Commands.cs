@@ -1,4 +1,4 @@
-﻿using System.Text;
+using System.Text;
 using ClrDebug;
 using SharpDbg.Infrastructure.Debugger.ExpressionEvaluator.Compiler;
 
@@ -258,7 +258,7 @@ public partial class CompiledExpressionInterpreter
 
 	private static bool IsMethodParameterMatch(CorDebugFunction method, CorDebugValue[] args)
 	{
-		var metaDataImport = method. Class.Module.GetMetaDataInterface().MetaDataImport;
+		var metaDataImport = method.Class.Module.GetMetaDataInterface().MetaDataImport;
 
 		// Get the method signature blob
 		var methodProps = metaDataImport.GetMethodProps(method.Token);
@@ -273,7 +273,7 @@ public partial class CompiledExpressionInterpreter
 		// Compare each parameter type
 		for (var i = 0; i < args.Length; i++)
 		{
-			var argType = args[i].ExactType?. Type ??  args[i].Type; // Get the actual type
+			var argType = args[i].ExactType?.Type ?? args[i].Type; // Get the actual type
 
 			if (!IsTypeMatch(parameterTypes[i], argType, args[i]))
 				return false;

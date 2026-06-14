@@ -1,4 +1,4 @@
-﻿using ClrDebug;
+using ClrDebug;
 
 namespace SharpDbg.Infrastructure.Debugger.ExpressionEvaluator.Interpreter;
 

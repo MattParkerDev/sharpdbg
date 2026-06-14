@@ -1,4 +1,4 @@
-﻿using System.Text;
+using System.Text;
 using Microsoft.CodeAnalysis.CSharp;
 using static SharpDbg.Infrastructure.Debugger.ExpressionEvaluator.Compiler.CompilerConstants;
 

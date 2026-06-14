@@ -1,4 +1,4 @@
-﻿using System.Text;
+using System.Text;
 using ClrDebug;
 using SharpDbg.Infrastructure.Debugger.ExpressionEvaluator.Compiler;
 

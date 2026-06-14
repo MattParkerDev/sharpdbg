@@ -1,4 +1,4 @@
-﻿using System.Runtime.InteropServices;
+using System.Runtime.InteropServices;
 using ClrDebug;
 
 namespace SharpDbg.Infrastructure.Debugger;
@@ -26,8 +26,8 @@ public partial class ManagedDebugger
 				IntPtr buffer = Marshal.AllocHGlobal(4);
 				try
 				{
-					((CorDebugGenericValue) fieldValue.UnwrapDebugValue()).GetValue(buffer);
-					return (uint) Marshal.ReadInt32(buffer);
+					((CorDebugGenericValue)fieldValue.UnwrapDebugValue()).GetValue(buffer);
+					return (uint)Marshal.ReadInt32(buffer);
 				}
 				finally
 				{
@@ -60,9 +60,9 @@ public partial class ManagedDebugger
 					try
 					{
 						((CorDebugGenericValue)fieldValue64.UnwrapDebugValue()).GetValue(buf64);
-						var raw64 = (ulong) Marshal.ReadInt64(buf64);
-						lo = (uint) (raw64 & 0xFFFFFFFF);
-						mid = (uint) (raw64 >> 32);
+						var raw64 = (ulong)Marshal.ReadInt64(buf64);
+						lo = (uint)(raw64 & 0xFFFFFFFF);
+						mid = (uint)(raw64 >> 32);
 					}
 					finally
 					{
@@ -88,14 +88,14 @@ public partial class ManagedDebugger
 		// Insert decimal point
 		if (scale > 0)
 		{
-			if (digits.Length > (int) scale)
+			if (digits.Length > (int)scale)
 			{
-				digits = digits.Insert(digits.Length - (int) scale, ".");
+				digits = digits.Insert(digits.Length - (int)scale, ".");
 			}
 			else
 			{
 				// e.g. scale=3, digits="5" → "0.005"
-				digits = "0." + digits.PadLeft((int) scale, '0');
+				digits = "0." + digits.PadLeft((int)scale, '0');
 			}
 		}
 

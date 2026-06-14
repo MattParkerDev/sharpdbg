@@ -13,7 +13,7 @@ public partial class CompiledExpressionInterpreter
 		{
 			// Create a BlobReader from the signature blob
 			//var blob = new ReadOnlySpan<byte>((void*)ppvSigBlob, pcbSigBlob);
-			var reader = new BlobReader((byte*) ppvSigBlob, pcbSigBlob);
+			var reader = new BlobReader((byte*)ppvSigBlob, pcbSigBlob);
 
 			// Decode the method signature
 			var header = reader.ReadSignatureHeader();

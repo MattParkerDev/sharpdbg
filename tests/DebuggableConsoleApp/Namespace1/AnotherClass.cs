@@ -1,4 +1,4 @@
-﻿namespace DebuggableConsoleApp.Namespace1;
+namespace DebuggableConsoleApp.Namespace1;
 
 public class AnotherClass
 {

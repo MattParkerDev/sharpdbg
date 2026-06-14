@@ -1,4 +1,4 @@
-﻿using System.Collections.Concurrent;
+using System.Collections.Concurrent;
 using System.Collections.Immutable;
 using System.Diagnostics;
 using System.IO.Compression;
@@ -97,7 +97,8 @@ public class PortablePdbWriter2
 		}
 
 		var sourceFiles = reader.GetTopLevelTypeDefinitions().Where(t => IncludeTypeWhenGeneratingPdb(file, t, settings)).GroupBy(BuildFileNameFromTypeName).ToList();
-		DecompilationProgress currentProgress = new() {
+		DecompilationProgress currentProgress = new()
+		{
 			TotalUnits = sourceFiles.Count,
 			UnitsCompleted = 0,
 			Title = currentProgressTitle
@@ -107,11 +108,13 @@ public class PortablePdbWriter2
 
 		Parallel.ForEach(
 			Partitioner.Create(sourceFiles, loadBalance: true),
-			new ParallelOptions {
+			new ParallelOptions
+			{
 				MaxDegreeOfParallelism = maxDegreeOfParallelism <= 0 ? Environment.ProcessorCount : maxDegreeOfParallelism,
 				CancellationToken = cancellationToken
 			},
-			sourceFile => {
+			sourceFile =>
+			{
 				// Create a per-task decompiler that shares the same type system but is otherwise independent.
 				var taskDecompiler = NewDecompiler(decompilerTypeSystem, settings);
 				taskDecompiler.CancellationToken = cancellationToken;
@@ -202,7 +205,8 @@ public class PortablePdbWriter2
 			}
 		}
 
-		localScopes.Sort((x, y) => {
+		localScopes.Sort((x, y) =>
+		{
 			if (x.Method != y.Method)
 			{
 				return MetadataTokens.GetRowNumber(x.Method) - MetadataTokens.GetRowNumber(y.Method);

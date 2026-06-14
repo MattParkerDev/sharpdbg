@@ -1,4 +1,4 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 using ClrDebug;
 using Microsoft.CodeAnalysis.CSharp.Symbols;
 using SharpDbg.Infrastructure.Debugger.Models.Response;

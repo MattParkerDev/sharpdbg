@@ -329,7 +329,7 @@ public partial class SymbolReader : IDisposable
 
 	public string? GetArgumentName(int methodToken, int paramIndex)
 	{
-		var methodHandle = MetadataTokens. MethodDefinitionHandle(methodToken);
+		var methodHandle = MetadataTokens.MethodDefinitionHandle(methodToken);
 		var methodDef = _reader.GetMethodDefinition(methodHandle);
 
 		var parameters = methodDef.GetParameters();

@@ -1,4 +1,4 @@
-﻿using DetermineIfPublishNecessary;
+using DetermineIfPublishNecessary;
 using Microsoft.Build.Definition;
 using Microsoft.Build.Evaluation;
 using Microsoft.Build.Locator;
@@ -16,7 +16,7 @@ async Task Run()
 {
 	const string nugetPackageId = "SharpDbg";
 	var gitRootDirectory = GitRoot.GetGitRootPath();
-	var packageProjectFilePath = Path.Combine(gitRootDirectory, "src", $"{nugetPackageId}.InMemory" , $"{nugetPackageId}.InMemory.csproj");
+	var packageProjectFilePath = Path.Combine(gitRootDirectory, "src", $"{nugetPackageId}.InMemory", $"{nugetPackageId}.InMemory.csproj");
 
 	var fileInfo = new FileInfo(packageProjectFilePath);
 	if (fileInfo.Exists is false)

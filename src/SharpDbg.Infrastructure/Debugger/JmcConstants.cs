@@ -1,4 +1,4 @@
-﻿namespace SharpDbg.Infrastructure.Debugger;
+namespace SharpDbg.Infrastructure.Debugger;
 
 public static class JmcConstants
 {

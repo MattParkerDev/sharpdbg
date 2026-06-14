@@ -90,7 +90,7 @@ public class DebugAdapter : DebugAdapterBase
 			Protocol.SendEvent(stoppedEvent);
 		};
 
-        _debugger.OnBreakpointChanged += breakpoint =>
+		_debugger.OnBreakpointChanged += breakpoint =>
 		{
 			Protocol.SendEvent(new BreakpointEvent
 			{
@@ -198,7 +198,7 @@ public class DebugAdapter : DebugAdapterBase
 			// ShellProcessId will be returned for integratedTerminal but not externalTerminal
 			if (resp.ProcessId is null) throw new InvalidOperationException("RunInTerminalRequest did not return a process ID. VSCode does not return a process ID for integratedTerminal or externalTerminal. Use internalConsole instead, or use a compliant DAP client. See: https://github.com/microsoft/vscode/issues/61640");
 			return resp.ProcessId.Value;
-		 };
+		};
 	}
 
 	// Command handlers
@@ -403,7 +403,7 @@ public class DebugAdapter : DebugAdapterBase
 				Line = ConvertDebuggerLineToClient(f.Line),
 				EndLine = ConvertDebuggerLineToClient(f.EndLine),
 				Column = ConvertDebuggerColumnToClient(f.Column),
-				EndColumn =  ConvertDebuggerColumnToClient(f.EndColumn),
+				EndColumn = ConvertDebuggerColumnToClient(f.EndColumn),
 				Source = f.Source is not null ? new Source { Path = f.Source } : null
 			}).ToList();
 

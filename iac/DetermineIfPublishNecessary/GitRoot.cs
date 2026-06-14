@@ -1,4 +1,4 @@
-﻿namespace DetermineIfPublishNecessary;
+namespace DetermineIfPublishNecessary;
 
 public static class GitRoot
 {

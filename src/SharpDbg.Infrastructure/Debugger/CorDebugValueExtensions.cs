@@ -43,14 +43,14 @@ public static class CorDebugValueExtensions
 	{
 		char[] chArray = new char[cchString];
 		int pcchString;
-		int num = (int) corDebugStringValue.Raw.GetString(cchString, out pcchString, chArray);
+		int num = (int)corDebugStringValue.Raw.GetString(cchString, out pcchString, chArray);
 		if (num == 0)
 		{
 			szStringResult = ClrDebug.Extensions.CreateString(chArray, pcchString + 1);
-			return (HRESULT) num;
+			return (HRESULT)num;
 		}
 		szStringResult = null;
-		return (HRESULT) num;
+		return (HRESULT)num;
 	}
 
 	public static byte[] GetValueAsBytes(this CorDebugGenericValue corDebugGenericValue)

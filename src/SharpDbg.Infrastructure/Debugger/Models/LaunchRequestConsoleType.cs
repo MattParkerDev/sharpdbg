@@ -1,4 +1,4 @@
-﻿namespace SharpDbg.Infrastructure.Debugger.Models;
+namespace SharpDbg.Infrastructure.Debugger.Models;
 
 public enum LaunchRequestConsoleType
 {

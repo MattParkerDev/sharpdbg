@@ -1,4 +1,4 @@
-﻿using AwesomeAssertions;
+using AwesomeAssertions;
 using SharpDbg.Cli.Tests.Helpers;
 
 namespace SharpDbg.Cli.Tests;

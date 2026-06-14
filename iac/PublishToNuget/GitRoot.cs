@@ -1,4 +1,4 @@
-﻿namespace PublishToNuget;
+namespace PublishToNuget;
 
 public static class GitRoot
 {

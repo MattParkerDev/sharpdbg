@@ -1,4 +1,4 @@
-﻿namespace DebuggableConsoleApp;
+namespace DebuggableConsoleApp;
 
 public static class Exceptions
 {

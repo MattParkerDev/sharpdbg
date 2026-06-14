@@ -1,4 +1,4 @@
-﻿
+
 using DebuggableConsoleApp.Lambdas;
 
 namespace DebuggableConsoleApp;

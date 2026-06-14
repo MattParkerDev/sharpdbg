@@ -86,15 +86,13 @@ public class ExpressionSyntaxVisitor(List<CommandBase> commands, bool isDebugger
 					break;
 
 				case SyntaxKind.InterpolatedStringText:
-				{
 					var rawValue = (string)(node.GetFirstToken().Value ?? throw new ArgumentNullException());
 					var firstParentToken = node.Parent?.ChildTokens().FirstOrDefault();
 					var unescapedValue = firstParentToken?.IsKind(SyntaxKind.InterpolatedStringStartToken) is true // avoids unescaping in a InterpolatedStringExpression with e.g. InterpolatedSingleLineRawStringStartToken as the first child
-							? rawValue.Replace("{{", "{").Replace("}}", "}")
-							: rawValue;
+						? rawValue.Replace("{{", "{").Replace("}}", "}")
+						: rawValue;
 					_commands.Add(new OneOperandCommand(nodeSyntaxKind, CurrentScopeFlags.Peek(), unescapedValue));
 					break;
-				}
 
 				case SyntaxKind.InterpolatedStringExpression:
 					int? InterpolatedStringContentCount = null;
@@ -147,7 +145,7 @@ public class ExpressionSyntaxVisitor(List<CommandBase> commands, bool isDebugger
 
 				case SyntaxKind.InvocationExpression:
 /* TODO
-					case SyntaxKind.ObjectCreationExpression:
+				case SyntaxKind.ObjectCreationExpression:
 */
 					// InvocationExpression/ObjectCreationExpression
 					//     \ ArgumentList

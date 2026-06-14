@@ -177,14 +177,14 @@ public static class Extensions
 			managedCallback.OnEvalComplete += OnEvalComplete;
 			managedCallback.OnEvalException += OnEvalException;
 
-			evalStatus.IsRunning  = true;
+			evalStatus.IsRunning = true;
 			eval.Thread.Process.Continue(false);
 			await evalCompleteTcs.Task;
 			return returnValue;
 		}
 		finally
 		{
-			evalStatus.IsRunning  = false;
+			evalStatus.IsRunning = false;
 			managedCallback.OnEvalComplete -= OnEvalComplete;
 			managedCallback.OnEvalException -= OnEvalException;
 		}

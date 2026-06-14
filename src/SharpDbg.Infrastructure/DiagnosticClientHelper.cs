@@ -1,4 +1,4 @@
-﻿using Microsoft.Diagnostics.NETCore.Client;
+using Microsoft.Diagnostics.NETCore.Client;
 
 namespace SharpDbg.Infrastructure;
 

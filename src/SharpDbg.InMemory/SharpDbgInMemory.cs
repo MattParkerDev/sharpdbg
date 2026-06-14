@@ -1,4 +1,4 @@
-﻿using System.IO.Pipes;
+using System.IO.Pipes;
 using SharpDbg.Application;
 
 namespace SharpDbg.InMemory;
@@ -8,7 +8,7 @@ public static class SharpDbgInMemory
 	public static (Stream Input, Stream Output, IDisposable DebugAdapterDisposable) NewDebugAdapterStreams(Action<string>? logAction = null)
 	{
 		var (input, output, debugAdapterDisposable) = InMemoryDebugAdapterHelper.GetAdapterStreams(logAction);
-		return  (input, output, debugAdapterDisposable);
+		return (input, output, debugAdapterDisposable);
 	}
 }
 

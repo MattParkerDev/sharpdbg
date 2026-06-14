@@ -1,4 +1,4 @@
-﻿namespace DebuggableConsoleApp;
+namespace DebuggableConsoleApp;
 
 [Flags]
 public enum MyEnumWithFlags

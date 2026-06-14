@@ -133,9 +133,9 @@ file static class TestExtensions
 		debugProtocolHost.AssertPropertyStoredClass_Variables(thisInstanceVariables.Single(s => s.Name == "ClassProperty").VariablesReference);
 	}
 
-		public static void AssertInstanceThisStaticVariables(this DebugProtocolHost debugProtocolHost, int variablesReference)
-		{
-			var expectedDateTime = new DateTime(2026, 6, 13, 7, 18, 38).ToString();
+	private static void AssertInstanceThisStaticVariables(this DebugProtocolHost debugProtocolHost, int variablesReference)
+	{
+		var expectedDateTime = new DateTime(2026, 6, 13, 7, 18, 38).ToString();
 		List<Variable> expectedVariables =
 		[
 			new() { Name = "_counter", EvaluateName = "_counter", Value = "1", Type = "int" },

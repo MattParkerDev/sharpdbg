@@ -1,4 +1,4 @@
-﻿namespace DebuggableConsoleApp;
+namespace DebuggableConsoleApp;
 
 public abstract class MyClassBase
 {

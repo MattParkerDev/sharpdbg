@@ -1,4 +1,4 @@
-﻿using System.Collections.Immutable;
+using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Reflection.Metadata;
 using System.Runtime.InteropServices;
@@ -277,18 +277,18 @@ public partial class ManagedDebugger
 
 			// These will be hit in the case that a primitive is boxed, e.g. object myInt = 4;
 			"System.Boolean" => "bool",
-			"System.Byte"    => "byte",
-			"System.SByte"   => "sbyte",
-			"System.Char"    => "char",
-			"System.Int16"   => "short",
-			"System.UInt16"  => "ushort",
-			"System.Int32"   => "int",
-			"System.UInt32"  => "uint",
-			"System.Int64"   => "long",
-			"System.UInt64"  => "ulong",
-			"System.Single"  => "float",
-			"System.Double"  => "double",
-			"System.IntPtr"  => "nint",
+			"System.Byte" => "byte",
+			"System.SByte" => "sbyte",
+			"System.Char" => "char",
+			"System.Int16" => "short",
+			"System.UInt16" => "ushort",
+			"System.Int32" => "int",
+			"System.UInt32" => "uint",
+			"System.Int64" => "long",
+			"System.UInt64" => "ulong",
+			"System.Single" => "float",
+			"System.Double" => "double",
+			"System.IntPtr" => "nint",
 			"System.UIntPtr" => "nuint",
 
 			_ => className
@@ -366,12 +366,12 @@ public partial class ManagedDebugger
 			CorElementType.Void => "void",
 			CorElementType.Boolean => "bool",
 			CorElementType.Char => "char",
-			CorElementType. I1 => "sbyte",
+			CorElementType.I1 => "sbyte",
 			CorElementType.U1 => "byte",
 			CorElementType.I2 => "short",
 			CorElementType.U2 => "ushort",
 			CorElementType.I4 => "int",
-			CorElementType. U4 => "uint",
+			CorElementType.U4 => "uint",
 			CorElementType.I8 => "long",
 			CorElementType.U8 => "ulong",
 			CorElementType.R4 => "float",

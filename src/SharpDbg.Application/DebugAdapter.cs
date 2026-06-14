@@ -279,7 +279,7 @@ public class DebugAdapter : DebugAdapterBase
 	protected override AttachResponse HandleAttachRequest(AttachArguments arguments)
 	{
 		var processId = GetConfigValue<int?>(arguments.ConfigurationProperties, "processId");
-		if (processId == null)
+		if (processId is null)
 		{
 			throw new ProtocolException("Missing process ID");
 		}
@@ -315,7 +315,7 @@ public class DebugAdapter : DebugAdapterBase
 	{
 		return ExecuteWithExceptionHandling(() =>
 		{
-			if (arguments.Source?.Path == null)
+			if (arguments.Source?.Path is null)
 			{
 				throw new ProtocolException("Missing source path");
 			}

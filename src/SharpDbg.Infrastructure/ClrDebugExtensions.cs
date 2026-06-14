@@ -53,7 +53,7 @@ public static class ClrDebugExtensions
 		}
 
 		//if callbackHR was not S_OK, an error occurred while attempting to register for runtime startup
-		if (cordebug == null) throw new DebugException(hr);
+		if (cordebug is null) throw new DebugException(hr);
 
 		return cordebug;
 

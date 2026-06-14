@@ -142,7 +142,7 @@ public partial class CompiledExpressionInterpreter
 			return null;
 
 		var corDebugFunction = await FindOperatorMethod(objectValue, opName, 2);
-		if (corDebugFunction == null) return null;
+		if (corDebugFunction is null) return null;
 
 		var eval = _context.Thread.CreateEval();
 		ICorDebugValue[] evalArgs = [arg1.Raw, arg2.Raw];
@@ -157,7 +157,7 @@ public partial class CompiledExpressionInterpreter
 			return null;
 
 		var corDebugFunction = await FindOperatorMethod(objectValue, opName, 1);
-		if (corDebugFunction == null)
+		if (corDebugFunction is null)
 			return null;
 
 		var eval = _context.Thread.CreateEval();

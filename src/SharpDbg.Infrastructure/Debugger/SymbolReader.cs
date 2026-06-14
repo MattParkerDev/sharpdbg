@@ -251,7 +251,7 @@ public partial class SymbolReader : IDisposable
 			.Cast<SequencePoint?>()
 			.FirstOrDefault();
 
-		if (sequencePoint == null) return null;
+		if (sequencePoint is null) return null;
 		var sp = sequencePoint.Value;
 
 		var spDocument = sp.Document.IsNil ? methodDebugInfo.Document : sp.Document;

@@ -137,7 +137,7 @@ public class ExpressionSyntaxVisitor(List<CommandBase> commands, bool isDebugger
 							GenericNameArgs++;
 						}
 					}
-					if (GenericNameArgs == null || (GenericNameArgs < 1 && !OmittedTypeArg))
+					if (GenericNameArgs is null || (GenericNameArgs < 1 && !OmittedTypeArg))
 					{
 						throw new ArgumentOutOfRangeException(nodeSyntaxKind + " must have at least one type!");
 					}
@@ -168,7 +168,7 @@ public class ExpressionSyntaxVisitor(List<CommandBase> commands, bool isDebugger
 							ArgsCount++;
 						}
 					}
-					if (ArgsCount == null)
+					if (ArgsCount is null)
 					{
 						throw new ArgumentOutOfRangeException(nodeSyntaxKind + " must have at least one argument!");
 					}
@@ -196,7 +196,7 @@ public class ExpressionSyntaxVisitor(List<CommandBase> commands, bool isDebugger
 							ElementAccessArgs++;
 						}
 					}
-					if (ElementAccessArgs == null)
+					if (ElementAccessArgs is null)
 					{
 						throw new ArgumentOutOfRangeException(nodeSyntaxKind + " must have at least one argument!");
 					}

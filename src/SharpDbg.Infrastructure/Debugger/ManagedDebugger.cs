@@ -171,7 +171,7 @@ public partial class ManagedDebugger
 	{
 		try
 		{
-			if (_process == null) return false;
+			if (_process is null) return false;
 
 			// Find a module that contains the source file
 			ModuleInfo? targetModule = null;
@@ -179,7 +179,7 @@ public partial class ManagedDebugger
 
 			foreach (var moduleInfo in _modules.Values)
 			{
-				if (moduleInfo.SymbolReader == null)
+				if (moduleInfo.SymbolReader is null)
 					continue;
 
 				resolved = moduleInfo.SymbolReader.ResolveBreakpoint(bp.FilePath, bp.Line, bp.Column);
@@ -190,7 +190,7 @@ public partial class ManagedDebugger
 				}
 			}
 
-			if (targetModule == null || resolved is null)
+			if (targetModule is null || resolved is null)
 			{
 				// No module found with symbols for this file
 				bp.Verified = false;

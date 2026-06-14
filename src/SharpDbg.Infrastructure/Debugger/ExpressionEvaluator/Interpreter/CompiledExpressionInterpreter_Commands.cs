@@ -85,14 +85,14 @@ public partial class CompiledExpressionInterpreter
 		CorDebugValue? objValue;
 		CorDebugType? objType;
 
-		if (entry.CorDebugValue == null && entry.Identifiers.Count == 0)
+		if (entry.CorDebugValue is null && entry.Identifiers.Count == 0)
 		{
 			idsEmpty = true;
 			// We don't know if this is a static or instance method, but it's fine to add "this", as if the method is not
 			// found as an instance method, it will continue and search for static methods
 			entry.Identifiers.Add("this");
 			objValue = await GetFrontStackEntryValue(evalStack);
-			var isStaticMethod = objValue == null;
+			var isStaticMethod = objValue is null;
 			objType = objValue?.ExactType;
 
 			if (!isStaticMethod)
@@ -140,7 +140,7 @@ public partial class CompiledExpressionInterpreter
 			objType = await GetFrontStackEntryType(evalStack);
 		}
 
-		if (objType == null && objValue == null) throw new InvalidOperationException("Could not resolve target type for method invocation");
+		if (objType is null && objValue is null) throw new InvalidOperationException("Could not resolve target type for method invocation");
 
 		CorDebugFunction? function = null;
 		bool? searchStatic = objType is null;
@@ -150,7 +150,7 @@ public partial class CompiledExpressionInterpreter
 			function = FindMethodOnType(objType, methodName, args, searchStatic.Value, idsEmpty);
 		}
 
-		if (function == null)
+		if (function is null)
 		{
 			throw new InvalidOperationException($"Method '{methodName}' with {args.Length} parameters not found");
 		}
@@ -204,7 +204,7 @@ public partial class CompiledExpressionInterpreter
 			valueArgs.Count,
 			valueArgs.ToArray());
 
-		if (result == null && _runtimeAssemblyPrimitiveTypeClasses.CorVoidClass != null)
+		if (result is null && _runtimeAssemblyPrimitiveTypeClasses.CorVoidClass != null)
 		{
 			entry.CorDebugValue = await CreateValueType(_runtimeAssemblyPrimitiveTypeClasses.CorVoidClass, null);
 		}
@@ -395,7 +395,7 @@ public partial class CompiledExpressionInterpreter
 		foreach (var value in components)
 		{
 			var unwrapped = value.UnwrapDebugValue();
-			if (unwrapped == null || unwrapped is CorDebugReferenceValue { IsNull: true })
+			if (unwrapped is null || unwrapped is CorDebugReferenceValue { IsNull: true })
 			{
 				stringBuilder.Append("null");
 			}

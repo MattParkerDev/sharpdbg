@@ -88,14 +88,14 @@ public partial class SymbolReader
 
 	        docPath ??= _reader.GetString(_reader.GetDocument(spDoc).Name);
 
-	        if (firstSP == null || sp.End() < firstSP.Value.End()) firstSP = sp;
-	        if (lastSP  == null || sp.End() > lastSP.Value.End())  lastSP  = sp;
+	        if (firstSP is null || sp.End() < firstSP.Value.End()) firstSP = sp;
+	        if (lastSP  is null || sp.End() > lastSP.Value.End())  lastSP  = sp;
 
 	        if (sp.CoversRequestedPosition(line, column) && sp.ShouldReplaceCoveringSequencePoint(coveringSP, column))
 	            coveringSP = sp;
 	    }
 
-	    if (firstSP == null) return null;
+	    if (firstSP is null) return null;
 	    return new MethodCandidate(MetadataTokens.GetToken(handle.ToDefinitionHandle()), firstSP.Value, lastSP!.Value, coveringSP, docPath!);
 	}
 	private static ResolvedBreakpoint NewResolvedBreakpoint(int token, SequencePoint sp, string docPath) =>

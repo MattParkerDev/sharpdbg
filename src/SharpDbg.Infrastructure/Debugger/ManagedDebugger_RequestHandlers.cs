@@ -33,7 +33,7 @@ public partial class ManagedDebugger
 	/// </summary>
 	private void PerformLaunch()
 	{
-		if (_pendingLaunchInfo == null)
+		if (_pendingLaunchInfo is null)
 		{
 			_logger?.Invoke("No pending launch to perform");
 			return;
@@ -91,7 +91,7 @@ public partial class ManagedDebugger
 	{
 		_logger?.Invoke($"RemoveBreakpoint: {id}");
 		var bp = _breakpointManager.GetBreakpoint(id);
-		if (bp == null) return false;
+		if (bp is null) return false;
 		if (bp.CorBreakpoint != null)
 		{
 			try
@@ -322,7 +322,7 @@ public partial class ManagedDebugger
 	public List<(int id, string name)> GetThreads()
 	{
 		var result = new List<(int, string)>();
-		if (_process == null) return result;
+		if (_process is null) return result;
 
 		try
 		{

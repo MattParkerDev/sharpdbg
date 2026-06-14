@@ -244,7 +244,7 @@ public class PortablePdbWriter2
 			metadata.AddCustomDebugInformation(row.Parent, row.Guid, row.Blob);
 		}
 
-		if (pdbId == null)
+		if (pdbId is null)
 		{
 			var debugDir = file.Reader.ReadDebugDirectory().LastOrDefault(dir => dir.Type == DebugDirectoryEntryType.CodeView);
 			var portable = file.Reader.ReadCodeViewDebugDirectoryData(debugDir);

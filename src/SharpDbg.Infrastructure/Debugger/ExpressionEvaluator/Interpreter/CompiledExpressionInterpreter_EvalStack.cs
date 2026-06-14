@@ -6,7 +6,7 @@ public partial class CompiledExpressionInterpreter
 {
 	private async Task<CorDebugValue> GetFrontStackEntryValue(LinkedList<EvalStackEntry> evalStack, bool needSetterData = false)
 	{
-		if (evalStack.First == null) throw new InvalidOperationException("Evaluation stack is empty");
+		if (evalStack.First is null) throw new InvalidOperationException("Evaluation stack is empty");
 
 		var entry = evalStack.First.Value;
 		SetterData? setterData = needSetterData ? entry.SetterData : null;
@@ -25,7 +25,7 @@ public partial class CompiledExpressionInterpreter
 
 	private async Task<CorDebugType?> GetFrontStackEntryType(LinkedList<EvalStackEntry> evalStack)
 	{
-		if (evalStack.First == null)
+		if (evalStack.First is null)
 			return null;
 
 		var entry = evalStack.First.Value;

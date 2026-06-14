@@ -49,7 +49,7 @@ public class ModuleInfo : IDisposable
 	/// </summary>
 	public bool ContainsSourceFile(string sourceFilePath)
 	{
-		if (SymbolReader == null)
+		if (SymbolReader is null)
 			return false;
 
 		var normalizedPath = sourceFilePath.Replace('\\', '/');

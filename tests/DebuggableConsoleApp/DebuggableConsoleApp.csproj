@@ -5,6 +5,7 @@
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+	<NoWarn>$(NoWarn);CS0168;CS0219;CS0414</NoWarn> <!-- Disable unused variable warnings -->
   </PropertyGroup>
 
 </Project>

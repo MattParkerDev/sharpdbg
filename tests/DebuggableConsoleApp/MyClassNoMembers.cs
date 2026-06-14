@@ -16,6 +16,6 @@ public class MyClassNoMembers
 
 public class MyClassWithGeneric<T>
 {
-	public T[] GenericItemsField;
-	public T[] GenericItems { get; set; }
+	public required T[] GenericItemsField;
+	public required T[] GenericItems { get; set; }
 }

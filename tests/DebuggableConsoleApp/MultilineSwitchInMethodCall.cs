@@ -9,7 +9,8 @@ public static class MultilineSwitchInMethodCall
 		HandleOperationResult(result switch
 		{
 			Success => "Operation was successful",
-			Failure => "Operation failed"
+			Failure => "Operation failed",
+			_ => throw new ArgumentOutOfRangeException()
 		});
 
 		return;

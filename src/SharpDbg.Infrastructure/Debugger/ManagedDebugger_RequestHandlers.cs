@@ -17,24 +17,15 @@ public record SharpDbgBreakpointRequest(int Line, string? Condition = null, stri
 public partial class ManagedDebugger
 {
 	// Store launch info for deferred attach in ConfigurationDone
-	private string? _pendingLaunchProgram;
-	private string[]? _pendingLaunchArgs;
-	private string? _pendingLaunchWorkingDirectory;
-	private bool _pendingLaunchStopAtEntry;
-	private LaunchRequestConsoleType? _launchRequestConsoleType;
+	private LaunchInfo? _pendingLaunchInfo;
 
 	/// <summary>
 	/// Stores the launch request info for use in handling ConfigurationDone
 	/// </summary>
-	public void Launch(string program, string[] args, string? workingDirectory, Dictionary<string, string>? env, bool stopAtEntry, LaunchRequestConsoleType launchRequestConsoleType)
+	public void Launch(LaunchInfo launchInfo)
 	{
-		_logger?.Invoke($"Launching program: {program} {string.Join(' ', args ?? [])}");
-
-		_pendingLaunchProgram = program;
-		_pendingLaunchArgs = args;
-		_pendingLaunchWorkingDirectory = workingDirectory;
-		_pendingLaunchStopAtEntry = stopAtEntry;
-		_launchRequestConsoleType = launchRequestConsoleType;
+		_logger?.Invoke($"Launching program: {launchInfo.Program} {string.Join(' ', launchInfo.Arguments)}");
+		_pendingLaunchInfo = launchInfo;
 	}
 
 	/// <summary>
@@ -42,28 +33,19 @@ public partial class ManagedDebugger
 	/// </summary>
 	private void PerformLaunch()
 	{
-		if (_pendingLaunchProgram == null)
+		if (_pendingLaunchInfo == null)
 		{
 			_logger?.Invoke("No pending launch to perform");
 			return;
 		}
 
-		var program = _pendingLaunchProgram;
-		var args = _pendingLaunchArgs ?? [];
-		var workingDirectory = _pendingLaunchWorkingDirectory;
-		var stopAtEntry = _pendingLaunchStopAtEntry;
-		var launchRequestConsoleType = _launchRequestConsoleType;
-
-		// Clear pending launch
-		_pendingLaunchProgram = null;
-		_pendingLaunchArgs = null;
-		_pendingLaunchWorkingDirectory = null;
-		_launchRequestConsoleType = null;
+		var launchInfo = _pendingLaunchInfo;
+		_pendingLaunchInfo = null;
 
 		// Build command line: "program" "arg1" "arg2" ...
 		var commandLine = new StringBuilder();
-		commandLine.Append("dotnet ").Append('"').Append(program).Append('"');
-		foreach (var arg in args)
+		commandLine.Append("dotnet ").Append('"').Append(launchInfo.Program).Append('"');
+		foreach (var arg in launchInfo.Arguments)
 		{
 			commandLine.Append(' ').Append('"').Append(arg.Replace("\"", "\\\"")).Append('"');
 		}
@@ -81,7 +63,7 @@ public partial class ManagedDebugger
 				commandLine.ToString(),
 				bSuspendProcess: true,
 				lpEnvironment: IntPtr.Zero, // TODO: support environment variables
-				lpCurrentDirectory: workingDirectory);
+				lpCurrentDirectory: launchInfo.Cwd);
 		}
 		catch (Exception ex)
 		{
@@ -143,7 +125,7 @@ public partial class ManagedDebugger
 		_logger?.Invoke("ConfigurationDone");
 
 		// If we have a pending launch, perform it
-		if (_pendingLaunchProgram != null)
+		if (_pendingLaunchInfo != null)
 		{
 			PerformLaunch();
 		}

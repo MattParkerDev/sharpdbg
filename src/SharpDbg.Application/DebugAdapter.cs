@@ -218,9 +218,9 @@ public class DebugAdapter : DebugAdapterBase
 				throw new ProtocolException("Missing program path");
 			}
 
-			var args = GetConfigValue<string[]>(arguments.ConfigurationProperties, "args") ?? [];
+			var args = GetConfigValue<List<string>>(arguments.ConfigurationProperties, "args") ?? [];
 			var cwd = GetConfigValue<string>(arguments.ConfigurationProperties, "cwd");
-			var env = GetConfigValue<Dictionary<string, string>>(arguments.ConfigurationProperties, "env");
+			var env = GetConfigValue<Dictionary<string, string>>(arguments.ConfigurationProperties, "env") ?? [];
 			var stopAtEntry = GetConfigValue<bool?>(arguments.ConfigurationProperties, "stopAtEntry") ?? false;
 			var console = GetConfigValue<string>(arguments.ConfigurationProperties, "console");
 			var launchRequestConsoleType = console switch
@@ -231,10 +231,19 @@ public class DebugAdapter : DebugAdapterBase
 				null => LaunchRequestConsoleType.InternalConsole, // Default to internalConsole if not specified
 				_ => throw new ArgumentOutOfRangeException(nameof(console), $"Invalid console type: '{console}'")
 			};
+			var launchInfo = new LaunchInfo
+			{
+				Program = program,
+				Arguments = args,
+				Cwd = cwd,
+				Env = env,
+				StopAtEntry = stopAtEntry,
+				LaunchRequestConsoleType = launchRequestConsoleType
+			};
 
 			try
 			{
-				_debugger.Launch(program, args, cwd, env, stopAtEntry, launchRequestConsoleType);
+				_debugger.Launch(launchInfo);
 				return new LaunchResponse();
 			}
 			catch (Exception ex)

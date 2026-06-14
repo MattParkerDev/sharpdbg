@@ -36,10 +36,10 @@ public class VariablesClass
 
 	public int[] IntArrayField = [1, 2, 3];
 	public string?[] NullableStringArrayField = ["A", null, "C"];
-	public int[,] MultiDimArrayField =
+	public int[,] MultiDimArrayField = // 2 rows, 5 columns
 	{
-		{ 1, 2 },
-		{ 3, 4 }
+		{ 1, 2, 3, 4, 5 },
+		{ 6, 7 , 8, 9, 10 }
 	};
 	public int[][] JaggedArrayField =
 	[

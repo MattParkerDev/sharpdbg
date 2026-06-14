@@ -126,7 +126,7 @@ file static class TestExtensions
 			new() { VariablesReference =  0,  Name = "NullableObjectField",    	EvaluateName = "NullableObjectField",    	Value = "null",                                         Type = "object" },
 			new() { VariablesReference = 22,  Name = "IntArrayField",          	EvaluateName = "IntArrayField",          	Value = "int[3]",                                       Type = "int[]" },
 			new() { VariablesReference = 23,  Name = "NullableStringArrayField",EvaluateName = "NullableStringArrayField",	Value = "string[3]",									Type = "string[]" },
-			new() { VariablesReference = 24,  Name = "MultiDimArrayField",     	EvaluateName = "MultiDimArrayField",     	Value = "int[2, 2]",                                    Type = "int[,]" },
+			new() { VariablesReference = 24,  Name = "MultiDimArrayField",     	EvaluateName = "MultiDimArrayField",     	Value = "int[2, 5]",                                    Type = "int[,]" },
 			new() { VariablesReference = 25,  Name = "JaggedArrayField",       	EvaluateName = "JaggedArrayField",       	Value = "int[][2]",                                     Type = "int[][]" },
 			new() { VariablesReference = 26,  Name = "ListField",              	EvaluateName = "ListField",              	Value = "Count = 3",                                    Type = "System.Collections.Generic.List<int>" },
 			new() { VariablesReference = 27,  Name = "DictionaryField",        	EvaluateName = "DictionaryField",        	Value = "Count = 2",                                    Type = "System.Collections.Generic.Dictionary<string, int>" },

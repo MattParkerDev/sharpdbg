@@ -23,7 +23,7 @@ public class VariablesClass
 
 	public bool? NullableBoolField = true;
 	public bool? NullableBoolNullField = null;
-	public Guid? NullableGuidField = Guid.NewGuid();
+	public Guid? NullableGuidField = new Guid("f0e1d2c3-b4a5-9687-7869-5a4b3c2d1e0f");
 
 	public DayOfWeek? NullableEnumField = DayOfWeek.Friday;
 	public DayOfWeek? NullableEnumNullField = null;
@@ -55,12 +55,12 @@ public class VariablesClass
 			["Two"] = 2
 		};
 
-	public DateTime DateTimeField = DateTime.UtcNow;
-	public DateOnly DateOnlyField = DateOnly.FromDateTime(DateTime.Today);
-	public TimeOnly TimeOnlyField = TimeOnly.FromDateTime(DateTime.Now);
+	public DateTime DateTimeField = new(2026, 6, 15, 10, 5, 8);
+	public DateOnly DateOnlyField = new(2026, 6, 15);
+	public TimeOnly TimeOnlyField = new(10, 2, 16);
 	public TimeSpan TimeSpanField = TimeSpan.FromMinutes(5);
 
-	public Guid GuidField = Guid.NewGuid();
+	public Guid GuidField = new("a1b2c3d4-e5f6-7890-abcd-ef1234567890");
 
 	public DayOfWeek EnumField = DayOfWeek.Monday;
 	public TestStruct StructField = new(123);

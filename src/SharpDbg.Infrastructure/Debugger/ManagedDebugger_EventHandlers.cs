@@ -60,7 +60,7 @@ public partial class ManagedDebugger
 			{
 				symbolReader = SymbolReader.TryLoad(modulePath);
 			}
-			if (symbolReader != null)
+			if (symbolReader is not null)
 			{
 				_logger?.Invoke($"  Symbols loaded for {moduleName}");
 			}
@@ -93,7 +93,7 @@ public partial class ManagedDebugger
 		OnModuleLoaded?.Invoke(modulePath, Path.GetFileName(modulePath), modulePath);
 
 		// Try to bind any pending breakpoints now that we have a new module with symbols
-		if (symbolReader != null)
+		if (symbolReader is not null)
 		{
 			TryBindPendingBreakpoints();
 		}
@@ -125,7 +125,7 @@ public partial class ManagedDebugger
 			var corThread = breakpointCorDebugManagedCallbackEventArgs.Thread;
 
 			// Check if async stepper handles this breakpoint
-			if (_asyncStepper != null)
+			if (_asyncStepper is not null)
 			{
 				var (asyncHandled, shouldStop) = await _asyncStepper.TryHandleBreakpoint(corThread, functionBreakpoint);
 				if (asyncHandled)

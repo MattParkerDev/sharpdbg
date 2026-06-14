@@ -183,7 +183,7 @@ public partial class ManagedDebugger
 					continue;
 
 				resolved = moduleInfo.SymbolReader.ResolveBreakpoint(bp.FilePath, bp.Line, bp.Column);
-				if (resolved != null)
+				if (resolved is not null)
 				{
 					targetModule = moduleInfo;
 					break;
@@ -288,7 +288,7 @@ public partial class ManagedDebugger
 		_modules.Clear();
 
 		// Deactivate all breakpoints
-		foreach (var bp in _breakpointManager.GetAllBreakpoints().Where(b => b.CorBreakpoint != null))
+		foreach (var bp in _breakpointManager.GetAllBreakpoints().Where(b => b.CorBreakpoint is not null))
 		{
 			var hResult = bp.CorBreakpoint!.TryActivate(false);
 			if (hResult is HRESULT.CORDBG_E_PROCESS_TERMINATED)

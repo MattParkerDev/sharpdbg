@@ -44,7 +44,7 @@ public partial class CompiledExpressionInterpreter
 		if (identifiers.Count == 0)
 			return null;
 
-		if (baseValue != null)
+		if (baseValue is not null)
 		{
 			throw new ArgumentException($"'{string.Join(".", identifiers)}' is a variable but is used like a type");
 		}

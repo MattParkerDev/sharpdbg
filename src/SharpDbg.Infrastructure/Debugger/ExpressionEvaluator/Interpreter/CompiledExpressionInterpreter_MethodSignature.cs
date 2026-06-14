@@ -137,7 +137,7 @@ public partial class CompiledExpressionInterpreter
 		{
 			// Need to compare actual type tokens or class information
 			// You might need to get the class from argValue and compare
-			if (argValue.ExactType != null)
+			if (argValue.ExactType is not null)
 			{
 				// Compare class tokens if available
 				var argClass = argValue.ExactType.Class;

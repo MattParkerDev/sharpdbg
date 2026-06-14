@@ -9,7 +9,7 @@ public partial class CompiledExpressionInterpreter
 		var eval = _context.Thread.CreateEval();
 		var corValue = eval.CreateValue(type, null);
 
-		if (valueData != null && corValue is CorDebugGenericValue genValue)
+		if (valueData is not null && corValue is CorDebugGenericValue genValue)
 		{
 			unsafe
 			{
@@ -42,7 +42,7 @@ public partial class CompiledExpressionInterpreter
 		var eval = _context.Thread.CreateEval();
 		var corValue = await eval.NewParameterizedObjectNoConstructorAsync(_debuggerManagedCallback, _debugger.EvalStatus, valueTypeClass, 0, null);
 
-		if (valueData != null && corValue != null)
+		if (valueData is not null && corValue is not null)
 		{
 			var unwrapped = corValue.UnwrapDebugValue();
 			var unwrappedAsGeneric = unwrapped.As<CorDebugGenericValue>(); // a CorDebugObjectValue can also be a CorDebugGenericValue when it is a value class

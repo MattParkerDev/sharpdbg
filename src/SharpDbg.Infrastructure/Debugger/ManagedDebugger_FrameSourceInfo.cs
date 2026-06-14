@@ -44,7 +44,7 @@ public partial class ManagedDebugger
 			var ilOffset = ilFrame.IP.pnOffset;
 			var methodToken = function.Token;
 			var sourceInfo = module.SymbolReader.GetSourceLocationForOffset(methodToken, ilOffset);
-			if (sourceInfo != null)
+			if (sourceInfo is not null)
 			{
 				DecompiledSourceInfo? decompiledSourceInfo = null;
 				if (module.SymbolReaderFromDecompiled)

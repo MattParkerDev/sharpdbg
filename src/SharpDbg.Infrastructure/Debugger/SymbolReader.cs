@@ -61,7 +61,7 @@ public partial class SymbolReader : IDisposable
 	{
 		// First, try to load from CodeView entry in PE (gets PDB path and validates GUID match)
 		var result = TryLoadFromAssembly(assemblyPath);
-		if (result != null)
+		if (result is not null)
 			return result;
 
 		return null;
@@ -147,7 +147,7 @@ public partial class SymbolReader : IDisposable
 			if (codeViewEntry.DataSize != 0)
 			{
 				var result = TryLoadFromCodeView(peReader, codeViewEntry, assemblyPath);
-				if (result != null)
+				if (result is not null)
 					return result;
 			}
 
@@ -174,7 +174,7 @@ public partial class SymbolReader : IDisposable
 
 			// Try PDB in same directory as assembly
 			var assemblyDir = Path.GetDirectoryName(assemblyPath);
-			if (assemblyDir != null)
+			if (assemblyDir is not null)
 			{
 				var pdbFileName = Path.GetFileName(pdbPath);
 				pdbPath = Path.Combine(assemblyDir, pdbFileName);

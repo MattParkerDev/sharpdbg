@@ -28,7 +28,7 @@ public class PortablePdbWriter2
 
 	public static bool HasCodeViewDebugDirectoryEntry(PEFile file)
 	{
-		return file != null && file.Reader.ReadDebugDirectory().Any(entry => entry.Type == DebugDirectoryEntryType.CodeView);
+		return file is not null && file.Reader.ReadDebugDirectory().Any(entry => entry.Type == DebugDirectoryEntryType.CodeView);
 	}
 
 	private static bool IncludeTypeWhenGeneratingPdb(PEFile module, TypeDefinitionHandle type, DecompilerSettings settings)
@@ -119,7 +119,7 @@ public class PortablePdbWriter2
 				// Generate syntax tree
 				var syntaxTree = taskDecompiler.DecompileTypes(sourceFile);
 
-				if (progress != null)
+				if (progress is not null)
 				{
 					Interlocked.Increment(ref currentProgress.UnitsCompleted);
 					progress.Report(currentProgress);
@@ -167,7 +167,7 @@ public class PortablePdbWriter2
 				var methodHandle = (MethodDefinitionHandle)method.MetadataToken;
 				result.SequencePoints.TryGetValue(function, out var points);
 				ProcessMethod(methodHandle, document, points, result.SyntaxTree);
-				if (function.MoveNextMethod != null)
+				if (function.MoveNextMethod is not null)
 				{
 					stateMachineMethods.Add((
 						(MethodDefinitionHandle)function.MoveNextMethod.MetadataToken,
@@ -220,7 +220,7 @@ public class PortablePdbWriter2
 
 			foreach (var local in localScope.Locals.OrderBy(l => l.Index))
 			{
-				var localVarName = local.Name != null ? metadata.GetOrAddString(local.Name) : default;
+				var localVarName = local.Name is not null ? metadata.GetOrAddString(local.Name) : default;
 				metadata.AddLocalVariable(LocalVariableAttributes.None, local.Index!.Value, localVarName);
 			}
 
@@ -296,7 +296,7 @@ public class PortablePdbWriter2
 	static BlobBuilder BuildStateMachineHoistedLocalScopes(ILFunction function)
 	{
 		var builder = new BlobBuilder();
-		foreach (var variable in function.Variables.Where(v => v.StateMachineField != null).OrderBy(v => MetadataTokens.GetRowNumber(v.StateMachineField!.MetadataToken)))
+		foreach (var variable in function.Variables.Where(v => v.StateMachineField is not null).OrderBy(v => MetadataTokens.GetRowNumber(v.StateMachineField!.MetadataToken)))
 		{
 			builder.WriteUInt32(0);
 			builder.WriteUInt32((uint)function.CodeSize);

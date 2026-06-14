@@ -77,7 +77,7 @@ public static class CorDebugValueExtensions
 		MetaDataImport? foundMetadata = null;
 
 		// Find field on base type if necessary
-		while (currentType != null)
+		while (currentType is not null)
 		{
 			var cls = currentType.Class;
 			var meta = cls.Module.GetMetaDataInterface().MetaDataImport;
@@ -109,7 +109,7 @@ public static class CorDebugValueExtensions
 		MetaDataImport? foundMetadata = null;
 
 		// Find property on base type if necessary
-		while (currentType != null)
+		while (currentType is not null)
 		{
 			var cls = currentType.Class;
 			var meta = cls.Module.GetMetaDataInterface().MetaDataImport;

@@ -116,7 +116,7 @@ public partial class CompiledExpressionInterpreter
 
 		objValue = await GetFrontStackEntryValue(evalStack);
 
-		if (objValue != null)
+		if (objValue is not null)
 		{
 			var elemType = objValue.UnwrapDebugValue().Type;
 
@@ -127,7 +127,7 @@ public partial class CompiledExpressionInterpreter
 					? genValue.GetValueAsBytes()
 					: null;
 
-				if (data != null)
+				if (data is not null)
 				{
 					objValue = await CreateValueType(boxedClass, data);
 				}
@@ -145,7 +145,7 @@ public partial class CompiledExpressionInterpreter
 		CorDebugFunction? function = null;
 		bool? searchStatic = objType is null;
 
-		if (objType != null)
+		if (objType is not null)
 		{
 			function = FindMethodOnType(objType, methodName, args, searchStatic.Value, idsEmpty);
 		}
@@ -173,7 +173,7 @@ public partial class CompiledExpressionInterpreter
 			valueArgs.Add(arg!.Raw);
 		}
 
-		if (objType != null)
+		if (objType is not null)
 		{
 			var typeParamsEnum = objType.EnumerateTypeParameters();
 			foreach (var typeParam in typeParamsEnum)
@@ -182,11 +182,11 @@ public partial class CompiledExpressionInterpreter
 			}
 		}
 
-		if (entry.GenericTypeCache != null)
+		if (entry.GenericTypeCache is not null)
 		{
 			for (int i = entry.GenericTypeCache.Count - 1; i >= 0; i--)
 			{
-				if (entry.GenericTypeCache[i] != null)
+				if (entry.GenericTypeCache[i] is not null)
 				{
 					typeArgs.Add(entry.GenericTypeCache[i]!.Raw);
 				}
@@ -204,7 +204,7 @@ public partial class CompiledExpressionInterpreter
 			valueArgs.Count,
 			valueArgs.ToArray());
 
-		if (result is null && _runtimeAssemblyPrimitiveTypeClasses.CorVoidClass != null)
+		if (result is null && _runtimeAssemblyPrimitiveTypeClasses.CorVoidClass is not null)
 		{
 			entry.CorDebugValue = await CreateValueType(_runtimeAssemblyPrimitiveTypeClasses.CorVoidClass, null);
 		}
@@ -248,7 +248,7 @@ public partial class CompiledExpressionInterpreter
 
 		// Walk base types if no matching method was found on this type
 		var baseType = type.Base;
-		if (baseType != null)
+		if (baseType is not null)
 		{
 			return FindMethodOnType(baseType, methodName, args, searchStatic, idsEmpty);
 		}
@@ -335,7 +335,7 @@ public partial class CompiledExpressionInterpreter
 		};
 
 		byte[]? data = null;
-		if (value != null)
+		if (value is not null)
 		{
 			data = value switch
 			{
@@ -426,7 +426,7 @@ public partial class CompiledExpressionInterpreter
 				? genValue.GetValueAsBytes()
 				: null;
 
-			if (data != null)
+			if (data is not null)
 			{
 				value = await CreateValueType(boxedClass, data);
 			}
@@ -541,7 +541,7 @@ public partial class CompiledExpressionInterpreter
 		var entry = evalStack.First!.Value;
 		var size = 0;
 
-		if (entry.CorDebugValue != null)
+		if (entry.CorDebugValue is not null)
 		{
 			var elemType = entry.CorDebugValue.Type;
 			if (elemType == CorElementType.Class)

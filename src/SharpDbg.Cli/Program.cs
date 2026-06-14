@@ -107,7 +107,7 @@ class Program
 
 	private static void Log(string message)
 	{
-		if (_logWriter != null)
+		if (_logWriter is not null)
 		{
 			_logWriter.WriteLine($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}] {message}");
 		}

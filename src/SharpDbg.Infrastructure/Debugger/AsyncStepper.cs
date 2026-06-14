@@ -206,7 +206,7 @@ public class AsyncStepper
 			// Check if we're at the end of an async method and need step-out behavior
 			if (stepType != StepType.StepOut)
 			{
-				if (ilFrame != null)
+				if (ilFrame is not null)
 				{
 					var ipResult = ilFrame.IP;
 					var currentOffset = ipResult.pnOffset;
@@ -232,7 +232,7 @@ public class AsyncStepper
 				{
 					// For step-out in async method with await, check if we need NotifyDebuggerOfWaitCompletion
 					var builder = ilFrame is not null ? GetAsyncBuilder(ilFrame) : null;
-					if (builder != null)
+					if (builder is not null)
 					{
 						// Check if builder is AsyncVoidMethodBuilder
 						var builderType = ManagedDebugger.GetCorDebugTypeFriendlyName(builder.ExactType);
@@ -317,7 +317,7 @@ public class AsyncStepper
 		using (await _lock2.LockAsync())
 		{
 			// Check if it's our NotifyDebuggerOfWaitCompletion breakpoint
-			if (_notifyDebuggerBreakpoint != null &&
+			if (_notifyDebuggerBreakpoint is not null &&
 				MatchesBreakpoint(breakpoint, _notifyDebuggerBreakpoint, thread))
 			{
 				// NotifyDebuggerOfWaitCompletion was hit - this is for step-out

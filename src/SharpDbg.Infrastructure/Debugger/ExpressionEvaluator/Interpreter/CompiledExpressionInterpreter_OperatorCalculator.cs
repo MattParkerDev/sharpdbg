@@ -46,12 +46,12 @@ public partial class CompiledExpressionInterpreter
 			elemType1 == CorElementType.Class || elemType2 == CorElementType.Class)
 		{
 			var opName = GetOperatorName(opType);
-			if (opName != null)
+			if (opName is not null)
 			{
 				if (elemType1 == CorElementType.ValueType || elemType1 == CorElementType.Class)
 				{
 					var result = await CallBinaryOperator(opName, realValue1, realValue1, realValue2);
-					if (result != null)
+					if (result is not null)
 					{
 						evalStack.First.Value.CorDebugValue = result;
 						return result;
@@ -61,7 +61,7 @@ public partial class CompiledExpressionInterpreter
 				if (elemType2 == CorElementType.ValueType || elemType2 == CorElementType.Class)
 				{
 					var result = await CallBinaryOperator(opName, realValue2, realValue1, realValue2);
-					if (result != null)
+					if (result is not null)
 					{
 						evalStack.First.Value.CorDebugValue = result;
 						return result;
@@ -86,10 +86,10 @@ public partial class CompiledExpressionInterpreter
 		if (elemType == CorElementType.ValueType || elemType == CorElementType.Class)
 		{
 			var opName = GetUnaryOperatorName(opType);
-			if (opName != null)
+			if (opName is not null)
 			{
 				var result = await CallUnaryOperator(opName, realValue);
-				if (result != null)
+				if (result is not null)
 				{
 					evalStack.First!.Value.CorDebugValue = result;
 					return result;

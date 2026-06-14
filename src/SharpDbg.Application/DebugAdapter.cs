@@ -55,7 +55,7 @@ public class DebugAdapter : DebugAdapterBase
 	// Helper method to extract configuration properties from LaunchArguments/AttachArguments
 	private static T? GetConfigValue<T>(Dictionary<string, JToken>? config, string key)
 	{
-		if (config != null && config.TryGetValue(key, out var token))
+		if (config?.TryGetValue(key, out var token) is true)
 		{
 			return token.ToObject<T>();
 		}
@@ -404,7 +404,7 @@ public class DebugAdapter : DebugAdapterBase
 				EndLine = ConvertDebuggerLineToClient(f.EndLine),
 				Column = ConvertDebuggerColumnToClient(f.Column),
 				EndColumn =  ConvertDebuggerColumnToClient(f.EndColumn),
-				Source = f.Source != null ? new Source { Path = f.Source } : null
+				Source = f.Source is not null ? new Source { Path = f.Source } : null
 			}).ToList();
 
 			return new StackTraceResponse

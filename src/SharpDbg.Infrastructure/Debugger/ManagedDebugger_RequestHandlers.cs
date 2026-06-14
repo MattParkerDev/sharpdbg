@@ -92,7 +92,7 @@ public partial class ManagedDebugger
 		_logger?.Invoke($"RemoveBreakpoint: {id}");
 		var bp = _breakpointManager.GetBreakpoint(id);
 		if (bp is null) return false;
-		if (bp.CorBreakpoint != null)
+		if (bp.CorBreakpoint is not null)
 		{
 			try
 			{
@@ -131,7 +131,7 @@ public partial class ManagedDebugger
 			PerformAttach(launchedProcessId);
 			await DiagnosticClientHelper.DiagnosticClientResumeRuntime(launchedProcessId);
 		}
-		else if (_pendingLaunchInfo != null) // If we have a pending launch, perform it
+		else if (_pendingLaunchInfo is not null) // If we have a pending launch, perform it
 		{
 			PerformLaunch();
 		}
@@ -209,7 +209,7 @@ public partial class ManagedDebugger
 		if (_threads.TryGetValue(threadId, out var thread))
 		{
 			var frame = thread.ActiveFrame;
-			if (frame != null)
+			if (frame is not null)
 			{
 				// Try async stepping first
 				if (_asyncStepper is not null)
@@ -241,7 +241,7 @@ public partial class ManagedDebugger
 		if (_threads.TryGetValue(threadId, out var thread))
 		{
 			var frame = thread.ActiveFrame;
-			if (frame != null)
+			if (frame is not null)
 			{
 				// Try async stepping first
 				if (_asyncStepper is not null)
@@ -258,7 +258,7 @@ public partial class ManagedDebugger
 				}
 
 				var stepper = SetupStepper(thread, AsyncStepper.StepType.StepOut);
-				if (stepper != null)
+				if (stepper is not null)
 				{
 					_variableManager.ClearAndDisposeHandleValues();
 					_process?.Continue(false);
@@ -273,13 +273,13 @@ public partial class ManagedDebugger
 	public List<BreakpointManager.BreakpointInfo> SetBreakpoints(string filePath, SharpDbgBreakpointRequest[] breakpoints)
 	{
 		//System.Diagnostics.Debugger.Launch();
-		_logger?.Invoke($"SetBreakpoints: {filePath}, breakpoints: {string.Join(",", breakpoints.Select(b => $"L{b.Line} {(b.Column is not null ? $"C{b.Column}" : null)} {(b.Condition != null ? $"[{b.Condition}]" : null)}"))}");
+		_logger?.Invoke($"SetBreakpoints: {filePath}, breakpoints: {string.Join(",", breakpoints.Select(b => $"L{b.Line} {(b.Column is not null ? $"C{b.Column}" : null)} {(b.Condition is not null ? $"[{b.Condition}]" : null)}"))}");
 
 		// Deactivate and clear existing breakpoints for this file
 		var existingBreakpoints = _breakpointManager.GetBreakpointsForFile(filePath);
 		foreach (var bp in existingBreakpoints)
 		{
-			if (bp.CorBreakpoint != null)
+			if (bp.CorBreakpoint is not null)
 			{
 				try
 				{
@@ -300,7 +300,7 @@ public partial class ManagedDebugger
 			var bp = _breakpointManager.CreateBreakpoint(filePath, request.Line, request.Column, request.Condition, request.HitCondition);
 
 			// Try to bind the breakpoint if we have a process
-			if (_process != null)
+			if (_process is not null)
 			{
 				TryBindBreakpoint(bp);
 			}
@@ -378,7 +378,7 @@ public partial class ManagedDebugger
 							var ilOffset = ilFrame.IP.pnOffset;
 							var methodToken = function.Token;
 							var sourceInfo = module.SymbolReader.GetSourceLocationForOffset(methodToken, ilOffset);
-							if (sourceInfo != null)
+							if (sourceInfo is not null)
 							{
 								line = sourceInfo.Value.startLine;
 								column = sourceInfo.Value.startColumn;
@@ -542,7 +542,7 @@ public partial class ManagedDebugger
 	public void Terminate()
 	{
 		_logger?.Invoke("Terminate");
-		if (_process != null)
+		if (_process is not null)
 		{
 			try
 			{
@@ -569,7 +569,7 @@ public partial class ManagedDebugger
 		}
 		else
 		{
-			if (_process != null && _isAttached && _process?.TryIsRunning(out var isRunning) is HRESULT.S_OK && isRunning)
+			if (_process is not null && _isAttached && _process?.TryIsRunning(out var isRunning) is HRESULT.S_OK && isRunning)
 			{
 				var hResult = _process.TryStop(0);
 				if (hResult is not (HRESULT.S_OK or HRESULT.CORDBG_E_PROCESS_TERMINATED)) _logger?.Invoke($"Error stopping process during disconnect: {hResult}");

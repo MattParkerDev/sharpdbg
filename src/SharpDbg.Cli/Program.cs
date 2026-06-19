@@ -10,7 +10,13 @@ internal static class Program
 
 	public static int Main(string[] args)
 	{
-		var (interpreter, serverPort, logPath) = Arguments.Parse(args);
+		var (interpreter, serverPort, logPath, requestedHelp) = Arguments.Parse(args);
+
+		if (interpreter is null || requestedHelp)
+		{
+			Console.WriteLine(HelpText.Text);
+			return 0;
+		}
 
 		//logPath = @"C:\Users\Matthew\Downloads\sharpdbglogs\log.txt";
 		// Setup logging if specified

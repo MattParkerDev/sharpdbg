@@ -2,11 +2,12 @@
 
 public static class Arguments
 {
-    public static (string? interpreter, int serverPort, string? logPath) Parse(string[] args)
+    public static (string? interpreter, int serverPort, string? logPath, bool requestedHelp) Parse(string[] args)
     {
         string? interpreter = null;
         var serverPort = -1;
         string? logPath = null;
+        var requestedHelp = false;
 
         // Parse command line arguments
         for (int i = 0; i < args.Length; i++)
@@ -26,8 +27,12 @@ public static class Arguments
             {
                 logPath = args[i].Substring("--engineLogging=".Length);
             }
+            else if (args[i].Equals("--help", StringComparison.OrdinalIgnoreCase) || args[i].Equals("-h", StringComparison.OrdinalIgnoreCase))
+			{
+				requestedHelp = true;
+			}
         }
 
-        return (interpreter, serverPort, logPath);
+        return (interpreter, serverPort, logPath, requestedHelp);
     }
 }

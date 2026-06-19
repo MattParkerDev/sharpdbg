@@ -9,28 +9,27 @@ public static class Arguments
         string? logPath = null;
         var requestedHelp = false;
 
-        // Parse command line arguments
-        for (int i = 0; i < args.Length; i++)
+        foreach (var arg in args)
         {
-            if (args[i].StartsWith("--interpreter="))
+            if (arg.StartsWith("--interpreter="))
             {
-                interpreter = args[i].Substring("--interpreter=".Length);
+                interpreter = arg["--interpreter=".Length..];
             }
-            else if (args[i].StartsWith("--server="))
+            else if (arg.StartsWith("--server="))
             {
-                if (int.TryParse(args[i].Substring("--server=".Length), out var port))
+                if (int.TryParse(arg["--server=".Length..], out var port))
                 {
                     serverPort = port;
                 }
             }
-            else if (args[i].StartsWith("--engineLogging="))
+            else if (arg.StartsWith("--engineLogging="))
             {
-                logPath = args[i].Substring("--engineLogging=".Length);
+                logPath = arg["--engineLogging=".Length..];
             }
-            else if (args[i].Equals("--help", StringComparison.OrdinalIgnoreCase) || args[i].Equals("-h", StringComparison.OrdinalIgnoreCase))
-			{
-				requestedHelp = true;
-			}
+            else if (arg.Equals("--help", StringComparison.OrdinalIgnoreCase) || arg.Equals("-h", StringComparison.OrdinalIgnoreCase))
+            {
+                requestedHelp = true;
+            }
         }
 
         return (interpreter, serverPort, logPath, requestedHelp);

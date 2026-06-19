@@ -8,6 +8,15 @@
 	<PackAsTool>true</PackAsTool>
 	<RollForward>Major</RollForward>
 	<ToolCommandName>sharpdbg</ToolCommandName>
+	<PackageId>SharpDbg.Cli</PackageId>
+	<Authors>MattParkerDev</Authors>
+	<PackageLicenseExpression>MIT</PackageLicenseExpression>
+	<PackageReadmeFile>readme.md</PackageReadmeFile>
+	<PackageVersion>0.1.2</PackageVersion>
+	<PublishRepositoryUrl>true</PublishRepositoryUrl>
+	<PackageProjectUrl>https://github.com/MattParkerDev/sharpdbg</PackageProjectUrl>
+	<Description>.NET Tool - A managed .NET Debugger implementing the Debug Adapter Protocol</Description>
+	<PackageTags>Tool Csharp Dotnet Debugger Debugging ICorDebug</PackageTags>
   </PropertyGroup>
 
   <ItemGroup>
@@ -16,6 +25,10 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.Diagnostics.DbgShim" Version="9.0.661903" />
+  </ItemGroup>
+
+  <ItemGroup>
+	  <None Include="readme.md" Pack="true" PackagePath="\" />
   </ItemGroup>
 
 </Project>

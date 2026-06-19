@@ -5,6 +5,9 @@
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+	<PackAsTool>true</PackAsTool>
+	<RollForward>Major</RollForward>
+	<ToolCommandName>sharpdbg</ToolCommandName>
   </PropertyGroup>
 
   <ItemGroup>

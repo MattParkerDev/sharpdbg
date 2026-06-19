@@ -4,11 +4,11 @@ using SharpDbg.Application;
 
 namespace SharpDbg.Cli;
 
-class Program
+internal static class Program
 {
 	private static StreamWriter? _logWriter;
 
-	static async Task<int> Main(string[] args)
+	public static int Main(string[] args)
 	{
 		var interpreter = "vscode";
 		var serverPort = -1;

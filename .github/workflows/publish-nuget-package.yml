@@ -21,10 +21,28 @@ jobs:
       - name: Debug Output
         run: |
           echo Publish necessary: ${{ steps.determine-if-publish-necessary.outputs.publish-necessary }}
+  test-before-publish:
+    needs: determine-if-publish-necessary
+    if: needs.determine-if-publish-necessary.outputs.publish-necessary == 'true'
+    strategy:
+      fail-fast: true
+      matrix:
+        os:
+          - macos-latest
+          - ubuntu-latest
+          - windows-latest
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+      - name: Test SharpDbg.Cli.Tests
+        run: dotnet test --project tests/SharpDbg.Cli.Tests/SharpDbg.Cli.Tests.csproj
   nuget-approval:
     runs-on: ubuntu-latest
     environment: "nuget-publish-approval"
-    needs: determine-if-publish-necessary
+    needs:
+      - determine-if-publish-necessary
+      - test-before-publish
     if: needs.determine-if-publish-necessary.outputs.publish-necessary == 'true'
     steps:
       - uses: actions/checkout@v4
@@ -35,4 +53,3 @@ jobs:
           NUGET_AUTH_TOKEN: ${{ secrets.NUGET_TOKEN }}
         run: |
           dotnet run --project ./iac/PublishToNuget/PublishToNuget.csproj
-

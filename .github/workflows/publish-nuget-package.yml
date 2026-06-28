@@ -10,6 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       publish-necessary: ${{ steps.determine-if-publish-necessary.outputs.publish-necessary }}
+      tool-publish-necessary: ${{ steps.determine-if-publish-necessary.outputs.tool-publish-necessary }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
@@ -21,6 +22,7 @@ jobs:
       - name: Debug Output
         run: |
           echo Publish necessary: ${{ steps.determine-if-publish-necessary.outputs.publish-necessary }}
+          echo Tool Publish necessary: ${{ steps.determine-if-publish-necessary.outputs.tool-publish-necessary }}
   nuget-approval:
     runs-on: ubuntu-latest
     environment: "nuget-publish-approval"

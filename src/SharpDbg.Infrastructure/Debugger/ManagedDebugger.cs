@@ -58,19 +58,26 @@ public partial class ManagedDebugger
 	private void OnAnyEvent(object? sender, CorDebugManagedCallbackEventArgs e)
 	{
 		_logger?.Invoke($"Event: {e.GetType().Name}");
-		switch (e)
+		try
 		{
-			case CreateProcessCorDebugManagedCallbackEventArgs a: HandleProcessCreated(sender, a); break;
-			case ExitProcessCorDebugManagedCallbackEventArgs a: HandleProcessExited(sender, a); break;
-			case CreateThreadCorDebugManagedCallbackEventArgs a: HandleThreadCreated(sender, a); break;
-			case ExitThreadCorDebugManagedCallbackEventArgs a: HandleThreadExited(sender, a); break;
-			case LoadModuleCorDebugManagedCallbackEventArgs a: HandleModuleLoaded(sender, a); break;
-			case BreakpointCorDebugManagedCallbackEventArgs a: HandleBreakpoint(sender, a); break;
-			case StepCompleteCorDebugManagedCallbackEventArgs a: HandleStepComplete(sender, a); break;
-			case BreakCorDebugManagedCallbackEventArgs a: HandleBreak(sender, a); break;
-			case ExceptionCorDebugManagedCallbackEventArgs a: HandleException(sender, a); break;
-			case EvalCompleteCorDebugManagedCallbackEventArgs or EvalExceptionCorDebugManagedCallbackEventArgs: break; // don't continue on these, as they are being used for expression evaluation
-			default: e.Controller.Continue(false); break;
+			switch (e)
+			{
+				case CreateProcessCorDebugManagedCallbackEventArgs a: HandleProcessCreated(sender, a); break;
+				case ExitProcessCorDebugManagedCallbackEventArgs a: HandleProcessExited(sender, a); break;
+				case CreateThreadCorDebugManagedCallbackEventArgs a: HandleThreadCreated(sender, a); break;
+				case ExitThreadCorDebugManagedCallbackEventArgs a: HandleThreadExited(sender, a); break;
+				case LoadModuleCorDebugManagedCallbackEventArgs a: HandleModuleLoaded(sender, a); break;
+				case BreakpointCorDebugManagedCallbackEventArgs a: HandleBreakpoint(sender, a); break;
+				case StepCompleteCorDebugManagedCallbackEventArgs a: HandleStepComplete(sender, a); break;
+				case BreakCorDebugManagedCallbackEventArgs a: HandleBreak(sender, a); break;
+				case ExceptionCorDebugManagedCallbackEventArgs a: HandleException(sender, a); break;
+				case EvalCompleteCorDebugManagedCallbackEventArgs or EvalExceptionCorDebugManagedCallbackEventArgs: break; // don't continue on these, as they are being used for expression evaluation
+				default: e.Controller.Continue(false); break;
+			}
+		}
+		catch (Exception ex)
+		{
+			_logger?.Invoke($"Error handling event {e.GetType().Name}: {ex}");
 		}
 	}
 

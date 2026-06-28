@@ -10,6 +10,7 @@ using NuGet.Versioning;
 // https://learn.microsoft.com/en-us/visualstudio/msbuild/find-and-use-msbuild-versions?view=vs-2022#register-instance-before-calling-msbuild
 MSBuildLocator.RegisterDefaults();
 await Run("SharpDbg", "SharpDbg.InMemory", "publish-necessary");
+await Run("SharpDbg.Cli", "SharpDbg.Cli", "tool-publish-necessary");
 
 return;
 

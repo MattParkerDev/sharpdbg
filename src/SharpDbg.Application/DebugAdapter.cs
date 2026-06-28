@@ -222,6 +222,8 @@ public class DebugAdapter : DebugAdapterBase
 			SupportsRestartFrame = false,
 			SupportsTerminateRequest = true,
 			SupportsExceptionInfoRequest = true,
+			SupportsStepInTargetsRequest = false,
+			SupportsGotoTargetsRequest = false,
 			ExceptionBreakpointFilters =
 			[
 				new ExceptionBreakpointsFilter { Filter = "all", Label = "All Exceptions", Default = false },

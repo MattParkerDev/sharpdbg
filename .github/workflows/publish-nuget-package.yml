@@ -27,14 +27,23 @@ jobs:
     runs-on: ubuntu-latest
     environment: "nuget-publish-approval"
     needs: determine-if-publish-necessary
-    if: needs.determine-if-publish-necessary.outputs.publish-necessary == 'true'
+    if: needs.determine-if-publish-necessary.outputs.publish-necessary == 'true' || needs.determine-if-publish-necessary.outputs.tool-publish-necessary == 'true'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
       - name: Publish to NuGet
+        if: needs.determine-if-publish-necessary.outputs.publish-necessary == 'true'
         shell: bash
         env:
           NUGET_AUTH_TOKEN: ${{ secrets.NUGET_TOKEN }}
         run: |
           dotnet run --project ./iac/PublishToNuget/PublishToNuget.csproj
+
+      - name: Publish Tool to NuGet
+        if: needs.determine-if-publish-necessary.outputs.tool-publish-necessary == 'true'
+        shell: bash
+        env:
+          NUGET_AUTH_TOKEN: ${{ secrets.NUGET_TOKEN }}
+        run: |
+          dotnet ./iac/publish-tool-to-nuget.cs
 

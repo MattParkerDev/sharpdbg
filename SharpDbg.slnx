@@ -4,6 +4,7 @@
     <File Path=".github/workflows/publish-nuget-package.yml" />
   </Folder>
   <Folder Name="/iac/">
+    <File Path="iac/publish-tool-to-nuget.cs" />
     <Project Path="iac/DetermineIfPublishNecessary/DetermineIfPublishNecessary.csproj" />
     <Project Path="iac/PublishToNuget/PublishToNuget.csproj" />
   </Folder>

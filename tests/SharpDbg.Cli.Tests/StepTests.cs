@@ -143,4 +143,38 @@ public class StepTests(ITestOutputHelper testOutputHelper)
 		stopInfo2.filePath.Should().EndWith("MultilineSwitchInMethodCall.cs");
 		stopInfo2.line.Should().Be(9);
 	}
+
+	[Fact]
+	public async Task SharpDbgCli_StepOverToBreakpointedLine_StepOver_StopsAtNextLine()
+	{
+		var startSuspended = true;
+
+		var (debugProtocolHost, initializedEventTcs, debugEventTcs, adapter, p2) = TestHelper.GetRunningDebugProtocolHostInProc(testOutputHelper, startSuspended);
+		using var _ = adapter;
+		using var __ = new ProcessKiller(p2);
+
+		await debugProtocolHost
+			.WithInitializeRequest()
+			.WithAttachRequest(p2.Id, false)
+			.WaitForInitializedEvent(initializedEventTcs);
+		debugProtocolHost
+			.WithBreakpointsRequest([25, 26], Path.JoinFromGitRoot("tests", "DebuggableConsoleApp", "Program.cs"))
+			.WithConfigurationDoneRequest()
+			.WithOptionalResumeRuntime(p2.Id, startSuspended);
+
+		var stoppedEvent = await debugProtocolHost.WaitForStoppedEvent(debugEventTcs);
+		var stopInfo = stoppedEvent.ReadStopInfo();
+		stopInfo.filePath.Should().EndWith("Program.cs");
+		stopInfo.line.Should().Be(25);
+
+		var stoppedEvent2 = await debugProtocolHost.WithStepOverRequest(stoppedEvent.ThreadId!.Value).WaitForStoppedEvent(debugEventTcs);
+		var stopInfo2 = stoppedEvent2.ReadStopInfo();
+		stopInfo2.filePath.Should().EndWith("Program.cs");
+		stopInfo2.line.Should().Be(26);
+
+		var stoppedEvent3 = await debugProtocolHost.WithStepOverRequest(stoppedEvent.ThreadId!.Value).WaitForStoppedEvent(debugEventTcs);
+		var stopInfo3 = stoppedEvent3.ReadStopInfo();
+		stopInfo3.filePath.Should().EndWith("Program.cs");
+		stopInfo3.line.Should().Be(27);
+	}
 }

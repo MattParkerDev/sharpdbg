@@ -9,42 +9,51 @@ using NuGet.Versioning;
 
 // https://learn.microsoft.com/en-us/visualstudio/msbuild/find-and-use-msbuild-versions?view=vs-2022#register-instance-before-calling-msbuild
 MSBuildLocator.RegisterDefaults();
-await Run("SharpDbg", "SharpDbg.InMemory", "publish-necessary");
-await Run("SharpDbg.Cli", "SharpDbg.Cli", "tool-publish-necessary");
-
+await Run();
 return;
 
-async Task Run(string nugetPackageId, string projectFileName, string ghActionOutputPublishNecessaryName)
+async Task Run()
 {
-	var gitRootDirectory = GitRoot.GetGitRootPath();
-	var packageProjectFilePath = Path.Combine(gitRootDirectory, "src", projectFileName, $"{projectFileName}.csproj");
+	FindPackageByIdResource? resource = null;
+	SourceCacheContext cache = new SourceCacheContext();
+	await DetermineIfPublishNecessary("SharpDbg", "SharpDbg.InMemory", "publish-necessary");
+	await DetermineIfPublishNecessary("SharpDbg.Cli", "SharpDbg.Cli", "tool-publish-necessary");
+	return;
 
-	var fileInfo = new FileInfo(packageProjectFilePath);
-	if (fileInfo.Exists is false)
+	async Task DetermineIfPublishNecessary(string nugetPackageId, string projectFileName, string ghActionOutputPublishNecessaryName)
 	{
-		throw new FileNotFoundException(packageProjectFilePath);
-	}
+		var gitRootDirectory = GitRoot.GetGitRootPath();
+		var packageProjectFilePath = Path.Combine(gitRootDirectory, "src", projectFileName, $"{projectFileName}.csproj");
 
-	Console.WriteLine($"Found project file at: {packageProjectFilePath}");
+		var fileInfo = new FileInfo(packageProjectFilePath);
+		if (fileInfo.Exists is false)
+		{
+			throw new FileNotFoundException(packageProjectFilePath);
+		}
 
-	var project = Project.FromFile(packageProjectFilePath, new ProjectOptions());
-	var packageVersionString = project.GetProperty("PackageVersion").EvaluatedValue;
-	var packageVersion = NuGetVersion.Parse(packageVersionString);
+		Console.WriteLine($"Found project file at: {packageProjectFilePath}");
 
-	var cache = new SourceCacheContext();
-	var repositories = Repository.Factory.GetCoreV3("https://api.nuget.org/v3/index.json");
-	var logger = NullLogger.Instance;
+		var project = Project.FromFile(packageProjectFilePath, new ProjectOptions());
+		var packageVersionString = project.GetProperty("PackageVersion").EvaluatedValue;
+		var packageVersion = NuGetVersion.Parse(packageVersionString);
 
-	var resource = await repositories.GetResourceAsync<FindPackageByIdResource>();
-	var packageAndSpecificVersionExistsOnNuget = await resource.DoesPackageExistAsync(nugetPackageId, packageVersion, cache, logger, CancellationToken.None);
-	if (packageAndSpecificVersionExistsOnNuget)
-	{
-		Console.WriteLine($"Package {nugetPackageId} with version {packageVersion} exists on Nuget");
-	}
-	else
-	{
-		Console.WriteLine($"Package {nugetPackageId} with version {packageVersion} does not exist on Nuget");
-		var outputFile = Environment.GetEnvironmentVariable("GITHUB_OUTPUT");
-		await File.AppendAllTextAsync(outputFile!, $"{ghActionOutputPublishNecessaryName}=true");
+		if (resource is null)
+		{
+			var repositories = Repository.Factory.GetCoreV3("https://api.nuget.org/v3/index.json");
+			resource = await repositories.GetResourceAsync<FindPackageByIdResource>();
+		}
+
+		var packageAndSpecificVersionExistsOnNuget = await resource.DoesPackageExistAsync(nugetPackageId, packageVersion, cache, NullLogger.Instance, CancellationToken.None);
+		if (packageAndSpecificVersionExistsOnNuget)
+		{
+			Console.WriteLine($"Package {nugetPackageId} with version {packageVersion} exists on Nuget");
+		}
+		else
+		{
+			Console.WriteLine($"Package {nugetPackageId} with version {packageVersion} does not exist on Nuget");
+			var outputFile = Environment.GetEnvironmentVariable("GITHUB_OUTPUT");
+			await File.AppendAllTextAsync(outputFile!, $"{ghActionOutputPublishNecessaryName}=true");
+		}
 	}
 }
+

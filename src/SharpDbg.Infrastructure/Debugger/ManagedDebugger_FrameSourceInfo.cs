@@ -1,5 +1,5 @@
 using System.Reflection.PortableExecutable;
-using ClrDebug;
+using ICorDebugSharp;
 using ICSharpCode.Decompiler;
 using ICSharpCode.Decompiler.CSharp;
 using ICSharpCode.Decompiler.CSharp.Transforms;

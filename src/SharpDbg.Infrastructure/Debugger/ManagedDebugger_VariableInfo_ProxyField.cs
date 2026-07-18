@@ -1,4 +1,4 @@
-using ClrDebug;
+using ICorDebugSharp;
 using Microsoft.CodeAnalysis.CSharp.Symbols;
 
 namespace SharpDbg.Infrastructure.Debugger;

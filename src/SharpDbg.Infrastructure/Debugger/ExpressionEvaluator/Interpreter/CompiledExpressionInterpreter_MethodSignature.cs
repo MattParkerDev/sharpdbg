@@ -1,5 +1,5 @@
 using System.Reflection.Metadata;
-using ClrDebug;
+using ICorDebugSharp;
 
 namespace SharpDbg.Infrastructure.Debugger.ExpressionEvaluator.Interpreter;
 

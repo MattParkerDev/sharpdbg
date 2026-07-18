@@ -1,5 +1,5 @@
 using System.Diagnostics;
-using ClrDebug;
+using ICorDebugSharp;
 using SharpDbg.Infrastructure.Debugger.ExpressionEvaluator;
 using SharpDbg.Infrastructure.Debugger.ExpressionEvaluator.Interpreter;
 

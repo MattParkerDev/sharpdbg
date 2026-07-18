@@ -1,5 +1,5 @@
 using Ardalis.GuardClauses;
-using ClrDebug;
+using ICorDebugSharp;
 using Microsoft.Diagnostics.NETCore.Client;
 using SharpDbg.Infrastructure.Debugger.Models;
 

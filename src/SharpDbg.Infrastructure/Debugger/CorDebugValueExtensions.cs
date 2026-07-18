@@ -1,5 +1,5 @@
 using System.Runtime.InteropServices;
-using ClrDebug;
+using ICorDebugSharp;
 
 namespace SharpDbg.Infrastructure.Debugger;
 

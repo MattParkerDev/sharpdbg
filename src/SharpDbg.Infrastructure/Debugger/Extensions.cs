@@ -1,6 +1,6 @@
 using System.Collections.Immutable;
 using System.Runtime.CompilerServices;
-using ClrDebug;
+using ICorDebugSharp;
 
 namespace SharpDbg.Infrastructure.Debugger;
 

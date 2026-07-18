@@ -3,7 +3,7 @@ using System.Diagnostics;
 using System.Reflection.Metadata;
 using System.Runtime.InteropServices;
 using Ardalis.GuardClauses;
-using ClrDebug;
+using ICorDebugSharp;
 using SharpDbg.Infrastructure.Debugger.ExpressionEvaluator;
 using SharpDbg.Infrastructure.Debugger.ExpressionEvaluator.Compiler;
 

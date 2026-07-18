@@ -1,5 +1,5 @@
 using Ardalis.GuardClauses;
-using ClrDebug;
+using ICorDebugSharp;
 using NeoSmart.AsyncLock;
 using SharpDbg.Infrastructure.Debugger.ExpressionEvaluator.Interpreter;
 

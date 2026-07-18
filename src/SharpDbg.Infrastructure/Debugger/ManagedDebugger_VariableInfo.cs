@@ -1,5 +1,5 @@
 using System.Diagnostics;
-using ClrDebug;
+using ICorDebugSharp;
 using Microsoft.CodeAnalysis.CSharp.Symbols;
 using SharpDbg.Infrastructure.Debugger.Models.Response;
 using SharpDbg.Infrastructure.Debugger.PresentationHintModels;

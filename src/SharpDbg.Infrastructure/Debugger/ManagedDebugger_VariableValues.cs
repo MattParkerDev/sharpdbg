@@ -118,13 +118,13 @@ public partial class ManagedDebugger
 			var value = GetValueForCorDebugValue(underlyingValueOrNull);
 			return value with { FriendlyTypeName = typeName };
 		}
-		var hasDebuggerTypeProxyAttribute = metaDataImport.TryGetCustomAttributeByName(corDebugObjectValue.Class.Token, "System.Diagnostics.DebuggerTypeProxyAttribute", out var debuggerTypeProxyAttribute) is Cor.S_OK;
-		var hasDebuggerDisplayAttribute = metaDataImport.TryGetCustomAttributeByName(corDebugObjectValue.Class.Token, "System.Diagnostics.DebuggerDisplayAttribute", out var debuggerDisplayAttribute) is Cor.S_OK;
+		var hasDebuggerTypeProxyAttribute = metaDataImport.TryGetCustomAttributeByName(corDebugObjectValue.Class.Token, "System.Diagnostics.DebuggerTypeProxyAttribute", out var debuggerTypeProxyAttributePointer, out var debuggerTypeProxyAttributeSize) is Cor.S_OK;
+		var hasDebuggerDisplayAttribute = metaDataImport.TryGetCustomAttributeByName(corDebugObjectValue.Class.Token, "System.Diagnostics.DebuggerDisplayAttribute", out var debuggerDisplayAttributePointer, out var debuggerDisplayAttributeSize) is Cor.S_OK;
 
-		var debugProxyTypeName = hasDebuggerTypeProxyAttribute ? GetCustomAttributeResultString(debuggerTypeProxyAttribute) : null;
+		var debugProxyTypeName = hasDebuggerTypeProxyAttribute ? GetCustomAttributeResultString(debuggerTypeProxyAttributePointer, debuggerTypeProxyAttributeSize) : null;
 		if (hasDebuggerDisplayAttribute)
 		{
-			var (debuggerDisplayValue, debuggerDisplayName) = GetCustomAttributeCtorStringArgAndNamedArg(debuggerDisplayAttribute, "Name");
+			var (debuggerDisplayValue, debuggerDisplayName) = GetCustomAttributeCtorStringArgAndNamedArg(debuggerDisplayAttributePointer, debuggerDisplayAttributeSize, "Name");
 			if (typeName.StartsWith("<>f__AnonymousType"))
 			{
 				// DebuggerDisplay Name for an anonymous type is e.g. `\{ Id = {Id}, Name = {Name} }`

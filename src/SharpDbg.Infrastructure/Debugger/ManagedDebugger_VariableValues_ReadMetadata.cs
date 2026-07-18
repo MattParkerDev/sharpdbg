@@ -6,11 +6,10 @@ namespace SharpDbg.Infrastructure.Debugger;
 
 public partial class ManagedDebugger
 {
-	private static int GetDebuggerBrowsableCustomAttributeResultInt(GetCustomAttributeByNameResult attribute)
+	private static int GetDebuggerBrowsableCustomAttributeResultInt(nint debuggerBrowsableCustomAttributePointer, uint debuggerBrowsableCustomAttributeSize)
 	{
-		var dataIntPtr = attribute.ppData;
-		var byteArray = new byte[attribute.pcbData];
-		Marshal.Copy(dataIntPtr, byteArray, 0, byteArray.Length);
+		var byteArray = new byte[debuggerBrowsableCustomAttributeSize];
+		Marshal.Copy(debuggerBrowsableCustomAttributePointer, byteArray, 0, byteArray.Length);
 		// 2 bytes prolog
 		// 4 bytes data
 		// 2 bytes alignment
@@ -19,9 +18,9 @@ public partial class ManagedDebugger
 		return dataAsInt;
 	}
 
-	private static string GetCustomAttributeResultString(GetCustomAttributeByNameResult attribute)
+	private static string GetCustomAttributeResultString(nint customAttributePointer, uint customAttributeSize)
 	{
-		var dataAsString = GetCustomAttributeCtorStringArg(attribute.ppData, attribute.pcbData); // e.g. "Count = {Count}" or "{DebuggerDisplay,nq}"
+		var dataAsString = GetCustomAttributeCtorStringArg(customAttributePointer, checked((int)customAttributeSize)); // e.g. "Count = {Count}" or "{DebuggerDisplay,nq}"
 		return dataAsString ?? string.Empty;
 	}
 
@@ -38,7 +37,7 @@ public partial class ManagedDebugger
 		var stringCtorArg = reader.ReadSerializedString();
 		return stringCtorArg;
 	}
-	private static (string, string?) GetCustomAttributeCtorStringArgAndNamedArg(GetCustomAttributeByNameResult customAttributeByNameResult, string namedArgumentName) => GetCustomAttributeCtorStringArgAndNamedArg(customAttributeByNameResult.ppData, customAttributeByNameResult.pcbData, namedArgumentName)!;
+	private static (string, string?) GetCustomAttributeCtorStringArgAndNamedArg(nint customAttributePointer, uint customAttributeSize, string namedArgumentName) => GetCustomAttributeCtorStringArgAndNamedArg(customAttributePointer, checked((int)customAttributeSize), namedArgumentName)!;
 
 	private static unsafe (string?, string?) GetCustomAttributeCtorStringArgAndNamedArg(IntPtr ppData, int pcbData, string namedArgumentName)
 	{

@@ -33,7 +33,7 @@ public partial class ManagedDebugger
 	/// <summary>
 	/// Actually perform the launch using DbgShim APIs
 	/// </summary>
-	private void PerformLaunch()
+	private async Task PerformLaunch()
 	{
 		if (_pendingLaunchInfo is null)
 		{
@@ -43,9 +43,6 @@ public partial class ManagedDebugger
 
 		var launchInfo = _pendingLaunchInfo;
 		_pendingLaunchInfo = null;
-
-		// Initialize DbgShim
-		var dbgshim = new DbgShim(NativeLibrary.Load("dbgshim", typeof(ManagedDebugger).Assembly, null));
 
 		var processStartInfo = new ProcessStartInfo
 		{
@@ -76,7 +73,7 @@ public partial class ManagedDebugger
 
 		_logger?.Invoke($"Process created suspended with PID: {processId}");
 
-		_corDebug = ClrDebugExtensions.Automatic(dbgshim, processId, true);
+		_corDebug = await ClrDebugExtensions.Automatic(processId, true);
 		_corDebug.Initialize();
 		_corDebug.SetManagedHandler(_callbacks);
 
@@ -140,7 +137,7 @@ public partial class ManagedDebugger
 		}
 		else if (_pendingLaunchInfo is not null) // If we have a pending launch, perform it
 		{
-			PerformLaunch();
+			await PerformLaunch();
 		}
 		else if (_pendingRemoteAttachInfo is not null)
 		{

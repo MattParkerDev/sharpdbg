@@ -99,10 +99,9 @@ public partial class ManagedDebugger
 		_logger?.Invoke($"Attaching to process: {processId}");
 
 		// Initialize the debugger
-		var dbgshim = new DbgShim(NativeLibrary.Load("dbgshim", typeof(ManagedDebugger).Assembly, null));
-		_ = Task.Run(() =>
+		_ = Task.Run(async () =>
 		{
-			_corDebug = ClrDebugExtensions.Automatic(dbgshim, processId);
+			_corDebug = await ClrDebugExtensions.Automatic(processId);
 			_corDebug.Initialize();
 			_corDebug.SetManagedHandler(_callbacks);
 
@@ -119,8 +118,7 @@ public partial class ManagedDebugger
 	{
 		_logger?.Invoke($"Attaching to remote process on {remoteAttachInfo.Address}:{remoteAttachInfo.Port}");
 
-		var dbgshim = new DbgShim(NativeLibrary.Load("dbgshim", typeof(ManagedDebugger).Assembly, null));
-		_corDebug = ClrDebugExtensions.Mobile(dbgshim, remoteAttachInfo);
+		_corDebug = ClrDebugExtensions.Mobile(remoteAttachInfo);
 		_corDebug.SetManagedHandler(_callbacks);
 		try
 		{

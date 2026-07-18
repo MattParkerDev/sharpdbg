@@ -8,9 +8,9 @@ namespace SharpDbg.Infrastructure;
 // https://github.com/lordmilko/ClrDebug/blob/5f46218f4b840ab8a94920623dc263b5f2334138/Samples/NetCore/Program.cs
 public static class ClrDebugExtensions
 {
-	public static CorDebug Mobile(DbgShim dbgShim, RemoteAttachInfo remoteAttachInfo)
+	public static ICorDebug Mobile(DbgShim dbgShim, RemoteAttachInfo remoteAttachInfo)
 	{
-		CorDebug corDebug = null!;
+		ICorDebug corDebug = null!;
 		// Requires ClrDebug 0.4.0, which unfortunately introduced an unrelated bug
 		// Uncomment once a release is available including this fix: https://github.com/lordmilko/ClrDebug/issues/26
 		// var result = Extensions.TryRegisterForRuntimeStartupRemotePort(dbgShim,
@@ -27,11 +27,11 @@ public static class ClrDebugExtensions
 	}
 
 	/// pass resumeDiagnosticSuspension true if the process was launched with the DOTNET_DefaultDiagnosticPortSuspend environment variable, and you wish for it to be resumed after RegisterForRuntimeStartup
-	public static CorDebug Automatic(DbgShim dbgshim, int pid, bool resumeDiagnosticSuspension = false)
+	public static ICorDebug Automatic(DbgShim dbgshim, int pid, bool resumeDiagnosticSuspension = false)
 	{
 		IntPtr unregisterToken = IntPtr.Zero;
 
-		CorDebug? cordebug = null;
+		ICorDebug? cordebug = null;
 		HRESULT hr = Cor.E_FAIL;
 		var wait = new AutoResetEvent(false);
 
@@ -83,7 +83,7 @@ public static class ClrDebugExtensions
 		//while (true) Thread.Sleep(1);
 	}
 
-	public static CorDebug Manual(DbgShim dbgshim, int pid)
+	public static ICorDebug Manual(DbgShim dbgshim, int pid)
 	{
 		/* If the process initializes the CLR before GetStartupNotificationEvent is called (e.g. because you were playing in the debugger between launching
 		 * the process and reaching this line of code) then WaitForSingleObject below will hang indefinitely. You can prevent this by starting the process suspended.

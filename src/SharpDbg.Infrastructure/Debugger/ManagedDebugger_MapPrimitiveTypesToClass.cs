@@ -24,8 +24,8 @@ public partial class ManagedDebugger
 
 		var corElementToValueNameMap = new[]
 		{
-			(CorElementType.Boolean, "System.Boolean"),
-			(CorElementType.Char, "System.Char"),
+			(CorElementType.BOOLEAN, "System.Boolean"),
+			(CorElementType.CHAR, "System.Char"),
 			(CorElementType.I1, "System.SByte"),
 			(CorElementType.U1, "System.Byte"),
 			(CorElementType.I2, "System.Int16"),

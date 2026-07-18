@@ -8,10 +8,10 @@ public partial class CompiledExpressionInterpreter
 	{
 		return elemType switch
 		{
-			CorElementType.Boolean => true,
+			CorElementType.BOOLEAN => true,
 			CorElementType.U1 => true,
 			CorElementType.I1 => true,
-			CorElementType.Char => true,
+			CorElementType.CHAR => true,
 			CorElementType.R8 => true,
 			CorElementType.R4 => true,
 			CorElementType.I4 => true,
@@ -20,7 +20,7 @@ public partial class CompiledExpressionInterpreter
 			CorElementType.U8 => true,
 			CorElementType.I2 => true,
 			CorElementType.U2 => true,
-			CorElementType.String => true,
+			CorElementType.STRING => true,
 			_ => false
 		};
 	}
@@ -42,13 +42,13 @@ public partial class CompiledExpressionInterpreter
 		var realValue1 = await GetRealValueWithType(value1!);
 		var elemType1 = realValue1.Type;
 
-		if (elemType1 == CorElementType.ValueType || elemType2 == CorElementType.ValueType ||
-			elemType1 == CorElementType.Class || elemType2 == CorElementType.Class)
+		if (elemType1 == CorElementType.VALUETYPE || elemType2 == CorElementType.VALUETYPE ||
+			elemType1 == CorElementType.CLASS || elemType2 == CorElementType.CLASS)
 		{
 			var opName = GetOperatorName(opType);
 			if (opName is not null)
 			{
-				if (elemType1 == CorElementType.ValueType || elemType1 == CorElementType.Class)
+				if (elemType1 == CorElementType.VALUETYPE || elemType1 == CorElementType.CLASS)
 				{
 					var result = await CallBinaryOperator(opName, realValue1, realValue1, realValue2);
 					if (result is not null)
@@ -58,7 +58,7 @@ public partial class CompiledExpressionInterpreter
 					}
 				}
 
-				if (elemType2 == CorElementType.ValueType || elemType2 == CorElementType.Class)
+				if (elemType2 == CorElementType.VALUETYPE || elemType2 == CorElementType.CLASS)
 				{
 					var result = await CallBinaryOperator(opName, realValue2, realValue1, realValue2);
 					if (result is not null)
@@ -83,7 +83,7 @@ public partial class CompiledExpressionInterpreter
 		var realValue = await GetRealValueWithType(value!);
 		var elemType = realValue.Type;
 
-		if (elemType == CorElementType.ValueType || elemType == CorElementType.Class)
+		if (elemType == CorElementType.VALUETYPE || elemType == CorElementType.CLASS)
 		{
 			var opName = GetUnaryOperatorName(opType);
 			if (opName is not null)

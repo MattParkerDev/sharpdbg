@@ -72,7 +72,7 @@ public partial class ManagedDebugger
 				genericValue.GetValue(buffer);
 				return genericValue.Type switch
 				{
-					CorElementType.Boolean => Marshal.ReadByte(buffer) != 0,
+					CorElementType.BOOLEAN => Marshal.ReadByte(buffer) != 0,
 					CorElementType.I1 or CorElementType.U1 => Marshal.ReadByte(buffer) != 0,
 					CorElementType.I2 or CorElementType.U2 => Marshal.ReadInt16(buffer) != 0,
 					CorElementType.I4 or CorElementType.U4 => Marshal.ReadInt32(buffer) != 0,

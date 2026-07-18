@@ -25,14 +25,14 @@ public partial class CompiledExpressionInterpreter
 		var argCount = command.Arguments[1] as int? ?? 0;
 		var name = command.Arguments[0] as string ?? "";
 
-		var genericTypes = new List<CorDebugType?>();
+		var genericTypes = new List<ICorDebugType?>();
 		var generics = new StringBuilder(">");
 		genericTypes.Capacity = argCount;
 
 		for (int i = 0; i < argCount; i++)
 		{
 			var value = await GetFrontStackEntryValue(evalStack);
-			CorDebugType? type = value?.ExactType;
+			ICorDebugType? type = value?.ExactType;
 
 			generics.Insert(0, "," + type?.GetType().Name ?? "");
 			genericTypes.Add(type);
@@ -57,7 +57,7 @@ public partial class CompiledExpressionInterpreter
 		if (argCount < 0)
 			throw new ArgumentException("Invalid argument count");
 
-		var args = new CorDebugValue[argCount];
+		var args = new ICorDebugValue[argCount];
 		for (var i = argCount - 1; i >= 0; i--)
 		{
 			args[i] = await GetFrontStackEntryValue(evalStack);
@@ -82,8 +82,8 @@ public partial class CompiledExpressionInterpreter
 		bool idsEmpty = false;
 		bool isInstance = true;
 
-		CorDebugValue? objValue;
-		CorDebugType? objType;
+		ICorDebugValue? objValue;
+		ICorDebugType? objType;
 
 		if (entry.CorDebugValue is null && entry.Identifiers.Count == 0)
 		{
@@ -123,7 +123,7 @@ public partial class CompiledExpressionInterpreter
 			if (_runtimeAssemblyPrimitiveTypeClasses.CorElementToValueClassMap.TryGetValue(elemType, out var boxedClass))
 			{
 				var size = objValue.Size;
-				var data = objValue.UnwrapDebugValue() is CorDebugGenericValue genValue
+				var data = objValue.UnwrapDebugValue() is ICorDebugGenericValue genValue
 					? genValue.GetValueAsBytes()
 					: null;
 
@@ -142,7 +142,7 @@ public partial class CompiledExpressionInterpreter
 
 		if (objType is null && objValue is null) throw new InvalidOperationException("Could not resolve target type for method invocation");
 
-		CorDebugFunction? function = null;
+		ICorDebugFunction? function = null;
 		bool? searchStatic = objType is null;
 
 		if (objType is not null)
@@ -165,12 +165,12 @@ public partial class CompiledExpressionInterpreter
 
 		if (isInstance)
 		{
-			valueArgs.Add(objValue!.Raw);
+			valueArgs.Add(objValue);
 		}
 
 		foreach (var arg in args)
 		{
-			valueArgs.Add(arg!.Raw);
+			valueArgs.Add(arg);
 		}
 
 		if (objType is not null)
@@ -188,7 +188,7 @@ public partial class CompiledExpressionInterpreter
 			{
 				if (entry.GenericTypeCache[i] is not null)
 				{
-					typeArgs.Add(entry.GenericTypeCache[i]!.Raw);
+					typeArgs.Add(entry.GenericTypeCache[i]);
 				}
 			}
 		}
@@ -215,10 +215,10 @@ public partial class CompiledExpressionInterpreter
 	}
 
 	// TODO: Refactor - this doesn't belong in this class
-	public static CorDebugFunction? FindMethodOnType(
-		CorDebugType type,
+	public static ICorDebugFunction? FindMethodOnType(
+		ICorDebugType type,
 		string methodName,
-		CorDebugValue[] args,
+		ICorDebugValue[] args,
 		bool searchStatic,
 		bool idsEmpty)
 	{
@@ -256,7 +256,7 @@ public partial class CompiledExpressionInterpreter
 		return null;
 	}
 
-	private static bool IsMethodParameterMatch(CorDebugFunction method, CorDebugValue[] args)
+	private static bool IsMethodParameterMatch(ICorDebugFunction method, ICorDebugValue[] args)
 	{
 		var metaDataImport = method.Class.Module.GetMetaDataInterface<IMetaDataImport>();
 
@@ -384,7 +384,7 @@ public partial class CompiledExpressionInterpreter
 
 		var stringBuilder = new StringBuilder();
 
-		var components = new CorDebugValue[componentCount];
+		var components = new ICorDebugValue[componentCount];
 		// Retrieve components in reverse order
 		for (var i = componentCount - 1; i >= 0; i--)
 		{
@@ -395,13 +395,13 @@ public partial class CompiledExpressionInterpreter
 		foreach (var value in components)
 		{
 			var unwrapped = value.UnwrapDebugValue();
-			if (unwrapped is null || unwrapped is CorDebugReferenceValue { IsNull: true })
+			if (unwrapped is null || unwrapped is ICorDebugReferenceValue { IsNull: true })
 			{
 				stringBuilder.Append("null");
 			}
-			else if (unwrapped is CorDebugStringValue stringValue)
+			else if (unwrapped is ICorDebugStringValue stringValue)
 			{
-				stringBuilder.Append(stringValue.GetStringWithoutBug(stringValue.Length + 1));
+				stringBuilder.Append(stringValue.String);
 			}
 			else
 			{
@@ -417,12 +417,12 @@ public partial class CompiledExpressionInterpreter
 		});
 	}
 
-	private async Task<string> GetToStringResult(CorDebugValue value)
+	private async Task<string> GetToStringResult(ICorDebugValue value)
 	{
 		var unwrappedValue = value.UnwrapDebugValue();
 		if (_runtimeAssemblyPrimitiveTypeClasses.CorElementToValueClassMap.TryGetValue(unwrappedValue.Type, out var boxedClass))
 		{
-			var data = unwrappedValue is CorDebugGenericValue genValue
+			var data = unwrappedValue is ICorDebugGenericValue genValue
 				? genValue.GetValueAsBytes()
 				: null;
 
@@ -436,7 +436,7 @@ public partial class CompiledExpressionInterpreter
 		var eval = _context.Thread.CreateEval();
 		var result = await eval.CallParameterlessInstanceMethodAsync(_debuggerManagedCallback, _debugger.EvalStatus, corDebugFunction, value);
 		var unwrappedResult = result!.UnwrapDebugValue();
-		if (unwrappedResult is not CorDebugStringValue stringValue) throw new InvalidOperationException("ToString did not return a string");
+		if (unwrappedResult is not ICorDebugStringValue stringValue) throw new InvalidOperationException("ToString did not return a string");
 
 		var stringResult = stringValue.GetStringWithoutBug(stringValue.Length + 1);
 		return stringResult;
@@ -450,7 +450,7 @@ public partial class CompiledExpressionInterpreter
 		evalStack.AddFirst(new EvalStackEntry
 		{
 			Literal = true,
-			CorDebugValue = await CreatePrimitiveValue(CorElementType.Char, data)
+			CorDebugValue = await CreatePrimitiveValue(CorElementType.CHAR, data)
 		});
 	}
 
@@ -460,28 +460,28 @@ public partial class CompiledExpressionInterpreter
 
 		var elemType = typeArg switch
 		{
-			ePredefinedType.BoolKeyword => CorElementType.Boolean,
+			ePredefinedType.BoolKeyword => CorElementType.BOOLEAN,
 			ePredefinedType.ByteKeyword => CorElementType.U1,
-			ePredefinedType.CharKeyword => CorElementType.Char,
+			ePredefinedType.CharKeyword => CorElementType.CHAR,
 			ePredefinedType.DoubleKeyword => CorElementType.R8,
 			ePredefinedType.FloatKeyword => CorElementType.R4,
 			ePredefinedType.IntKeyword => CorElementType.I4,
 			ePredefinedType.LongKeyword => CorElementType.I8,
 			ePredefinedType.SByteKeyword => CorElementType.I1,
 			ePredefinedType.ShortKeyword => CorElementType.I2,
-			ePredefinedType.StringKeyword => CorElementType.String,
+			ePredefinedType.StringKeyword => CorElementType.STRING,
 			ePredefinedType.UShortKeyword => CorElementType.U2,
 			ePredefinedType.UIntKeyword => CorElementType.U4,
 			ePredefinedType.ULongKeyword => CorElementType.U8,
-			ePredefinedType.DecimalKeyword => CorElementType.ValueType,
+			ePredefinedType.DecimalKeyword => CorElementType.VALUETYPE,
 			_ => throw new ArgumentException($"Unsupported predefined type: {typeArg}")
 		};
 
 		evalStack.AddFirst(new EvalStackEntry
 		{
-			CorDebugValue = elemType == CorElementType.ValueType && typeArg == ePredefinedType.DecimalKeyword
+			CorDebugValue = elemType == CorElementType.VALUETYPE && typeArg == ePredefinedType.DecimalKeyword
 				? await CreateValueType(_runtimeAssemblyPrimitiveTypeClasses.CorDecimalClass!, null)
-				: elemType == CorElementType.String
+				: elemType == CorElementType.STRING
 					? await CreateString("")
 					: await CreatePrimitiveValue(elemType, null)
 		});
@@ -526,7 +526,7 @@ public partial class CompiledExpressionInterpreter
 		entry.CorDebugValue = value;
 		entry.Identifiers.Clear();
 
-		if (value is CorDebugReferenceValue refValue && !refValue.IsNull)
+		if (value is ICorDebugReferenceValue refValue && !refValue.IsNull)
 		{
 			entry.Identifiers.Add(identifier);
 		}
@@ -544,7 +544,7 @@ public partial class CompiledExpressionInterpreter
 		if (entry.CorDebugValue is not null)
 		{
 			var elemType = entry.CorDebugValue.Type;
-			if (elemType == CorElementType.Class)
+			if (elemType == CorElementType.CLASS)
 			{
 				var unwrapped = entry.CorDebugValue.UnwrapDebugValue();
 				size = unwrapped.Size;
@@ -577,7 +577,7 @@ public partial class CompiledExpressionInterpreter
 		var unwrappedLhs = lhsValue.UnwrapDebugValue();
 		var unwrappedRhs = rhsValue.UnwrapDebugValue();
 
-		if (unwrappedLhs is CorDebugGenericValue lhsGeneric && unwrappedRhs is CorDebugGenericValue rhsGeneric)
+		if (unwrappedLhs is ICorDebugGenericValue lhsGeneric && unwrappedRhs is ICorDebugGenericValue rhsGeneric)
 		{
 			// Primitive / value type assignment: copy raw bytes from RHS into LHS
 			var data = rhsGeneric.GetValueAsBytes();
@@ -589,7 +589,7 @@ public partial class CompiledExpressionInterpreter
 				}
 			}
 		}
-		else if (lhsValue is CorDebugReferenceValue lhsRef && rhsValue is CorDebugReferenceValue rhsRef)
+		else if (lhsValue is ICorDebugReferenceValue lhsRef && rhsValue is ICorDebugReferenceValue rhsRef)
 		{
 			// Reference type assignment: point LHS reference at the same object as RHS
 			lhsRef.Value = rhsRef.Value;
@@ -597,8 +597,8 @@ public partial class CompiledExpressionInterpreter
 		else if (unwrappedLhs.Raw is ICorDebugGenericValue && unwrappedRhs.Raw is ICorDebugGenericValue)
 		{
 			// CorDebugObjectValue also implements CorDebugGenericValue, cast it
-			var lhsAsGeneric = unwrappedLhs.As<CorDebugGenericValue>();
-			var rhsAsGeneric = unwrappedRhs.As<CorDebugGenericValue>();
+			var lhsAsGeneric = unwrappedLhs.As<ICorDebugGenericValue>();
+			var rhsAsGeneric = unwrappedRhs.As<ICorDebugGenericValue>();
 			var data = rhsAsGeneric.GetValueAsBytes();
 			unsafe { fixed (byte* p = data) { lhsAsGeneric.SetValue((IntPtr)p); } }
 		}
@@ -629,7 +629,7 @@ public partial class CompiledExpressionInterpreter
 		if ((rightType == CorElementType.String && leftType == CorElementType.String) ||
 			(rightType == CorElementType.Class && leftType == CorElementType.Class))
 		{
-			if (leftValue is CorDebugReferenceValue refValue && refValue.IsNull)
+			if (leftValue is ICorDebugReferenceValue refValue && refValue.IsNull)
 			{
 				evalStack.RemoveFirst();
 				evalStack.AddFirst(rightEntry);

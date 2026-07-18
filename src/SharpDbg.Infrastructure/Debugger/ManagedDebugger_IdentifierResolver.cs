@@ -9,7 +9,7 @@ public partial class ManagedDebugger
 	// e.g. localVar, or localVar.Field1.Field2, or ClassName.StaticField.SubField
 	// optionalInputValue may be provided, e.g. in the case of where the value was created in the evaluation and does not exist
 	// as a local in the stack frame.
-	public async Task<CorDebugValue> ResolveIdentifiers(List<string> identifiers, ThreadId threadId, FrameStackDepth stackDepth, CorDebugValue? optionalInputValue, CorDebugValue? optionalRootValue)
+	public async Task<ICorDebugValue> ResolveIdentifiers(List<string> identifiers, ThreadId threadId, FrameStackDepth stackDepth, ICorDebugValue? optionalInputValue, ICorDebugValue? optionalRootValue)
 	{
 		if (identifiers.Count is 0)
 		{
@@ -37,7 +37,7 @@ public partial class ManagedDebugger
 	// Only takes the full list as resolving it as a static class needs to e.g. search through namespaces
 	// We must return the next identifier index to process after the static class name
 	// An optional root value is supplied if the identifiers should be resolved against it only, e.g. for DebuggerDisplay expressions
-	private async Task<(CorDebugValue Value, int? NextIdentifier)> ResolveFirstIdentifier(List<string> identifiers, ThreadId threadId, FrameStackDepth stackDepth, CorDebugValue? optionalRootValue)
+	private async Task<(ICorDebugValue Value, int? NextIdentifier)> ResolveFirstIdentifier(List<string> identifiers, ThreadId threadId, FrameStackDepth stackDepth, ICorDebugValue? optionalRootValue)
 	{
 		var firstIdentifier = identifiers[0];
 		ArgumentException.ThrowIfNullOrWhiteSpace(firstIdentifier);
@@ -45,8 +45,8 @@ public partial class ManagedDebugger
 		// 1. Stack variable, e.g. local variable or argument
 		// 2. Field or property of 'this' if available (instance or static)
 		// 3. Identifier as static class name
-		CorDebugValue? resolvedValue = null;
-		CorDebugValue? instanceMethodImplicitThisValue = optionalRootValue;
+		ICorDebugValue? resolvedValue = null;
+		ICorDebugValue? instanceMethodImplicitThisValue = optionalRootValue;
 
 		if (optionalRootValue is null) resolvedValue = ResolveIdentifierAsStackVariable(firstIdentifier, threadId, stackDepth, out instanceMethodImplicitThisValue);
 		if (resolvedValue is not null) return (resolvedValue, null);
@@ -59,7 +59,7 @@ public partial class ManagedDebugger
 		throw new InvalidOperationException($"Could not resolve identifier '{firstIdentifier}' as a stack variable.");
 	}
 
-	private CorDebugValue? ResolveIdentifierAsStackVariable(string identifier, ThreadId threadId, FrameStackDepth stackDepth, out CorDebugValue? instanceMethodImplicitThisValue)
+	private ICorDebugValue? ResolveIdentifierAsStackVariable(string identifier, ThreadId threadId, FrameStackDepth stackDepth, out ICorDebugValue? instanceMethodImplicitThisValue)
 	{
 		instanceMethodImplicitThisValue = null;
 
@@ -148,7 +148,7 @@ public partial class ManagedDebugger
 	/// Searches the closure chain starting at <paramref name="closureValue"/> for a hoisted local
 	/// whose original name matches <paramref name="identifier"/>. Walks parent closures linked via
 	/// <see cref="GeneratedNameKind.DisplayClassLocalOrField"/> fields.
-	private static CorDebugValue? FindHoistedLocalInClosureChain(CorDebugValue closureValue, string identifier, MetaDataImport metadataImport)
+	private static ICorDebugValue? FindHoistedLocalInClosureChain(ICorDebugValue closureValue, string identifier, IMetaDataImport metadataImport)
 	{
 		var objectValue = closureValue.UnwrapDebugValueToObject();
 		var fields = metadataImport.EnumFields(objectValue.Class.Token);
@@ -160,11 +160,11 @@ public partial class ManagedDebugger
 			if (kind is GeneratedNameKind.HoistedLocalField)
 			{
 				var originalName = fieldName.AsSpan()[(openBracketOffset + 1)..closeBracketOffset].ToString();
-				if (originalName == identifier) return objectValue.GetFieldValue(objectValue.Class.Raw, field);
+				if (originalName == identifier) return objectValue.GetFieldValue(objectValue.Class, field);
 			}
 			else if (kind is GeneratedNameKind.DisplayClassLocalOrField)
 			{
-				var parentClosureValue = objectValue.GetFieldValue(objectValue.Class.Raw, field);
+				var parentClosureValue = objectValue.GetFieldValue(objectValue.Class, field);
 				var parentObjectValue = parentClosureValue.UnwrapDebugValueToObject();
 				var parentMetadata = parentObjectValue.Class.Module.GetMetaDataInterface<IMetaDataImport>();
 				var result = FindHoistedLocalInClosureChain(parentClosureValue, identifier, parentMetadata);
@@ -174,7 +174,7 @@ public partial class ManagedDebugger
 		return null;
 	}
 
-	private async Task<CorDebugValue?> ResolveIdentifierAsMember(string identifier, ThreadId threadId, FrameStackDepth stackDepth, CorDebugValue instanceMethodImplicitThisValue)
+	private async Task<ICorDebugValue?> ResolveIdentifierAsMember(string identifier, ThreadId threadId, FrameStackDepth stackDepth, ICorDebugValue instanceMethodImplicitThisValue)
 	{
 		var unwrappedThisValue = instanceMethodImplicitThisValue.UnwrapDebugValueToObject();
 		var frame = GetFrameForThreadIdAndStackDepth(threadId, stackDepth);
@@ -186,7 +186,7 @@ public partial class ManagedDebugger
 		return null;
 	}
 
-	private async Task<(CorDebugValue Value, int NextIdentifier)?> ResolveStaticClassFromIdentifiers(List<string> identifiers, ThreadId threadId, FrameStackDepth stackDepth)
+	private async Task<(ICorDebugValue Value, int NextIdentifier)?> ResolveStaticClassFromIdentifiers(List<string> identifiers, ThreadId threadId, FrameStackDepth stackDepth)
 	{
 		// First, try to resolve using imported namespaces from the current method's PDB symbols
 		var typeTokenResult = FindTypeTokenInLoadedModulesWithNamespaceHints(identifiers, threadId, stackDepth);
@@ -215,7 +215,7 @@ public partial class ManagedDebugger
 		return result;
 	}
 
-	private async Task<CorDebugValue?> CreateTypeObjectStaticConstructor(CorDebugClass corDebugClass, ThreadId threadId, FrameStackDepth stackDepth)
+	private async Task<ICorDebugValue?> CreateTypeObjectStaticConstructor(CorDebugClass corDebugClass, ThreadId threadId, FrameStackDepth stackDepth)
 	{
 		var ilFrame = GetFrameForThreadIdAndStackDepth(threadId, stackDepth);
 		var eval = ilFrame.Chain.Thread.CreateEval();

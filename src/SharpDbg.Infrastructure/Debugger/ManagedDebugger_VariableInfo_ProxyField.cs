@@ -5,7 +5,7 @@ namespace SharpDbg.Infrastructure.Debugger;
 
 public partial class ManagedDebugger
 {
-	private static CorDebugValue? GetAsyncOrLambdaProxyFieldValue(CorDebugValue compilerGeneratedClassValue, MetaDataImport metadataImport)
+	private static ICorDebugValue? GetAsyncOrLambdaProxyFieldValue(ICorDebugValue compilerGeneratedClassValue, IMetaDataImport metadataImport)
 	{
 		var objectValue = compilerGeneratedClassValue.UnwrapDebugValueToObject();
 		var fields = metadataImport.EnumFields(objectValue.Class.Token);
@@ -16,13 +16,13 @@ public partial class ManagedDebugger
 			var generatedNameKind = GeneratedNameParser.GetKind(fieldName);
 			if (generatedNameKind is GeneratedNameKind.ThisProxyField)
 			{
-				var fieldCorDebugValue = objectValue.GetFieldValue(objectValue.Class.Raw, field);
+				var fieldCorDebugValue = objectValue.GetFieldValue(objectValue.Class, field);
 				return fieldCorDebugValue;
 			}
 			else if (generatedNameKind is GeneratedNameKind.DisplayClassLocalOrField)
 			{
 				// This field points to a parent closure class - follow the chain to find 'this'
-				var parentClosureValue = objectValue.GetFieldValue(objectValue.Class.Raw, field);
+				var parentClosureValue = objectValue.GetFieldValue(objectValue.Class, field);
 				var parentObjectValue = parentClosureValue.UnwrapDebugValueToObject();
 				var parentMetadataImport = parentObjectValue.Class.Module.GetMetaDataInterface<IMetaDataImport>();
 				return GetAsyncOrLambdaProxyFieldValue(parentClosureValue, parentMetadataImport);

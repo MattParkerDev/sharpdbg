@@ -15,6 +15,7 @@ public partial class ManagedDebugger
 {
 	private ICorDebug? _corDebug;
 	private ICorDebugProcess? _process;
+	private Process? _debuggeeProcess;
 	private readonly CorDebugManagedCallback _callbacks;
 	private readonly BreakpointManager _breakpointManager;
 	private readonly VariableManager _variableManager;
@@ -38,7 +39,8 @@ public partial class ManagedDebugger
 	public event Action<int, string>? OnThreadStarted;
 	public event Action<int, string>? OnThreadExited;
 	public event Action<string, string, string>? OnModuleLoaded;
-	public event Action<string>? OnOutput;
+	// Output text, isError (true for stderr, false for stdout)
+	public event Action<string, bool>? OnOutput;
 	public event Action<BreakpointManager.BreakpointInfo>? OnBreakpointChanged;
 	public event Func<LaunchInfo, int> SendRunInTerminalRequest = null!;
 
@@ -348,6 +350,9 @@ public partial class ManagedDebugger
 		_isAttached = false;
 		_process = null;
 		_corDebug = null;
+
+		_debuggeeProcess?.Dispose();
+		_debuggeeProcess = null;
 	}
 }
 

@@ -85,6 +85,23 @@ public static class DebugAdapterProcessHelper
 		};
 	}
 
+	public static LaunchRequest GetLaunchRequest(string program, params string[] args)
+	{
+		return new LaunchRequest
+		{
+			ConfigurationProperties = new Dictionary<string, JToken>
+			{
+				["name"] = "LaunchRequestName",
+				["type"] = "coreclr",
+				["request"] = "launch",
+				["program"] = program,
+				["args"] = new JArray(args),
+				["console"] = "internalConsole", // integratedTerminal, externalTerminal, internalConsole
+				["justMyCode"] = true
+			}
+		};
+	}
+
 	public static SetBreakpointsRequest GetSetBreakpointsRequest(int? line = null, string? filePath = null)
 	{
 		line ??= 22;

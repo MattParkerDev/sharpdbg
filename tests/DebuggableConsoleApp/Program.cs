@@ -1,4 +1,3 @@
-
 using DebuggableConsoleApp.Lambdas;
 
 namespace DebuggableConsoleApp;
@@ -9,6 +8,7 @@ public static class Program
 	{
 		Console.WriteLine("DebuggableConsoleApp is running");
 		Console.WriteLine("Log2");
+		if (args.Contains("--print-stderr-and-exit")) { Console.Error.WriteLine("DebuggableConsoleApp stderr"); Thread.Sleep(1000); return; } // for OutputTests; kept on one line (and blank line above removed) because tests hardcode line numbers below
 		var myLambdaClass = new MyLambdaClass();
 		var myClass = new MyClass();
 		var myAsyncClass = new MyAsyncClass();

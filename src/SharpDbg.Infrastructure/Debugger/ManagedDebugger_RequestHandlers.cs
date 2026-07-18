@@ -51,8 +51,8 @@ public partial class ManagedDebugger
 			WorkingDirectory = launchInfo.Cwd ?? Environment.CurrentDirectory,
 			UseShellExecute = false,
 			CreateNoWindow = true,
-			RedirectStandardOutput = false,
-			RedirectStandardError = false,
+			RedirectStandardOutput = true,
+			RedirectStandardError = true,
 			RedirectStandardInput = false,
 		};
 		foreach (var arg in launchInfo.Arguments)
@@ -66,8 +66,20 @@ public partial class ManagedDebugger
 		}
 		processStartInfo.Environment["DOTNET_DefaultDiagnosticPortSuspend"] = "1";
 
-		using var process = Process.Start(processStartInfo);
+		var process = Process.Start(processStartInfo);
 		if (process is null) throw new InvalidOperationException("Process start failed");
+		_debuggeeProcess = process;
+
+		process.OutputDataReceived += (_, e) =>
+		{
+			if (e.Data is not null) OnOutput?.Invoke(e.Data + Environment.NewLine, false);
+		};
+		process.ErrorDataReceived += (_, e) =>
+		{
+			if (e.Data is not null) OnOutput?.Invoke(e.Data + Environment.NewLine, true);
+		};
+		process.BeginOutputReadLine();
+		process.BeginErrorReadLine();
 
 		var processId = process.Id;
 

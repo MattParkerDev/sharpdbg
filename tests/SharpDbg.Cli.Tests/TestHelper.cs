@@ -32,6 +32,30 @@ public static partial class TestHelper
 		}
 	}
 
+	/// <summary>
+	/// Sets up an in-process debug adapter for the launch flow (the adapter starts the debuggee itself), without pre-starting a debuggee.
+	/// </summary>
+	public static (DisposableDebugProtocolHost DebugProtocolHost, TaskCompletionSource InitializedEventTcs, IDisposable DebugAdapterDisposable) GetRunningDebugProtocolHostForLaunchInProc(ITestOutputHelper testOutputHelper, Action<OutputEvent> onOutputEvent)
+	{
+		var (input, output, debugAdapterDisposable) = SharpDbgInMemory.NewDebugAdapterStreams(Log);
+		var initializedEventTcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+		var debugProtocolHost = DebugAdapterProcessHelper.GetDebugProtocolHost(input, output, testOutputHelper, initializedEventTcs);
+		debugProtocolHost.RegisterEventType(onOutputEvent);
+		debugProtocolHost.Run();
+		return (debugProtocolHost, initializedEventTcs, debugAdapterDisposable);
+		void Log(string message)
+		{
+			testOutputHelper.WriteLine($"Log [SharpDbg]: {message}");
+		}
+	}
+
+	public static DebugProtocolHost WithLaunchRequest(this DebugProtocolHost debugProtocolHost, string program, params string[] args)
+	{
+		var launchRequest = DebugAdapterProcessHelper.GetLaunchRequest(program, args);
+		debugProtocolHost.SendRequestSync(launchRequest);
+		return debugProtocolHost;
+	}
+
 	private static (DisposableDebugProtocolHost, TaskCompletionSource InitializedEventTcs, TcsContainer debugEventTcs, IDisposable DebugAdapterDisposable, Process DebuggableProcess) GetRunningDebugProtocolHostCore(ITestOutputHelper testOutputHelper, bool startSuspended, Stream input, Stream output, IDisposable debugAdapterDisposable)
 	{
 		var debuggableProcess = DebuggableProcessHelper.StartDebuggableProcess(startSuspended);
@@ -130,8 +154,21 @@ public static partial class TestHelper
 	public static DebugProtocolHost WithOptionalResumeRuntime(this DebugProtocolHost debugProtocolHost, int processId, bool startSuspended)
 	{
 		// DiagnosticsClient.ResumeRuntime seems to have a different implementation on MacOS - it will throw if the runtime is not paused...
-		if (startSuspended) new DiagnosticsClient(processId).ResumeRuntime();
-		return debugProtocolHost;
+		if (startSuspended is false) return debugProtocolHost;
+		// Right after process start the debuggee may not have created its diagnostics socket yet (seen on cold-started machines) - retry until it is reachable.
+		var retryUntil = DateTime.UtcNow.AddSeconds(10);
+		while (true)
+		{
+			try
+			{
+				new DiagnosticsClient(processId).ResumeRuntime();
+				return debugProtocolHost;
+			}
+			catch (ServerNotAvailableException) when (DateTime.UtcNow < retryUntil)
+			{
+				System.Threading.Thread.Sleep(50);
+			}
+		}
 	}
 
 	public static DebugProtocolHost WithStackTraceRequest(this DebugProtocolHost debugProtocolHost, int threadId, out StackTraceResponse stackTraceResponse, int? levels = 1)

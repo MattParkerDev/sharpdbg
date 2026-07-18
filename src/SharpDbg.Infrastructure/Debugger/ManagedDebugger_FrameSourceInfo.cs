@@ -49,7 +49,7 @@ public partial class ManagedDebugger
 				DecompiledSourceInfo? decompiledSourceInfo = null;
 				if (module.SymbolReaderFromDecompiled)
 				{
-					var metadataImport = module.Module.GetMetaDataInterface().MetaDataImport;
+					var metadataImport = module.Module.GetMetaDataInterface<IMetaDataImport>();
 					var mvid = metadataImport.ScopeProps.pmvid;
 					var containingTypeDef = metadataImport.GetMethodProps(methodToken).pClass;
 					var typeProps = metadataImport.GetTypeDefProps(containingTypeDef);
@@ -93,7 +93,7 @@ public partial class ManagedDebugger
 	private SymbolReader? GetCachedOrGeneratePdb(ModuleInfo moduleInfo)
 	{
 		var sharpIdeSymbolCachePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Temp", "SharpIdeSymbolCache");
-		var metadataImport = moduleInfo.Module.GetMetaDataInterface().MetaDataImport;
+		var metadataImport = moduleInfo.Module.GetMetaDataInterface<IMetaDataImport>();
 		var mvid = metadataImport.ScopeProps.pmvid;
 		var assemblyName = Path.GetFileNameWithoutExtension(moduleInfo.ModuleName);
 		var pdbPath = Path.Combine(sharpIdeSymbolCachePath, assemblyName, mvid.ToString(), $"{assemblyName}.decompiled.pdb");

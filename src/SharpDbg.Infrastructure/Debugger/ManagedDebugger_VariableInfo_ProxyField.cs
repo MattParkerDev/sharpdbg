@@ -24,7 +24,7 @@ public partial class ManagedDebugger
 				// This field points to a parent closure class - follow the chain to find 'this'
 				var parentClosureValue = objectValue.GetFieldValue(objectValue.Class.Raw, field);
 				var parentObjectValue = parentClosureValue.UnwrapDebugValueToObject();
-				var parentMetadataImport = parentObjectValue.Class.Module.GetMetaDataInterface().MetaDataImport;
+				var parentMetadataImport = parentObjectValue.Class.Module.GetMetaDataInterface<IMetaDataImport>();
 				return GetAsyncOrLambdaProxyFieldValue(parentClosureValue, parentMetadataImport);
 			}
 		}

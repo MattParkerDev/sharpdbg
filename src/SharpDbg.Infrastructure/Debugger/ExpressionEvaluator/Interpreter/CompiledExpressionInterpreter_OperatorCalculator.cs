@@ -172,7 +172,7 @@ public partial class CompiledExpressionInterpreter
 	{
 		var objClass = objectValue.Class;
 		var module = objClass.Module;
-		var metaDataImport = module.GetMetaDataInterface().MetaDataImport;
+		var metaDataImport = module.GetMetaDataInterface<IMetaDataImport>();
 		var classToken = objClass.Token;
 
 		var methods = metaDataImport.EnumMethods(classToken);

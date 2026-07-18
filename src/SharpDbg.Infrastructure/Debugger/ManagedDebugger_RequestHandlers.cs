@@ -195,7 +195,7 @@ public partial class ManagedDebugger
 		if (_threads.TryGetValue(threadId, out var thread))
 		{
 			var frame = thread.ActiveFrame;
-			if (frame is not CorDebugILFrame ilFrame) throw new InvalidOperationException("Active frame is not an IL frame");
+			if (frame is not ICorDebugILFrame ilFrame) throw new InvalidOperationException("Active frame is not an IL frame");
 			if (_stepper is not null) throw new InvalidOperationException("A step operation is already in progress");
 
 			// Try async stepping first
@@ -377,7 +377,7 @@ public partial class ManagedDebugger
 
 				foreach (var (index, frame) in filterFrames.Index())
 				{
-					if (frame is CorDebugILFrame ilFrame)
+					if (frame is ICorDebugILFrame ilFrame)
 					{
 						var function = ilFrame.Function;
 
@@ -604,10 +604,10 @@ public partial class ManagedDebugger
 		var frameStackDepth = new FrameStackDepth(0);
 		var (friendlyTypeName, _, _, _) = await GetValueForCorDebugValueAsync(currentException, threadId, frameStackDepth);
 
-		var (_, hResult, _, _) = await GetValueForCorDebugValueAsync((await currentException.GetPropertyValue(_callbacks, EvalStatus, (CorDebugILFrame)thread.ActiveFrame, "HResult"))!, threadId, frameStackDepth);
-		var (_, source, _, _) = await GetValueForCorDebugValueAsync((await currentException.GetPropertyValue(_callbacks, EvalStatus, (CorDebugILFrame)thread.ActiveFrame, "Source"))!, threadId, frameStackDepth);
-		var (_, message, _, _) = await GetValueForCorDebugValueAsync((await currentException.GetPropertyValue(_callbacks, EvalStatus, (CorDebugILFrame)thread.ActiveFrame, "Message"))!, threadId, frameStackDepth);
-		var (_, stackTrace, _, _) = await GetValueForCorDebugValueAsync((await currentException.GetPropertyValue(_callbacks, EvalStatus, (CorDebugILFrame)thread.ActiveFrame, "StackTrace"))!, threadId, frameStackDepth);
+		var (_, hResult, _, _) = await GetValueForCorDebugValueAsync((await currentException.GetPropertyValue(_callbacks, EvalStatus, (ICorDebugILFrame)thread.ActiveFrame, "HResult"))!, threadId, frameStackDepth);
+		var (_, source, _, _) = await GetValueForCorDebugValueAsync((await currentException.GetPropertyValue(_callbacks, EvalStatus, (ICorDebugILFrame)thread.ActiveFrame, "Source"))!, threadId, frameStackDepth);
+		var (_, message, _, _) = await GetValueForCorDebugValueAsync((await currentException.GetPropertyValue(_callbacks, EvalStatus, (ICorDebugILFrame)thread.ActiveFrame, "Message"))!, threadId, frameStackDepth);
+		var (_, stackTrace, _, _) = await GetValueForCorDebugValueAsync((await currentException.GetPropertyValue(_callbacks, EvalStatus, (ICorDebugILFrame)thread.ActiveFrame, "StackTrace"))!, threadId, frameStackDepth);
 
 		var typeNameSpan = friendlyTypeName.AsSpan();
 		var lastDot = typeNameSpan.LastIndexOf('.');

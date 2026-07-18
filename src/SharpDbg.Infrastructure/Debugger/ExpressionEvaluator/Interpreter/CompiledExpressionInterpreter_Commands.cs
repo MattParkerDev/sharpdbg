@@ -105,7 +105,7 @@ public partial class CompiledExpressionInterpreter
 				var ilFrame = _debugger.GetFrameForThreadIdAndStackDepth(_context.ThreadId, _context.StackDepth);
 				var corDebugFunction = ilFrame.Function;
 				var module = corDebugFunction.Class.Module;
-				var metaDataImport = module.GetMetaDataInterface().MetaDataImport;
+				var metaDataImport = module.GetMetaDataInterface<IMetaDataImport>();
 				var methodProps = metaDataImport!.GetMethodProps(corDebugFunction.Token);
 				var declaringTypeDef = methodProps.pClass;
 				var typeProps = metaDataImport!.GetTypeDefProps(declaringTypeDef);
@@ -155,7 +155,7 @@ public partial class CompiledExpressionInterpreter
 			throw new InvalidOperationException($"Method '{methodName}' with {args.Length} parameters not found");
 		}
 
-		var methodProps2 = function.Class.Module.GetMetaDataInterface().MetaDataImport!.GetMethodProps(function.Token);
+		var methodProps2 = function.Class.Module.GetMetaDataInterface<IMetaDataImport>()!.GetMethodProps(function.Token);
 		isInstance = methodProps2.pdwAttr.IsMdStatic() is false;
 
 		var typeArgsCount = entry.GenericTypeCache?.Count ?? 0;
@@ -224,7 +224,7 @@ public partial class CompiledExpressionInterpreter
 	{
 		var typeClass = type.Class;
 		var module = typeClass.Module;
-		var metaDataImport = module.GetMetaDataInterface().MetaDataImport;
+		var metaDataImport = module.GetMetaDataInterface<IMetaDataImport>();
 		var classToken = typeClass.Token;
 
 		var methods = metaDataImport!.EnumMethods(classToken);
@@ -258,7 +258,7 @@ public partial class CompiledExpressionInterpreter
 
 	private static bool IsMethodParameterMatch(CorDebugFunction method, CorDebugValue[] args)
 	{
-		var metaDataImport = method.Class.Module.GetMetaDataInterface().MetaDataImport;
+		var metaDataImport = method.Class.Module.GetMetaDataInterface<IMetaDataImport>();
 
 		// Get the method signature blob
 		var methodProps = metaDataImport.GetMethodProps(method.Token);

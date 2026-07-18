@@ -12,7 +12,7 @@ public partial class ManagedDebugger
 	private void MapRuntimePrimitiveTypesToCorDebugClass(CorDebugModule module)
 	{
 		if (Path.GetFileName(module.Name) is not "System.Private.CoreLib.dll") throw new InvalidOperationException("Mapping primitive types to classes is only supported for System.Private.CoreLib.dll");
-		var metadataImport = module.GetMetaDataInterface().MetaDataImport;
+		var metadataImport = module.GetMetaDataInterface<IMetaDataImport>();
 
 		var typeDef = metadataImport.FindTypeDefByNameOrNull("System.Decimal", mdToken.Nil);
 		if (typeDef is null || typeDef.Value.IsNil) throw new InvalidOperationException("Could not find System.Decimal type definition");

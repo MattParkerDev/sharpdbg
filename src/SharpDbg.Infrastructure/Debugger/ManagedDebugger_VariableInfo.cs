@@ -50,7 +50,7 @@ public partial class ManagedDebugger
 
 		// Follow the DisplayClassLocalOrField link to the parent closure, if any
 		var objectValue = closureValue.UnwrapDebugValueToObject();
-		var metadataImport = objectValue.Class.Module.GetMetaDataInterface().MetaDataImport;
+		var metadataImport = objectValue.Class.Module.GetMetaDataInterface<IMetaDataImport>();
 		var fields = metadataImport.EnumFields(objectValue.Class.Token);
 		foreach (var field in fields)
 		{
@@ -69,7 +69,7 @@ public partial class ManagedDebugger
 	{
 		var corDebugIlFrame = GetFrameForThreadIdAndStackDepth(threadId, stackDepth);
 		if (corDebugIlFrame.Arguments.Length is 0) return null;
-		var metadataImport = module.Module.GetMetaDataInterface().MetaDataImport;
+		var metadataImport = module.Module.GetMetaDataInterface<IMetaDataImport>();
 
 		// localsScope.Frame.Arguments includes the implicit "this" parameter for instance methods,
 		// but GetParamForMethodIndex does NOT include it - it is named by convention
@@ -217,7 +217,7 @@ public partial class ManagedDebugger
 		var corDebugClass = corDebugType.Class;
 		var module = corDebugClass.Module;
 		var mdTypeDef = corDebugClass.Token;
-		var metadataImport = module.GetMetaDataInterface().MetaDataImport;
+		var metadataImport = module.GetMetaDataInterface<IMetaDataImport>();
 		var mdFieldDefs = includeNonPublicMembers ? metadataImport.EnumFields(mdTypeDef) : metadataImport.EnumFields(mdTypeDef).AsValueEnumerable().Where(s => s.IsPublic(metadataImport)).ToArray();
 		var mdProperties = includeNonPublicMembers ? metadataImport.EnumProperties(mdTypeDef) : metadataImport.EnumProperties(mdTypeDef).AsValueEnumerable().Where(s => s.IsPublic(metadataImport)).ToArray();
 		var staticFieldDefs = mdFieldDefs.AsValueEnumerable().Where(s => s.IsStatic(metadataImport)).ToArray();
@@ -246,7 +246,7 @@ public partial class ManagedDebugger
 		var corDebugClass = corDebugType.Class;
 		var module = corDebugClass.Module;
 		var mdTypeDef = corDebugClass.Token;
-		var metadataImport = module.GetMetaDataInterface().MetaDataImport;
+		var metadataImport = module.GetMetaDataInterface<IMetaDataImport>();
 		var staticFieldDefs = metadataImport.EnumFields(mdTypeDef).AsValueEnumerable().Where(s => s.IsStatic(metadataImport)).ToArray();
 		var staticProperties = metadataImport.EnumProperties(mdTypeDef).AsValueEnumerable().Where(s => s.IsStatic(metadataImport)).ToArray();
 

@@ -84,7 +84,7 @@ public partial class ManagedDebugger
 			}
 		}
 
-		var metadataImport = module.Module.GetMetaDataInterface().MetaDataImport;
+		var metadataImport = module.Module.GetMetaDataInterface<IMetaDataImport>();
 		var methodProps = metadataImport!.GetMethodProps(corDebugFunction.Token);
 		var isStatic = methodProps.pdwAttr.IsMdStatic();
 		var methodName = methodProps.szMethod;
@@ -166,7 +166,7 @@ public partial class ManagedDebugger
 			{
 				var parentClosureValue = objectValue.GetFieldValue(objectValue.Class.Raw, field);
 				var parentObjectValue = parentClosureValue.UnwrapDebugValueToObject();
-				var parentMetadata = parentObjectValue.Class.Module.GetMetaDataInterface().MetaDataImport;
+				var parentMetadata = parentObjectValue.Class.Module.GetMetaDataInterface<IMetaDataImport>();
 				var result = FindHoistedLocalInClosureChain(parentClosureValue, identifier, parentMetadata);
 				if (result is not null) return result;
 			}
@@ -239,7 +239,7 @@ public partial class ManagedDebugger
 
 	private (mdTypeDef typeToken, int nextIdentifier)? FindTypeTokenInModule(CorDebugModule module, List<string> identifiers, ImmutableArray<string> importedNamespaces)
 	{
-		var metadataImport = module.GetMetaDataInterface().MetaDataImport;
+		var metadataImport = module.GetMetaDataInterface<IMetaDataImport>();
 		mdTypeDef? typeToken = null;
 
 		string currentTypeName = string.Empty;

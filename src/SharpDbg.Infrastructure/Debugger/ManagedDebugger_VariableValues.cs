@@ -36,7 +36,7 @@ public partial class ManagedDebugger
 			var thread = _process!.GetThread(threadId.Value);
 			var eval = thread.CreateEval();
 			var module = corDebugValue.ExactType.Class.Module;
-			var metadataImport = module.GetMetaDataInterface().MetaDataImport;
+			var metadataImport = module.GetMetaDataInterface<IMetaDataImport>();
 			var debugProxyCorDebugTypeDef = metadataImport.FindMaybeNestedTypeDefByNameOrNull(debuggerProxyTypeName);
 			ArgumentNullException.ThrowIfNull(debugProxyCorDebugTypeDef);
 			var debugProxyCorDebugClass = module.GetClassFromToken(debugProxyCorDebugTypeDef.Value);
@@ -99,7 +99,7 @@ public partial class ManagedDebugger
 	public static CorDebugValueValueResult GetCorDebugObjectValue_Value_AsString(CorDebugObjectValue corDebugObjectValue)
 	{
 		var module = corDebugObjectValue.Class.Module;
-		var metaDataImport = module.GetMetaDataInterface().MetaDataImport;
+		var metaDataImport = module.GetMetaDataInterface<IMetaDataImport>();
 		var baseTypeName = corDebugObjectValue.ExactType.Base is {} baseType ? GetCorDebugTypeFriendlyName(baseType) : null; // ExactType.Base is null when ExactType is System.Object
 		if (baseTypeName is "System.Enum")
 		{
@@ -164,7 +164,7 @@ public partial class ManagedDebugger
 		{
 			var cls = type.Class;
 			var module = cls.Module;
-			var metaDataImport = module.GetMetaDataInterface().MetaDataImport;
+			var metaDataImport = module.GetMetaDataInterface<IMetaDataImport>();
 			var typeName = metaDataImport.GetTypeDefProps(cls.Token).szTypeDef;
 			if (typeName is "System.Object" or "System.ValueType") return false;
 
@@ -183,7 +183,7 @@ public partial class ManagedDebugger
 	private static CorDebugValue? GetUnderlyingValueOrNullFromNullableStruct(CorDebugObjectValue corDebugObjectValue)
 	{
 		var module = corDebugObjectValue.Class.Module;
-		var metaDataImport = module.GetMetaDataInterface().MetaDataImport;
+		var metaDataImport = module.GetMetaDataInterface<IMetaDataImport>();
 		var hasValueFieldDef = metaDataImport.FindField(corDebugObjectValue.Class.Token, "hasValue", 0, 0);
 		var valueFieldDef = metaDataImport.FindField(corDebugObjectValue.Class.Token, "value", 0, 0);
 
@@ -234,7 +234,7 @@ public partial class ManagedDebugger
 	{
 		var module = corDebugClass.Module;
 		var token = corDebugClass.Token;
-		var metadataImport = module.GetMetaDataInterface().MetaDataImport;
+		var metadataImport = module.GetMetaDataInterface<IMetaDataImport>();
 		var typeDefProps = metadataImport.GetTypeDefProps(token);
 		var typeName = typeDefProps.szTypeDef;
 		var isNested = typeDefProps.pdwTypeDefFlags.IsTdNested();

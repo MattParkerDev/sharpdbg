@@ -80,7 +80,7 @@ public static class CorDebugValueExtensions
 		while (currentType is not null)
 		{
 			var cls = currentType.Class;
-			var meta = cls.Module.GetMetaDataInterface().MetaDataImport;
+			var meta = cls.Module.GetMetaDataInterface<IMetaDataImport>();
 			var field = meta.EnumFieldsWithName(cls.Token, fieldName).SingleOrDefault();
 			if (field.IsNil is false)
 			{
@@ -125,7 +125,7 @@ public static class CorDebugValueExtensions
 		while (currentType is not null)
 		{
 			var cls = currentType.Class;
-			var meta = cls.Module.GetMetaDataInterface().MetaDataImport;
+			var meta = cls.Module.GetMetaDataInterface<IMetaDataImport>();
 			var prop = meta.GetPropertyWithName(cls.Token, propertyName);
 			if (prop?.IsNil is false)
 			{

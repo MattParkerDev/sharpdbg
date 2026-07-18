@@ -227,7 +227,7 @@ public partial class ManagedDebugger
 		if (nextUserCodeIlOffset is null)
 		{
 			// Check attributes
-			var metadataImport = ilFrame.Function.Module.GetMetaDataInterface().MetaDataImport;
+			var metadataImport = ilFrame.Function.Module.GetMetaDataInterface<IMetaDataImport>();
 			var mdMethodDef = ilFrame.Function.Token;
 			var methodIsNotDebuggable =
 				metadataImport.HasAnyAttribute(mdMethodDef, JmcConstants.JmcMethodAttributeNames);

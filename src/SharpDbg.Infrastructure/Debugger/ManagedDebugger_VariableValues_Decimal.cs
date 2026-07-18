@@ -8,7 +8,7 @@ public partial class ManagedDebugger
 	private static string GetDecimalValueString(CorDebugObjectValue corDebugObjectValue)
 	{
 		var module = corDebugObjectValue.Class.Module;
-		var metaDataImport = module.GetMetaDataInterface().MetaDataImport;
+		var metaDataImport = module.GetMetaDataInterface<IMetaDataImport>();
 		var classToken = corDebugObjectValue.Class.Token;
 
 		uint lo = 0, mid = 0, hi = 0, flags = 0;

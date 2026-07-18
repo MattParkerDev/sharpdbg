@@ -145,7 +145,7 @@ public class AsyncStepper
 				return false;
 
 			// TODO: This doesn't need to be looked up every time
-			var metadataImport = targetModule.GetMetaDataInterface().MetaDataImport;
+			var metadataImport = targetModule.GetMetaDataInterface<IMetaDataImport>();
 			var classDef = metadataImport.FindTypeDefByNameOrNull(className, mdToken.Nil);
 			if (classDef is null) return false;
 
@@ -478,7 +478,7 @@ public class AsyncStepper
 			var function = frame.Function;
 			var module = function.Module;
 			var methodToken = function.Token;
-			var metadataImport = module.GetMetaDataInterface().MetaDataImport;
+			var metadataImport = module.GetMetaDataInterface<IMetaDataImport>();
 
 			var methodProps = metadataImport.GetMethodProps(methodToken);
 			var isStatic = (methodProps.pdwAttr & CorMethodAttr.mdStatic) != 0;
@@ -522,7 +522,7 @@ public class AsyncStepper
 		var objectValue = builder.UnwrapDebugValueToObject();
 		var @class = objectValue.Class;
 		var module = @class.Module;
-		var metadataImport = module.GetMetaDataInterface().MetaDataImport;
+		var metadataImport = module.GetMetaDataInterface<IMetaDataImport>();
 
 		var propertyDef = metadataImport.GetPropertyWithName(@class.Token, "ObjectIdForDebugger");
 		if (propertyDef is null || propertyDef.Value.IsNil)

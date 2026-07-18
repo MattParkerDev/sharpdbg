@@ -23,11 +23,9 @@ public static class ClrDebugExtensions
 	public static ICorDebug Mobile(RemoteAttachInfo remoteAttachInfo)
 	{
 		ICorDebug corDebug = null!;
-		// Requires ClrDebug 0.4.0, which unfortunately introduced an unrelated bug
-		// Uncomment once a release is available including this fix: https://github.com/lordmilko/ClrDebug/issues/26
-		// var result = Extensions.TryRegisterForRuntimeStartupRemotePort(dbgShim,
+		// var result = DbgShim.RegisterForRuntimeStartupRemotePort(
 		// 	remoteAttachInfo.Address,
-		// 	remoteAttachInfo.Port,
+		// 	checked((uint)remoteAttachInfo.Port),
 		// 	remoteAttachInfo.Platform,
 		// 	remoteAttachInfo.IsServer,
 		// 	remoteAttachInfo.MscordbiPath,

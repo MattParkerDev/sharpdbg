@@ -25,7 +25,7 @@ public partial class CompiledExpressionInterpreter
 		};
 	}
 
-	private async Task<CorDebugValue> CalculateTwoOperands(
+	private async Task<ICorDebugValue> CalculateTwoOperands(
 		OperationType opType,
 		LinkedList<EvalStackEntry> evalStack)
 	{
@@ -75,7 +75,7 @@ public partial class CompiledExpressionInterpreter
 		return await CalculatePrimitiveOperands(opType, realValue1, realValue2, evalStack);
 	}
 
-	private async Task<CorDebugValue> CalculateOneOperand(
+	private async Task<ICorDebugValue> CalculateOneOperand(
 		OperationType opType,
 		LinkedList<EvalStackEntry> evalStack)
 	{
@@ -102,7 +102,7 @@ public partial class CompiledExpressionInterpreter
 		return await CalculatePrimitiveOperand(opType, realValue, evalStack);
 	}
 
-	private async Task<CorDebugValue> CalculatePrimitiveOperands(
+	private async Task<ICorDebugValue> CalculatePrimitiveOperands(
 		OperationType opType,
 		CorDebugValue value1,
 		CorDebugValue value2,
@@ -118,7 +118,7 @@ public partial class CompiledExpressionInterpreter
 		return result;
 	}
 
-	private async Task<CorDebugValue> CalculatePrimitiveOperand(
+	private async Task<ICorDebugValue> CalculatePrimitiveOperand(
 		OperationType opType,
 		CorDebugValue value,
 		LinkedList<EvalStackEntry> evalStack)
@@ -189,7 +189,7 @@ public partial class CompiledExpressionInterpreter
 		return null;
 	}
 
-	private async Task<CorDebugValue> CreateValueFromPrimitiveData(byte[] data)
+	private async Task<ICorDebugValue> CreateValueFromPrimitiveData(byte[] data)
 	{
 		if (data.Length == 1)
 			return await CreatePrimitiveValue(CorElementType.U1, data);

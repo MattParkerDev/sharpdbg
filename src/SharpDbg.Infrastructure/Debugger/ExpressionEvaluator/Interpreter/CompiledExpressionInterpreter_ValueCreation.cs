@@ -4,7 +4,7 @@ namespace SharpDbg.Infrastructure.Debugger.ExpressionEvaluator.Interpreter;
 
 public partial class CompiledExpressionInterpreter
 {
-	private async Task<CorDebugValue> CreatePrimitiveValue(CorElementType type, byte[]? valueData)
+	private async Task<ICorDebugValue> CreatePrimitiveValue(CorElementType type, byte[]? valueData)
 	{
 		var eval = _context.Thread.CreateEval();
 		var corValue = eval.CreateValue(type, null);
@@ -24,20 +24,20 @@ public partial class CompiledExpressionInterpreter
 		return corValue;
 	}
 
-	private async Task<CorDebugValue> CreateBooleanValue(bool value)
+	private async Task<ICorDebugValue> CreateBooleanValue(bool value)
 	{
 		var eval = _context.Thread.CreateEval();
 		var corValue = eval.NewBooleanValue(value);
 		return corValue;
 	}
 
-	private async Task<CorDebugValue> CreateNullValue()
+	private async Task<ICorDebugValue> CreateNullValue()
 	{
 		var eval = _context.Thread.CreateEval();
 		return eval.CreateValue(CorElementType.Class, null);
 	}
 
-	private async Task<CorDebugValue> CreateValueType(CorDebugClass valueTypeClass, byte[]? valueData)
+	private async Task<ICorDebugValue> CreateValueType(CorDebugClass valueTypeClass, byte[]? valueData)
 	{
 		var eval = _context.Thread.CreateEval();
 		var corValue = await eval.NewParameterizedObjectNoConstructorAsync(_debuggerManagedCallback, _debugger.EvalStatus, valueTypeClass, 0, null);
@@ -60,7 +60,7 @@ public partial class CompiledExpressionInterpreter
 		throw new InvalidOperationException("Failed to create value type");
 	}
 
-	private async Task<CorDebugValue> CreateString(string str)
+	private async Task<ICorDebugValue> CreateString(string str)
 	{
 		var eval = _context.Thread.CreateEval();
 		return await eval.NewStringAsync(_debuggerManagedCallback, _debugger.EvalStatus, str);

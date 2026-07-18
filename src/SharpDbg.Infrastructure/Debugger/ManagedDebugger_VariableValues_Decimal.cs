@@ -22,7 +22,7 @@ public partial class ManagedDebugger
 
 			uint ReadUInt32Field()
 			{
-				var fieldValue = corDebugObjectValue.GetFieldValue(corDebugObjectValue.Class.Raw, fieldDef);
+				var fieldValue = corDebugObjectValue.GetFieldValue(corDebugObjectValue.Class, fieldDef);
 				IntPtr buffer = Marshal.AllocHGlobal(4);
 				try
 				{
@@ -55,7 +55,7 @@ public partial class ManagedDebugger
 					break;
 				case "_lo64":
 					// .NET 7+ layout: _lo64 is a ulong covering lo+mid
-					var fieldValue64 = corDebugObjectValue.GetFieldValue(corDebugObjectValue.Class.Raw, fieldDef);
+					var fieldValue64 = corDebugObjectValue.GetFieldValue(corDebugObjectValue.Class, fieldDef);
 					IntPtr buf64 = Marshal.AllocHGlobal(8);
 					try
 					{

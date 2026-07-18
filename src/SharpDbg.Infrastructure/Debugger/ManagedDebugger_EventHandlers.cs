@@ -167,7 +167,7 @@ public partial class ManagedDebugger
 			}
 		}
 
-		var managedBreakpoint = _breakpointManager.FindByCorBreakpoint(functionBreakpoint.Raw);
+		var managedBreakpoint = _breakpointManager.FindByCorBreakpoint(functionBreakpoint);
 		ArgumentNullException.ThrowIfNull(managedBreakpoint);
 
 		managedBreakpoint.HitCount++;

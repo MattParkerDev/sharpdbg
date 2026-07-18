@@ -178,7 +178,7 @@ public partial class CompiledExpressionInterpreter
 			var typeParamsEnum = objType.EnumerateTypeParameters();
 			foreach (var typeParam in typeParamsEnum)
 			{
-				typeArgs.Add(typeParam.Raw);
+				typeArgs.Add(typeParam);
 			}
 		}
 
@@ -593,14 +593,6 @@ public partial class CompiledExpressionInterpreter
 		{
 			// Reference type assignment: point LHS reference at the same object as RHS
 			lhsRef.Value = rhsRef.Value;
-		}
-		else if (unwrappedLhs.Raw is ICorDebugGenericValue && unwrappedRhs.Raw is ICorDebugGenericValue)
-		{
-			// CorDebugObjectValue also implements CorDebugGenericValue, cast it
-			var lhsAsGeneric = unwrappedLhs.As<ICorDebugGenericValue>();
-			var rhsAsGeneric = unwrappedRhs.As<ICorDebugGenericValue>();
-			var data = rhsAsGeneric.GetValueAsBytes();
-			unsafe { fixed (byte* p = data) { lhsAsGeneric.SetValue((IntPtr)p); } }
 		}
 		else
 		{

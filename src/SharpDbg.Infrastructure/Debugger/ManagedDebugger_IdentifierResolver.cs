@@ -215,7 +215,7 @@ public partial class ManagedDebugger
 		return result;
 	}
 
-	private async Task<ICorDebugValue?> CreateTypeObjectStaticConstructor(CorDebugClass corDebugClass, ThreadId threadId, FrameStackDepth stackDepth)
+	private async Task<ICorDebugValue?> CreateTypeObjectStaticConstructor(ICorDebugClass corDebugClass, ThreadId threadId, FrameStackDepth stackDepth)
 	{
 		var ilFrame = GetFrameForThreadIdAndStackDepth(threadId, stackDepth);
 		var eval = ilFrame.Chain.Thread.CreateEval();
@@ -237,7 +237,7 @@ public partial class ManagedDebugger
 		return null;
 	}
 
-	private (mdTypeDef typeToken, int nextIdentifier)? FindTypeTokenInModule(CorDebugModule module, List<string> identifiers, ImmutableArray<string> importedNamespaces)
+	private (mdTypeDef typeToken, int nextIdentifier)? FindTypeTokenInModule(ICorDebugModule module, List<string> identifiers, ImmutableArray<string> importedNamespaces)
 	{
 		var metadataImport = module.GetMetaDataInterface<IMetaDataImport>();
 		mdTypeDef? typeToken = null;

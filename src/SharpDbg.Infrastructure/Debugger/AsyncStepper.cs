@@ -99,7 +99,7 @@ public class AsyncStepper
 			Guard.Against.Null(function);
 
 			// Call builder.SetNotificationForWaitCompletion(true)
-			var typeParameterArgs = objectValue.ExactType.TypeParameters.Select(t => t.Raw).ToArray();
+			var typeParameterArgs = objectValue.ExactType.TypeParameters;
 			// result should be null, as SetNotificationForWaitCompletion returns void
 			var result = await eval.CallParameterizedFunctionAsync(
 				_managedCallback,
@@ -108,7 +108,7 @@ public class AsyncStepper
 				typeParameterArgs.Length,
 				typeParameterArgs,
 				2,
-				[builder.Raw, boolValue.Raw]
+				[builder, boolValue]
 			);
 			if (result is not null) throw new InvalidOperationException("SetNotificationForWaitCompletion returned a value when void was expected");
 			return true;
@@ -131,7 +131,7 @@ public class AsyncStepper
 			const string methodName = "NotifyDebuggerOfWaitCompletion";
 
 			// Find the module
-			CorDebugModule? targetModule = null;
+			ICorDebugModule? targetModule = null;
 			foreach (var module in _modules.Values)
 			{
 				if (module.Module.Name.EndsWith(assemblyName, StringComparison.OrdinalIgnoreCase))
@@ -506,7 +506,7 @@ public class AsyncStepper
 			if (fieldDef.IsNil)
 				return null;
 
-			var fieldValue = thisObjectValue.GetFieldValue(thisClass.Raw, fieldDef);
+			var fieldValue = thisObjectValue.GetFieldValue(thisClass, fieldDef);
 			var fieldValueUnwrapped = fieldValue.UnwrapDebugValue();
 			return fieldValueUnwrapped;
 		}
@@ -542,9 +542,9 @@ public class AsyncStepper
 			_debugger.EvalStatus,
 			getMethod,
 			builder.ExactType.TypeParameters.Length,
-			builder.ExactType.TypeParameters.Select(t => t.Raw).ToArray(),
+			builder.ExactType.TypeParameters,
 			1,
-			[builder.Raw]
+			[builder]
 		);
 
 		if (result is not ICorDebugHandleValue handleValue) throw new InvalidOperationException("ObjectIdForDebugger is not a handle value");
@@ -560,7 +560,7 @@ public class AsyncStepper
 		var moduleAddress = function.Module.BaseAddress;
 		var methodToken = function.Token;
 
-		return moduleAddress == asyncBp.ModuleAddress && methodToken == asyncBp.MethodToken && breakpoint.Raw == asyncBp.Breakpoint?.Raw;
+		return moduleAddress == asyncBp.ModuleAddress && methodToken == asyncBp.MethodToken && breakpoint == asyncBp.Breakpoint;
 	}
 
 	/// <summary>

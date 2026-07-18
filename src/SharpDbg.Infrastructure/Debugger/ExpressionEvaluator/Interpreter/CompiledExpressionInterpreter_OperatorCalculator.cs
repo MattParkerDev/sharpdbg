@@ -104,8 +104,8 @@ public partial class CompiledExpressionInterpreter
 
 	private async Task<ICorDebugValue> CalculatePrimitiveOperands(
 		OperationType opType,
-		CorDebugValue value1,
-		CorDebugValue value2,
+		ICorDebugValue value1,
+		ICorDebugValue value2,
 		LinkedList<EvalStackEntry> evalStack)
 	{
 		var (data1, type1) = await GetOperandDataTypeByValue(value1);
@@ -120,7 +120,7 @@ public partial class CompiledExpressionInterpreter
 
 	private async Task<ICorDebugValue> CalculatePrimitiveOperand(
 		OperationType opType,
-		CorDebugValue value,
+		ICorDebugValue value,
 		LinkedList<EvalStackEntry> evalStack)
 	{
 		var (data, type) = await GetOperandDataTypeByValue(value);
@@ -132,28 +132,28 @@ public partial class CompiledExpressionInterpreter
 		return result;
 	}
 
-	private async Task<CorDebugValue?> CallBinaryOperator(
+	private async Task<ICorDebugValue?> CallBinaryOperator(
 		string opName,
-		CorDebugValue baseValue,
-		CorDebugValue arg1,
-		CorDebugValue arg2)
+		ICorDebugValue baseValue,
+		ICorDebugValue arg1,
+		ICorDebugValue arg2)
 	{
-		if (baseValue is not CorDebugObjectValue objectValue)
+		if (baseValue is not ICorDebugObjectValue objectValue)
 			return null;
 
 		var corDebugFunction = await FindOperatorMethod(objectValue, opName, 2);
 		if (corDebugFunction is null) return null;
 
 		var eval = _context.Thread.CreateEval();
-		ICorDebugValue[] evalArgs = [arg1.Raw, arg2.Raw];
+		ICorDebugValue[] evalArgs = [arg1, arg2];
 		return await eval.CallParameterizedFunctionAsync(_debuggerManagedCallback, _debugger.EvalStatus, corDebugFunction, 0, null, evalArgs.Length, evalArgs);
 	}
 
-	private async Task<CorDebugValue?> CallUnaryOperator(
+	private async Task<ICorDebugValue?> CallUnaryOperator(
 		string opName,
-		CorDebugValue baseValue)
+		ICorDebugValue baseValue)
 	{
-		if (baseValue is not CorDebugObjectValue objectValue)
+		if (baseValue is not ICorDebugObjectValue objectValue)
 			return null;
 
 		var corDebugFunction = await FindOperatorMethod(objectValue, opName, 1);
@@ -161,12 +161,12 @@ public partial class CompiledExpressionInterpreter
 			return null;
 
 		var eval = _context.Thread.CreateEval();
-		ICorDebugValue[] evalArgs = [baseValue.Raw];
+		ICorDebugValue[] evalArgs = [baseValue];
 		return await eval.CallParameterizedFunctionAsync(_debuggerManagedCallback, _debugger.EvalStatus, corDebugFunction, 0, null, evalArgs.Length, evalArgs);
 	}
 
 	private async Task<CorDebugFunction?> FindOperatorMethod(
-		CorDebugObjectValue objectValue,
+		ICorDebugObjectValue objectValue,
 		string opName,
 		int paramCount)
 	{

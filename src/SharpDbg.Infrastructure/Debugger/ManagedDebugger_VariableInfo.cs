@@ -9,7 +9,7 @@ namespace SharpDbg.Infrastructure.Debugger;
 
 public partial class ManagedDebugger
 {
-	private async Task AddLocalVariables(ModuleInfo module, CorDebugFunction corDebugFunction, List<VariableInfo> result, ThreadId threadId, FrameStackDepth stackDepth, CorDebugValue? classContainingHoistedLocalsValue)
+	private async Task AddLocalVariables(ModuleInfo module, CorDebugFunction corDebugFunction, List<VariableInfo> result, ThreadId threadId, FrameStackDepth stackDepth, ICorDebugValue? classContainingHoistedLocalsValue)
 	{
 		if (classContainingHoistedLocalsValue is not null)
 		{
@@ -44,7 +44,7 @@ public partial class ManagedDebugger
 	/// Walks the compiler-generated closure chain starting at <paramref name="closureValue"/>,
 	/// calling AddMembers on each closure class. Parent closures are linked via a field of
 	/// kind <see cref="GeneratedNameKind.DisplayClassLocalOrField"/> (e.g. "&lt;&gt;8__1").
-	private async Task AddClosureChainMembers(CorDebugValue closureValue, ThreadId threadId, FrameStackDepth stackDepth, List<VariableInfo> result)
+	private async Task AddClosureChainMembers(ICorDebugValue closureValue, ThreadId threadId, FrameStackDepth stackDepth, List<VariableInfo> result)
 	{
 		await AddMembers(closureValue, closureValue.ExactType, threadId, stackDepth, result);
 
@@ -57,7 +57,7 @@ public partial class ManagedDebugger
 			var fieldProps = metadataImport.GetFieldProps(field);
 			if (GeneratedNameParser.GetKind(fieldProps.szField) is GeneratedNameKind.DisplayClassLocalOrField)
 			{
-				var parentClosureValue = objectValue.GetFieldValue(objectValue.Class.Raw, field);
+				var parentClosureValue = objectValue.GetFieldValue(objectValue.Class, field);
 				await AddClosureChainMembers(parentClosureValue, threadId, stackDepth, result);
 				break; // only one parent link per closure class
 			}
@@ -65,7 +65,7 @@ public partial class ManagedDebugger
 	}
 
 	/// Returns classContainingHoistedLocalsValue if applicable
-	private async Task<CorDebugValue?> AddArguments(ModuleInfo module, CorDebugFunction corDebugFunction, List<VariableInfo> result, ThreadId threadId, FrameStackDepth stackDepth)
+	private async Task<ICorDebugValue?> AddArguments(ModuleInfo module, CorDebugFunction corDebugFunction, List<VariableInfo> result, ThreadId threadId, FrameStackDepth stackDepth)
 	{
 		var corDebugIlFrame = GetFrameForThreadIdAndStackDepth(threadId, stackDepth);
 		if (corDebugIlFrame.Arguments.Length is 0) return null;
@@ -76,7 +76,7 @@ public partial class ManagedDebugger
 		// so we need to check the method attributes to see if it's static or instance, to conditionally handle "this"
 		var methodProps = metadataImport!.GetMethodProps(corDebugFunction.Token);
 		var isStatic = methodProps.pdwAttr.IsMdStatic();
-		CorDebugValue? classContainingHoistedLocalsValue = null;
+		ICorDebugValue? classContainingHoistedLocalsValue = null;
 		if (isStatic is false)
 		{
 			var methodName = methodProps.szMethod;
@@ -152,10 +152,10 @@ public partial class ManagedDebugger
 		}
 	}
 
-	private int GetVariablesReference(CorDebugValue corDebugValue, string friendlyTypeName, ThreadId threadId, FrameStackDepth stackDepth, CorDebugValue? debuggerProxyInstance)
+	private int GetVariablesReference(ICorDebugValue corDebugValue, string friendlyTypeName, ThreadId threadId, FrameStackDepth stackDepth, ICorDebugValue? debuggerProxyInstance)
 	{
 		var unwrappedDebugValue = corDebugValue.UnwrapDebugValue();
-		if (unwrappedDebugValue is CorDebugArrayValue arrayValue)
+		if (unwrappedDebugValue is ICorDebugArrayValue arrayValue)
 		{
 			if (arrayValue.Count is 0) return 0;
 			return GenerateUniqueVariableReference(corDebugValue, threadId, stackDepth, debuggerProxyInstance);
@@ -186,14 +186,14 @@ public partial class ManagedDebugger
 		return 0;
 	}
 
-	private int GenerateUniqueVariableReference(CorDebugValue value, ThreadId threadId, FrameStackDepth stackDepth, CorDebugValue? debuggerProxyInstance)
+	private int GenerateUniqueVariableReference(ICorDebugValue value, ThreadId threadId, FrameStackDepth stackDepth, ICorDebugValue? debuggerProxyInstance)
 	{
 		var variablesReference = new VariablesReference(StoredReferenceKind.StackVariable, value, threadId, stackDepth, debuggerProxyInstance);
 		var reference = _variableManager.CreateReference(variablesReference);
 		return reference;
 	}
 
-	private async Task AddMembersAndStaticPseudoVariable(CorDebugValue corDebugValue, CorDebugType corDebugType, ThreadId threadId, FrameStackDepth stackDepth, List<VariableInfo> result, bool includeNonPublicMembers = true)
+	private async Task AddMembersAndStaticPseudoVariable(ICorDebugValue corDebugValue, ICorDebugType corDebugType, ThreadId threadId, FrameStackDepth stackDepth, List<VariableInfo> result, bool includeNonPublicMembers = true)
 	{
 		var requiresStaticPseudoVariable = await AddMembers(corDebugValue, corDebugType, threadId, stackDepth, result, includeNonPublicMembers);
 		if (requiresStaticPseudoVariable)
@@ -211,7 +211,7 @@ public partial class ManagedDebugger
 	}
 
 	/// Returns a bool indicating if a Static Members pseudo variable is required
-	private async Task<bool> AddMembers(CorDebugValue corDebugValue, CorDebugType corDebugType, ThreadId threadId, FrameStackDepth stackDepth, List<VariableInfo> result, bool includeNonPublicMembers = true)
+	private async Task<bool> AddMembers(ICorDebugValue corDebugValue, ICorDebugType corDebugType, ThreadId threadId, FrameStackDepth stackDepth, List<VariableInfo> result, bool includeNonPublicMembers = true)
 	{
 		var hasStaticMembers = false;
 		var corDebugClass = corDebugType.Class;
@@ -241,7 +241,7 @@ public partial class ManagedDebugger
 		return hasStaticMembers | await AddMembers(corDebugValue, baseType, threadId, stackDepth, result);
 	}
 
-	private async Task AddStaticMembers(CorDebugValue corDebugValue, CorDebugType corDebugType, ThreadId threadId, FrameStackDepth stackDepth, List<VariableInfo> result)
+	private async Task AddStaticMembers(ICorDebugValue corDebugValue, ICorDebugType corDebugType, ThreadId threadId, FrameStackDepth stackDepth, List<VariableInfo> result)
 	{
 		var corDebugClass = corDebugType.Class;
 		var module = corDebugClass.Module;
@@ -262,7 +262,7 @@ public partial class ManagedDebugger
 		await AddStaticMembers(corDebugValue, baseType, threadId, stackDepth, result);
 	}
 
-	private async Task AddFields(mdFieldDef[] mdFieldDefs, MetaDataImport metadataImport, CorDebugClass corDebugClass, CorDebugValue corDebugValue, List<VariableInfo> result, ThreadId threadId, FrameStackDepth stackDepth)
+	private async Task AddFields(mdFieldDef[] mdFieldDefs, IMetaDataImport metadataImport, ICorDebugClass corDebugClass, ICorDebugValue corDebugValue, List<VariableInfo> result, ThreadId threadId, FrameStackDepth stackDepth)
 	{
 		foreach (var mdFieldDef in mdFieldDefs)
 		{
@@ -307,11 +307,11 @@ public partial class ManagedDebugger
 			}
 
 			var objectValue = corDebugValue.UnwrapDebugValueToObject();
-			var fieldCorDebugValue = isStatic ? corDebugClass.GetStaticFieldValue(mdFieldDef, GetFrameForThreadIdAndStackDepth(threadId, stackDepth).Raw) : objectValue.GetFieldValue(corDebugClass.Raw, mdFieldDef);
+			var fieldCorDebugValue = isStatic ? corDebugClass.GetStaticFieldValue(mdFieldDef, GetFrameForThreadIdAndStackDepth(threadId, stackDepth)) : objectValue.GetFieldValue(corDebugClass, mdFieldDef);
 			if (debuggerBrowsableRootHidden)
 			{
 				var unwrappedDebugValue = fieldCorDebugValue.UnwrapDebugValue();
-				if (unwrappedDebugValue is CorDebugArrayValue arrayValue)
+				if (unwrappedDebugValue is ICorDebugArrayValue arrayValue)
 				{
 					await AddArrayElements(arrayValue, threadId, stackDepth, result);
 					continue;
@@ -332,7 +332,7 @@ public partial class ManagedDebugger
 	}
 
 	internal class EvalException(string message) : Exception(message);
-	private async Task AddProperties(mdProperty[] mdProperties, MetaDataImport metadataImport, CorDebugClass corDebugClass, ThreadId threadId, FrameStackDepth stackDepth, CorDebugValue corDebugValue, List<VariableInfo> result)
+	private async Task AddProperties(mdProperty[] mdProperties, IMetaDataImport metadataImport, ICorDebugClass corDebugClass, ThreadId threadId, FrameStackDepth stackDepth, ICorDebugValue corDebugValue, List<VariableInfo> result)
 	{
 		foreach (var mdProperty in mdProperties)
 		{
@@ -369,18 +369,17 @@ public partial class ManagedDebugger
 			var parameterizedContainingType = corDebugValue.ExactType;
 
 			var typeParameterTypes = parameterizedContainingType.TypeParameters;
-			var typeParameterArgs = typeParameterTypes.Select(t => t.Raw).ToArray();
 
 			// For instance properties, pass the object; for static, pass nothing
-			ICorDebugValue[] corDebugValues = isStatic ? [] : [corDebugValue!.Raw];
+			ICorDebugValue[] corDebugValues = isStatic ? [] : [corDebugValue];
 
-			var returnValue = await eval.CallParameterizedFunctionAsync(_callbacks, EvalStatus, getMethod, typeParameterTypes.Length, typeParameterArgs, corDebugValues.Length, corDebugValues);
+			var returnValue = await eval.CallParameterizedFunctionAsync(_callbacks, EvalStatus, getMethod, typeParameterTypes.Length, typeParameterTypes, corDebugValues.Length, corDebugValues);
 
 			if (returnValue is null) continue;
 			if (debuggerBrowsableRootHidden)
 			{
 				var unwrappedDebugValue = returnValue.UnwrapDebugValue();
-				if (unwrappedDebugValue is CorDebugArrayValue arrayValue)
+				if (unwrappedDebugValue is ICorDebugArrayValue arrayValue)
 				{
 					await AddArrayElements(arrayValue, threadId, stackDepth, result);
 					continue;
@@ -400,14 +399,14 @@ public partial class ManagedDebugger
 		}
 	}
 
-	private async Task AddArrayElements(CorDebugArrayValue arrayValue, ThreadId threadId, FrameStackDepth stackDepth, List<VariableInfo> result)
+	private async Task AddArrayElements(ICorDebugArrayValue arrayValue, ThreadId threadId, FrameStackDepth stackDepth, List<VariableInfo> result)
 	{
 		var rank = arrayValue.Rank;
 		if (rank > 1) throw new NotImplementedException("Multidimensional arrays not yet supported");
 		var itemCount = arrayValue.Count;
 
 		// Get the elements first, as the CorDebugArrayValue arrayValue may get neutered during 'await GetValueForCorDebugValueAsync' below, if any evals are required
-		var elements = ValueEnumerable.Range(0, itemCount).Select(i => arrayValue.GetElement(1, [i])).ToArray();
+		var elements = ValueEnumerable.Range(0, itemCount).Select(i => arrayValue.GetElement(1, [checked((uint)i)])).ToArray();
 		foreach (var (i, element) in elements.Index())
 		{
 			var (friendlyTypeName, value, debuggerProxyInstance, resultIsError) = await GetValueForCorDebugValueAsync(element, threadId, stackDepth);

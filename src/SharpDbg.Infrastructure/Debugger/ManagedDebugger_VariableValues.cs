@@ -45,8 +45,8 @@ public partial class ManagedDebugger
 			var debugProxyTypeConstructorMethodDef = metadataImport.FindMethod(debugProxyCorDebugClass.Token, ".ctor", 0, 0);
 			//var debugProxyTypeCtorMethodProps = metadataImport.GetMethodProps(debugProxyTypeConstructorMethodDef);
 			var corDebugFunction = module.GetFunctionFromToken(debugProxyTypeConstructorMethodDef);
-			ICorDebugValue[] evalArgs = [corDebugValue.Raw];
-			var typeParameterArgs = corDebugValue.ExactType.TypeParameters.Select(t => t.Raw).ToArray();
+			ICorDebugValue[] evalArgs = [corDebugValue];
+			var typeParameterArgs = corDebugValue.ExactType.TypeParameters;
 			proxyInstance = await eval.NewParameterizedObjectAsync(_callbacks, EvalStatus, corDebugFunction, typeParameterArgs.Length, typeParameterArgs, evalArgs.Length, evalArgs);
 			ArgumentNullException.ThrowIfNull(proxyInstance);
 		}
@@ -187,10 +187,10 @@ public partial class ManagedDebugger
 		var hasValueFieldDef = metaDataImport.FindField(corDebugObjectValue.Class.Token, "hasValue", 0, 0);
 		var valueFieldDef = metaDataImport.FindField(corDebugObjectValue.Class.Token, "value", 0, 0);
 
-		var hasValueDebugObjectValue = corDebugObjectValue.GetFieldValue(corDebugObjectValue.Class.Raw, hasValueFieldDef);
+		var hasValueDebugObjectValue = corDebugObjectValue.GetFieldValue(corDebugObjectValue.Class, hasValueFieldDef);
 		var hasValueValue = GetValueForCorDebugValue(hasValueDebugObjectValue);
 		if (hasValueValue.Value is "false") return null;
-		var valueValue = corDebugObjectValue.GetFieldValue(corDebugObjectValue.Class.Raw, valueFieldDef);
+		var valueValue = corDebugObjectValue.GetFieldValue(corDebugObjectValue.Class, valueFieldDef);
 		return valueValue;
 	}
 

@@ -156,6 +156,7 @@ public static partial class TestHelper
 		// DiagnosticsClient.ResumeRuntime seems to have a different implementation on MacOS - it will throw if the runtime is not paused...
 		if (startSuspended is false) return debugProtocolHost;
 		// Right after process start the debuggee may not have created its diagnostics socket yet (seen on cold-started machines) - retry until it is reachable.
+		var cancellationToken = TestContext.Current.CancellationToken;
 		var retryUntil = DateTime.UtcNow.AddSeconds(10);
 		while (true)
 		{
@@ -166,7 +167,7 @@ public static partial class TestHelper
 			}
 			catch (ServerNotAvailableException) when (DateTime.UtcNow < retryUntil)
 			{
-				System.Threading.Thread.Sleep(50);
+				Task.Delay(50, cancellationToken).GetAwaiter().GetResult();
 			}
 		}
 	}

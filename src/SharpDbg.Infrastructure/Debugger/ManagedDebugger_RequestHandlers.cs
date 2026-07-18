@@ -72,11 +72,11 @@ public partial class ManagedDebugger
 
 		process.OutputDataReceived += (_, e) =>
 		{
-			if (e.Data is not null) OnOutput?.Invoke(e.Data + Environment.NewLine, false);
+			if (e.Data is not null) ForwardOutput(e.Data + Environment.NewLine, isError: false);
 		};
 		process.ErrorDataReceived += (_, e) =>
 		{
-			if (e.Data is not null) OnOutput?.Invoke(e.Data + Environment.NewLine, true);
+			if (e.Data is not null) ForwardOutput(e.Data + Environment.NewLine, isError: true);
 		};
 		process.BeginOutputReadLine();
 		process.BeginErrorReadLine();
@@ -94,6 +94,19 @@ public partial class ManagedDebugger
 
 		_logger?.Invoke($"Successfully attached to process: {processId}");
 		SendAllBreakpointEvents();
+
+		// The DataReceived callbacks run on background threads - a throwing subscriber (e.g. a disposed protocol layer) must not crash the adapter
+		void ForwardOutput(string output, bool isError)
+		{
+			try
+			{
+				OnOutput?.Invoke(output, isError);
+			}
+			catch (Exception ex)
+			{
+				_logger?.Invoke($"Error forwarding debuggee output: {ex.Message}");
+			}
+		}
 	}
 
 	public bool RemoveBreakpoint(int id)

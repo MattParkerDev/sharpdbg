@@ -439,7 +439,7 @@ public partial class ManagedDebugger
 		var localVariables = frame.LocalVariables;
 		var arguments = frame.Arguments;
 		var thread = _process!.Threads.Single(s => s.Id == threadId.Value);
-		var hasCurrentException = thread.TryGetCurrentException(out _) is HRESULT.S_OK;
+		var hasCurrentException = thread.TryGetCurrentException(out _) is Cor.S_OK;
 		if (localVariables.Length is 0 && arguments.Length is 0 && !hasCurrentException) return result;
 
 		// can this just be the same reference?
@@ -582,10 +582,10 @@ public partial class ManagedDebugger
 		}
 		else
 		{
-			if (_process is not null && _isAttached && _process?.TryIsRunning(out var isRunning) is HRESULT.S_OK && isRunning)
+			if (_process is not null && _isAttached && _process?.TryIsRunning(out var isRunning) is Cor.S_OK && isRunning)
 			{
 				var hResult = _process.TryStop(0);
-				if (hResult is not (HRESULT.S_OK or HRESULT.CORDBG_E_PROCESS_TERMINATED)) _logger?.Invoke($"Error stopping process during disconnect: {hResult}");
+				if (hResult is not (Cor.S_OK or Cor.CORDBG_E_PROCESS_TERMINATED)) _logger?.Invoke($"Error stopping process during disconnect: {hResult}");
 			}
 			Dispose();
 		}
@@ -595,7 +595,7 @@ public partial class ManagedDebugger
 	{
 		_logger?.Invoke($"ExceptionInfo for thread {threadId.Value}");
 		var thread = _process!.GetThread(threadId.Value);
-		if (thread.TryGetCurrentException(out var currentException) is not HRESULT.S_OK)
+		if (thread.TryGetCurrentException(out var currentException) is not Cor.S_OK)
 		{
 			_logger?.Invoke("No current exception");
 			throw new InvalidOperationException("No current exception on thread");

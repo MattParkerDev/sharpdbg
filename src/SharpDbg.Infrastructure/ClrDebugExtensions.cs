@@ -32,7 +32,7 @@ public static class ClrDebugExtensions
 		IntPtr unregisterToken = IntPtr.Zero;
 
 		CorDebug? cordebug = null;
-		HRESULT hr = HRESULT.E_FAIL;
+		HRESULT hr = Cor.E_FAIL;
 		var wait = new AutoResetEvent(false);
 
 		try

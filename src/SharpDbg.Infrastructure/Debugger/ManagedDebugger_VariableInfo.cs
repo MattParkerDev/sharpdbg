@@ -284,7 +284,7 @@ public partial class ManagedDebugger
 			var isStatic = fieldProps.pdwAttr.IsFdStatic();
 			var isLiteral = fieldProps.pdwAttr.IsFdLiteral();
 			var debuggerBrowsableRootHidden = false;
-			var hasDebuggerBrowsableAttribute = metadataImport.TryGetCustomAttributeByName(mdFieldDef, "System.Diagnostics.DebuggerBrowsableAttribute", out var debuggerBrowsableAttribute) is HRESULT.S_OK;
+			var hasDebuggerBrowsableAttribute = metadataImport.TryGetCustomAttributeByName(mdFieldDef, "System.Diagnostics.DebuggerBrowsableAttribute", out var debuggerBrowsableAttribute) is Cor.S_OK;
 			if (hasDebuggerBrowsableAttribute)
 			{
 				// https://github.com/Samsung/netcoredbg/blob/6476bc00c2beaab9255c750235a68de3a3d0cfae/src/debugger/evaluator.cpp#L913
@@ -353,7 +353,7 @@ public partial class ManagedDebugger
 			var isStatic = getterAttr.IsMdStatic();
 
 			var debuggerBrowsableRootHidden = false;
-			var hasDebuggerBrowsableAttribute = metadataImport.TryGetCustomAttributeByName(mdProperty, "System.Diagnostics.DebuggerBrowsableAttribute", out var debuggerBrowsableAttribute) is HRESULT.S_OK;
+			var hasDebuggerBrowsableAttribute = metadataImport.TryGetCustomAttributeByName(mdProperty, "System.Diagnostics.DebuggerBrowsableAttribute", out var debuggerBrowsableAttribute) is Cor.S_OK;
 			if (hasDebuggerBrowsableAttribute)
 			{
 				// https://github.com/Samsung/netcoredbg/blob/6476bc00c2beaab9255c750235a68de3a3d0cfae/src/debugger/evaluator.cpp#L913

@@ -6,7 +6,7 @@ public partial class ManagedDebugger
 {
 	private static string GetEnumDisplayValue(MetaDataImport metaDataImport, CorDebugObjectValue corDebugObjectValue, string valueAsString)
 	{
-		var hasFlagsAttribute = metaDataImport.TryGetCustomAttributeByName(corDebugObjectValue.Class.Token, "System.FlagsAttribute", out _) is HRESULT.S_OK;
+		var hasFlagsAttribute = metaDataImport.TryGetCustomAttributeByName(corDebugObjectValue.Class.Token, "System.FlagsAttribute", out _) is Cor.S_OK;
 
 		// Fast path: exact match
 		var exact = GetEnumNameForValue(metaDataImport, corDebugObjectValue, valueAsString);

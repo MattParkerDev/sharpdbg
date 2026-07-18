@@ -326,11 +326,11 @@ public partial class ManagedDebugger
 		foreach (var bp in _breakpointManager.GetAllBreakpoints().Where(b => b.CorBreakpoint is not null))
 		{
 			var hResult = bp.CorBreakpoint!.TryActivate(false);
-			if (hResult is HRESULT.CORDBG_E_PROCESS_TERMINATED)
+			if (hResult is Cor.CORDBG_E_PROCESS_TERMINATED)
 			{
 				break;
 			}
-			if (hResult is not HRESULT.S_OK) _logger?.Invoke($"Failed to deactivate breakpoint during Dispose at {bp.FilePath}:{bp.Line}: {hResult}");
+			if (hResult is not Cor.S_OK) _logger?.Invoke($"Failed to deactivate breakpoint during Dispose at {bp.FilePath}:{bp.Line}: {hResult}");
 		}
 		_breakpointManager.Clear();
 

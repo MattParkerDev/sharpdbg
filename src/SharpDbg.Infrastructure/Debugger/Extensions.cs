@@ -73,7 +73,7 @@ public static class Extensions
 	public static mdTypeDef? FindTypeDefByNameOrNull(this MetaDataImport metadataImport, string typeName, mdToken enclosingClass)
 	{
 		var result = metadataImport.TryFindTypeDefByName(typeName, enclosingClass, out var mdTypeDef);
-		if (result is HRESULT.S_OK) return mdTypeDef;
+		if (result is Cor.S_OK) return mdTypeDef;
 		return null;
 	}
 
@@ -83,7 +83,7 @@ public static class Extensions
 		{
 			var fullTypeName = string.IsNullOrEmpty(candidateNamespace) ? typeName : $"{candidateNamespace}.{typeName}";
 			var result = metadataImport.TryFindTypeDefByName(fullTypeName, enclosingClass, out var mdTypeDef);
-			if (result is HRESULT.S_OK) return mdTypeDef;
+			if (result is Cor.S_OK) return mdTypeDef;
 		}
 		return null;
 	}
@@ -119,7 +119,7 @@ public static class Extensions
 	{
 		foreach (var attributeName in attributeNames)
 		{
-			if (metadataImport.TryGetCustomAttributeByName(token, attributeName, out _) is HRESULT.S_OK)
+			if (metadataImport.TryGetCustomAttributeByName(token, attributeName, out _) is Cor.S_OK)
 			{
 				return true;
 			}
@@ -147,7 +147,7 @@ public static class Extensions
 			e =>
 			{
 				var getResultResult = e.Eval.TryGetResult(out var result);
-				if (getResultResult is not HRESULT.CORDBG_S_FUNC_EVAL_HAS_NO_RESULT && result is null) getResultResult.ThrowOnNotOK();
+				if (getResultResult is not Cor.CORDBG_S_FUNC_EVAL_HAS_NO_RESULT && result is null) getResultResult.ThrowOnNotOK();
 				return result;
 			});
 	}

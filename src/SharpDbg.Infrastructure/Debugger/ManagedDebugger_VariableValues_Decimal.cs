@@ -5,7 +5,7 @@ namespace SharpDbg.Infrastructure.Debugger;
 
 public partial class ManagedDebugger
 {
-	private static string GetDecimalValueString(CorDebugObjectValue corDebugObjectValue)
+	private static string GetDecimalValueString(ICorDebugObjectValue corDebugObjectValue)
 	{
 		var module = corDebugObjectValue.Class.Module;
 		var metaDataImport = module.GetMetaDataInterface<IMetaDataImport>();
@@ -26,7 +26,7 @@ public partial class ManagedDebugger
 				IntPtr buffer = Marshal.AllocHGlobal(4);
 				try
 				{
-					((CorDebugGenericValue)fieldValue.UnwrapDebugValue()).GetValue(buffer);
+					((ICorDebugGenericValue)fieldValue.UnwrapDebugValue()).GetValue(buffer);
 					return (uint)Marshal.ReadInt32(buffer);
 				}
 				finally
@@ -59,7 +59,7 @@ public partial class ManagedDebugger
 					IntPtr buf64 = Marshal.AllocHGlobal(8);
 					try
 					{
-						((CorDebugGenericValue)fieldValue64.UnwrapDebugValue()).GetValue(buf64);
+						((ICorDebugGenericValue)fieldValue64.UnwrapDebugValue()).GetValue(buf64);
 						var raw64 = (ulong)Marshal.ReadInt64(buf64);
 						lo = (uint)(raw64 & 0xFFFFFFFF);
 						mid = (uint)(raw64 >> 32);

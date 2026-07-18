@@ -1,4 +1,4 @@
-using ClrDebug;
+using ICorDebugSharp;
 
 namespace SharpDbg.Infrastructure.Debugger;
 
@@ -21,7 +21,7 @@ public class BreakpointManager
 		public int EndLine { get; set; }
 		public int? EndColumn { get; set; }
 		public bool Verified { get; set; }
-		public CorDebugFunctionBreakpoint? CorBreakpoint { get; set; }
+		public ICorDebugFunctionBreakpoint? CorBreakpoint { get; set; }
 		public string? Message { get; set; }
 		public SymbolReader.ResolvedBreakpoint? ResolvedBreakpointFromPdb { get; set; }
 		public CORDB_ADDRESS? ModuleBaseAddress { get; set; }
@@ -121,7 +121,7 @@ public class BreakpointManager
 	{
 		lock (_lock)
 		{
-			return _breakpoints.Values.FirstOrDefault(bp => bp.CorBreakpoint?.Raw == corBreakpoint);
+			return _breakpoints.Values.FirstOrDefault(bp => bp.CorBreakpoint == corBreakpoint);
 		}
 	}
 

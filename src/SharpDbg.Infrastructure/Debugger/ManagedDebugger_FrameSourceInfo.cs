@@ -1,5 +1,5 @@
 using System.Reflection.PortableExecutable;
-using ClrDebug;
+using ICorDebugSharp;
 using ICSharpCode.Decompiler;
 using ICSharpCode.Decompiler.CSharp;
 using ICSharpCode.Decompiler.CSharp.Transforms;
@@ -21,9 +21,9 @@ public record struct AssemblyPathAndMvid(string AssemblyPath, Guid Mvid);
 public partial class ManagedDebugger
 {
 	/// This appears to be 1 based, ie requires no adjustment when returned to the user
-	private SourceInfo? GetSourceInfoAtFrame(CorDebugFrame frame)
+	private SourceInfo? GetSourceInfoAtFrame(ICorDebugFrame frame)
 	{
-		if (frame is not CorDebugILFrame ilFrame)
+		if (frame is not ICorDebugILFrame ilFrame)
 			throw new InvalidOperationException("Active frame is not an IL frame");
 		var function = ilFrame.Function;
 		var module = _modules[function.Module.BaseAddress];
@@ -49,7 +49,7 @@ public partial class ManagedDebugger
 				DecompiledSourceInfo? decompiledSourceInfo = null;
 				if (module.SymbolReaderFromDecompiled)
 				{
-					var metadataImport = module.Module.GetMetaDataInterface().MetaDataImport;
+					var metadataImport = module.Module.GetMetaDataInterface<IMetaDataImport>();
 					var mvid = metadataImport.ScopeProps.pmvid;
 					var containingTypeDef = metadataImport.GetMethodProps(methodToken).pClass;
 					var typeProps = metadataImport.GetTypeDefProps(containingTypeDef);
@@ -61,7 +61,7 @@ public partial class ManagedDebugger
 					{
 						if (caller is null) break;
 
-						if (caller is CorDebugILFrame callerIlFrame)
+						if (caller is ICorDebugILFrame callerIlFrame)
 						{
 							var callerFunction = callerIlFrame.Function;
 							var callerModule = _modules[callerFunction.Module.BaseAddress];
@@ -93,7 +93,7 @@ public partial class ManagedDebugger
 	private SymbolReader? GetCachedOrGeneratePdb(ModuleInfo moduleInfo)
 	{
 		var sharpIdeSymbolCachePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Temp", "SharpIdeSymbolCache");
-		var metadataImport = moduleInfo.Module.GetMetaDataInterface().MetaDataImport;
+		var metadataImport = moduleInfo.Module.GetMetaDataInterface<IMetaDataImport>();
 		var mvid = metadataImport.ScopeProps.pmvid;
 		var assemblyName = Path.GetFileNameWithoutExtension(moduleInfo.ModuleName);
 		var pdbPath = Path.Combine(sharpIdeSymbolCachePath, assemblyName, mvid.ToString(), $"{assemblyName}.decompiled.pdb");

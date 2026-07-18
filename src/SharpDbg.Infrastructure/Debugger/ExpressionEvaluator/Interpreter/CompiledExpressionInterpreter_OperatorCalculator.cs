@@ -1,4 +1,4 @@
-using ClrDebug;
+using ICorDebugSharp;
 
 namespace SharpDbg.Infrastructure.Debugger.ExpressionEvaluator.Interpreter;
 
@@ -8,10 +8,10 @@ public partial class CompiledExpressionInterpreter
 	{
 		return elemType switch
 		{
-			CorElementType.Boolean => true,
+			CorElementType.BOOLEAN => true,
 			CorElementType.U1 => true,
 			CorElementType.I1 => true,
-			CorElementType.Char => true,
+			CorElementType.CHAR => true,
 			CorElementType.R8 => true,
 			CorElementType.R4 => true,
 			CorElementType.I4 => true,
@@ -20,12 +20,12 @@ public partial class CompiledExpressionInterpreter
 			CorElementType.U8 => true,
 			CorElementType.I2 => true,
 			CorElementType.U2 => true,
-			CorElementType.String => true,
+			CorElementType.STRING => true,
 			_ => false
 		};
 	}
 
-	private async Task<CorDebugValue> CalculateTwoOperands(
+	private async Task<ICorDebugValue> CalculateTwoOperands(
 		OperationType opType,
 		LinkedList<EvalStackEntry> evalStack)
 	{
@@ -42,13 +42,13 @@ public partial class CompiledExpressionInterpreter
 		var realValue1 = await GetRealValueWithType(value1!);
 		var elemType1 = realValue1.Type;
 
-		if (elemType1 == CorElementType.ValueType || elemType2 == CorElementType.ValueType ||
-			elemType1 == CorElementType.Class || elemType2 == CorElementType.Class)
+		if (elemType1 == CorElementType.VALUETYPE || elemType2 == CorElementType.VALUETYPE ||
+			elemType1 == CorElementType.CLASS || elemType2 == CorElementType.CLASS)
 		{
 			var opName = GetOperatorName(opType);
 			if (opName is not null)
 			{
-				if (elemType1 == CorElementType.ValueType || elemType1 == CorElementType.Class)
+				if (elemType1 == CorElementType.VALUETYPE || elemType1 == CorElementType.CLASS)
 				{
 					var result = await CallBinaryOperator(opName, realValue1, realValue1, realValue2);
 					if (result is not null)
@@ -58,7 +58,7 @@ public partial class CompiledExpressionInterpreter
 					}
 				}
 
-				if (elemType2 == CorElementType.ValueType || elemType2 == CorElementType.Class)
+				if (elemType2 == CorElementType.VALUETYPE || elemType2 == CorElementType.CLASS)
 				{
 					var result = await CallBinaryOperator(opName, realValue2, realValue1, realValue2);
 					if (result is not null)
@@ -75,7 +75,7 @@ public partial class CompiledExpressionInterpreter
 		return await CalculatePrimitiveOperands(opType, realValue1, realValue2, evalStack);
 	}
 
-	private async Task<CorDebugValue> CalculateOneOperand(
+	private async Task<ICorDebugValue> CalculateOneOperand(
 		OperationType opType,
 		LinkedList<EvalStackEntry> evalStack)
 	{
@@ -83,7 +83,7 @@ public partial class CompiledExpressionInterpreter
 		var realValue = await GetRealValueWithType(value!);
 		var elemType = realValue.Type;
 
-		if (elemType == CorElementType.ValueType || elemType == CorElementType.Class)
+		if (elemType == CorElementType.VALUETYPE || elemType == CorElementType.CLASS)
 		{
 			var opName = GetUnaryOperatorName(opType);
 			if (opName is not null)
@@ -102,10 +102,10 @@ public partial class CompiledExpressionInterpreter
 		return await CalculatePrimitiveOperand(opType, realValue, evalStack);
 	}
 
-	private async Task<CorDebugValue> CalculatePrimitiveOperands(
+	private async Task<ICorDebugValue> CalculatePrimitiveOperands(
 		OperationType opType,
-		CorDebugValue value1,
-		CorDebugValue value2,
+		ICorDebugValue value1,
+		ICorDebugValue value2,
 		LinkedList<EvalStackEntry> evalStack)
 	{
 		var (data1, type1) = await GetOperandDataTypeByValue(value1);
@@ -118,9 +118,9 @@ public partial class CompiledExpressionInterpreter
 		return result;
 	}
 
-	private async Task<CorDebugValue> CalculatePrimitiveOperand(
+	private async Task<ICorDebugValue> CalculatePrimitiveOperand(
 		OperationType opType,
-		CorDebugValue value,
+		ICorDebugValue value,
 		LinkedList<EvalStackEntry> evalStack)
 	{
 		var (data, type) = await GetOperandDataTypeByValue(value);
@@ -132,28 +132,28 @@ public partial class CompiledExpressionInterpreter
 		return result;
 	}
 
-	private async Task<CorDebugValue?> CallBinaryOperator(
+	private async Task<ICorDebugValue?> CallBinaryOperator(
 		string opName,
-		CorDebugValue baseValue,
-		CorDebugValue arg1,
-		CorDebugValue arg2)
+		ICorDebugValue baseValue,
+		ICorDebugValue arg1,
+		ICorDebugValue arg2)
 	{
-		if (baseValue is not CorDebugObjectValue objectValue)
+		if (baseValue is not ICorDebugObjectValue objectValue)
 			return null;
 
 		var corDebugFunction = await FindOperatorMethod(objectValue, opName, 2);
 		if (corDebugFunction is null) return null;
 
 		var eval = _context.Thread.CreateEval();
-		ICorDebugValue[] evalArgs = [arg1.Raw, arg2.Raw];
+		ICorDebugValue[] evalArgs = [arg1, arg2];
 		return await eval.CallParameterizedFunctionAsync(_debuggerManagedCallback, _debugger.EvalStatus, corDebugFunction, 0, null, evalArgs.Length, evalArgs);
 	}
 
-	private async Task<CorDebugValue?> CallUnaryOperator(
+	private async Task<ICorDebugValue?> CallUnaryOperator(
 		string opName,
-		CorDebugValue baseValue)
+		ICorDebugValue baseValue)
 	{
-		if (baseValue is not CorDebugObjectValue objectValue)
+		if (baseValue is not ICorDebugObjectValue objectValue)
 			return null;
 
 		var corDebugFunction = await FindOperatorMethod(objectValue, opName, 1);
@@ -161,18 +161,18 @@ public partial class CompiledExpressionInterpreter
 			return null;
 
 		var eval = _context.Thread.CreateEval();
-		ICorDebugValue[] evalArgs = [baseValue.Raw];
+		ICorDebugValue[] evalArgs = [baseValue];
 		return await eval.CallParameterizedFunctionAsync(_debuggerManagedCallback, _debugger.EvalStatus, corDebugFunction, 0, null, evalArgs.Length, evalArgs);
 	}
 
-	private async Task<CorDebugFunction?> FindOperatorMethod(
-		CorDebugObjectValue objectValue,
+	private async Task<ICorDebugFunction?> FindOperatorMethod(
+		ICorDebugObjectValue objectValue,
 		string opName,
 		int paramCount)
 	{
 		var objClass = objectValue.Class;
 		var module = objClass.Module;
-		var metaDataImport = module.GetMetaDataInterface().MetaDataImport;
+		var metaDataImport = module.GetMetaDataInterface<IMetaDataImport>();
 		var classToken = objClass.Token;
 
 		var methods = metaDataImport.EnumMethods(classToken);
@@ -189,7 +189,7 @@ public partial class CompiledExpressionInterpreter
 		return null;
 	}
 
-	private async Task<CorDebugValue> CreateValueFromPrimitiveData(byte[] data)
+	private async Task<ICorDebugValue> CreateValueFromPrimitiveData(byte[] data)
 	{
 		if (data.Length == 1)
 			return await CreatePrimitiveValue(CorElementType.U1, data);

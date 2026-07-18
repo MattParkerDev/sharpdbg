@@ -1,7 +1,7 @@
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using Ardalis.GuardClauses;
-using ClrDebug;
+using ICorDebugSharp;
 using SharpDbg.Infrastructure.Debugger.ExpressionEvaluator;
 using SharpDbg.Infrastructure.Debugger.ExpressionEvaluator.Compiler;
 using SharpDbg.Infrastructure.Debugger.ExpressionEvaluator.Interpreter;
@@ -13,14 +13,14 @@ namespace SharpDbg.Infrastructure.Debugger;
 // v1 of this class was AI generated, and could definitely do with some cleaning up
 public partial class ManagedDebugger
 {
-	private CorDebug? _corDebug;
-	private CorDebugProcess? _process;
+	private ICorDebug? _corDebug;
+	private ICorDebugProcess? _process;
 	private readonly CorDebugManagedCallback _callbacks;
 	private readonly BreakpointManager _breakpointManager;
 	private readonly VariableManager _variableManager;
 	private readonly FrameReferenceManager _frameReferenceManager;
 	private readonly Action<string>? _logger;
-	private readonly Dictionary<int, CorDebugThread> _threads = new();
+	private readonly Dictionary<int, ICorDebugThread> _threads = new();
 	private readonly Dictionary<CORDB_ADDRESS, ModuleInfo> _modules = new();
 	private bool _isAttached;
 	private bool _isRemoteAttach;
@@ -76,7 +76,7 @@ public partial class ManagedDebugger
 				case BreakCorDebugManagedCallbackEventArgs a: HandleBreak(sender, a); break;
 				case ExceptionCorDebugManagedCallbackEventArgs a: HandleException(sender, a); break;
 				case EvalCompleteCorDebugManagedCallbackEventArgs or EvalExceptionCorDebugManagedCallbackEventArgs: break; // don't continue on these, as they are being used for expression evaluation
-				default: e.Controller.Continue(false); break;
+				default: _process?.Continue(false); break;
 			}
 		}
 		catch (Exception ex)
@@ -99,10 +99,9 @@ public partial class ManagedDebugger
 		_logger?.Invoke($"Attaching to process: {processId}");
 
 		// Initialize the debugger
-		var dbgshim = new DbgShim(NativeLibrary.Load("dbgshim", typeof(ManagedDebugger).Assembly, null));
-		_ = Task.Run(() =>
+		_ = Task.Run(async () =>
 		{
-			_corDebug = ClrDebugExtensions.Automatic(dbgshim, processId);
+			_corDebug = await ClrDebugExtensions.Automatic(processId);
 			_corDebug.Initialize();
 			_corDebug.SetManagedHandler(_callbacks);
 
@@ -119,8 +118,7 @@ public partial class ManagedDebugger
 	{
 		_logger?.Invoke($"Attaching to remote process on {remoteAttachInfo.Address}:{remoteAttachInfo.Port}");
 
-		var dbgshim = new DbgShim(NativeLibrary.Load("dbgshim", typeof(ManagedDebugger).Assembly, null));
-		_corDebug = ClrDebugExtensions.Mobile(dbgshim, remoteAttachInfo);
+		_corDebug = ClrDebugExtensions.Mobile(remoteAttachInfo);
 		_corDebug.SetManagedHandler(_callbacks);
 		try
 		{
@@ -148,18 +146,18 @@ public partial class ManagedDebugger
 		_process.Continue(false);
 	}
 
-	private CorDebugStepper? _stepper;
+	private ICorDebugStepper? _stepper;
 
 	/// <summary>
 	/// Setup a stepper without continuing execution
 	/// </summary>
-	internal CorDebugStepper SetupStepper(CorDebugThread thread, AsyncStepper.StepType stepType)
+	internal ICorDebugStepper SetupStepper(ICorDebugThread thread, AsyncStepper.StepType stepType)
 	{
 		var frame = thread.ActiveFrame;
-		if (frame is not CorDebugILFrame ilFrame) throw new InvalidOperationException("Active frame is not an IL frame");
+		if (frame is not ICorDebugILFrame ilFrame) throw new InvalidOperationException("Active frame is not an IL frame");
 		if (_stepper is not null) throw new InvalidOperationException("A step operation is already in progress");
 
-		CorDebugStepper stepper = frame.CreateStepper();
+		ICorDebugStepper stepper = frame.CreateStepper();
 		stepper.SetInterceptMask(CorDebugIntercept.INTERCEPT_ALL & ~(CorDebugIntercept.INTERCEPT_SECURITY | CorDebugIntercept.INTERCEPT_CLASS_INIT));
 		stepper.SetUnmappedStopMask(CorDebugUnmappedStop.STOP_NONE);
 		//stepper.SetJMC(true);
@@ -182,8 +180,8 @@ public partial class ManagedDebugger
 				}
 				var stepRange = new COR_DEBUG_STEP_RANGE
 				{
-					startOffset = startIlOffset,
-					endOffset = endIlOffset
+					startOffset = checked((uint)startIlOffset),
+					endOffset = checked((uint)endIlOffset)
 				};
 				var stepIn = stepType is AsyncStepper.StepType.StepIn;
 				stepper.StepRange(stepIn, [stepRange], 1);
@@ -282,22 +280,22 @@ public partial class ManagedDebugger
 		}
 	}
 
-	internal CorDebugILFrame GetFrameForThreadIdAndStackDepth(ThreadId threadId, FrameStackDepth stackDepth)
+	internal ICorDebugILFrame GetFrameForThreadIdAndStackDepth(ThreadId threadId, FrameStackDepth stackDepth)
 	{
 		// We need to re-obtain the IlFrame in case it has been neutered
 		var thread = _process!.Threads.Single(s => s.Id == threadId.Value);
 		var frame = thread.ActiveChain.Frames[stackDepth.Value];
-		if (frame is not CorDebugILFrame ilFrame) throw new InvalidOperationException("Frame is not an IL frame");
+		if (frame is not ICorDebugILFrame ilFrame) throw new InvalidOperationException("Frame is not an IL frame");
 		return ilFrame;
 	}
 
-	private static string GetFunctionFormattedName(CorDebugFunction function)
+	private static string GetFunctionFormattedName(ICorDebugFunction function)
 	{
 		try
 		{
 			var token = function.Token;
 			var module = function.Module;
-			var metadataImport = module.GetMetaDataInterface().MetaDataImport;
+			var metadataImport = module.GetMetaDataInterface<IMetaDataImport>();
 			var methodName = metadataImport.GetMethodProps(token).szMethod;
 
 			var @class = function.Class;
@@ -326,11 +324,11 @@ public partial class ManagedDebugger
 		foreach (var bp in _breakpointManager.GetAllBreakpoints().Where(b => b.CorBreakpoint is not null))
 		{
 			var hResult = bp.CorBreakpoint!.TryActivate(false);
-			if (hResult is HRESULT.CORDBG_E_PROCESS_TERMINATED)
+			if (hResult is Cor.CORDBG_E_PROCESS_TERMINATED)
 			{
 				break;
 			}
-			if (hResult is not HRESULT.S_OK) _logger?.Invoke($"Failed to deactivate breakpoint during Dispose at {bp.FilePath}:{bp.Line}: {hResult}");
+			if (hResult is not Cor.S_OK) _logger?.Invoke($"Failed to deactivate breakpoint during Dispose at {bp.FilePath}:{bp.Line}: {hResult}");
 		}
 		_breakpointManager.Clear();
 

@@ -1,4 +1,4 @@
-using ClrDebug;
+using ICorDebugSharp;
 
 namespace SharpDbg.Infrastructure.Debugger;
 
@@ -10,7 +10,7 @@ public class ModuleInfo : IDisposable
 	/// <summary>
 	/// The ICorDebugModule for this module
 	/// </summary>
-	public CorDebugModule Module { get; }
+	public ICorDebugModule Module { get; }
 
 	/// <summary>
 	/// Full path to the module on disk (if available)
@@ -34,7 +34,7 @@ public class ModuleInfo : IDisposable
 	public CORDB_ADDRESS BaseAddress { get; }
 	public bool IsUserCode { get; }
 
-	public ModuleInfo(CorDebugModule module, string modulePath, SymbolReader? symbolReader, bool isUserCode)
+	public ModuleInfo(ICorDebugModule module, string modulePath, SymbolReader? symbolReader, bool isUserCode)
 	{
 		Module = module;
 		ModulePath = modulePath;

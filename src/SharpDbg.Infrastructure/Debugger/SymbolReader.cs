@@ -2,7 +2,7 @@ using System.Collections.Immutable;
 using System.Reflection.Metadata;
 using System.Reflection.Metadata.Ecma335;
 using System.Reflection.PortableExecutable;
-using ClrDebug;
+using ICorDebugSharp;
 using ZLinq;
 
 namespace SharpDbg.Infrastructure.Debugger;
@@ -380,7 +380,7 @@ public partial class SymbolReader : IDisposable
 		return (ilStartOffset, ilEndOffset);
 	}
 
-	public (int currentIlOffset, int? nextUserCodeIlOffset) GetFrameCurrentIlOffsetAndNextUserCodeIlOffset(CorDebugILFrame ilFrame)
+	public (int currentIlOffset, int? nextUserCodeIlOffset) GetFrameCurrentIlOffsetAndNextUserCodeIlOffset(ICorDebugILFrame ilFrame)
 	{
 		var method = ilFrame.Function;
 		var code = method.ILCode;

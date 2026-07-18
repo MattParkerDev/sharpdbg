@@ -1,12 +1,12 @@
-using ClrDebug;
+using ICorDebugSharp;
 
 namespace SharpDbg.Infrastructure.Debugger;
 
 public partial class ManagedDebugger
 {
-	private static string GetEnumDisplayValue(MetaDataImport metaDataImport, CorDebugObjectValue corDebugObjectValue, string valueAsString)
+	private static string GetEnumDisplayValue(IMetaDataImport metaDataImport, ICorDebugObjectValue corDebugObjectValue, string valueAsString)
 	{
-		var hasFlagsAttribute = metaDataImport.TryGetCustomAttributeByName(corDebugObjectValue.Class.Token, "System.FlagsAttribute", out _) is HRESULT.S_OK;
+		var hasFlagsAttribute = metaDataImport.TryGetCustomAttributeByName(corDebugObjectValue.Class.Token, "System.FlagsAttribute", out _, out _) is Cor.S_OK;
 
 		// Fast path: exact match
 		var exact = GetEnumNameForValue(metaDataImport, corDebugObjectValue, valueAsString);
@@ -17,7 +17,7 @@ public partial class ManagedDebugger
 		return GetFlagsEnumValue(metaDataImport, corDebugObjectValue, valueAsString);
 	}
 
-	private static string? GetEnumNameForValue(MetaDataImport metaDataImport, CorDebugObjectValue corDebugObjectValue, string valueAsString)
+	private static string? GetEnumNameForValue(IMetaDataImport metaDataImport, ICorDebugObjectValue corDebugObjectValue, string valueAsString)
 	{
 		var fields = metaDataImport.EnumFields(corDebugObjectValue.Class.Token);
 		foreach (var field in fields)
@@ -34,7 +34,7 @@ public partial class ManagedDebugger
 		return null;
 	}
 
-	private static string GetFlagsEnumValue(MetaDataImport metaDataImport, CorDebugObjectValue corDebugObjectValue, string valueAsString)
+	private static string GetFlagsEnumValue(IMetaDataImport metaDataImport, ICorDebugObjectValue corDebugObjectValue, string valueAsString)
 	{
 		if (!ulong.TryParse(valueAsString, out var enumValue))
 			return valueAsString;

@@ -1,5 +1,5 @@
 using System.Runtime.InteropServices;
-using ClrDebug;
+using ICorDebugSharp;
 using SharpDbg.Infrastructure.Debugger.ExpressionEvaluator;
 using SharpDbg.Infrastructure.Debugger.ExpressionEvaluator.Compiler;
 
@@ -7,7 +7,7 @@ namespace SharpDbg.Infrastructure.Debugger;
 
 public partial class ManagedDebugger
 {
-	private async Task<bool> EvaluateBreakpointCondition(CorDebugThread corThread, string condition)
+	private async Task<bool> EvaluateBreakpointCondition(ICorDebugThread corThread, string condition)
 	{
 		try
 		{
@@ -58,13 +58,13 @@ public partial class ManagedDebugger
 	/// <summary>
 	/// Check if a debug value is truthy (true, non-zero, non-null)
 	/// </summary>
-	private static bool IsTruthyValue(CorDebugValue? value)
+	private static bool IsTruthyValue(ICorDebugValue? value)
 	{
 		if (value is null) return false;
 
 		var unwrapped = value.UnwrapDebugValue();
 
-		if (unwrapped is CorDebugGenericValue genericValue)
+		if (unwrapped is ICorDebugGenericValue genericValue)
 		{
 			var buffer = Marshal.AllocHGlobal(genericValue.Size);
 			try
@@ -72,7 +72,7 @@ public partial class ManagedDebugger
 				genericValue.GetValue(buffer);
 				return genericValue.Type switch
 				{
-					CorElementType.Boolean => Marshal.ReadByte(buffer) != 0,
+					CorElementType.BOOLEAN => Marshal.ReadByte(buffer) != 0,
 					CorElementType.I1 or CorElementType.U1 => Marshal.ReadByte(buffer) != 0,
 					CorElementType.I2 or CorElementType.U2 => Marshal.ReadInt16(buffer) != 0,
 					CorElementType.I4 or CorElementType.U4 => Marshal.ReadInt32(buffer) != 0,
@@ -92,7 +92,7 @@ public partial class ManagedDebugger
 			}
 		}
 
-		if (unwrapped is CorDebugReferenceValue refValue)
+		if (unwrapped is ICorDebugReferenceValue refValue)
 		{
 			return !refValue.IsNull;
 		}

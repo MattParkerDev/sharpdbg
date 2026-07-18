@@ -2,7 +2,7 @@ using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Text;
 using Ardalis.GuardClauses;
-using ClrDebug;
+using ICorDebugSharp;
 using SharpDbg.Infrastructure.Debugger.ExpressionEvaluator;
 using SharpDbg.Infrastructure.Debugger.ExpressionEvaluator.Compiler;
 using SharpDbg.Infrastructure.Debugger.Models;
@@ -33,7 +33,7 @@ public partial class ManagedDebugger
 	/// <summary>
 	/// Actually perform the launch using DbgShim APIs
 	/// </summary>
-	private void PerformLaunch()
+	private async Task PerformLaunch()
 	{
 		if (_pendingLaunchInfo is null)
 		{
@@ -43,9 +43,6 @@ public partial class ManagedDebugger
 
 		var launchInfo = _pendingLaunchInfo;
 		_pendingLaunchInfo = null;
-
-		// Initialize DbgShim
-		var dbgshim = new DbgShim(NativeLibrary.Load("dbgshim", typeof(ManagedDebugger).Assembly, null));
 
 		var processStartInfo = new ProcessStartInfo
 		{
@@ -76,7 +73,7 @@ public partial class ManagedDebugger
 
 		_logger?.Invoke($"Process created suspended with PID: {processId}");
 
-		_corDebug = ClrDebugExtensions.Automatic(dbgshim, processId, true);
+		_corDebug = await ClrDebugExtensions.Automatic(processId, true);
 		_corDebug.Initialize();
 		_corDebug.SetManagedHandler(_callbacks);
 
@@ -140,7 +137,7 @@ public partial class ManagedDebugger
 		}
 		else if (_pendingLaunchInfo is not null) // If we have a pending launch, perform it
 		{
-			PerformLaunch();
+			await PerformLaunch();
 		}
 		else if (_pendingRemoteAttachInfo is not null)
 		{
@@ -195,7 +192,7 @@ public partial class ManagedDebugger
 		if (_threads.TryGetValue(threadId, out var thread))
 		{
 			var frame = thread.ActiveFrame;
-			if (frame is not CorDebugILFrame ilFrame) throw new InvalidOperationException("Active frame is not an IL frame");
+			if (frame is not ICorDebugILFrame ilFrame) throw new InvalidOperationException("Active frame is not an IL frame");
 			if (_stepper is not null) throw new InvalidOperationException("A step operation is already in progress");
 
 			// Try async stepping first
@@ -377,7 +374,7 @@ public partial class ManagedDebugger
 
 				foreach (var (index, frame) in filterFrames.Index())
 				{
-					if (frame is CorDebugILFrame ilFrame)
+					if (frame is ICorDebugILFrame ilFrame)
 					{
 						var function = ilFrame.Function;
 
@@ -439,7 +436,7 @@ public partial class ManagedDebugger
 		var localVariables = frame.LocalVariables;
 		var arguments = frame.Arguments;
 		var thread = _process!.Threads.Single(s => s.Id == threadId.Value);
-		var hasCurrentException = thread.TryGetCurrentException(out _) is HRESULT.S_OK;
+		var hasCurrentException = thread.TryGetCurrentException(out _) is Cor.S_OK;
 		if (localVariables.Length is 0 && arguments.Length is 0 && !hasCurrentException) return result;
 
 		// can this just be the same reference?
@@ -494,11 +491,11 @@ public partial class ManagedDebugger
 				}
 				var unwrappedDebugValue = variablesReference.ObjectValue!.UnwrapDebugValue();
 
-				if (unwrappedDebugValue is CorDebugArrayValue arrayValue)
+				if (unwrappedDebugValue is ICorDebugArrayValue arrayValue)
 				{
 					await AddArrayElements(arrayValue, variablesReference.ThreadId, variablesReference.FrameStackDepth, result);
 				}
-				else if (unwrappedDebugValue is CorDebugObjectValue objectValue)
+				else if (unwrappedDebugValue is ICorDebugObjectValue objectValue)
 				{
 					await AddMembersAndStaticPseudoVariable(variablesReference.ObjectValue!, objectValue.ExactType, variablesReference.ThreadId, variablesReference.FrameStackDepth, result);
 				}
@@ -582,10 +579,10 @@ public partial class ManagedDebugger
 		}
 		else
 		{
-			if (_process is not null && _isAttached && _process?.TryIsRunning(out var isRunning) is HRESULT.S_OK && isRunning)
+			if (_process is not null && _isAttached && _process?.TryIsRunning(out var isRunning) is Cor.S_OK && isRunning)
 			{
 				var hResult = _process.TryStop(0);
-				if (hResult is not (HRESULT.S_OK or HRESULT.CORDBG_E_PROCESS_TERMINATED)) _logger?.Invoke($"Error stopping process during disconnect: {hResult}");
+				if (hResult is not (Cor.S_OK or Cor.CORDBG_E_PROCESS_TERMINATED)) _logger?.Invoke($"Error stopping process during disconnect: {hResult}");
 			}
 			Dispose();
 		}
@@ -595,7 +592,7 @@ public partial class ManagedDebugger
 	{
 		_logger?.Invoke($"ExceptionInfo for thread {threadId.Value}");
 		var thread = _process!.GetThread(threadId.Value);
-		if (thread.TryGetCurrentException(out var currentException) is not HRESULT.S_OK)
+		if (thread.TryGetCurrentException(out var currentException) is not Cor.S_OK)
 		{
 			_logger?.Invoke("No current exception");
 			throw new InvalidOperationException("No current exception on thread");
@@ -604,10 +601,10 @@ public partial class ManagedDebugger
 		var frameStackDepth = new FrameStackDepth(0);
 		var (friendlyTypeName, _, _, _) = await GetValueForCorDebugValueAsync(currentException, threadId, frameStackDepth);
 
-		var (_, hResult, _, _) = await GetValueForCorDebugValueAsync((await currentException.GetPropertyValue(_callbacks, EvalStatus, (CorDebugILFrame)thread.ActiveFrame, "HResult"))!, threadId, frameStackDepth);
-		var (_, source, _, _) = await GetValueForCorDebugValueAsync((await currentException.GetPropertyValue(_callbacks, EvalStatus, (CorDebugILFrame)thread.ActiveFrame, "Source"))!, threadId, frameStackDepth);
-		var (_, message, _, _) = await GetValueForCorDebugValueAsync((await currentException.GetPropertyValue(_callbacks, EvalStatus, (CorDebugILFrame)thread.ActiveFrame, "Message"))!, threadId, frameStackDepth);
-		var (_, stackTrace, _, _) = await GetValueForCorDebugValueAsync((await currentException.GetPropertyValue(_callbacks, EvalStatus, (CorDebugILFrame)thread.ActiveFrame, "StackTrace"))!, threadId, frameStackDepth);
+		var (_, hResult, _, _) = await GetValueForCorDebugValueAsync((await currentException.GetPropertyValue(_callbacks, EvalStatus, (ICorDebugILFrame)thread.ActiveFrame, "HResult"))!, threadId, frameStackDepth);
+		var (_, source, _, _) = await GetValueForCorDebugValueAsync((await currentException.GetPropertyValue(_callbacks, EvalStatus, (ICorDebugILFrame)thread.ActiveFrame, "Source"))!, threadId, frameStackDepth);
+		var (_, message, _, _) = await GetValueForCorDebugValueAsync((await currentException.GetPropertyValue(_callbacks, EvalStatus, (ICorDebugILFrame)thread.ActiveFrame, "Message"))!, threadId, frameStackDepth);
+		var (_, stackTrace, _, _) = await GetValueForCorDebugValueAsync((await currentException.GetPropertyValue(_callbacks, EvalStatus, (ICorDebugILFrame)thread.ActiveFrame, "StackTrace"))!, threadId, frameStackDepth);
 
 		var typeNameSpan = friendlyTypeName.AsSpan();
 		var lastDot = typeNameSpan.LastIndexOf('.');

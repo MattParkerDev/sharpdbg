@@ -1,5 +1,5 @@
 using System.Reflection.Metadata;
-using ClrDebug;
+using ICorDebugSharp;
 
 namespace SharpDbg.Infrastructure.Debugger.ExpressionEvaluator.Interpreter;
 
@@ -124,7 +124,7 @@ public partial class CompiledExpressionInterpreter
 		return typeInfo;
 	}
 
-	private static bool IsTypeMatch(TypeInfo paramType, CorElementType argType, CorDebugValue argValue)
+	private static bool IsTypeMatch(TypeInfo paramType, CorElementType argType, ICorDebugValue argValue)
 	{
 		// Map SignatureTypeCode to CorElementType for comparison
 		var expectedCorType = SignatureTypeCodeToCorElementType(paramType.TypeCode);
@@ -153,9 +153,9 @@ public partial class CompiledExpressionInterpreter
 	{
 		return typeCode switch
 		{
-			SignatureTypeCode.Void => CorElementType.Void,
-			SignatureTypeCode.Boolean => CorElementType.Boolean,
-			SignatureTypeCode.Char => CorElementType.Char,
+			SignatureTypeCode.Void => CorElementType.VOID,
+			SignatureTypeCode.Boolean => CorElementType.BOOLEAN,
+			SignatureTypeCode.Char => CorElementType.CHAR,
 			SignatureTypeCode.SByte => CorElementType.I1,
 			SignatureTypeCode.Byte => CorElementType.U1,
 			SignatureTypeCode.Int16 => CorElementType.I2,
@@ -166,19 +166,19 @@ public partial class CompiledExpressionInterpreter
 			SignatureTypeCode.UInt64 => CorElementType.U8,
 			SignatureTypeCode.Single => CorElementType.R4,
 			SignatureTypeCode.Double => CorElementType.R8,
-			SignatureTypeCode.String => CorElementType.String,
-			SignatureTypeCode.Pointer => CorElementType.Ptr,
-			SignatureTypeCode.ByReference => CorElementType.ByRef,
-			SignatureTypeCode.TypeHandle => CorElementType.Class, // or ValueType
-			SignatureTypeCode.Object => CorElementType.Object,
-			SignatureTypeCode.SZArray => CorElementType.SZArray,
-			SignatureTypeCode.Array => CorElementType.Array,
+			SignatureTypeCode.String => CorElementType.STRING,
+			SignatureTypeCode.Pointer => CorElementType.PTR,
+			SignatureTypeCode.ByReference => CorElementType.BYREF,
+			SignatureTypeCode.TypeHandle => CorElementType.CLASS, // or ValueType
+			SignatureTypeCode.Object => CorElementType.OBJECT,
+			SignatureTypeCode.SZArray => CorElementType.SZARRAY,
+			SignatureTypeCode.Array => CorElementType.ARRAY,
 			SignatureTypeCode.IntPtr => CorElementType.I,
 			SignatureTypeCode.UIntPtr => CorElementType.U,
-			SignatureTypeCode.GenericTypeInstance => CorElementType.GenericInst,
-			SignatureTypeCode.GenericTypeParameter => CorElementType.Var,
-			SignatureTypeCode.GenericMethodParameter => CorElementType.MVar,
-			_ => CorElementType.End
+			SignatureTypeCode.GenericTypeInstance => CorElementType.GENERICINST,
+			SignatureTypeCode.GenericTypeParameter => CorElementType.VAR,
+			SignatureTypeCode.GenericMethodParameter => CorElementType.MVAR,
+			_ => CorElementType.END
 		};
 	}
 }

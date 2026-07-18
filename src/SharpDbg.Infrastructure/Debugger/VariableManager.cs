@@ -1,4 +1,4 @@
-using ClrDebug;
+using ICorDebugSharp;
 
 namespace SharpDbg.Infrastructure.Debugger;
 
@@ -29,7 +29,7 @@ public readonly record struct FrameStackDepth
 		Value = value;
 	}
 };
-public record struct VariablesReference(StoredReferenceKind ReferenceKind, CorDebugValue? ObjectValue, ThreadId ThreadId, FrameStackDepth FrameStackDepth, CorDebugValue? DebuggerProxyInstance);
+public record struct VariablesReference(StoredReferenceKind ReferenceKind, ICorDebugValue? ObjectValue, ThreadId ThreadId, FrameStackDepth FrameStackDepth, ICorDebugValue? DebuggerProxyInstance);
 /// <summary>
 /// Manages variable references for scopes and variables
 /// </summary>
@@ -92,12 +92,12 @@ public class VariableManager
 		}
 	}
 
-	private static IEnumerable<CorDebugHandleValue> GetHandleValues(VariablesReference r)
+	private static IEnumerable<ICorDebugHandleValue> GetHandleValues(VariablesReference r)
 	{
-		if (r.ObjectValue is CorDebugHandleValue ov)
+		if (r.ObjectValue is ICorDebugHandleValue ov)
 			yield return ov;
 
-		if (r.DebuggerProxyInstance is CorDebugHandleValue dp)
+		if (r.DebuggerProxyInstance is ICorDebugHandleValue dp)
 			yield return dp;
 	}
 }

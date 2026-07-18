@@ -1,16 +1,16 @@
-using ClrDebug;
+using ICorDebugSharp;
 
 namespace SharpDbg.Infrastructure.Debugger.ExpressionEvaluator.Interpreter;
 
 public partial class CompiledExpressionInterpreter
 {
-	private async Task<CorDebugValue> GetFrontStackEntryValue(LinkedList<EvalStackEntry> evalStack, bool needSetterData = false)
+	private async Task<ICorDebugValue> GetFrontStackEntryValue(LinkedList<EvalStackEntry> evalStack, bool needSetterData = false)
 	{
 		if (evalStack.First is null) throw new InvalidOperationException("Evaluation stack is empty");
 
 		var entry = evalStack.First.Value;
 		SetterData? setterData = needSetterData ? entry.SetterData : null;
-		CorDebugValue? optionalRootValue = null;
+		ICorDebugValue? optionalRootValue = null;
 		if (_context.RootValue is not null && entry.CorDebugValue is null)
 		{
 			if (entry.CorDebugValue is not null) throw new InvalidOperationException("Both root value and entry value are set");
@@ -23,7 +23,7 @@ public partial class CompiledExpressionInterpreter
 		return await _debugger.ResolveIdentifiers(entry.Identifiers, _context.ThreadId, _context.StackDepth, entry.CorDebugValue, optionalRootValue);
 	}
 
-	private async Task<CorDebugType?> GetFrontStackEntryType(LinkedList<EvalStackEntry> evalStack)
+	private async Task<ICorDebugType?> GetFrontStackEntryType(LinkedList<EvalStackEntry> evalStack)
 	{
 		if (evalStack.First is null)
 			return null;
@@ -36,8 +36,8 @@ public partial class CompiledExpressionInterpreter
 		);
 	}
 
-	private async Task<CorDebugType?> ResolveIdentifiersForType(
-		CorDebugValue? baseValue,
+	private async Task<ICorDebugType?> ResolveIdentifiersForType(
+		ICorDebugValue? baseValue,
 		List<string> identifiers)
 	{
 		// TODO: implement type resolution?
@@ -53,12 +53,12 @@ public partial class CompiledExpressionInterpreter
 		throw new ArgumentException($"The type or namespace name '{typeName}' couldn't be found");
 	}
 
-	private async Task<CorDebugValue> GetRealValueWithType(CorDebugValue value)
+	private async Task<ICorDebugValue> GetRealValueWithType(ICorDebugValue value)
 	{
 		var realValue = value.UnwrapDebugValue();
 		var elemType = realValue.Type;
 
-		if (elemType == CorElementType.String || elemType == CorElementType.Class)
+		if (elemType == CorElementType.STRING || elemType == CorElementType.CLASS)
 		{
 			return value;
 		}
@@ -66,16 +66,16 @@ public partial class CompiledExpressionInterpreter
 		return realValue;
 	}
 
-	private async Task<uint> GetElementIndex(CorDebugValue indexValue)
+	private async Task<uint> GetElementIndex(ICorDebugValue indexValue)
 	{
 		var unwrapped = indexValue.UnwrapDebugValue();
 
-		if (unwrapped is CorDebugReferenceValue refValue && refValue.IsNull)
+		if (unwrapped is ICorDebugReferenceValue refValue && refValue.IsNull)
 		{
 			throw new ArgumentException("Index cannot be null");
 		}
 
-		if (unwrapped is not CorDebugGenericValue genValue)
+		if (unwrapped is not ICorDebugGenericValue genValue)
 		{
 			throw new ArgumentException("Index must be an integer type");
 		}
@@ -98,7 +98,7 @@ public partial class CompiledExpressionInterpreter
 		};
 	}
 
-	private async Task<(byte[] Value, CorElementType Type)> GetOperandDataTypeByValue(CorDebugValue value)
+	private async Task<(byte[] Value, CorElementType Type)> GetOperandDataTypeByValue(ICorDebugValue value)
 	{
 		var unwrapped = value.UnwrapDebugValue();
 		var elemType = unwrapped.Type;
@@ -109,7 +109,7 @@ public partial class CompiledExpressionInterpreter
 		// 	return (value, elemType);
 		// }
 
-		if (unwrapped is not CorDebugGenericValue genValue)
+		if (unwrapped is not ICorDebugGenericValue genValue)
 		{
 			throw new ArgumentException("Value is not a primitive type");
 		}

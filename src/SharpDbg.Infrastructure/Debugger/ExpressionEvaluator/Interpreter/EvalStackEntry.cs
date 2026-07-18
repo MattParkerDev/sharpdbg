@@ -1,12 +1,12 @@
-using ClrDebug;
+using ICorDebugSharp;
 
 namespace SharpDbg.Infrastructure.Debugger.ExpressionEvaluator.Interpreter;
 
 public class EvalStackEntry
 {
-	public CorDebugValue? CorDebugValue { get; set; }
+	public ICorDebugValue? CorDebugValue { get; set; }
 	public List<string> Identifiers { get; set; } = new();
-	public List<CorDebugType?>? GenericTypeCache { get; set; }
+	public List<ICorDebugType?>? GenericTypeCache { get; set; }
 	public bool Literal { get; set; }
 	public bool Editable { get; set; }
 	public bool PreventBinding { get; set; }
@@ -40,6 +40,6 @@ public class EvalStackEntry
 
 public class SetterData
 {
-	public CorDebugValue? OwnerValue { get; set; }
-	public CorDebugFunction? SetterFunction { get; set; }
+	public ICorDebugValue? OwnerValue { get; set; }
+	public ICorDebugFunction? SetterFunction { get; set; }
 }

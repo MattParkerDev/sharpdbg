@@ -1,5 +1,5 @@
 using System.Text;
-using ClrDebug;
+using ICorDebugSharp;
 using SharpDbg.Infrastructure.Debugger.ExpressionEvaluator.Compiler;
 
 namespace SharpDbg.Infrastructure.Debugger.ExpressionEvaluator.Interpreter;
@@ -129,7 +129,7 @@ public partial class CompiledExpressionInterpreter(RuntimeAssemblyPrimitiveTypeC
 
 public class EvaluationResult
 {
-	public CorDebugValue? Value { get; set; }
+	public ICorDebugValue? Value { get; set; }
 	public bool Editable { get; set; }
 	public SetterData? SetterData { get; set; }
 	public string? Error { get; set; }

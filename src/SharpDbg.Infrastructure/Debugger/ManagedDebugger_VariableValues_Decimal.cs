@@ -1,14 +1,14 @@
 using System.Runtime.InteropServices;
-using ClrDebug;
+using ICorDebugSharp;
 
 namespace SharpDbg.Infrastructure.Debugger;
 
 public partial class ManagedDebugger
 {
-	private static string GetDecimalValueString(CorDebugObjectValue corDebugObjectValue)
+	private static string GetDecimalValueString(ICorDebugObjectValue corDebugObjectValue)
 	{
 		var module = corDebugObjectValue.Class.Module;
-		var metaDataImport = module.GetMetaDataInterface().MetaDataImport;
+		var metaDataImport = module.GetMetaDataInterface<IMetaDataImport>();
 		var classToken = corDebugObjectValue.Class.Token;
 
 		uint lo = 0, mid = 0, hi = 0, flags = 0;
@@ -22,11 +22,11 @@ public partial class ManagedDebugger
 
 			uint ReadUInt32Field()
 			{
-				var fieldValue = corDebugObjectValue.GetFieldValue(corDebugObjectValue.Class.Raw, fieldDef);
+				var fieldValue = corDebugObjectValue.GetFieldValue(corDebugObjectValue.Class, fieldDef);
 				IntPtr buffer = Marshal.AllocHGlobal(4);
 				try
 				{
-					((CorDebugGenericValue)fieldValue.UnwrapDebugValue()).GetValue(buffer);
+					((ICorDebugGenericValue)fieldValue.UnwrapDebugValue()).GetValue(buffer);
 					return (uint)Marshal.ReadInt32(buffer);
 				}
 				finally
@@ -55,11 +55,11 @@ public partial class ManagedDebugger
 					break;
 				case "_lo64":
 					// .NET 7+ layout: _lo64 is a ulong covering lo+mid
-					var fieldValue64 = corDebugObjectValue.GetFieldValue(corDebugObjectValue.Class.Raw, fieldDef);
+					var fieldValue64 = corDebugObjectValue.GetFieldValue(corDebugObjectValue.Class, fieldDef);
 					IntPtr buf64 = Marshal.AllocHGlobal(8);
 					try
 					{
-						((CorDebugGenericValue)fieldValue64.UnwrapDebugValue()).GetValue(buf64);
+						((ICorDebugGenericValue)fieldValue64.UnwrapDebugValue()).GetValue(buf64);
 						var raw64 = (ulong)Marshal.ReadInt64(buf64);
 						lo = (uint)(raw64 & 0xFFFFFFFF);
 						mid = (uint)(raw64 >> 32);

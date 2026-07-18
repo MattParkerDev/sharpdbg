@@ -1,18 +1,18 @@
 using System.Runtime.InteropServices;
-using ClrDebug;
+using ICorDebugSharp;
 
 namespace SharpDbg.Infrastructure.Debugger;
 
 public partial class ManagedDebugger
 {
-	public Dictionary<CorElementType, CorDebugClass> CorElementToValueClassMap { get; set; } = [];
-	public CorDebugClass? CorDecimalClass { get; set; }
-	public CorDebugClass? CorVoidClass { get; set; }
+	public Dictionary<CorElementType, ICorDebugClass> CorElementToValueClassMap { get; set; } = [];
+	public ICorDebugClass? CorDecimalClass { get; set; }
+	public ICorDebugClass? CorVoidClass { get; set; }
 
-	private void MapRuntimePrimitiveTypesToCorDebugClass(CorDebugModule module)
+	private void MapRuntimePrimitiveTypesToCorDebugClass(ICorDebugModule module)
 	{
 		if (Path.GetFileName(module.Name) is not "System.Private.CoreLib.dll") throw new InvalidOperationException("Mapping primitive types to classes is only supported for System.Private.CoreLib.dll");
-		var metadataImport = module.GetMetaDataInterface().MetaDataImport;
+		var metadataImport = module.GetMetaDataInterface<IMetaDataImport>();
 
 		var typeDef = metadataImport.FindTypeDefByNameOrNull("System.Decimal", mdToken.Nil);
 		if (typeDef is null || typeDef.Value.IsNil) throw new InvalidOperationException("Could not find System.Decimal type definition");
@@ -24,8 +24,8 @@ public partial class ManagedDebugger
 
 		var corElementToValueNameMap = new[]
 		{
-			(CorElementType.Boolean, "System.Boolean"),
-			(CorElementType.Char, "System.Char"),
+			(CorElementType.BOOLEAN, "System.Boolean"),
+			(CorElementType.CHAR, "System.Char"),
 			(CorElementType.I1, "System.SByte"),
 			(CorElementType.U1, "System.Byte"),
 			(CorElementType.I2, "System.Int16"),

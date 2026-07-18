@@ -182,8 +182,8 @@ public partial class ManagedDebugger
 				}
 				var stepRange = new COR_DEBUG_STEP_RANGE
 				{
-					startOffset = startIlOffset,
-					endOffset = endIlOffset
+					startOffset = checked((uint)startIlOffset),
+					endOffset = checked((uint)endIlOffset)
 				};
 				var stepIn = stepType is AsyncStepper.StepType.StepIn;
 				stepper.StepRange(stepIn, [stepRange], 1);

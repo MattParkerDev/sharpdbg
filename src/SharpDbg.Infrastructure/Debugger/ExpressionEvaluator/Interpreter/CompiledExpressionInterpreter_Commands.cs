@@ -618,8 +618,8 @@ public partial class CompiledExpressionInterpreter
 		var rightType = realRight.Type;
 		var leftType = realLeft.Type;
 
-		if ((rightType == CorElementType.String && leftType == CorElementType.String) ||
-			(rightType == CorElementType.Class && leftType == CorElementType.Class))
+		if ((rightType == CorElementType.STRING && leftType == CorElementType.STRING) ||
+			(rightType == CorElementType.CLASS && leftType == CorElementType.CLASS))
 		{
 			if (leftValue is ICorDebugReferenceValue refValue && refValue.IsNull)
 			{

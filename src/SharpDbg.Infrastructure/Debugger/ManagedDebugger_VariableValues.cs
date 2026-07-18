@@ -331,12 +331,11 @@ public partial class ManagedDebugger
 				// native integer
 				CorElementType.I => IntPtr.Size is 4 ? Marshal.ReadInt32(buffer).ToString() : Marshal.ReadInt64(buffer).ToString(),
 				CorElementType.U => IntPtr.Size is 4 ? ((uint)Marshal.ReadInt32(buffer)).ToString() : ((ulong)Marshal.ReadInt64(buffer)).ToString(),
-				CorElementType.R => throw new NotImplementedException(),
-				CorElementType.String => throw new ArgumentOutOfRangeException(), // Marshal.PtrToStringUni(Marshal.ReadIntPtr(buffer)) ?? "null",
-				CorElementType.Ptr => throw new ArgumentOutOfRangeException(), // $"0x{Marshal.ReadIntPtr(buffer).ToInt64():X}",
-				CorElementType.ByRef => throw new ArgumentOutOfRangeException(), // $"0x{Marshal.ReadIntPtr(buffer).ToInt64():X}",
-				CorElementType.ValueType => throw new NotImplementedException(),
-				CorElementType.Class => throw new NotImplementedException(),
+				CorElementType.STRING => throw new ArgumentOutOfRangeException(), // Marshal.PtrToStringUni(Marshal.ReadIntPtr(buffer)) ?? "null",
+				CorElementType.PTR => throw new ArgumentOutOfRangeException(), // $"0x{Marshal.ReadIntPtr(buffer).ToInt64():X}",
+				CorElementType.BYREF => throw new ArgumentOutOfRangeException(), // $"0x{Marshal.ReadIntPtr(buffer).ToInt64():X}",
+				CorElementType.VALUETYPE => throw new NotImplementedException(),
+				CorElementType.CLASS => throw new NotImplementedException(),
 				_ => throw new ArgumentOutOfRangeException()
 			};
 			var friendlyTypeName = GetFriendlyTypeName(corDebugGenericValue.Type) ?? throw new ArgumentOutOfRangeException();
@@ -371,9 +370,9 @@ public partial class ManagedDebugger
 	{
 		return elementType switch
 		{
-			CorElementType.Void => "void",
-			CorElementType.Boolean => "bool",
-			CorElementType.Char => "char",
+			CorElementType.VOID => "void",
+			CorElementType.BOOLEAN => "bool",
+			CorElementType.CHAR => "char",
 			CorElementType.I1 => "sbyte",
 			CorElementType.U1 => "byte",
 			CorElementType.I2 => "short",
@@ -384,8 +383,8 @@ public partial class ManagedDebugger
 			CorElementType.U8 => "ulong",
 			CorElementType.R4 => "float",
 			CorElementType.R8 => "double",
-			CorElementType.String => "string",
-			CorElementType.Object => "object", // Should we ever see this?
+			CorElementType.STRING => "string",
+			CorElementType.OBJECT => "object", // Should we ever see this?
 			CorElementType.I => "nint",
 			CorElementType.U => "nuint",
 			_ => null

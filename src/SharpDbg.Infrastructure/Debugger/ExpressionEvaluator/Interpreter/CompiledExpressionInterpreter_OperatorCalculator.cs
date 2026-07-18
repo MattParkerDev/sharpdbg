@@ -165,7 +165,7 @@ public partial class CompiledExpressionInterpreter
 		return await eval.CallParameterizedFunctionAsync(_debuggerManagedCallback, _debugger.EvalStatus, corDebugFunction, 0, null, evalArgs.Length, evalArgs);
 	}
 
-	private async Task<CorDebugFunction?> FindOperatorMethod(
+	private async Task<ICorDebugFunction?> FindOperatorMethod(
 		ICorDebugObjectValue objectValue,
 		string opName,
 		int paramCount)

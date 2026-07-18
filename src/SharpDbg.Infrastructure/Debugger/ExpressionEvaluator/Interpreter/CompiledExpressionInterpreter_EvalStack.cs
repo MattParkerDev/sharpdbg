@@ -58,7 +58,7 @@ public partial class CompiledExpressionInterpreter
 		var realValue = value.UnwrapDebugValue();
 		var elemType = realValue.Type;
 
-		if (elemType == CorElementType.String || elemType == CorElementType.Class)
+		if (elemType == CorElementType.STRING || elemType == CorElementType.CLASS)
 		{
 			return value;
 		}
@@ -70,12 +70,12 @@ public partial class CompiledExpressionInterpreter
 	{
 		var unwrapped = indexValue.UnwrapDebugValue();
 
-		if (unwrapped is CorDebugReferenceValue refValue && refValue.IsNull)
+		if (unwrapped is ICorDebugReferenceValue refValue && refValue.IsNull)
 		{
 			throw new ArgumentException("Index cannot be null");
 		}
 
-		if (unwrapped is not CorDebugGenericValue genValue)
+		if (unwrapped is not ICorDebugGenericValue genValue)
 		{
 			throw new ArgumentException("Index must be an integer type");
 		}
@@ -109,7 +109,7 @@ public partial class CompiledExpressionInterpreter
 		// 	return (value, elemType);
 		// }
 
-		if (unwrapped is not CorDebugGenericValue genValue)
+		if (unwrapped is not ICorDebugGenericValue genValue)
 		{
 			throw new ArgumentException("Value is not a primitive type");
 		}

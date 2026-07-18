@@ -9,7 +9,7 @@ public partial class CompiledExpressionInterpreter
 		var eval = _context.Thread.CreateEval();
 		var corValue = eval.CreateValue(type, null);
 
-		if (valueData is not null && corValue is CorDebugGenericValue genValue)
+		if (valueData is not null && corValue is ICorDebugGenericValue genValue)
 		{
 			unsafe
 			{
@@ -34,10 +34,10 @@ public partial class CompiledExpressionInterpreter
 	private async Task<ICorDebugValue> CreateNullValue()
 	{
 		var eval = _context.Thread.CreateEval();
-		return eval.CreateValue(CorElementType.Class, null);
+		return eval.CreateValue(CorElementType.CLASS, null);
 	}
 
-	private async Task<ICorDebugValue> CreateValueType(CorDebugClass valueTypeClass, byte[]? valueData)
+	private async Task<ICorDebugValue> CreateValueType(ICorDebugClass valueTypeClass, byte[]? valueData)
 	{
 		var eval = _context.Thread.CreateEval();
 		var corValue = await eval.NewParameterizedObjectNoConstructorAsync(_debuggerManagedCallback, _debugger.EvalStatus, valueTypeClass, 0, null);
@@ -45,7 +45,7 @@ public partial class CompiledExpressionInterpreter
 		if (valueData is not null && corValue is not null)
 		{
 			var unwrapped = corValue.UnwrapDebugValue();
-			var unwrappedAsGeneric = unwrapped.As<CorDebugGenericValue>(); // a CorDebugObjectValue can also be a CorDebugGenericValue when it is a value class
+			var unwrappedAsGeneric = (ICorDebugGenericValue)unwrapped; // a CorDebugObjectValue can also be a CorDebugGenericValue when it is a value class
 			unsafe
 			{
 				fixed (byte* p = valueData)

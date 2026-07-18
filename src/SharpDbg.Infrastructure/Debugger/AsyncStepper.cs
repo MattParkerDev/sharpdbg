@@ -492,12 +492,12 @@ public class AsyncStepper
 				return null;
 
 			var thisValue = arguments[0];
-			var thisRefValue = thisValue as CorDebugReferenceValue;
+			var thisRefValue = thisValue as ICorDebugReferenceValue;
 			if (thisRefValue is null || thisRefValue.IsNull)
 				return null;
 
 			var thisValueUnwrapped = thisRefValue.Dereference();
-			var thisObjectValue = thisValueUnwrapped as CorDebugObjectValue;
+			var thisObjectValue = thisValueUnwrapped as ICorDebugObjectValue;
 			if (thisObjectValue is null)
 				return null;
 

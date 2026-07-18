@@ -124,7 +124,7 @@ public partial class CompiledExpressionInterpreter
 		return typeInfo;
 	}
 
-	private static bool IsTypeMatch(TypeInfo paramType, CorElementType argType, CorDebugValue argValue)
+	private static bool IsTypeMatch(TypeInfo paramType, CorElementType argType, ICorDebugValue argValue)
 	{
 		// Map SignatureTypeCode to CorElementType for comparison
 		var expectedCorType = SignatureTypeCodeToCorElementType(paramType.TypeCode);
@@ -175,10 +175,10 @@ public partial class CompiledExpressionInterpreter
 			SignatureTypeCode.Array => CorElementType.ARRAY,
 			SignatureTypeCode.IntPtr => CorElementType.I,
 			SignatureTypeCode.UIntPtr => CorElementType.U,
-			SignatureTypeCode.GenericTypeInstance => CorElementType.GenericInst,
-			SignatureTypeCode.GenericTypeParameter => CorElementType.Var,
-			SignatureTypeCode.GenericMethodParameter => CorElementType.MVar,
-			_ => CorElementType.End
+			SignatureTypeCode.GenericTypeInstance => CorElementType.GENERICINST,
+			SignatureTypeCode.GenericTypeParameter => CorElementType.VAR,
+			SignatureTypeCode.GenericMethodParameter => CorElementType.MVAR,
+			_ => CorElementType.END
 		};
 	}
 }

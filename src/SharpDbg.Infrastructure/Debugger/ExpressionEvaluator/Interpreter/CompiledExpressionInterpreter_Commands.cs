@@ -302,7 +302,7 @@ public partial class CompiledExpressionInterpreter
 		var realValue = await GetRealValueWithType(objValue!);
 		var elemType = realValue.Type;
 
-		if (elemType == CorElementType.SZArray || elemType == CorElementType.Array)
+		if (elemType == CorElementType.SZARRAY || elemType == CorElementType.ARRAY)
 		{
 			throw new NotImplementedException("Array element access not yet fully implemented");
 		}
@@ -329,8 +329,8 @@ public partial class CompiledExpressionInterpreter
 			ePredefinedType.UShortKeyword => CorElementType.U2,
 			ePredefinedType.SByteKeyword => CorElementType.I1,
 			ePredefinedType.ByteKeyword => CorElementType.U1,
-			ePredefinedType.CharKeyword => CorElementType.Char,
-			ePredefinedType.DecimalKeyword => CorElementType.ValueType,
+			ePredefinedType.CharKeyword => CorElementType.CHAR,
+			ePredefinedType.DecimalKeyword => CorElementType.VALUETYPE,
 			_ => throw new ArgumentException($"Unsupported numeric literal type: {typeArg}")
 		};
 
@@ -357,7 +357,7 @@ public partial class CompiledExpressionInterpreter
 		evalStack.AddFirst(new EvalStackEntry
 		{
 			Literal = true,
-			CorDebugValue = elemType == CorElementType.ValueType && typeArg == ePredefinedType.DecimalKeyword
+			CorDebugValue = elemType == CorElementType.VALUETYPE && typeArg == ePredefinedType.DecimalKeyword
 				? await CreateValueType(_runtimeAssemblyPrimitiveTypeClasses.CorDecimalClass!, data)
 				: await CreatePrimitiveValue(elemType, data)
 		});
@@ -438,7 +438,7 @@ public partial class CompiledExpressionInterpreter
 		var unwrappedResult = result!.UnwrapDebugValue();
 		if (unwrappedResult is not ICorDebugStringValue stringValue) throw new InvalidOperationException("ToString did not return a string");
 
-		var stringResult = stringValue.GetStringWithoutBug(stringValue.Length + 1);
+		var stringResult = stringValue.String;
 		return stringResult;
 	}
 

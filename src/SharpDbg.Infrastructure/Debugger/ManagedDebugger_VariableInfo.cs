@@ -9,7 +9,7 @@ namespace SharpDbg.Infrastructure.Debugger;
 
 public partial class ManagedDebugger
 {
-	private async Task AddLocalVariables(ModuleInfo module, CorDebugFunction corDebugFunction, List<VariableInfo> result, ThreadId threadId, FrameStackDepth stackDepth, ICorDebugValue? classContainingHoistedLocalsValue)
+	private async Task AddLocalVariables(ModuleInfo module, ICorDebugFunction corDebugFunction, List<VariableInfo> result, ThreadId threadId, FrameStackDepth stackDepth, ICorDebugValue? classContainingHoistedLocalsValue)
 	{
 		if (classContainingHoistedLocalsValue is not null)
 		{
@@ -65,7 +65,7 @@ public partial class ManagedDebugger
 	}
 
 	/// Returns classContainingHoistedLocalsValue if applicable
-	private async Task<ICorDebugValue?> AddArguments(ModuleInfo module, CorDebugFunction corDebugFunction, List<VariableInfo> result, ThreadId threadId, FrameStackDepth stackDepth)
+	private async Task<ICorDebugValue?> AddArguments(ModuleInfo module, ICorDebugFunction corDebugFunction, List<VariableInfo> result, ThreadId threadId, FrameStackDepth stackDepth)
 	{
 		var corDebugIlFrame = GetFrameForThreadIdAndStackDepth(threadId, stackDepth);
 		if (corDebugIlFrame.Arguments.Length is 0) return null;
@@ -160,14 +160,14 @@ public partial class ManagedDebugger
 			if (arrayValue.Count is 0) return 0;
 			return GenerateUniqueVariableReference(corDebugValue, threadId, stackDepth, debuggerProxyInstance);
 		}
-		else if (unwrappedDebugValue is CorDebugObjectValue objectValue)
+		else if (unwrappedDebugValue is ICorDebugObjectValue objectValue)
 		{
 			var isNullableStruct = friendlyTypeName.EndsWith('?');
 			if (isNullableStruct)
 			{
 				var underlyingValueOrNull = GetUnderlyingValueOrNullFromNullableStruct(objectValue);
 				if (underlyingValueOrNull is null) return 0;
-				if (underlyingValueOrNull is not CorDebugObjectValue objValue) return 0; // underlying value is primitive
+				if (underlyingValueOrNull is not ICorDebugObjectValue objValue) return 0; // underlying value is primitive
 				objectValue = objValue;
 			}
 

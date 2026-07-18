@@ -494,11 +494,11 @@ public partial class ManagedDebugger
 				}
 				var unwrappedDebugValue = variablesReference.ObjectValue!.UnwrapDebugValue();
 
-				if (unwrappedDebugValue is CorDebugArrayValue arrayValue)
+				if (unwrappedDebugValue is ICorDebugArrayValue arrayValue)
 				{
 					await AddArrayElements(arrayValue, variablesReference.ThreadId, variablesReference.FrameStackDepth, result);
 				}
-				else if (unwrappedDebugValue is CorDebugObjectValue objectValue)
+				else if (unwrappedDebugValue is ICorDebugObjectValue objectValue)
 				{
 					await AddMembersAndStaticPseudoVariable(variablesReference.ObjectValue!, objectValue.ExactType, variablesReference.ThreadId, variablesReference.FrameStackDepth, result);
 				}

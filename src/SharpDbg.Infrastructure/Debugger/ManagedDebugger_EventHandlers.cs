@@ -47,7 +47,7 @@ public partial class ManagedDebugger
 		var corModule = loadModuleCorDebugManagedCallbackEventArgs.Module;
 		var modulePath = corModule.Name;
 		var moduleName = Path.GetFileName(modulePath);
-		var baseAddress = (long)corModule.BaseAddress;
+		var baseAddress = corModule.BaseAddress;
 
 		_logger?.Invoke($"Module loaded: {modulePath} at 0x{baseAddress:X}");
 
@@ -59,7 +59,7 @@ public partial class ManagedDebugger
 			{
 				var size = corModule.Size;
 				var baseAddress2 = corModule.BaseAddress;
-				var bytes = _process.ReadMemory(baseAddress2, size);
+				var (bytes, _) = _process.ReadMemory(baseAddress2, size);
 				symbolReader = SymbolReader.TryLoadFromBytes(bytes);
 			}
 			else
@@ -130,7 +130,7 @@ public partial class ManagedDebugger
 			_stepper = null;
 		}
 
-		if (breakpoint is not CorDebugFunctionBreakpoint functionBreakpoint)
+		if (breakpoint is not ICorDebugFunctionBreakpoint functionBreakpoint)
 		{
 			_logger?.Invoke("Unknown breakpoint type hit");
 			Continue(); // may be incorrect
@@ -193,7 +193,7 @@ public partial class ManagedDebugger
 	private void HandleStepComplete(object? sender, StepCompleteCorDebugManagedCallbackEventArgs stepCompleteEventArgs)
 	{
 		var corThread = stepCompleteEventArgs.Thread;
-		var ilFrame = (CorDebugILFrame)corThread.ActiveFrame;
+		var ilFrame = (ICorDebugILFrame)corThread.ActiveFrame;
 		// If we have an active async stepper, it means we would have a breakpoint set up for either yield or resume for the next await statement
 		// We would then have done a regular step over/in/out to get to that breakpoint
 		// Since the step has completed, it means we did not hit the breakpoint, so we can clear the active async step

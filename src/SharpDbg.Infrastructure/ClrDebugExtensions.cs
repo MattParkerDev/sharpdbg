@@ -22,15 +22,14 @@ public static class ClrDebugExtensions
 
 	public static ICorDebug Mobile(RemoteAttachInfo remoteAttachInfo)
 	{
-		ICorDebug corDebug = null!;
-		// var result = DbgShim.RegisterForRuntimeStartupRemotePort(
-		// 	remoteAttachInfo.Address,
-		// 	checked((uint)remoteAttachInfo.Port),
-		// 	remoteAttachInfo.Platform,
-		// 	remoteAttachInfo.IsServer,
-		// 	remoteAttachInfo.MscordbiPath,
-		// 	remoteAttachInfo.AssembliesPath, out corDebug);
-		// result.ThrowOnNotOK();
+		var result = DbgShim.RegisterForRuntimeStartupRemotePort(
+			remoteAttachInfo.Address,
+			checked((uint)remoteAttachInfo.Port),
+			remoteAttachInfo.Platform,
+			remoteAttachInfo.IsServer,
+			remoteAttachInfo.MscordbiPath,
+			remoteAttachInfo.AssembliesPath, out var corDebug);
+		Marshal.ThrowExceptionForHR(result);
 
 		Guard.Against.Null(corDebug);
 		return corDebug;

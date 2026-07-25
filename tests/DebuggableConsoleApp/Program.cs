@@ -32,6 +32,7 @@ public static class Program
 			var asyncResult = myAsyncClass.MyMethodAsync(4).GetAwaiter().GetResult();
 			myAsyncMethodEvalClass.Test().GetAwaiter().GetResult();
 			Exceptions.Test(exceptionToThrow);
+			FunctionBreakpointTarget.TargetMethod();
 			Thread.Sleep(100);
 			//await Task.Delay(500);
 		}

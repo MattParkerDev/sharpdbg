@@ -14,6 +14,8 @@ namespace SharpDbg.Infrastructure.Debugger;
 
 public record SharpDbgBreakpointRequest(int Line, string? Condition = null, string? HitCondition = null, int? Column = null);
 
+public record SharpDbgFunctionBreakpointRequest(string Name, string? Condition = null, string? HitCondition = null, string? LogMessage = null);
+
 public partial class ManagedDebugger
 {
 	// Store launch info for deferred attach in ConfigurationDone
@@ -326,6 +328,146 @@ public partial class ManagedDebugger
 		}
 
 		return result;
+	}
+
+	/// <summary>
+	/// Set function breakpoints by method name
+	/// </summary>
+	public List<BreakpointManager.BreakpointInfo> SetFunctionBreakpoints(SharpDbgFunctionBreakpointRequest[] breakpoints)
+	{
+		_logger?.Invoke($"SetFunctionBreakpoints: {string.Join(", ", breakpoints.Select(b => $"'{b.Name}' {(b.Condition is not null ? $"[{b.Condition}]" : null)}"))}");
+
+		// Deactivate existing function breakpoints
+		var existing = _breakpointManager.GetAllFunctionBreakpoints();
+		foreach (var bp in existing)
+		{
+			if (bp.CorBreakpoint is not null)
+			{
+				try
+				{
+					bp.CorBreakpoint.Activate(false);
+				}
+				catch (Exception ex)
+				{
+					_logger?.Invoke($"Error deactivating function breakpoint: {ex.Message}");
+				}
+			}
+		}
+		_breakpointManager.ClearAllFunctionBreakpoints();
+
+		// Create new function breakpoints
+		var result = new List<BreakpointManager.BreakpointInfo>();
+		foreach (var request in breakpoints)
+		{
+			var bp = _breakpointManager.CreateFunctionBreakpoint(request.Name, request.Condition, request.HitCondition);
+
+			if (_process is not null)
+			{
+				TryBindFunctionBreakpoint(bp);
+			}
+			else
+			{
+				bp.Message = "Breakpoint has not been processed by the debugger.";
+			}
+
+			result.Add(bp);
+		}
+
+		return result;
+	}
+
+	/// <summary>
+	/// Try to bind a function breakpoint by searching metadata across all loaded modules
+	/// </summary>
+	private bool TryBindFunctionBreakpoint(BreakpointManager.BreakpointInfo bp)
+	{
+		var functionName = bp.FunctionName;
+		if (string.IsNullOrWhiteSpace(functionName) || _process is null) return false;
+
+		// Parse: last segment = method name, everything before = type pattern
+		var lastDot = functionName.LastIndexOf('.');
+		var methodName = lastDot >= 0 ? functionName[(lastDot + 1)..] : functionName;
+		var typePattern = lastDot >= 0 ? functionName[..lastDot] : null;
+
+		foreach (var moduleInfo in _modules.Values)
+		{
+			var metadataImport = moduleInfo.Module.GetMetaDataInterface<IMetaDataImport>();
+
+			if (typePattern is not null)
+			{
+				// Try exact type match (e.g., "MyNamespace.MyClass")
+				var typeDef = metadataImport.FindTypeDefByNameOrNull(typePattern, mdToken.Nil)
+					?? metadataImport.FindMaybeNestedTypeDefByNameOrNull(typePattern);
+
+				if (typeDef is not null)
+				{
+					if (TryBindOnType(moduleInfo, typeDef.Value, methodName, bp))
+						return true;
+				}
+
+				// Try suffix match: walk all TypeDefs and match by szTypeDef
+				foreach (var td in metadataImport.EnumTypeDefs())
+				{
+					if (td.IsNil) continue;
+					var props = metadataImport.GetTypeDefProps(td);
+					if (props.szTypeDef.Equals(typePattern, StringComparison.Ordinal) ||
+						props.szTypeDef.EndsWith("." + typePattern, StringComparison.Ordinal))
+					{
+						if (TryBindOnType(moduleInfo, td, methodName, bp))
+							return true;
+					}
+				}
+			}
+			else
+			{
+				// No type pattern — search all methods across all types
+				foreach (var td in metadataImport.EnumTypeDefs())
+				{
+					if (td.IsNil) continue;
+					if (TryBindOnType(moduleInfo, td, methodName, bp))
+						return true;
+				}
+			}
+		}
+
+		bp.Verified = false;
+		bp.Message = $"Could not resolve function name: '{functionName}'. No matching method found in any loaded module.";
+		return false;
+	}
+
+	/// <summary>
+	/// Try to bind a function breakpoint on a specific type definition
+	/// </summary>
+	private bool TryBindOnType(ModuleInfo moduleInfo, mdTypeDef typeDef, string methodName, BreakpointManager.BreakpointInfo bp)
+	{
+		var metadataImport = moduleInfo.Module.GetMetaDataInterface<IMetaDataImport>();
+		var methodTokens = metadataImport.EnumMethods(typeDef);
+
+		foreach (var methodToken in methodTokens)
+		{
+			if (methodToken.IsNil) continue;
+			var methodProps = metadataImport.GetMethodProps(methodToken);
+			if (!methodProps.szMethod.Equals(methodName, StringComparison.Ordinal))
+				continue;
+
+			var function = moduleInfo.Module.GetFunctionFromToken(methodToken);
+			var ilCode = function.ILCode;
+
+			var corBreakpoint = ilCode.CreateBreakpoint(0);
+			corBreakpoint.Activate(true);
+
+			var typeProps = metadataImport.GetTypeDefProps(typeDef);
+
+			bp.CorBreakpoint = corBreakpoint;
+			bp.Verified = true;
+			bp.ModuleBaseAddress = moduleInfo.BaseAddress;
+			bp.Message = null;
+
+			_logger?.Invoke($"Function breakpoint bound: '{bp.FunctionName}' -> {typeProps.szTypeDef}.{methodName}() in {Path.GetFileName(moduleInfo.ModuleName)}");
+			return true;
+		}
+
+		return false;
 	}
 
 	/// <summary>

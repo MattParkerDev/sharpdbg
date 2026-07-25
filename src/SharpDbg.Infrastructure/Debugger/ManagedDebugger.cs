@@ -272,7 +272,14 @@ public partial class ManagedDebugger
 
 		foreach (var bp in pendingBreakpoints)
 		{
-			if (TryBindBreakpoint(bp))
+			if (bp.FunctionName is not null)
+			{
+				if (TryBindFunctionBreakpoint(bp))
+				{
+					OnBreakpointChanged?.Invoke(bp);
+				}
+			}
+			else if (TryBindBreakpoint(bp))
 			{
 				// Notify that the breakpoint changed (became verified)
 				OnBreakpointChanged?.Invoke(bp);

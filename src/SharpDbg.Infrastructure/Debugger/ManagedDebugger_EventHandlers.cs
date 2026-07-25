@@ -186,7 +186,21 @@ public partial class ManagedDebugger
 			return;
 		}
 
-		if (managedBreakpoint.ResolvedBreakpointFromPdb is not {} resolvedBreakpoint) throw new UnreachableException("Breakpoint was not resolved from PDB - this should never happen, as breakpoints are only bound to resolved source locations");
+		if (managedBreakpoint.ResolvedBreakpointFromPdb is not {} resolvedBreakpoint)
+		{
+			// Function breakpoints do not have pre-resolved PDB info — get source location from current frame
+			if (managedBreakpoint.FunctionName is not null)
+			{
+				var sourceInfo = GetSourceInfoAtFrame(corThread.ActiveFrame);
+				if (sourceInfo is not null)
+				{
+					OnStopped2?.Invoke(corThread.Id, sourceInfo.Value.FilePath, sourceInfo.Value.StartLine,
+						sourceInfo.Value.StartColumn, "function breakpoint", sourceInfo.Value.DecompiledSourceInfo);
+					return;
+				}
+			}
+			throw new UnreachableException("Breakpoint was not resolved from PDB and is not a function breakpoint — this should never happen");
+		}
 		OnStopped2?.Invoke(corThread.Id, managedBreakpoint.FilePath, resolvedBreakpoint.StartLine, resolvedBreakpoint.StartColumn, "breakpoint", null);
 	}
 

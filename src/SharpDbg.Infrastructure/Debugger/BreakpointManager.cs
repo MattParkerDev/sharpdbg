@@ -10,6 +10,7 @@ public class BreakpointManager
 	private int _nextBreakpointId = 1;
 	private readonly Dictionary<int, BreakpointInfo> _breakpoints = new();
 	private readonly Dictionary<string, List<int>> _breakpointsByFile = new();
+	private readonly Dictionary<string, List<int>> _functionBreakpoints = new();
 	private readonly Lock _lock = new();
 
 	public class BreakpointInfo
@@ -26,6 +27,9 @@ public class BreakpointManager
 		public SymbolReader.ResolvedBreakpoint? ResolvedBreakpointFromPdb { get; set; }
 		public CORDB_ADDRESS? ModuleBaseAddress { get; set; }
 
+		/// <summary>Function name for SetFunctionBreakpoints support</summary>
+		public string? FunctionName { get; set; }
+
 		/// <summary>Conditional expression to evaluate when breakpoint is hit</summary>
 		public string? Condition { get; set; }
 
@@ -37,7 +41,7 @@ public class BreakpointManager
 	}
 
 	/// <summary>
-	/// Create a new breakpoint
+	/// Create a new source breakpoint
 	/// </summary>
 	public BreakpointInfo CreateBreakpoint(string filePath, int line, int? column = null, string? condition = null, string? hitCondition = null)
 	{
@@ -65,6 +69,39 @@ public class BreakpointManager
 				_breakpointsByFile[filePath] = [];
 			}
 			_breakpointsByFile[filePath].Add(id);
+
+			return bp;
+		}
+	}
+
+	/// <summary>
+	/// Create a new function breakpoint
+	/// </summary>
+	public BreakpointInfo CreateFunctionBreakpoint(string functionName, string? condition = null, string? hitCondition = null)
+	{
+		lock (_lock)
+		{
+			var id = _nextBreakpointId++;
+			if (string.IsNullOrWhiteSpace(condition)) condition = null;
+			if (string.IsNullOrWhiteSpace(hitCondition)) hitCondition = null;
+			var bp = new BreakpointInfo
+			{
+				Id = id,
+				FunctionName = functionName,
+				FilePath = functionName, // use function name as file path for event routing compatibility
+				Verified = false,
+				Condition = condition,
+				HitCondition = hitCondition,
+				HitCount = 0
+			};
+
+			_breakpoints[id] = bp;
+
+			if (!_functionBreakpoints.ContainsKey(functionName))
+			{
+				_functionBreakpoints[functionName] = [];
+			}
+			_functionBreakpoints[functionName].Add(id);
 
 			return bp;
 		}
@@ -115,6 +152,35 @@ public class BreakpointManager
 	}
 
 	/// <summary>
+	/// Clear all function breakpoints
+	/// </summary>
+	public void ClearAllFunctionBreakpoints()
+	{
+		lock (_lock)
+		{
+			foreach (var (_, ids) in _functionBreakpoints)
+			{
+				foreach (var id in ids)
+				{
+					_breakpoints.Remove(id);
+				}
+			}
+			_functionBreakpoints.Clear();
+		}
+	}
+
+	/// <summary>
+	/// Get all function breakpoints
+	/// </summary>
+	public List<BreakpointInfo> GetAllFunctionBreakpoints()
+	{
+		lock (_lock)
+		{
+			return _functionBreakpoints.Values.SelectMany(ids => ids).Select(id => _breakpoints[id]).ToList();
+		}
+	}
+
+	/// <summary>
 	/// Find breakpoint by ClrDebug breakpoint
 	/// </summary>
 	public BreakpointInfo? FindByCorBreakpoint(ICorDebugFunctionBreakpoint corBreakpoint)
@@ -161,6 +227,11 @@ public class BreakpointManager
 				ids.Remove(id);
 				if (ids.Count == 0) _breakpointsByFile.Remove(bp.FilePath);
 			}
+			if (bp.FunctionName is not null && _functionBreakpoints.TryGetValue(bp.FunctionName, out var fnIds))
+			{
+				fnIds.Remove(id);
+				if (fnIds.Count == 0) _functionBreakpoints.Remove(bp.FunctionName);
+			}
 			return true;
 		}
 	}
@@ -174,6 +245,7 @@ public class BreakpointManager
 		{
 			_breakpoints.Clear();
 			_breakpointsByFile.Clear();
+			_functionBreakpoints.Clear();
 			_nextBreakpointId = 1;
 		}
 	}

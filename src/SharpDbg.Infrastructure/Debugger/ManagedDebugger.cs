@@ -15,7 +15,6 @@ public partial class ManagedDebugger
 {
 	private ICorDebug? _corDebug;
 	private ICorDebugProcess? _process;
-	private Process? _debuggeeProcess;
 	private readonly CorDebugManagedCallback _callbacks;
 	private readonly BreakpointManager _breakpointManager;
 	private readonly VariableManager _variableManager;
@@ -29,6 +28,8 @@ public partial class ManagedDebugger
 	private bool _justMyCode;
 	private AsyncStepper? _asyncStepper;
 	private CompiledExpressionInterpreter _expressionInterpreter = null!;
+
+	private Process? _debuggeeProcess;
 
 	public event Action<int, string>? OnStopped;
 	// ThreadId, FilePath, Line, Column, Reason

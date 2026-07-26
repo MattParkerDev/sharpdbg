@@ -170,11 +170,11 @@ public class DebugAdapter : DebugAdapterBase
 			});
 		};
 
-		_debugger.OnOutput += (output) =>
+		_debugger.OnOutput += (output, isStdError) =>
 		{
 			Protocol.SendEvent(new OutputEvent
 			{
-				Category = OutputEvent.CategoryValue.Stdout,
+				Category = isStdError ? OutputEvent.CategoryValue.Stderr : OutputEvent.CategoryValue.Stdout,
 				Output = output
 			});
 		};

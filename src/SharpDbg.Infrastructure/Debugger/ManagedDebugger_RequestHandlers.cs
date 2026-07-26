@@ -51,8 +51,8 @@ public partial class ManagedDebugger
 			WorkingDirectory = launchInfo.Cwd ?? Environment.CurrentDirectory,
 			UseShellExecute = false,
 			CreateNoWindow = true,
-			RedirectStandardOutput = false,
-			RedirectStandardError = false,
+			RedirectStandardOutput = true,
+			RedirectStandardError = true,
 			RedirectStandardInput = false,
 		};
 		foreach (var arg in launchInfo.Arguments)
@@ -66,8 +66,20 @@ public partial class ManagedDebugger
 		}
 		processStartInfo.Environment["DOTNET_DefaultDiagnosticPortSuspend"] = "1";
 
-		using var process = Process.Start(processStartInfo);
+		var process = Process.Start(processStartInfo);
 		if (process is null) throw new InvalidOperationException("Process start failed");
+		_debuggeeProcess = process;
+
+		process.OutputDataReceived += (_, e) =>
+		{
+			if (e.Data is not null) InvokeOnOutputWithTryCatch(e.Data + Environment.NewLine, isError: false);
+		};
+		process.ErrorDataReceived += (_, e) =>
+		{
+			if (e.Data is not null) InvokeOnOutputWithTryCatch(e.Data + Environment.NewLine, isError: true);
+		};
+		process.BeginOutputReadLine();
+		process.BeginErrorReadLine();
 
 		var processId = process.Id;
 
@@ -82,6 +94,20 @@ public partial class ManagedDebugger
 
 		_logger?.Invoke($"Successfully attached to process: {processId}");
 		SendAllBreakpointEvents();
+		return;
+
+		// The DataReceived callbacks run on background threads - a throwing subscriber (e.g. a disposed protocol layer) must not crash the adapter
+		void InvokeOnOutputWithTryCatch(string output, bool isError)
+		{
+			try
+			{
+				OnOutput?.Invoke(output, isError);
+			}
+			catch (Exception ex)
+			{
+				_logger?.Invoke($"Error forwarding debuggee output: {ex.Message}");
+			}
+		}
 	}
 
 	public bool RemoveBreakpoint(int id)

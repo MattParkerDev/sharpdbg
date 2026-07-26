@@ -29,6 +29,8 @@ public partial class ManagedDebugger
 	private AsyncStepper? _asyncStepper;
 	private CompiledExpressionInterpreter _expressionInterpreter = null!;
 
+	private Process? _debuggeeProcess;
+
 	public event Action<int, string>? OnStopped;
 	// ThreadId, FilePath, Line, Column, Reason
 	public event Action<int, string, int, int, string, DecompiledSourceInfo?>? OnStopped2;
@@ -38,7 +40,8 @@ public partial class ManagedDebugger
 	public event Action<int, string>? OnThreadStarted;
 	public event Action<int, string>? OnThreadExited;
 	public event Action<string, string, string>? OnModuleLoaded;
-	public event Action<string>? OnOutput;
+	// Output text, isError (true for stderr, false for stdout)
+	public event Action<string, bool>? OnOutput;
 	public event Action<BreakpointManager.BreakpointInfo>? OnBreakpointChanged;
 	public event Func<LaunchInfo, int> SendRunInTerminalRequest = null!;
 
@@ -348,6 +351,9 @@ public partial class ManagedDebugger
 		_isAttached = false;
 		_process = null;
 		_corDebug = null;
+
+		_debuggeeProcess?.Dispose();
+		_debuggeeProcess = null;
 	}
 }
 

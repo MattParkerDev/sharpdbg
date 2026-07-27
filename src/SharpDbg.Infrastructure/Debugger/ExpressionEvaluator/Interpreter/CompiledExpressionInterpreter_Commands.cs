@@ -147,7 +147,7 @@ public partial class CompiledExpressionInterpreter
 
 		if (objType is not null)
 		{
-			function = FindMethodOnType(objType, methodName, args, searchStatic.Value, idsEmpty);
+			function = _debugger.FindMethodOnType(objType, methodName, args, searchStatic.Value, idsEmpty);
 		}
 
 		if (function is null)
@@ -212,74 +212,6 @@ public partial class CompiledExpressionInterpreter
 		{
 			entry.CorDebugValue = result;
 		}
-	}
-
-	// TODO: Refactor - this doesn't belong in this class
-	public static ICorDebugFunction? FindMethodOnType(
-		ICorDebugType type,
-		string methodName,
-		ICorDebugValue[] args,
-		bool searchStatic,
-		bool idsEmpty)
-	{
-		var typeClass = type.Class;
-		var module = typeClass.Module;
-		var metaDataImport = module.GetMetaDataInterface<IMetaDataImport>();
-		var classToken = typeClass.Token;
-
-		var methods = metaDataImport!.EnumMethods(classToken);
-		foreach (var methodToken in methods)
-		{
-			var methodProps = metaDataImport!.GetMethodProps(methodToken);
-
-			if (methodProps.szMethod != methodName)
-				continue;
-
-			var isStatic = methodProps.pdwAttr.IsMdStatic();
-
-			if ((searchStatic && !isStatic) || (!searchStatic && isStatic && !idsEmpty))
-				continue;
-
-			var method = module.GetFunctionFromToken(methodToken);
-
-			if (IsMethodParameterMatch(method, args))
-				return method;
-		}
-
-		// Walk base types if no matching method was found on this type
-		var baseType = type.Base;
-		if (baseType is not null)
-		{
-			return FindMethodOnType(baseType, methodName, args, searchStatic, idsEmpty);
-		}
-
-		return null;
-	}
-
-	private static bool IsMethodParameterMatch(ICorDebugFunction method, ICorDebugValue[] args)
-	{
-		var metaDataImport = method.Class.Module.GetMetaDataInterface<IMetaDataImport>();
-
-		// Get the method signature blob
-		var methodProps = metaDataImport.GetMethodProps(method.Token);
-
-		// Parse the signature using System.Reflection.Metadata
-		var parameterTypes = ParseMethodSignatureWithMetadata(methodProps.ppvSigBlob, methodProps.pcbSigBlob);
-
-		// Compare parameter count
-		if (parameterTypes.Count != args.Length)
-			return false;
-
-		// Compare each parameter type
-		for (var i = 0; i < args.Length; i++)
-		{
-			var argType = args[i].ExactType?.Type ?? args[i].Type; // Get the actual type
-
-			if (!IsTypeMatch(parameterTypes[i], argType, args[i]))
-				return false;
-		}
-
-		return true;
 	}
 
 	private async Task ElementAccessExpression(OneOperandCommand command, LinkedList<EvalStackEntry> evalStack)
@@ -431,7 +363,7 @@ public partial class CompiledExpressionInterpreter
 				value = await CreateValueType(boxedClass, data);
 			}
 		}
-		var corDebugFunction = FindMethodOnType(value.ExactType, "ToString", [], false, true);
+		var corDebugFunction = _debugger.FindMethodOnType(value.ExactType, "ToString", [], false, true);
 		if (corDebugFunction is null) throw new InvalidOperationException("ToString method not found");
 		var eval = _context.Thread.CreateEval();
 		var result = await eval.CallParameterlessInstanceMethodAsync(_debuggerManagedCallback, _debugger.EvalStatus, corDebugFunction, value);

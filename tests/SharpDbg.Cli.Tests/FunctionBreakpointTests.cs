@@ -130,30 +130,43 @@ public class FunctionBreakpointTests(ITestOutputHelper testOutputHelper)
 
 		var breakpointEvent = await debugProtocolHost.WaitForEvent<BreakpointEvent>(debugEventTcs, s => s.Breakpoint.Verified && s.Breakpoint.Id == breakpointId);
 
-		var stoppedEvent = await debugProtocolHost.WaitForStoppedEvent(debugEventTcs);
-		debugProtocolHost.WithStackTraceRequest(stoppedEvent.ThreadId!.Value, out var stackTraceResponse);
-		var topFrame = stackTraceResponse.StackFrames.Single();
-		topFrame.ShouldBeAtSourceLocation("OverloadedMethodsClass.cs", 14, 14, 2, 3);
+		await AssertBreakpointsHit();
 
-		var stoppedEvent2 = await debugProtocolHost.WithContinueRequest().WaitForStoppedEvent(debugEventTcs);
-		debugProtocolHost.WithStackTraceRequest(stoppedEvent2.ThreadId!.Value, out var stackTraceResponse2);
-		var topFrame2 = stackTraceResponse2.StackFrames.Single();
-		topFrame2.ShouldBeAtSourceLocation("OverloadedMethodsClass.cs", 18, 18, 2, 3);
+		// Also test that classless method resolution works
+		var result2 = debugProtocolHost.SendRequestSync(new SetFunctionBreakpointsRequest([new FunctionBreakpoint("OverloadedMethod")]));
+		debugProtocolHost.WithContinueRequest();
 
-		var stoppedEvent3 = await debugProtocolHost.WithContinueRequest().WaitForStoppedEvent(debugEventTcs);
-		debugProtocolHost.WithStackTraceRequest(stoppedEvent3.ThreadId!.Value, out var stackTraceResponse3);
-		var topFrame3 = stackTraceResponse3.StackFrames.Single();
-		topFrame3.ShouldBeAtSourceLocation("OverloadedMethodsClass.cs", 22, 22, 2, 3);
+		await AssertBreakpointsHit();
 
-		var stoppedEvent4 = await debugProtocolHost.WithContinueRequest().WaitForStoppedEvent(debugEventTcs);
-		debugProtocolHost.WithStackTraceRequest(stoppedEvent4.ThreadId!.Value, out var stackTraceResponse4);
-		var topFrame4 = stackTraceResponse4.StackFrames.Single();
-		topFrame4.ShouldBeAtSourceLocation("OverloadedMethodsClass.cs", 26, 26, 2, 3);
+		return;
 
-		var stoppedEvent5 = await debugProtocolHost.WithContinueRequest().WaitForStoppedEvent(debugEventTcs);
-		debugProtocolHost.WithStackTraceRequest(stoppedEvent5.ThreadId!.Value, out var stackTraceResponse5);
-		var topFrame5 = stackTraceResponse5.StackFrames.Single();
-		topFrame5.ShouldBeAtSourceLocation("OverloadedMethodsClass.cs", 30, 30, 2, 3);
+		async Task AssertBreakpointsHit()
+		{
+			var stoppedEvent = await debugProtocolHost.WaitForStoppedEvent(debugEventTcs);
+			debugProtocolHost.WithStackTraceRequest(stoppedEvent.ThreadId!.Value, out var stackTraceResponse);
+			var topFrame = stackTraceResponse.StackFrames.Single();
+			topFrame.ShouldBeAtSourceLocation("OverloadedMethodsClass.cs", 14, 14, 2, 3);
+
+			var stoppedEvent2 = await debugProtocolHost.WithContinueRequest().WaitForStoppedEvent(debugEventTcs);
+			debugProtocolHost.WithStackTraceRequest(stoppedEvent2.ThreadId!.Value, out var stackTraceResponse2);
+			var topFrame2 = stackTraceResponse2.StackFrames.Single();
+			topFrame2.ShouldBeAtSourceLocation("OverloadedMethodsClass.cs", 18, 18, 2, 3);
+
+			var stoppedEvent3 = await debugProtocolHost.WithContinueRequest().WaitForStoppedEvent(debugEventTcs);
+			debugProtocolHost.WithStackTraceRequest(stoppedEvent3.ThreadId!.Value, out var stackTraceResponse3);
+			var topFrame3 = stackTraceResponse3.StackFrames.Single();
+			topFrame3.ShouldBeAtSourceLocation("OverloadedMethodsClass.cs", 22, 22, 2, 3);
+
+			var stoppedEvent4 = await debugProtocolHost.WithContinueRequest().WaitForStoppedEvent(debugEventTcs);
+			debugProtocolHost.WithStackTraceRequest(stoppedEvent4.ThreadId!.Value, out var stackTraceResponse4);
+			var topFrame4 = stackTraceResponse4.StackFrames.Single();
+			topFrame4.ShouldBeAtSourceLocation("OverloadedMethodsClass.cs", 26, 26, 2, 3);
+
+			var stoppedEvent5 = await debugProtocolHost.WithContinueRequest().WaitForStoppedEvent(debugEventTcs);
+			debugProtocolHost.WithStackTraceRequest(stoppedEvent5.ThreadId!.Value, out var stackTraceResponse5);
+			var topFrame5 = stackTraceResponse5.StackFrames.Single();
+			topFrame5.ShouldBeAtSourceLocation("OverloadedMethodsClass.cs", 30, 30, 2, 3);
+		}
 	}
 
 	[Fact]

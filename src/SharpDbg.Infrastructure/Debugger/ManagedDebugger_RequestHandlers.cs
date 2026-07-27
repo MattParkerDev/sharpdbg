@@ -448,11 +448,11 @@ public partial class ManagedDebugger
 						var endLine = 0;
 						var endColumn = 0;
 						string? sourceFilePath = null;
-						if (module.SymbolReader is not null)
+						if (module.MetadataReader.HasSymbols)
 						{
 							var ilOffset = ilFrame.IP.pnOffset;
 							var methodToken = function.Token;
-							var sourceInfo = module.SymbolReader.GetSourceLocationForOffset(methodToken, ilOffset);
+							var sourceInfo = module.MetadataReader.GetSourceLocationForOffset(methodToken, ilOffset);
 							if (sourceInfo is not null)
 							{
 								line = sourceInfo.Value.startLine;

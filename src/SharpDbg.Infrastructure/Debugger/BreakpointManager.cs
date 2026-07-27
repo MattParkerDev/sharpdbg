@@ -26,7 +26,7 @@ public class BreakpointManager
 		public string? FunctionName { get; set; }
 		public bool IsFunctionBreakpoint => FunctionName is not null;
 		public string? Message { get; set; }
-		public SymbolReader.ResolvedBreakpoint? ResolvedBreakpointFromPdb { get; set; }
+		public ModuleMetadataReader.ResolvedBreakpoint? ResolvedBreakpointFromPdb { get; set; }
 		public CORDB_ADDRESS? ModuleBaseAddress { get; set; }
 
 		/// <summary>Conditional expression to evaluate when breakpoint is hit</summary>
@@ -43,7 +43,7 @@ public class BreakpointManager
 		ICorDebugFunctionBreakpoint CorBreakpoint,
 		CORDB_ADDRESS ModuleBaseAddress,
 		int MethodToken,
-		SymbolReader.ResolvedBreakpoint Source);
+		ModuleMetadataReader.ResolvedBreakpoint Source);
 
 	/// <summary>
 	/// Create a new breakpoint

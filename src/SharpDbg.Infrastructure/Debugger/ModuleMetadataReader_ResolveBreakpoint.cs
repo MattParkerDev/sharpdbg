@@ -4,7 +4,7 @@ using System.Reflection.Metadata.Ecma335;
 namespace SharpDbg.Infrastructure.Debugger;
 
 // 🤖
-public partial class SymbolReader
+public partial class ModuleMetadataReader
 {
 	private sealed record MethodCandidate(
 	int Token,
@@ -18,13 +18,15 @@ public partial class SymbolReader
 
 	public ResolvedBreakpoint? ResolveBreakpoint(string sourceFilePath, int line, int? column = null)
 	{
+		var reader = _pdbMetadataReader;
+		if (reader is null) return null;
 		var normalizedPath = NormalizePath(sourceFilePath);
 
-		var documentHandle = _reader.Documents.FirstOrDefault(h => PathsMatch(normalizedPath, _reader.GetString(_reader.GetDocument(h).Name)));
+		var documentHandle = reader.Documents.FirstOrDefault(h => PathsMatch(normalizedPath, reader.GetString(reader.GetDocument(h).Name)));
 
 		if (documentHandle.IsNil) return null;
 
-		var candidates = _reader.MethodDebugInformation
+		var candidates = reader.MethodDebugInformation
 			.Select(h => CollectCandidate(h, documentHandle, line, column))
 			.OfType<MethodCandidate>()
 			.ToList();
@@ -72,7 +74,8 @@ public partial class SymbolReader
 
 	private MethodCandidate? CollectCandidate(MethodDebugInformationHandle handle, DocumentHandle docHandle, int line, int? column)
 	{
-		var info = _reader.GetMethodDebugInformation(handle);
+		var reader = _pdbMetadataReader ?? throw new InvalidOperationException("No symbols are loaded.");
+		var info = reader.GetMethodDebugInformation(handle);
 		if (info.SequencePointsBlob.IsNil) return null;
 
 		SequencePoint? firstSP = null;
@@ -86,7 +89,7 @@ public partial class SymbolReader
 			var spDoc = sp.Document.IsNil ? info.Document : sp.Document;
 			if (spDoc != docHandle || sp.IsBeforeRequestedPosition(line, column)) continue;
 
-			docPath ??= _reader.GetString(_reader.GetDocument(spDoc).Name);
+			docPath ??= reader.GetString(reader.GetDocument(spDoc).Name);
 
 			if (firstSP is null || sp.End() < firstSP.Value.End()) firstSP = sp;
 			if (lastSP is null || sp.End() > lastSP.Value.End()) lastSP = sp;

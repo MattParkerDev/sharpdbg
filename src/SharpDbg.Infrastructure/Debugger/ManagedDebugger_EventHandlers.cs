@@ -51,8 +51,7 @@ public partial class ManagedDebugger
 
 		_logger?.Invoke($"Module loaded: {modulePath} at 0x{baseAddress:X}");
 
-		// Try to load symbols for this module
-		SymbolReader? symbolReader = null;
+		ModuleMetadataReader? metadataReader = null;
 		try
 		{
 			if (corModule.IsInMemory)
@@ -60,20 +59,14 @@ public partial class ManagedDebugger
 				var size = corModule.Size;
 				var baseAddress2 = corModule.BaseAddress;
 				var (bytes, _) = _process.ReadMemory(baseAddress2, size);
-				symbolReader = SymbolReader.TryLoadFromBytes(bytes);
+				metadataReader = ModuleMetadataReader.TryLoadFromBytes(bytes);
 			}
 			else
 			{
-				symbolReader = SymbolReader.TryLoad(modulePath);
+				metadataReader = ModuleMetadataReader.TryLoad(modulePath);
 			}
-			if (symbolReader is not null)
-			{
-				_logger?.Invoke($"  Symbols loaded for {moduleName}");
-			}
-			else
-			{
-				_logger?.Invoke($"  No symbols found for {moduleName}");
-			}
+			if (metadataReader is null) throw new InvalidOperationException("The module's PE metadata could not be read.");
+			_logger?.Invoke(metadataReader.HasSymbols ? $"  Symbols loaded for {moduleName}" : $"  No symbols found for {moduleName}");
 		}
 		catch (Exception ex)
 		{
@@ -83,7 +76,13 @@ public partial class ManagedDebugger
 		// EnC is enabled for assemblies/projects that are authored by the user, so we can use it as a heuristic to determine if this is user code or system code.
 		var isUserCode = corModule.JITCompilerFlags is CorDebugJITCompilerFlags.CORDEBUG_JIT_DISABLE_OPTIMIZATION or CorDebugJITCompilerFlags.CORDEBUG_JIT_ENABLE_ENC;
 
-		var moduleInfo = new ModuleInfo(corModule, modulePath, symbolReader, isUserCode);
+		if (metadataReader is null)
+		{
+			_logger?.Invoke($"  Module metadata unavailable for {moduleName}");
+			Continue();
+			return;
+		}
+		var moduleInfo = new ModuleInfo(corModule, modulePath, metadataReader, isUserCode);
 		_modules[baseAddress] = moduleInfo;
 
 		if (moduleName is "System.Private.CoreLib.dll")
@@ -99,7 +98,7 @@ public partial class ManagedDebugger
 		OnModuleLoaded?.Invoke(modulePath, Path.GetFileName(modulePath), modulePath);
 
 		// Try to bind any pending breakpoints now that we have a new module with symbols
-		if (symbolReader is not null)
+		if (metadataReader.HasSymbols)
 		{
 			TryBindPendingBreakpoints();
 			foreach (var breakpoint in _breakpointManager.GetFunctionBreakpoints())
@@ -228,9 +227,9 @@ public partial class ManagedDebugger
 			ContinueWithVariableClear();
 			return;
 		}
-		var symbolReader = module.SymbolReader ?? throw new UnreachableException("Source info was found, but no symbol reader is available for the module - this should never happen");
+		var metadataReader = module.MetadataReader;
 
-		var (currentIlOffset, nextUserCodeIlOffset) = symbolReader.GetFrameCurrentIlOffsetAndNextUserCodeIlOffset(ilFrame);
+		var (currentIlOffset, nextUserCodeIlOffset) = metadataReader.GetFrameCurrentIlOffsetAndNextUserCodeIlOffset(ilFrame);
 		if (stepCompleteEventArgs.Reason is CorDebugStepReason.STEP_CALL && currentIlOffset < nextUserCodeIlOffset)
 		{
 			SetupStepper(corThread, AsyncStepper.StepType.StepOver);

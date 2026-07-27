@@ -27,27 +27,25 @@ public partial class ManagedDebugger
 			throw new InvalidOperationException("Active frame is not an IL frame");
 		var function = ilFrame.Function;
 		var module = _modules[function.Module.BaseAddress];
-		if (module.SymbolReader is null && _justMyCode is false)
+		if (module.MetadataReader.HasSymbols is false && _justMyCode is false)
 		{
 			if (module.IsUserCode) throw new InvalidOperationException("The module we are decompiling is user code - this should never happen, we should only be decompiling non user code modules");
 			// No PDB on disk — generate one via decompilation and update the module entry
-			var result = GetCachedOrGeneratePdb(module);
-			if (result is not null)
+			if (GetCachedOrGeneratePdb(module))
 			{
-				module.SymbolReader = result;
-				module.SymbolReaderFromDecompiled = true;
+				module.SymbolsFromDecompiled = true;
 			}
 		}
 
-		if (module.SymbolReader is not null)
+		if (module.MetadataReader.HasSymbols)
 		{
 			var ilOffset = ilFrame.IP.pnOffset;
 			var methodToken = function.Token;
-			var sourceInfo = module.SymbolReader.GetSourceLocationForOffset(methodToken, ilOffset);
+			var sourceInfo = module.MetadataReader.GetSourceLocationForOffset(methodToken, ilOffset);
 			if (sourceInfo is not null)
 			{
 				DecompiledSourceInfo? decompiledSourceInfo = null;
-				if (module.SymbolReaderFromDecompiled)
+				if (module.SymbolsFromDecompiled)
 				{
 					var metadataImport = module.Module.GetMetaDataInterface<IMetaDataImport>();
 					var mvid = metadataImport.ScopeProps.pmvid;
@@ -90,7 +88,7 @@ public partial class ManagedDebugger
 		return null;
 	}
 
-	private SymbolReader? GetCachedOrGeneratePdb(ModuleInfo moduleInfo)
+	private bool GetCachedOrGeneratePdb(ModuleInfo moduleInfo)
 	{
 		var sharpIdeSymbolCachePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Temp", "SharpIdeSymbolCache");
 		var metadataImport = moduleInfo.Module.GetMetaDataInterface<IMetaDataImport>();
@@ -99,22 +97,21 @@ public partial class ManagedDebugger
 		var pdbPath = Path.Combine(sharpIdeSymbolCachePath, assemblyName, mvid.ToString(), $"{assemblyName}.decompiled.pdb");
 		if (File.Exists(pdbPath))
 		{
-			var symbolReader = SymbolReader.TryLoadWithPdbPath(moduleInfo.ModulePath, pdbPath);
-			if (symbolReader is null)
+			if (!moduleInfo.MetadataReader.TryLoadSymbols(pdbPath))
 			{
-				_logger?.Invoke($"GetCachedOrGeneratePdb: SymbolReader could not load cached PDB '{pdbPath}'");
-				return null;
+				_logger?.Invoke($"GetCachedOrGeneratePdb: could not load cached PDB '{pdbPath}'");
+				return false;
 			}
-			return symbolReader;
+			return true;
 		}
 		return GeneratePdb(moduleInfo, pdbPath);
 	}
 
 
-	private SymbolReader? GeneratePdb(ModuleInfo moduleInfo, string pdbPathToWriteTo)
+	private bool GeneratePdb(ModuleInfo moduleInfo, string pdbPathToWriteTo)
 	{
 		var assemblyPath = moduleInfo.ModulePath;
-		if (!File.Exists(assemblyPath)) return null;
+		if (!File.Exists(assemblyPath)) return false;
 
 		var allModulePaths = _modules.Values.Select(m => m.ModulePath).Where(p => !string.IsNullOrEmpty(p)).ToList();
 		var resolver = new DebuggingAssemblyResolver(allModulePaths);
@@ -127,7 +124,7 @@ public partial class ManagedDebugger
 		catch (Exception ex)
 		{
 			_logger?.Invoke($"GeneratePdb: failed to open PE file '{assemblyPath}': {ex.Message}");
-			return null;
+			return false;
 		}
 
 		using (file)
@@ -147,18 +144,17 @@ public partial class ManagedDebugger
 			{
 				_logger?.Invoke($"GeneratePdb: exception writing PDB: {ex}");
 				File.Delete(pdbPathToWriteTo);
-				return null;
+				return false;
 			}
 
-			var symbolReader = SymbolReader.TryLoadWithPdbPath(assemblyPath, pdbPathToWriteTo);
-			if (symbolReader is null)
+			if (!moduleInfo.MetadataReader.TryLoadSymbols(pdbPathToWriteTo))
 			{
-				_logger?.Invoke($"GeneratePdb: SymbolReader could not load generated PDB '{pdbPathToWriteTo}'");
-				return null;
+				_logger?.Invoke($"GeneratePdb: could not load generated PDB '{pdbPathToWriteTo}'");
+				return false;
 			}
 
 			_logger?.Invoke($"GeneratePdb: successfully loaded generated PDB for '{Path.GetFileName(assemblyPath)}'");
-			return symbolReader;
+			return true;
 		}
 	}
 }

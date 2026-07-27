@@ -194,11 +194,11 @@ public class AsyncStepper
 			var methodVersion = ilCode.VersionNumber;
 
 			// Check if module has symbols
-			if (!_modules.TryGetValue(moduleAddress, out var moduleInfo) || moduleInfo.SymbolReader is null)
+			if (!_modules.TryGetValue(moduleAddress, out var moduleInfo) || moduleInfo.MetadataReader.HasSymbols is false)
 				return (false, null);
 
 			// Check if method has async stepping info
-			var asyncInfo = moduleInfo.SymbolReader.GetAsyncMethodSteppingInfo(methodToken);
+			var asyncInfo = moduleInfo.MetadataReader.GetAsyncMethodSteppingInfo(methodToken);
 			if (asyncInfo is null) return (false, null);
 
 			var ilFrame = frame as ICorDebugILFrame;
@@ -444,7 +444,7 @@ public class AsyncStepper
 		return (true, false);
 	}
 
-	private SymbolReader.AsyncAwaitInfo? FindNextAwaitInfo(SymbolReader.AsyncMethodSteppingInfo asyncInfo, uint currentOffset)
+	private ModuleMetadataReader.AsyncAwaitInfo? FindNextAwaitInfo(ModuleMetadataReader.AsyncMethodSteppingInfo asyncInfo, uint currentOffset)
 	{
 		foreach (var awaitInfo in asyncInfo.AwaitInfos)
 		{

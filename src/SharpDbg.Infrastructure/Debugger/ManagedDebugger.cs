@@ -171,10 +171,10 @@ public partial class ManagedDebugger
 		}
 		else // StepIn or StepOver
 		{
-			var symbolReader = _modules[frame.Function.Module.BaseAddress].SymbolReader;
+			var metadataReader = _modules[frame.Function.Module.BaseAddress].MetadataReader;
 
 			var currentIlOffset = ilFrame.IP.pnOffset;
-			var nullableResult = symbolReader?.GetStartAndEndSequencePointIlOffsetsForIlOffset(frame.Function.Token, currentIlOffset);
+			var nullableResult = metadataReader.GetStartAndEndSequencePointIlOffsetsForIlOffset(frame.Function.Token, currentIlOffset);
 			if (nullableResult is var (startIlOffset, endIlOffset))
 			{
 				if (startIlOffset == endIlOffset)
@@ -211,14 +211,14 @@ public partial class ManagedDebugger
 
 			// Find a module that contains the source file
 			ModuleInfo? targetModule = null;
-			SymbolReader.ResolvedBreakpoint? resolved = null;
+			ModuleMetadataReader.ResolvedBreakpoint? resolved = null;
 
 			foreach (var moduleInfo in _modules.Values)
 			{
-				if (moduleInfo.SymbolReader is null)
+				if (moduleInfo.MetadataReader.HasSymbols is false)
 					continue;
 
-				resolved = moduleInfo.SymbolReader.ResolveBreakpoint(bp.FilePath, bp.Line, bp.Column);
+				resolved = moduleInfo.MetadataReader.ResolveBreakpoint(bp.FilePath, bp.Line, bp.Column);
 				if (resolved is not null)
 				{
 					targetModule = moduleInfo;
@@ -288,12 +288,12 @@ public partial class ManagedDebugger
 	/// </summary>
 	private bool TryBindFunctionBreakpoint(BreakpointManager.BreakpointInfo bp, ModuleInfo module)
 	{
-		if (module.SymbolReader is null || bp.FunctionName is null) return false;
+		if (module.MetadataReader.HasSymbols is false || bp.FunctionName is null) return false;
 		var wasVerified = bp.Verified;
 		try
 		{
 			var pattern = FunctionBreakpointPattern.Parse(bp.FunctionName);
-			foreach (var resolved in FunctionBreakpointMetadataResolver.Resolve(module.SymbolReader, pattern))
+			foreach (var resolved in FunctionBreakpointMetadataResolver.Resolve(module.MetadataReader, pattern))
 			{
 				if (bp.FunctionBindings.Any(binding => binding.ModuleBaseAddress == module.BaseAddress && binding.MethodToken == resolved.MethodToken))
 				{

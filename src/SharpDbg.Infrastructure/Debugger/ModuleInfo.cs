@@ -25,8 +25,8 @@ public class ModuleInfo : IDisposable
 	/// <summary>
 	/// Symbol reader for this module (null if no PDB available)
 	/// </summary>
-	public SymbolReader? SymbolReader { get; set; }
-	public bool SymbolReaderFromDecompiled { get; set; }
+	public ModuleMetadataReader MetadataReader { get; }
+	public bool SymbolsFromDecompiled { get; set; }
 
 	/// <summary>
 	/// Base address of the module in memory
@@ -34,13 +34,13 @@ public class ModuleInfo : IDisposable
 	public CORDB_ADDRESS BaseAddress { get; }
 	public bool IsUserCode { get; }
 
-	public ModuleInfo(ICorDebugModule module, string modulePath, SymbolReader? symbolReader, bool isUserCode)
+	public ModuleInfo(ICorDebugModule module, string modulePath, ModuleMetadataReader metadataReader, bool isUserCode)
 	{
 		Module = module;
 		ModulePath = modulePath;
 		IsUserCode = isUserCode;
 		ModuleName = Path.GetFileName(modulePath);
-		SymbolReader = symbolReader;
+		MetadataReader = metadataReader;
 		BaseAddress = module.BaseAddress;
 	}
 
@@ -49,13 +49,13 @@ public class ModuleInfo : IDisposable
 	/// </summary>
 	public bool ContainsSourceFile(string sourceFilePath)
 	{
-		if (SymbolReader is null)
+		if (MetadataReader.HasSymbols is false)
 			return false;
 
 		var normalizedPath = sourceFilePath.Replace('\\', '/');
 		var fileName = Path.GetFileName(normalizedPath);
 
-		foreach (var docPath in SymbolReader.GetSourceFiles())
+		foreach (var docPath in MetadataReader.GetSourceFiles())
 		{
 			var normalizedDocPath = docPath.Replace('\\', '/');
 
@@ -74,6 +74,6 @@ public class ModuleInfo : IDisposable
 
 	public void Dispose()
 	{
-		SymbolReader?.Dispose();
+		MetadataReader.Dispose();
 	}
 }

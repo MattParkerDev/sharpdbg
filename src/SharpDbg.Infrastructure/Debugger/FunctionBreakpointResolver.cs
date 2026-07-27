@@ -184,13 +184,13 @@ internal sealed class FunctionBreakpointSignatureTypeProvider : ISignatureTypePr
 	private static string JoinNamespace(string ns, string name) => string.IsNullOrEmpty(ns) ? name : $"{ns}.{name}";
 }
 
-internal sealed record ResolvedFunctionBreakpoint(int MethodToken, SymbolReader.ResolvedBreakpoint Source);
+internal sealed record ResolvedFunctionBreakpoint(int MethodToken, ModuleMetadataReader.ResolvedBreakpoint Source);
 
 internal static class FunctionBreakpointMetadataResolver
 {
-	public static IEnumerable<ResolvedFunctionBreakpoint> Resolve(SymbolReader symbolReader, FunctionBreakpointPattern pattern)
+	public static IEnumerable<ResolvedFunctionBreakpoint> Resolve(ModuleMetadataReader metadataReader, FunctionBreakpointPattern pattern)
 	{
-		var reader = symbolReader.PeMetadataReader;
+		var reader = metadataReader.PeMetadataReader;
 		var provider = new FunctionBreakpointSignatureTypeProvider();
 		foreach (var typeHandle in reader.TypeDefinitions)
 		{
@@ -203,7 +203,7 @@ internal static class FunctionBreakpointMetadataResolver
 				if (pattern.MethodArity is not null && method.GetGenericParameters().Count != pattern.MethodArity) continue;
 				if (!pattern.MatchesParameters(method.DecodeSignature(provider, null).ParameterTypes)) continue;
 				var token = MetadataTokens.GetToken(methodHandle);
-				var source = symbolReader.ResolveBreakpointAtMethodEntry(token);
+				var source = metadataReader.ResolveBreakpointAtMethodEntry(token);
 				if (source is not null) yield return new ResolvedFunctionBreakpoint(token, source);
 			}
 		}

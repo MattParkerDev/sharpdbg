@@ -76,7 +76,7 @@ public partial class ManagedDebugger
 
 		foreach (var (index, local) in frame.LocalVariables.Index())
 		{
-			var localVariableName = module.SymbolReader?.GetLocalVariableName(corDebugFunction.Token, index, currentIlOffset);
+			var localVariableName = module.MetadataReader.GetLocalVariableName(corDebugFunction.Token, index, currentIlOffset);
 			if (localVariableName is null) continue; // Compiler generated locals will not be found. E.g. DefaultInterpolatedStringHandler
 			if (localVariableName == identifier)
 			{
@@ -208,7 +208,7 @@ public partial class ManagedDebugger
 		var corDebugFunction = frame.Function;
 		var currentModule = _modules[corDebugFunction.Module.BaseAddress];
 
-		var importedNamespaces = currentModule.SymbolReader?.GetImportedNamespaces(corDebugFunction.Token) ?? ImmutableArray<string>.Empty;
+		var importedNamespaces = currentModule.MetadataReader.GetImportedNamespaces(corDebugFunction.Token);
 
 		if (importedNamespaces.Length is 0) return null;
 		var result = FindTypeTokenInLoadedModules(identifiers, importedNamespaces);

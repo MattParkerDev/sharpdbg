@@ -8,16 +8,16 @@ using ZLinq;
 namespace SharpDbg.Infrastructure.Debugger;
 
 /// <summary>
-/// Reads portable PDB files and resolves source locations to IL offsets
+/// Reads module metadata and, when available, portable PDB metadata.
 /// </summary>
-public partial class SymbolReader : IDisposable
+public partial class ModuleMetadataReader : IDisposable
 {
-	private readonly MetadataReaderProvider _provider;
 	private readonly PEReader _peReader;
-	private readonly MetadataReader _reader;
 	private readonly MetadataReader _peMetadataReader;
+	private MetadataReaderProvider? _pdbProvider;
+	private MetadataReader? _pdbMetadataReader;
 	internal MetadataReader PeMetadataReader => _peMetadataReader;
-	private string? _path;
+	public bool HasSymbols => _pdbMetadataReader is not null;
 
 	/// Lines and columns are 1 based
 	public record ResolvedBreakpoint(
@@ -44,51 +44,46 @@ public partial class SymbolReader : IDisposable
 		public int LastUserCodeIlOffset { get; set; }
 	}
 
-	private SymbolReader(MetadataReaderProvider provider, PEReader peReader, MetadataReader reader, MetadataReader peMetadataReader, string? assemblyPath)
+	private ModuleMetadataReader(PEReader peReader)
 	{
-		_provider = provider;
 		_peReader = peReader;
-		_reader = reader;
-		_peMetadataReader = peMetadataReader;
-		_path = assemblyPath;
+		_peMetadataReader = peReader.GetMetadataReader(MetadataReaderOptions.None);
 	}
 
 	/// <summary>
-	/// Try to load symbols for the given assembly path
+	/// Try to load module metadata and any matching portable PDB.
 	/// </summary>
 	/// <param name="assemblyPath">Path to the assembly (.dll)</param>
-	/// <returns>SymbolReader if PDB found and loaded, null otherwise</returns>
-	public static SymbolReader? TryLoad(string assemblyPath)
+	/// <returns>A reader for a valid managed PE, whether or not symbols were found.</returns>
+	public static ModuleMetadataReader? TryLoad(string assemblyPath)
 	{
-		// First, try to load from CodeView entry in PE (gets PDB path and validates GUID match)
-		var result = TryLoadFromAssembly(assemblyPath);
-		if (result is not null)
-			return result;
-
-		return null;
-	}
-
-	public static SymbolReader? TryLoadWithPdbPath(string assemblyPath, string pdbPath)
-	{
-		if (File.Exists(assemblyPath) is false || File.Exists(pdbPath) is false) return null;
-
+		if (!File.Exists(assemblyPath)) return null;
 		try
 		{
-			using var peStream = File.OpenRead(assemblyPath);
-			var peReader = new PEReader(peStream);
-			using var pdbStream = File.OpenRead(pdbPath);
-			var provider = MetadataReaderProvider.FromPortablePdbStream(pdbStream, MetadataStreamOptions.PrefetchMetadata);
-			var metadataReader = provider.GetMetadataReader();
-			var peMetadataReader = peReader.GetMetadataReader(MetadataReaderOptions.None);
-			return new SymbolReader(provider, peReader, metadataReader, peMetadataReader, assemblyPath);
+			using var stream = File.OpenRead(assemblyPath);
+			return TryLoadInternal(stream, assemblyPath);
+		}
+		catch { return null; }
+	}
+
+	public bool TryLoadSymbols(string pdbPath)
+	{
+		if (!File.Exists(pdbPath)) return false;
+		MetadataReaderProvider? provider = null;
+		try
+		{
+			provider = MetadataReaderProvider.FromPortablePdbStream(File.OpenRead(pdbPath), MetadataStreamOptions.PrefetchMetadata);
+			SetPdbProvider(provider);
+			return true;
 		}
 		catch
 		{
-			return null;
+			provider?.Dispose();
+			return false;
 		}
 	}
 
-	public static SymbolReader? TryLoadFromBytes(byte[] inMemoryModuleBytes)
+	public static ModuleMetadataReader? TryLoadFromBytes(byte[] inMemoryModuleBytes)
 	{
 		try
 		{
@@ -101,27 +96,13 @@ public partial class SymbolReader : IDisposable
 		}
 	}
 
-	private static SymbolReader? TryLoadFromAssembly(string assemblyPath)
+	private static ModuleMetadataReader? TryLoadInternal(Stream assemblyStream, string? assemblyPath = null)
 	{
-		if (!File.Exists(assemblyPath))
-			return null;
+		PEReader? peReader = null;
 		try
 		{
-			using var peStream = File.OpenRead(assemblyPath);
-			return TryLoadInternal(peStream, assemblyPath);
-		}
-		catch
-		{
-			return null;
-		}
-	}
-
-	private static SymbolReader? TryLoadInternal(Stream assemblyStream, string? assemblyPath = null)
-	{
-		try
-		{
-			// no longer disposing via using, as the PEReader needs to stay alive while using the MetadataReader
-			var peReader = new PEReader(assemblyStream);
+			peReader = new PEReader(assemblyStream, PEStreamOptions.PrefetchEntireImage);
+			var result = new ModuleMetadataReader(peReader);
 
 			// Look for debug directory entries
 			DebugDirectoryEntry codeViewEntry = default;
@@ -147,30 +128,30 @@ public partial class SymbolReader : IDisposable
 			// Try CodeView (external PDB file) first
 			if (codeViewEntry.DataSize != 0)
 			{
-				var result = TryLoadFromCodeView(peReader, codeViewEntry, assemblyPath);
-				if (result is not null)
-					return result;
+				result.TryLoadFromCodeView(codeViewEntry, assemblyPath);
 			}
 
 			// Try embedded PDB
 			if (embeddedPdbEntry.DataSize != 0)
 			{
-				return TryLoadEmbeddedPdb(peReader, embeddedPdbEntry);
+				result.TryLoadEmbeddedPdb(embeddedPdbEntry);
 			}
+
+			return result;
 		}
 		catch
 		{
-			// Ignore errors and return null
+			peReader?.Dispose();
+			return null;
 		}
-
-		return null;
 	}
 
-	private static SymbolReader? TryLoadFromCodeView(PEReader peReader, DebugDirectoryEntry codeViewEntry, string? assemblyPath)
+	private bool TryLoadFromCodeView(DebugDirectoryEntry codeViewEntry, string? assemblyPath)
 	{
+		MetadataReaderProvider? provider = null;
 		try
 		{
-			var codeViewData = peReader.ReadCodeViewDebugDirectoryData(codeViewEntry);
+			var codeViewData = _peReader.ReadCodeViewDebugDirectoryData(codeViewEntry);
 			var pdbPath = codeViewData.Path;
 
 			// Try PDB in same directory as assembly
@@ -182,11 +163,11 @@ public partial class SymbolReader : IDisposable
 			}
 
 			if (!File.Exists(pdbPath))
-				return null;
+				return false;
 
 			// Don't need to dispose stream, FromPortablePdbStream disposes of it internally
 			var pdbStream = File.OpenRead(pdbPath);
-			var provider = MetadataReaderProvider.FromPortablePdbStream(pdbStream);
+			provider = MetadataReaderProvider.FromPortablePdbStream(pdbStream);
 			var reader = provider.GetMetadataReader();
 
 			// Validate PDB matches assembly
@@ -195,39 +176,48 @@ public partial class SymbolReader : IDisposable
 
 			if (codeViewData.Age == 1 && pdbId == expectedId)
 			{
-				var peMetadataReader = peReader.GetMetadataReader(MetadataReaderOptions.None);
-				return new SymbolReader(provider, peReader, reader, peMetadataReader, assemblyPath);
+				SetPdbProvider(provider);
+				return true;
 			}
 
 			// PDB doesn't match, dispose and return null
 			provider.Dispose();
-			return null;
+			return false;
 		}
 		catch
 		{
-			return null;
+			provider?.Dispose();
+			return false;
 		}
 	}
 
-	private static SymbolReader? TryLoadEmbeddedPdb(PEReader peReader, DebugDirectoryEntry embeddedPdbEntry)
+	private bool TryLoadEmbeddedPdb(DebugDirectoryEntry embeddedPdbEntry)
 	{
 		try
 		{
-			var provider = peReader.ReadEmbeddedPortablePdbDebugDirectoryData(embeddedPdbEntry);
-			var reader = provider.GetMetadataReader();
-			var peMetadataReader = peReader.GetMetadataReader(MetadataReaderOptions.None);
-			return new SymbolReader(provider, peReader, reader, peMetadataReader, null);
+			SetPdbProvider(_peReader.ReadEmbeddedPortablePdbDebugDirectoryData(embeddedPdbEntry));
+			return true;
 		}
 		catch
 		{
-			return null;
+			return false;
 		}
+	}
+
+	private void SetPdbProvider(MetadataReaderProvider provider)
+	{
+		var reader = provider.GetMetadataReader();
+		_pdbProvider?.Dispose();
+		_pdbProvider = provider;
+		_pdbMetadataReader = reader;
 	}
 
 	public (string sourceFilePath, int startLine, int endLine, int startColumn, int endColumn)? GetSourceLocationForOffset(int methodToken, int ilOffset)
 	{
+		var reader = _pdbMetadataReader;
+		if (reader is null) return null;
 		var methodHandle = MetadataTokens.MethodDefinitionHandle(methodToken);
-		var methodDebugInfo = _reader.GetMethodDebugInformation(methodHandle);
+		var methodDebugInfo = reader.GetMethodDebugInformation(methodHandle);
 
 		if (methodDebugInfo.SequencePointsBlob.IsNil)
 			return null;
@@ -256,21 +246,23 @@ public partial class SymbolReader : IDisposable
 		var sp = sequencePoint.Value;
 
 		var spDocument = sp.Document.IsNil ? methodDebugInfo.Document : sp.Document;
-		var document = _reader.GetDocument(spDocument);
-		var documentFilePath = _reader.GetString(document.Name);
+		var document = reader.GetDocument(spDocument);
+		var documentFilePath = reader.GetString(document.Name);
 		return (documentFilePath, sp.StartLine, sp.EndLine, sp.StartColumn, sp.EndColumn);
 	}
 
 	internal ResolvedBreakpoint? ResolveBreakpointAtMethodEntry(int methodToken)
 	{
+		var reader = _pdbMetadataReader;
+		if (reader is null) return null;
 		var methodHandle = MetadataTokens.MethodDefinitionHandle(methodToken);
-		var methodDebugInfo = _reader.GetMethodDebugInformation(methodHandle);
+		var methodDebugInfo = reader.GetMethodDebugInformation(methodHandle);
 		var sequencePoint = methodDebugInfo.GetSequencePoints().FirstOrDefault(sp => !sp.IsHidden);
 		if (sequencePoint.Document.IsNil && methodDebugInfo.Document.IsNil) return null;
 		var documentHandle = sequencePoint.Document.IsNil ? methodDebugInfo.Document : sequencePoint.Document;
-		var document = _reader.GetDocument(documentHandle);
+		var document = reader.GetDocument(documentHandle);
 		return new ResolvedBreakpoint(methodToken, sequencePoint.Offset, sequencePoint.StartLine, sequencePoint.EndLine,
-			sequencePoint.StartColumn, sequencePoint.EndColumn, _reader.GetString(document.Name));
+			sequencePoint.StartColumn, sequencePoint.EndColumn, reader.GetString(document.Name));
 	}
 
 	public ImmutableArray<string> GetImportedNamespaces(int methodToken)
@@ -281,18 +273,21 @@ public partial class SymbolReader : IDisposable
 		var methodDebugHandle = methodHandle.ToDebugInformationHandle();
 		var namespaces = ImmutableArray.CreateBuilder<string>();
 
-		var localScopes = _reader.GetLocalScopes(methodDebugHandle);
-		foreach (var scopeHandle in localScopes)
+		var reader = _pdbMetadataReader;
+		if (reader is not null)
 		{
-			var scope = _reader.GetLocalScope(scopeHandle);
-			var importScope = _reader.GetImportScope(scope.ImportScope);
-			foreach (var import in importScope.GetImports())
+			foreach (var scopeHandle in reader.GetLocalScopes(methodDebugHandle))
 			{
-				if (import.Kind == ImportDefinitionKind.ImportNamespace)
+				var scope = reader.GetLocalScope(scopeHandle);
+				var importScope = reader.GetImportScope(scope.ImportScope);
+				foreach (var import in importScope.GetImports())
 				{
-					var blobReader = _reader.GetBlobReader(import.TargetNamespace);
-					var namespaceName = blobReader.ReadUTF8(blobReader.Length);
-					namespaces.Add(namespaceName);
+					if (import.Kind == ImportDefinitionKind.ImportNamespace)
+					{
+						var blobReader = reader.GetBlobReader(import.TargetNamespace);
+						var namespaceName = blobReader.ReadUTF8(blobReader.Length);
+						namespaces.Add(namespaceName);
+					}
 				}
 			}
 		}
@@ -313,12 +308,14 @@ public partial class SymbolReader : IDisposable
 
 	public string? GetLocalVariableName(int methodToken, int localIndex, int currentIlOffset)
 	{
+		var reader = _pdbMetadataReader;
+		if (reader is null) return null;
 		var methodHandle = MetadataTokens.MethodDefinitionHandle(methodToken);
 
-		var localScopes = _reader.GetLocalScopes(methodHandle);
+		var localScopes = reader.GetLocalScopes(methodHandle);
 		foreach (var scopeHandle in localScopes)
 		{
-			var scope = _reader.GetLocalScope(scopeHandle);
+			var scope = reader.GetLocalScope(scopeHandle);
 
 			// Only consider scopes that are active at the current IL offset
 			if (currentIlOffset < scope.StartOffset || currentIlOffset >= scope.StartOffset + scope.Length)
@@ -326,13 +323,13 @@ public partial class SymbolReader : IDisposable
 
 			foreach (var variableHandle in scope.GetLocalVariables())
 			{
-				var variable = _reader.GetLocalVariable(variableHandle);
+				var variable = reader.GetLocalVariable(variableHandle);
 
 				if (variable.Index == localIndex)
 				{
 					if (variable.Attributes is LocalVariableAttributes.DebuggerHidden) return "HIDDEN";
 					if (variable.Name.IsNil) return "NIL";
-					return _reader.GetString(variable.Name);
+					return reader.GetString(variable.Name);
 				}
 			}
 		}
@@ -343,7 +340,7 @@ public partial class SymbolReader : IDisposable
 	public string? GetArgumentName(int methodToken, int paramIndex)
 	{
 		var methodHandle = MetadataTokens.MethodDefinitionHandle(methodToken);
-		var methodDef = _reader.GetMethodDefinition(methodHandle);
+		var methodDef = _peMetadataReader.GetMethodDefinition(methodHandle);
 
 		var parameters = methodDef.GetParameters();
 
@@ -352,10 +349,10 @@ public partial class SymbolReader : IDisposable
 		{
 			if (currentIndex == paramIndex)
 			{
-				var param = _reader.GetParameter(paramHandle);
+				var param = _peMetadataReader.GetParameter(paramHandle);
 
 				if (param.Name.IsNil) return null;
-				return _reader.GetString(param.Name);
+				return _peMetadataReader.GetString(param.Name);
 			}
 			currentIndex++;
 		}
@@ -365,8 +362,10 @@ public partial class SymbolReader : IDisposable
 
 	public (int ilStartOffset, int ilEndOffset)? GetStartAndEndSequencePointIlOffsetsForIlOffset(int methodToken, int ip)
 	{
+		var reader = _pdbMetadataReader;
+		if (reader is null) return null;
 		var methodHandle = MetadataTokens.MethodDefinitionHandle(methodToken);
-		var debugInfo = _reader.GetMethodDebugInformation(methodHandle);
+		var debugInfo = reader.GetMethodDebugInformation(methodHandle);
 
 		if (debugInfo.SequencePointsBlob.IsNil) return null;
 
@@ -409,8 +408,10 @@ public partial class SymbolReader : IDisposable
 
 	public int? GetNextUserCodeIlOffset(int methodToken, int currentIlOffset)
 	{
+		var reader = _pdbMetadataReader;
+		if (reader is null) return null;
 		var methodHandle = MetadataTokens.MethodDefinitionHandle(methodToken);
-		var debugInfo = _reader.GetMethodDebugInformation(methodHandle);
+		var debugInfo = reader.GetMethodDebugInformation(methodHandle);
 		foreach (var sequencePoint in debugInfo.GetSequencePoints())
 		{
 			if (sequencePoint.StartLine is 0 or SequencePoint.HiddenLine)
@@ -437,19 +438,21 @@ public partial class SymbolReader : IDisposable
 	/// <returns>Async method stepping info if method has await blocks, null otherwise</returns>
 	public AsyncMethodSteppingInfo? GetAsyncMethodSteppingInfo(int methodToken)
 	{
+		var reader = _pdbMetadataReader;
+		if (reader is null) return null;
 		var methodHandle = MetadataTokens.MethodDefinitionHandle(methodToken);
 		//var methodDebugInfoHandle = methodHandle.ToDebugInformationHandle();
 		var entityHandle = MetadataTokens.EntityHandle(methodToken);
 
 		var result = new AsyncMethodSteppingInfo();
 		bool foundOffset = false;
-		foreach (var cdiHandle in _reader.GetCustomDebugInformation(entityHandle))
+		foreach (var cdiHandle in reader.GetCustomDebugInformation(entityHandle))
 		{
-			var cdi = _reader.GetCustomDebugInformation(cdiHandle);
+			var cdi = reader.GetCustomDebugInformation(cdiHandle);
 
-			if (_reader.GetGuid(cdi.Kind) == _asyncMethodSteppingInformationBlob)
+			if (reader.GetGuid(cdi.Kind) == _asyncMethodSteppingInformationBlob)
 			{
-				var blobReader = _reader.GetBlobReader(cdi.Value);
+				var blobReader = reader.GetBlobReader(cdi.Value);
 
 				// Skip catch_handler_offset
 				blobReader.ReadUInt32();
@@ -470,7 +473,7 @@ public partial class SymbolReader : IDisposable
 			return null;
 
 		// Find last IL offset for user code in this method
-		var debugInfo = _reader.GetMethodDebugInformation(methodHandle);
+		var debugInfo = reader.GetMethodDebugInformation(methodHandle);
 
 		if (!debugInfo.SequencePointsBlob.IsNil)
 		{
@@ -496,10 +499,12 @@ public partial class SymbolReader : IDisposable
 	/// </summary>
 	public IEnumerable<string> GetSourceFiles()
 	{
-		foreach (var handle in _reader.Documents)
+		var reader = _pdbMetadataReader;
+		if (reader is null) yield break;
+		foreach (var handle in reader.Documents)
 		{
-			var document = _reader.GetDocument(handle);
-			yield return _reader.GetString(document.Name);
+			var document = reader.GetDocument(handle);
+			yield return reader.GetString(document.Name);
 		}
 	}
 
@@ -536,7 +541,7 @@ public partial class SymbolReader : IDisposable
 
 	public void Dispose()
 	{
-		_provider.Dispose();
+		_pdbProvider?.Dispose();
 		_peReader.Dispose();
 	}
 }

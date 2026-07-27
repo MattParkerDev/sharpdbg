@@ -68,7 +68,8 @@ public partial class ManagedDebugger
 	private async Task<ICorDebugValue?> AddArguments(ModuleInfo module, ICorDebugFunction corDebugFunction, List<VariableInfo> result, ThreadId threadId, FrameStackDepth stackDepth)
 	{
 		var corDebugIlFrame = GetFrameForThreadIdAndStackDepth(threadId, stackDepth);
-		if (corDebugIlFrame.Arguments.Length is 0) return null;
+		var arguments = corDebugIlFrame.Arguments;
+		if (arguments.Length is 0) return null;
 		var metadataImport = module.Module.GetMetaDataInterface<IMetaDataImport>();
 
 		// localsScope.Frame.Arguments includes the implicit "this" parameter for instance methods,
@@ -80,7 +81,7 @@ public partial class ManagedDebugger
 		if (isStatic is false)
 		{
 			var methodName = methodProps.szMethod;
-			var implicitThisValue = corDebugIlFrame.Arguments[0];
+			var implicitThisValue = arguments[0];
 			if (methodName is "MoveNext" || methodName.Contains(">b")) // async or lambda
 			{
 				var containingClassName = metadataImport.GetTypeDefProps(corDebugFunction.Class.Token).szTypeDef;
@@ -110,7 +111,7 @@ public partial class ManagedDebugger
 			}
 		}
 		var skipCount = isStatic ? 0 : 1; // Skip 'this' for instance methods, as we already handled it
-		foreach (var (index, argumentCorDebugValue) in corDebugIlFrame.Arguments.Skip(skipCount).Index())
+		foreach (var (index, argumentCorDebugValue) in arguments.Skip(skipCount).Index())
 		{
 			// index 0 is the return value, so we add 1 to get to the arguments
 			// GetParamForMethodIndex does not include the instance 'this' parameter

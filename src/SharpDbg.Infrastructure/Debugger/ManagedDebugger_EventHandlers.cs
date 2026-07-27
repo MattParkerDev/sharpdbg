@@ -102,6 +102,11 @@ public partial class ManagedDebugger
 		if (symbolReader is not null)
 		{
 			TryBindPendingBreakpoints();
+			foreach (var breakpoint in _breakpointManager.GetFunctionBreakpoints())
+			{
+				var becameVerified = TryBindFunctionBreakpoint(breakpoint, moduleInfo);
+				if (becameVerified) OnBreakpointChanged?.Invoke(breakpoint);
+			}
 		}
 
 		Continue();
@@ -186,7 +191,16 @@ public partial class ManagedDebugger
 			return;
 		}
 
-		if (managedBreakpoint.ResolvedBreakpointFromPdb is not {} resolvedBreakpoint) throw new UnreachableException("Breakpoint was not resolved from PDB - this should never happen, as breakpoints are only bound to resolved source locations");
+		if (managedBreakpoint.IsFunctionBreakpoint)
+		{
+			var sourceInfo = GetSourceInfoAtFrame(corThread.ActiveFrame);
+			// There exists a 'function breakpoint' type, but netcoredbg et al do not use it, so lets just use 'breakpoint'
+			if (sourceInfo is null) OnStopped?.Invoke(corThread.Id, "breakpoint");
+			else OnStopped2?.Invoke(corThread.Id, sourceInfo.Value.FilePath, sourceInfo.Value.StartLine, sourceInfo.Value.StartColumn, "breakpoint", sourceInfo.Value.DecompiledSourceInfo);
+			return;
+		}
+
+		if (managedBreakpoint.ResolvedBreakpointFromPdb is not {} resolvedBreakpoint) throw new UnreachableException("Breakpoint was not resolved from PDB - this should never happen, as source breakpoints are only bound to resolved source locations");
 		OnStopped2?.Invoke(corThread.Id, managedBreakpoint.FilePath, resolvedBreakpoint.StartLine, resolvedBreakpoint.StartColumn, "breakpoint", null);
 	}
 

@@ -100,13 +100,13 @@ public class DebugAdapter : DebugAdapterBase
 				{
 					Id = breakpoint.Id,
 					Verified = breakpoint.Verified,
-					Line = ConvertDebuggerLineToClient(breakpoint.Line),
-					Column = breakpoint is { Verified: true, Column: not null } ? ConvertDebuggerColumnToClient(breakpoint.Column.Value) : null,
-					EndLine = breakpoint.Verified ? breakpoint.EndLine : null,
-					EndColumn = breakpoint is { Verified: true, EndColumn: not null } ? ConvertDebuggerColumnToClient(breakpoint.EndColumn.Value) : null,
-					Offset = breakpoint.Verified ? 0 : null,
+					Line = breakpoint.IsFunctionBreakpoint ? null : ConvertDebuggerLineToClient(breakpoint.Line),
+					Column = breakpoint is { IsFunctionBreakpoint: false, Verified: true, Column: not null } ? ConvertDebuggerColumnToClient(breakpoint.Column.Value) : null,
+					EndLine = breakpoint is { IsFunctionBreakpoint: false, Verified: true } ? breakpoint.EndLine : null,
+					EndColumn = breakpoint is { IsFunctionBreakpoint: false, Verified: true, EndColumn: not null } ? ConvertDebuggerColumnToClient(breakpoint.EndColumn.Value) : null,
+					Offset = breakpoint is { IsFunctionBreakpoint: false, Verified: true } ? 0 : null,
 					Message = breakpoint.Message,
-					Source = breakpoint.Verified is false ? null : new Source
+					Source = breakpoint is not { IsFunctionBreakpoint: false, Verified: true } ? null : new Source
 					{
 						Path = breakpoint.FilePath,
 						Name = Path.GetFileName(breakpoint.FilePath),
@@ -384,11 +384,26 @@ public class DebugAdapter : DebugAdapterBase
 
 	protected override SetFunctionBreakpointsResponse HandleSetFunctionBreakpointsRequest(SetFunctionBreakpointsArguments arguments)
 	{
-		// Function breakpoints not yet fully implemented
-		return new SetFunctionBreakpointsResponse
+		return ExecuteWithExceptionHandling(() =>
 		{
-			Breakpoints = []
-		};
+			var requests = arguments.Breakpoints?.Select(bp =>
+				new SharpDbgFunctionBreakpointRequest(bp.Name, bp.Condition, bp.HitCondition)).ToArray() ?? [];
+			var breakpoints = _debugger.SetFunctionBreakpoints(requests);
+			return new SetFunctionBreakpointsResponse
+			{
+				Breakpoints = breakpoints.Select(bp => new MSBreakpoint
+				{
+					Id = bp.Id,
+					Verified = bp.Verified,
+					Message = bp.Message,
+					Line = null,
+					Column = null,
+					EndLine = null,
+					EndColumn = null,
+					Source = null
+				}).ToList()
+			};
+		});
 	}
 
 	protected override SetExceptionBreakpointsResponse HandleSetExceptionBreakpointsRequest(SetExceptionBreakpointsArguments arguments)

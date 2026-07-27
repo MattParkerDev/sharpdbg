@@ -271,7 +271,7 @@ public partial class ManagedDebugger
 	/// </summary>
 	private void TryBindPendingBreakpoints()
 	{
-		var pendingBreakpoints = _breakpointManager.GetPendingBreakpoints();
+		var pendingBreakpoints = _breakpointManager.GetPendingBreakpoints().Where(bp => !bp.IsFunctionBreakpoint);
 
 		foreach (var bp in pendingBreakpoints)
 		{
@@ -281,6 +281,38 @@ public partial class ManagedDebugger
 				OnBreakpointChanged?.Invoke(bp);
 			}
 		}
+	}
+
+	/// <summary>
+	/// Binds all matching functions in a module and returns true only when the BreakpointInfo becomes verified.
+	/// </summary>
+	private bool TryBindFunctionBreakpoint(BreakpointManager.BreakpointInfo bp, ModuleInfo module)
+	{
+		if (module.SymbolReader is null || bp.FunctionName is null) return false;
+		var wasVerified = bp.Verified;
+		try
+		{
+			var pattern = FunctionBreakpointPattern.Parse(bp.FunctionName);
+			foreach (var resolved in FunctionBreakpointMetadataResolver.Resolve(module.SymbolReader, pattern))
+			{
+				if (bp.FunctionBindings.Any(binding => binding.ModuleBaseAddress == module.BaseAddress && binding.MethodToken == resolved.MethodToken))
+				{
+					continue;
+				}
+				var function = module.Module.GetFunctionFromToken(resolved.MethodToken);
+				var corBreakpoint = function.ILCode.CreateBreakpoint(resolved.Source.ILOffset);
+				corBreakpoint.Activate(true);
+				bp.FunctionBindings.Add(new BreakpointManager.FunctionBreakpointBinding(corBreakpoint, module.BaseAddress, resolved.MethodToken, resolved.Source));
+				bp.Verified = true;
+				bp.Message = null;
+			}
+		}
+		catch (Exception ex)
+		{
+			_logger?.Invoke($"Error binding function breakpoint '{bp.FunctionName}' in {module.ModuleName}: {ex.Message}");
+			if (!bp.Verified) bp.Message = $"Error binding function breakpoint: {ex.Message}";
+		}
+		return wasVerified is false && bp.Verified;
 	}
 
 	internal ICorDebugILFrame GetFrameForThreadIdAndStackDepth(ThreadId threadId, FrameStackDepth stackDepth)
@@ -324,14 +356,15 @@ public partial class ManagedDebugger
 		_modules.Clear();
 
 		// Deactivate all breakpoints
-		foreach (var bp in _breakpointManager.GetAllBreakpoints().Where(b => b.CorBreakpoint is not null))
+		foreach (var bp in _breakpointManager.GetAllBreakpoints().Where(b => (b.CorBreakpoint is not null && b.IsFunctionBreakpoint is false) || b.IsFunctionBreakpoint))
 		{
-			var hResult = bp.CorBreakpoint!.TryActivate(false);
-			if (hResult is Cor.CORDBG_E_PROCESS_TERMINATED)
+			var corBreakpoints = bp.IsFunctionBreakpoint ? bp.FunctionBindings.Select(binding => binding.CorBreakpoint) : [bp.CorBreakpoint!];
+			foreach (var corBreakpoint in corBreakpoints)
 			{
-				break;
+				var hResult = corBreakpoint.TryActivate(false);
+				if (hResult is Cor.CORDBG_E_PROCESS_TERMINATED) break;
+				if (hResult is not Cor.S_OK) _logger?.Invoke($"Failed to deactivate breakpoint {bp.Id}: {hResult}");
 			}
-			if (hResult is not Cor.S_OK) _logger?.Invoke($"Failed to deactivate breakpoint during Dispose at {bp.FilePath}:{bp.Line}: {hResult}");
 		}
 		_breakpointManager.Clear();
 

@@ -22,6 +22,9 @@ public class BreakpointManager
 		public int? EndColumn { get; set; }
 		public bool Verified { get; set; }
 		public ICorDebugFunctionBreakpoint? CorBreakpoint { get; set; }
+		public List<FunctionBreakpointBinding> FunctionBindings { get; } = [];
+		public string? FunctionName { get; set; }
+		public bool IsFunctionBreakpoint => FunctionName is not null;
 		public string? Message { get; set; }
 		public SymbolReader.ResolvedBreakpoint? ResolvedBreakpointFromPdb { get; set; }
 		public CORDB_ADDRESS? ModuleBaseAddress { get; set; }
@@ -35,6 +38,12 @@ public class BreakpointManager
 		/// <summary>Current hit count for this breakpoint</summary>
 		public int HitCount { get; set; }
 	}
+
+	public record FunctionBreakpointBinding(
+		ICorDebugFunctionBreakpoint CorBreakpoint,
+		CORDB_ADDRESS ModuleBaseAddress,
+		int MethodToken,
+		SymbolReader.ResolvedBreakpoint Source);
 
 	/// <summary>
 	/// Create a new breakpoint
@@ -67,6 +76,41 @@ public class BreakpointManager
 			_breakpointsByFile[filePath].Add(id);
 
 			return bp;
+		}
+	}
+
+	public BreakpointInfo CreateFunctionBreakpoint(string functionName, string? condition = null, string? hitCondition = null)
+	{
+		lock (_lock)
+		{
+			var bp = new BreakpointInfo
+			{
+				Id = _nextBreakpointId++,
+				FunctionName = functionName,
+				Condition = string.IsNullOrWhiteSpace(condition) ? null : condition,
+				HitCondition = string.IsNullOrWhiteSpace(hitCondition) ? null : hitCondition
+			};
+			_breakpoints[bp.Id] = bp;
+			return bp;
+		}
+	}
+
+	public List<BreakpointInfo> GetFunctionBreakpoints()
+	{
+		lock (_lock)
+		{
+			return _breakpoints.Values.Where(bp => bp.IsFunctionBreakpoint).ToList();
+		}
+	}
+
+	public void ClearFunctionBreakpoints()
+	{
+		lock (_lock)
+		{
+			foreach (var id in _breakpoints.Values.Where(bp => bp.IsFunctionBreakpoint).Select(bp => bp.Id).ToList())
+			{
+				_breakpoints.Remove(id);
+			}
 		}
 	}
 
@@ -121,7 +165,9 @@ public class BreakpointManager
 	{
 		lock (_lock)
 		{
-			return _breakpoints.Values.FirstOrDefault(bp => bp.CorBreakpoint == corBreakpoint);
+			return _breakpoints.Values.FirstOrDefault(bp =>
+				bp.CorBreakpoint == corBreakpoint ||
+				bp.FunctionBindings.Any(binding => binding.CorBreakpoint == corBreakpoint));
 		}
 	}
 

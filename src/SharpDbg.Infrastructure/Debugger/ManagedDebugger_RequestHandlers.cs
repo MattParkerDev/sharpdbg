@@ -13,6 +13,7 @@ using ZLinq;
 namespace SharpDbg.Infrastructure.Debugger;
 
 public record SharpDbgBreakpointRequest(int Line, string? Condition = null, string? HitCondition = null, int? Column = null);
+public record SharpDbgFunctionBreakpointRequest(string Name, string? Condition = null, string? HitCondition = null);
 
 public partial class ManagedDebugger
 {
@@ -351,6 +352,42 @@ public partial class ManagedDebugger
 			result.Add(bp);
 		}
 
+		return result;
+	}
+
+	public List<BreakpointManager.BreakpointInfo> SetFunctionBreakpoints(SharpDbgFunctionBreakpointRequest[] breakpoints)
+	{
+		foreach (var bp in _breakpointManager.GetFunctionBreakpoints())
+		{
+			foreach (var binding in bp.FunctionBindings)
+			{
+				try { binding.CorBreakpoint.Activate(false); }
+				catch (Exception ex) { _logger?.Invoke($"Error deactivating function breakpoint: {ex.Message}"); }
+			}
+		}
+		_breakpointManager.ClearFunctionBreakpoints();
+
+		var result = new List<BreakpointManager.BreakpointInfo>();
+		foreach (var request in breakpoints)
+		{
+			var bp = _breakpointManager.CreateFunctionBreakpoint(request.Name, request.Condition, request.HitCondition);
+			try
+			{
+				_ = FunctionBreakpointPattern.Parse(request.Name);
+				foreach (var module in _modules.Values)
+				{
+					TryBindFunctionBreakpoint(bp, module);
+				}
+				if (!bp.Verified) bp.Message = _process is null
+					? "Breakpoint has not been processed by the debugger."
+					: $"No functions matching '{request.Name}' were found.";
+			}
+			catch (ArgumentException ex)
+			{
+				bp.Message = ex.Message;
+			}
+			result.Add(bp);
+		}
 		return result;
 	}
 

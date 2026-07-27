@@ -16,6 +16,7 @@ public partial class SymbolReader : IDisposable
 	private readonly PEReader _peReader;
 	private readonly MetadataReader _reader;
 	private readonly MetadataReader _peMetadataReader;
+	internal MetadataReader PeMetadataReader => _peMetadataReader;
 	private string? _path;
 
 	/// Lines and columns are 1 based
@@ -258,6 +259,18 @@ public partial class SymbolReader : IDisposable
 		var document = _reader.GetDocument(spDocument);
 		var documentFilePath = _reader.GetString(document.Name);
 		return (documentFilePath, sp.StartLine, sp.EndLine, sp.StartColumn, sp.EndColumn);
+	}
+
+	internal ResolvedBreakpoint? ResolveBreakpointAtMethodEntry(int methodToken)
+	{
+		var methodHandle = MetadataTokens.MethodDefinitionHandle(methodToken);
+		var methodDebugInfo = _reader.GetMethodDebugInformation(methodHandle);
+		var sequencePoint = methodDebugInfo.GetSequencePoints().FirstOrDefault(sp => !sp.IsHidden);
+		if (sequencePoint.Document.IsNil && methodDebugInfo.Document.IsNil) return null;
+		var documentHandle = sequencePoint.Document.IsNil ? methodDebugInfo.Document : sequencePoint.Document;
+		var document = _reader.GetDocument(documentHandle);
+		return new ResolvedBreakpoint(methodToken, sequencePoint.Offset, sequencePoint.StartLine, sequencePoint.EndLine,
+			sequencePoint.StartColumn, sequencePoint.EndColumn, _reader.GetString(document.Name));
 	}
 
 	public ImmutableArray<string> GetImportedNamespaces(int methodToken)

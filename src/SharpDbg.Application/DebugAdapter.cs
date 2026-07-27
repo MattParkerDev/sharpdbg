@@ -102,7 +102,7 @@ public class DebugAdapter : DebugAdapterBase
 					Verified = breakpoint.Verified,
 					Line = breakpoint.IsFunctionBreakpoint ? null : ConvertDebuggerLineToClient(breakpoint.Line),
 					Column = breakpoint is { IsFunctionBreakpoint: false, Verified: true, Column: not null } ? ConvertDebuggerColumnToClient(breakpoint.Column.Value) : null,
-					EndLine = breakpoint is { IsFunctionBreakpoint: false, Verified: true } ? breakpoint.EndLine : null,
+					EndLine = breakpoint is { IsFunctionBreakpoint: false, Verified: true } ? ConvertDebuggerLineToClient(breakpoint.EndLine) : null,
 					EndColumn = breakpoint is { IsFunctionBreakpoint: false, Verified: true, EndColumn: not null } ? ConvertDebuggerColumnToClient(breakpoint.EndColumn.Value) : null,
 					Offset = breakpoint is { IsFunctionBreakpoint: false, Verified: true } ? 0 : null,
 					Message = breakpoint.Message,
@@ -366,7 +366,7 @@ public class DebugAdapter : DebugAdapterBase
 				Verified = bp.Verified,
 				Line = ConvertDebuggerLineToClient(bp.Line),
 				Column = bp is { Verified: true, Column: not null } ? ConvertDebuggerColumnToClient(bp.Column.Value) : null,
-				EndLine = bp.Verified ? bp.EndLine : null,
+				EndLine = bp.Verified ? ConvertDebuggerLineToClient(bp.EndLine) : null,
 				EndColumn = bp is { Verified: true, EndColumn: not null } ? ConvertDebuggerColumnToClient(bp.EndColumn.Value) : null,
 				Message = bp.Message,
 				Source = new Source

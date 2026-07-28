@@ -119,5 +119,7 @@ public class EvalTests(ITestOutputHelper testOutputHelper)
 		evaluateResponse32.Result.Should().Be("4");
 		debugProtocolHost.WithEvaluateRequest(stackFrameId, "GenericTypeWithStaticField<string>.IntProperty", out var evaluateResponse33);
 		evaluateResponse33.Result.Should().Be("5");
+		debugProtocolHost.WithEvaluateRequest(stackFrameId, "IntProperty = 16", out var evaluateResponse34);
+		evaluateResponse34.Result.Should().Be("16");
 	}
 }

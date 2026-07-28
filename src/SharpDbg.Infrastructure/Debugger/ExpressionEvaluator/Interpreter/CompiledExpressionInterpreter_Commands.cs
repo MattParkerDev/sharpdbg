@@ -82,9 +82,6 @@ public partial class CompiledExpressionInterpreter
 		bool idsEmpty = false;
 		bool isInstance = true;
 
-		ICorDebugValue? objValue;
-		ICorDebugType? objType;
-
 		if (entry.CorDebugValue is null && entry.Identifiers.Count == 0)
 		{
 			idsEmpty = true;
@@ -93,7 +90,8 @@ public partial class CompiledExpressionInterpreter
 			entry.Identifiers.Add("this");
 		}
 
-		objValue = await GetFrontStackEntryValue(evalStack);
+		var (resolvedTarget, targetIsType) = await GetFrontStackEntryResolution(evalStack);
+		ICorDebugValue? objValue = targetIsType ? null : resolvedTarget;
 
 		if (objValue is not null)
 		{
@@ -111,23 +109,13 @@ public partial class CompiledExpressionInterpreter
 					objValue = await CreateValueType(boxedClass, data);
 				}
 			}
-
-			objType = objValue.ExactType;
-		}
-		else
-		{
-			objType = await GetFrontStackEntryType(evalStack);
 		}
 
-		if (objType is null && objValue is null) throw new InvalidOperationException("Could not resolve target type for method invocation");
+		var objType = (objValue ?? resolvedTarget).ExactType;
+		if (objType is null) throw new InvalidOperationException("Could not resolve target type for method invocation");
 
 		ICorDebugFunction? function = null;
-		bool? searchStatic = objType is null;
-
-		if (objType is not null)
-		{
-			function = _debugger.FindMethodOnType(objType, methodName, args, searchStatic.Value, idsEmpty);
-		}
+		function = _debugger.FindMethodOnType(objType, methodName, args, targetIsType, idsEmpty);
 
 		if (function is null)
 		{

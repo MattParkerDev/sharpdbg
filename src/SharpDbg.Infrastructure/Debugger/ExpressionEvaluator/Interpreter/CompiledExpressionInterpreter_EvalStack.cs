@@ -6,6 +6,11 @@ public partial class CompiledExpressionInterpreter
 {
 	private async Task<ICorDebugValue> GetFrontStackEntryValue(LinkedList<EvalStackEntry> evalStack, bool needSetterData = false)
 	{
+		return (await GetFrontStackEntryResolution(evalStack, needSetterData)).Value;
+	}
+
+	private async Task<(ICorDebugValue Value, bool IsType)> GetFrontStackEntryResolution(LinkedList<EvalStackEntry> evalStack, bool needSetterData = false)
+	{
 		if (evalStack.First is null) throw new InvalidOperationException("Evaluation stack is empty");
 
 		var entry = evalStack.First.Value;
@@ -16,42 +21,12 @@ public partial class CompiledExpressionInterpreter
 			if (entry.CorDebugValue is not null) throw new InvalidOperationException("Both root value and entry value are set");
 			if (entry.Identifiers is ["this"])
 			{
-				return _context.RootValue;
+				return (_context.RootValue, false);
 			}
 			optionalRootValue = _context.RootValue;
 		}
 		var genericTypeArguments = entry.GenericTypeCache?.ToArray() ?? [];
 		return await _debugger.ResolveIdentifiers(entry.Identifiers, _context.ThreadId, _context.StackDepth, entry.CorDebugValue, optionalRootValue, genericTypeArguments);
-	}
-
-	private async Task<ICorDebugType?> GetFrontStackEntryType(LinkedList<EvalStackEntry> evalStack)
-	{
-		if (evalStack.First is null)
-			return null;
-
-		var entry = evalStack.First.Value;
-
-		return await ResolveIdentifiersForType(
-			entry.CorDebugValue,
-			entry.Identifiers
-		);
-	}
-
-	private async Task<ICorDebugType?> ResolveIdentifiersForType(
-		ICorDebugValue? baseValue,
-		List<string> identifiers)
-	{
-		// TODO: implement type resolution?
-		if (identifiers.Count == 0)
-			return null;
-
-		if (baseValue is not null)
-		{
-			throw new ArgumentException($"'{string.Join(".", identifiers)}' is a variable but is used like a type");
-		}
-
-		var typeName = string.Join(".", identifiers);
-		throw new ArgumentException($"The type or namespace name '{typeName}' couldn't be found");
 	}
 
 	private async Task<ICorDebugValue> GetRealValueWithType(ICorDebugValue value)

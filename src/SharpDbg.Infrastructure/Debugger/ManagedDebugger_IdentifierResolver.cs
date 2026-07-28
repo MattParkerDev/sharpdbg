@@ -9,35 +9,37 @@ public partial class ManagedDebugger
 	// e.g. localVar, or localVar.Field1.Field2, or ClassName.StaticField.SubField
 	// optionalInputValue may be provided, e.g. in the case of where the value was created in the evaluation and does not exist
 	// as a local in the stack frame.
-	public async Task<ICorDebugValue> ResolveIdentifiers(List<string> identifiers, ThreadId threadId, FrameStackDepth stackDepth, ICorDebugValue? optionalInputValue, ICorDebugValue? optionalRootValue, ICorDebugType[]? genericTypeArguments = null)
+	internal async Task<(ICorDebugValue Value, bool IsType)> ResolveIdentifiers(List<string> identifiers, ThreadId threadId, FrameStackDepth stackDepth, ICorDebugValue? optionalInputValue, ICorDebugValue? optionalRootValue, ICorDebugType[]? genericTypeArguments = null)
 	{
 		if (identifiers.Count is 0)
 		{
-			if (optionalInputValue is not null) return optionalInputValue;
+			if (optionalInputValue is not null) return (optionalInputValue, false);
 			throw new ArgumentException("Identifiers list cannot be empty", nameof(identifiers));
 		}
 		if (optionalInputValue is not null && optionalRootValue is not null) throw new ArgumentException("Cannot provide both an input value and a root value");
 
 		var rootValue = optionalInputValue;
 		int? nextIdentifier = null;
+		var isType = false;
 		if (rootValue is null)
 		{
-			(rootValue, nextIdentifier) = await ResolveFirstIdentifier(identifiers, threadId, stackDepth, optionalRootValue, genericTypeArguments);
+			(rootValue, nextIdentifier, isType) = await ResolveFirstIdentifier(identifiers, threadId, stackDepth, optionalRootValue, genericTypeArguments);
 			if (rootValue is null) throw new InvalidOperationException("Identifier value is null. Even if the identifier could not be resolved, an exception should have been thrown, returned as the CorDebugValue");
 		}
 
 		foreach (var identifier in identifiers.Skip(nextIdentifier ?? 1))
 		{
 			rootValue = await ResolveIdentifierAsMember(identifier, threadId, stackDepth, rootValue!);
+			isType = false;
 		}
 		if (rootValue is null) throw new InvalidOperationException("Final resolved identifier value is null. Even if the identifier could not be resolved, an exception should have been thrown, returned as the CorDebugValue");
-		return rootValue;
+		return (rootValue, isType);
 	}
 
 	// Only takes the full list as resolving it as a static class needs to e.g. search through namespaces
 	// We must return the next identifier index to process after the static class name
 	// An optional root value is supplied if the identifiers should be resolved against it only, e.g. for DebuggerDisplay expressions
-	private async Task<(ICorDebugValue Value, int? NextIdentifier)> ResolveFirstIdentifier(List<string> identifiers, ThreadId threadId, FrameStackDepth stackDepth, ICorDebugValue? optionalRootValue, ICorDebugType[]? genericTypeArguments)
+	private async Task<(ICorDebugValue Value, int? NextIdentifier, bool IsType)> ResolveFirstIdentifier(List<string> identifiers, ThreadId threadId, FrameStackDepth stackDepth, ICorDebugValue? optionalRootValue, ICorDebugType[]? genericTypeArguments)
 	{
 		var firstIdentifier = identifiers[0];
 		ArgumentException.ThrowIfNullOrWhiteSpace(firstIdentifier);
@@ -49,12 +51,12 @@ public partial class ManagedDebugger
 		ICorDebugValue? instanceMethodImplicitThisValue = optionalRootValue;
 
 		if (optionalRootValue is null) resolvedValue = ResolveIdentifierAsStackVariable(firstIdentifier, threadId, stackDepth, out instanceMethodImplicitThisValue);
-		if (resolvedValue is not null) return (resolvedValue, null);
+		if (resolvedValue is not null) return (resolvedValue, null, false);
 		if (instanceMethodImplicitThisValue is not null) resolvedValue = await ResolveIdentifierAsMember(firstIdentifier, threadId, stackDepth, instanceMethodImplicitThisValue);
-		if (resolvedValue is not null) return (resolvedValue, null);
+		if (resolvedValue is not null) return (resolvedValue, null, false);
 		var result = await ResolveStaticClassFromIdentifiers(identifiers, threadId, stackDepth, genericTypeArguments);
 		resolvedValue = result?.Value;
-		if (resolvedValue is not null) return (resolvedValue, result!.Value.NextIdentifier);
+		if (resolvedValue is not null) return (resolvedValue, result!.Value.NextIdentifier, true);
 
 		throw new InvalidOperationException($"Could not resolve identifier '{firstIdentifier}' as a stack variable.");
 	}

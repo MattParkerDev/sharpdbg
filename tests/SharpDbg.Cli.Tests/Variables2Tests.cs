@@ -170,8 +170,9 @@ file static class TestExtensions
 		var staticMembersVariablesReference = classVariables.Single().VariablesReference;
 		List<Variable> expectedVariables =
 		[
-			new() { VariablesReference =  0, Name = "IntValue", EvaluateName = "IntValue", Value = "4",    Type = "int" },
-			new() { VariablesReference =  0, Name = "Value",    EvaluateName = "Value",    Value = "null", Type = "string" },
+			new() { VariablesReference =  0, Name = "IntValue",    EvaluateName = "IntValue",    Value = "4",    Type = "int" },
+			new() { VariablesReference =  0, Name = "Value",       EvaluateName = "Value",       Value = "null", Type = "string" },
+			new() { VariablesReference =  0, Name = "IntProperty", EvaluateName = "IntProperty", Value = "5",    Type = "int" },
 		];
 		debugProtocolHost.WithVariablesRequest(staticMembersVariablesReference, out var staticFieldsOnGenericType);
 		staticFieldsOnGenericType.Should().HaveCount(expectedVariables.Count);

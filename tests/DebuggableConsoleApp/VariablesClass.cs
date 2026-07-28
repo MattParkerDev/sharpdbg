@@ -184,6 +184,9 @@ public class GenericTypeWithStaticField<T>
 {
 	internal static int IntValue = 4;
 	internal static T? Value = default;
+	// The beforefieldinit is uniquely for fields - properties do not have the same problem, since invoking the getter
+	// will cause the runtime to run the static constructor
+	internal static int IntProperty { get; set; } = 5;
 
 	// Was necessary to remove beforefieldinit on this class, so that the members can be inspected before any code accesses them
 	// But SharpDbg now handles calling NewParameterizedObjectNoConstructor on CORDBG_E_STATIC_VAR_NOT_AVAILABLE

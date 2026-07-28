@@ -6,7 +6,7 @@ public class EvalStackEntry
 {
 	public ICorDebugValue? CorDebugValue { get; set; }
 	public List<string> Identifiers { get; set; } = new();
-	public List<ICorDebugType?>? GenericTypeCache { get; set; }
+	public List<ICorDebugType>? GenericTypeCache { get; set; }
 	public bool Literal { get; set; }
 	public bool Editable { get; set; }
 	public bool PreventBinding { get; set; }

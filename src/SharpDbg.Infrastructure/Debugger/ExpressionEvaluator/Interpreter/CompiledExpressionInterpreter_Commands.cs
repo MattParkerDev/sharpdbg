@@ -25,14 +25,14 @@ public partial class CompiledExpressionInterpreter
 		var argCount = command.Arguments[1] as int? ?? 0;
 		var name = command.Arguments[0] as string ?? "";
 
-		var genericTypes = new List<ICorDebugType?>();
+		var genericTypes = new List<ICorDebugType>();
 		var generics = new StringBuilder(">");
 		genericTypes.Capacity = argCount;
 
 		for (int i = 0; i < argCount; i++)
 		{
 			var value = await GetFrontStackEntryValue(evalStack);
-			ICorDebugType? type = value?.ExactType;
+			var type = value.ExactType;
 
 			generics.Insert(0, "," + type?.GetType().Name ?? "");
 			genericTypes.Add(type);

@@ -49,7 +49,7 @@ public partial class ManagedDebugger
 		var moduleName = Path.GetFileName(modulePath);
 		var baseAddress = corModule.BaseAddress;
 
-		_logger?.Invoke($"Module loaded: {modulePath} at 0x{baseAddress:X}");
+		_logger?.Invoke($"Module loaded: {modulePath} at 0x{(long)baseAddress:X}");
 
 		ModuleMetadataReader? metadataReader = null;
 		try

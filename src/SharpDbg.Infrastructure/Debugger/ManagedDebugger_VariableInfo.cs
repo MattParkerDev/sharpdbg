@@ -230,7 +230,7 @@ public partial class ManagedDebugger
 			hasStaticMembers = true;
 		}
 
-		await AddFields(nonStaticFieldDefs, metadataImport, corDebugClass, corDebugValue, result, threadId, stackDepth);
+		await AddFields(nonStaticFieldDefs, metadataImport, corDebugType, corDebugValue, result, threadId, stackDepth);
 		// We need to pass the un-unwrapped reference value here, as we need to invoke CallParameterizedFunction with the correct parameters
 		await AddProperties(nonStaticProperties, metadataImport, corDebugClass, threadId, stackDepth, corDebugValue, result);
 
@@ -251,7 +251,7 @@ public partial class ManagedDebugger
 		var staticFieldDefs = metadataImport.EnumFields(mdTypeDef).AsValueEnumerable().Where(s => s.IsStatic(metadataImport)).ToArray();
 		var staticProperties = metadataImport.EnumProperties(mdTypeDef).AsValueEnumerable().Where(s => s.IsStatic(metadataImport)).ToArray();
 
-		await AddFields(staticFieldDefs, metadataImport, corDebugClass, corDebugValue, result, threadId, stackDepth);
+		await AddFields(staticFieldDefs, metadataImport, corDebugType, corDebugValue, result, threadId, stackDepth);
 		// We need to pass the un-unwrapped reference value here, as we need to invoke CallParameterizedFunction with the correct parameters
 		await AddProperties(staticProperties, metadataImport, corDebugClass, threadId, stackDepth, corDebugValue, result);
 
@@ -263,8 +263,9 @@ public partial class ManagedDebugger
 		await AddStaticMembers(corDebugValue, baseType, threadId, stackDepth, result);
 	}
 
-	private async Task AddFields(mdFieldDef[] mdFieldDefs, IMetaDataImport metadataImport, ICorDebugClass corDebugClass, ICorDebugValue corDebugValue, List<VariableInfo> result, ThreadId threadId, FrameStackDepth stackDepth)
+	private async Task AddFields(mdFieldDef[] mdFieldDefs, IMetaDataImport metadataImport, ICorDebugType corDebugType, ICorDebugValue corDebugValue, List<VariableInfo> result, ThreadId threadId, FrameStackDepth stackDepth)
 	{
+		var corDebugClass = corDebugType.Class;
 		foreach (var mdFieldDef in mdFieldDefs)
 		{
 			var fieldProps = metadataImport.GetFieldProps(mdFieldDef);
@@ -308,7 +309,7 @@ public partial class ManagedDebugger
 			}
 
 			var objectValue = corDebugValue.UnwrapDebugValueToObject();
-			var fieldCorDebugValue = isStatic ? corDebugClass.GetStaticFieldValue(mdFieldDef, GetFrameForThreadIdAndStackDepth(threadId, stackDepth)) : objectValue.GetFieldValue(corDebugClass, mdFieldDef);
+			var fieldCorDebugValue = isStatic ? corDebugType.GetStaticFieldValue(mdFieldDef, GetFrameForThreadIdAndStackDepth(threadId, stackDepth)) : objectValue.GetFieldValue(corDebugClass, mdFieldDef);
 			if (debuggerBrowsableRootHidden)
 			{
 				var unwrappedDebugValue = fieldCorDebugValue.UnwrapDebugValue();

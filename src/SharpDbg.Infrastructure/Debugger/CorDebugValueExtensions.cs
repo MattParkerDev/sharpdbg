@@ -69,11 +69,11 @@ public static class CorDebugValueExtensions
 			currentType = currentType.Base;
 		}
 
-		if (foundClass is null || foundMetadata is null || foundFieldDef.IsNil) return null;
+		if (foundClass is null || foundMetadata is null || currentType is null || foundFieldDef.IsNil) return null;
 
 		var isStatic = foundFieldDef.IsStatic(foundMetadata);
 		var isLiteral = foundFieldDef.IsLiteral(foundMetadata);
-		var fieldCorDebugValue = isLiteral ? foundFieldDef.GetLiteralCorDebugValue(foundMetadata, ilFrame) : isStatic ? foundClass.GetStaticFieldValue(foundFieldDef, ilFrame) : objectValue.GetFieldValue(foundClass, foundFieldDef);
+		var fieldCorDebugValue = isLiteral ? foundFieldDef.GetLiteralCorDebugValue(foundMetadata, ilFrame) : isStatic ? currentType.GetStaticFieldValue(foundFieldDef, ilFrame) : objectValue.GetFieldValue(foundClass, foundFieldDef);
 		return fieldCorDebugValue;
 	}
 

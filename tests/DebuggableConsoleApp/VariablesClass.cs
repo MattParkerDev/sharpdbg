@@ -183,5 +183,10 @@ public class GenericBox<T>
 public class GenericTypeWithStaticField<T>
 {
 	internal static int IntValue = 4;
-	internal static T? Value;
+	internal static T? Value = default;
+
+	// Necessary to remove beforefieldinit on this class, so that the members can be inspected before any code accesses them
+	static GenericTypeWithStaticField()
+	{
+	}
 }

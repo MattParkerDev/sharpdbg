@@ -185,8 +185,9 @@ public class GenericTypeWithStaticField<T>
 	internal static int IntValue = 4;
 	internal static T? Value = default;
 
-	// Necessary to remove beforefieldinit on this class, so that the members can be inspected before any code accesses them
-	static GenericTypeWithStaticField()
-	{
-	}
+	// Was necessary to remove beforefieldinit on this class, so that the members can be inspected before any code accesses them
+	// But SharpDbg now handles calling NewParameterizedObjectNoConstructor on CORDBG_E_STATIC_VAR_NOT_AVAILABLE
+	// static GenericTypeWithStaticField()
+	// {
+	// }
 }

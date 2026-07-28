@@ -142,6 +142,23 @@ public static class CorDebugValueExtensions
 		return returnValue;
 	}
 
+	/// Calls ICorDebugType.GetStaticFieldValue with a retry on CORDBG_E_STATIC_VAR_NOT_AVAILABLE
+	/// This would occur if a type's static constructor had not been invoked yet
+	public static async ValueTask<ICorDebugValue> GetStaticFieldValueAsync(this ICorDebugType type, CorDebugManagedCallback managedCallback, EvalStatus evalStatus, mdFieldDef fieldDef, ICorDebugILFrame ilFrame)
+	{
+		var result = type.TryGetStaticFieldValue(fieldDef, ilFrame, out var value);
+		if (result is Cor.CORDBG_E_STATIC_VAR_NOT_AVAILABLE)
+		{
+			var typeParameters = type.TypeParameters;
+			var eval = ilFrame.Chain.Thread.CreateEval();
+			await eval.NewParameterizedObjectNoConstructorAsync(managedCallback, evalStatus, type.Class, typeParameters.Length, typeParameters);
+			result = type.TryGetStaticFieldValue(fieldDef, ilFrame, out value);
+		}
+
+		Marshal.ThrowExceptionForHR(result);
+		return value;
+	}
+
 	public static ICorDebugFunction? GetPropertySetter(this ICorDebugObjectValue objectValue, string propertyName)
 	{
 		return null;

@@ -4,24 +4,23 @@ namespace SharpDbg.Infrastructure.Debugger.ExpressionEvaluator.Interpreter;
 
 public partial class CompiledExpressionInterpreter
 {
-	private async Task<ICorDebugValue> GetFrontStackEntryValue(LinkedList<EvalStackEntry> evalStack, bool needSetterData = false)
+	private async Task<ICorDebugValue> GetFrontStackEntryValue(LinkedList<EvalStackEntry> evalStack)
 	{
-		return (await GetFrontStackEntryResolution(evalStack, needSetterData)).Value;
+		return (await GetFrontStackEntryResolution(evalStack)).Value;
 	}
 
-	private async Task<(ICorDebugValue Value, bool IsType)> GetFrontStackEntryResolution(LinkedList<EvalStackEntry> evalStack, bool needSetterData = false)
+	private async Task<(ICorDebugValue Value, bool IsType, SetterData? SetterData)> GetFrontStackEntryResolution(LinkedList<EvalStackEntry> evalStack)
 	{
 		if (evalStack.First is null) throw new InvalidOperationException("Evaluation stack is empty");
 
 		var entry = evalStack.First.Value;
-		SetterData? setterData = needSetterData ? entry.SetterData : null;
 		ICorDebugValue? optionalRootValue = null;
 		if (_context.RootValue is not null && entry.CorDebugValue is null)
 		{
 			if (entry.CorDebugValue is not null) throw new InvalidOperationException("Both root value and entry value are set");
 			if (entry.Identifiers is ["this"])
 			{
-				return (_context.RootValue, false);
+				return (_context.RootValue, false, null);
 			}
 			optionalRootValue = _context.RootValue;
 		}

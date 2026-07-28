@@ -91,6 +91,11 @@ public static class CorDebugValueExtensions
 
 	public static async Task<ICorDebugValue?> GetPropertyValue(this ICorDebugValue objectValue, CorDebugManagedCallback callback, EvalStatus evalStatus, ICorDebugILFrame ilFrame, string propertyName)
 	{
+		return (await GetPropertyValueWithSetter(objectValue, callback, evalStatus, ilFrame, propertyName))?.Value;
+	}
+
+	public static async Task<(ICorDebugValue Value, ICorDebugFunction? SetterFunction)?> GetPropertyValueWithSetter(this ICorDebugValue objectValue, CorDebugManagedCallback callback, EvalStatus evalStatus, ICorDebugILFrame ilFrame, string propertyName)
+	{
 		var unwrappedValue = objectValue.UnwrapDebugValueToObject();
 
 		ICorDebugType? currentType = unwrappedValue.ExactType;
@@ -128,6 +133,8 @@ public static class CorDebugValueExtensions
 		var isStatic = getterAttr.IsMdStatic();
 
 		var getMethod = foundClass.Module.GetFunctionFromToken(getMethodDef);
+		var setMethodDef = propertyProps.pmdSetter;
+		var setterFunction = setMethodDef == mdMethodDef.Nil ? null : foundClass.Module.GetFunctionFromToken(setMethodDef);
 		var eval = ilFrame.Chain.Thread.CreateEval();
 
 		// May not be correct, will need further testing
@@ -139,7 +146,7 @@ public static class CorDebugValueExtensions
 		ICorDebugValue[] corDebugValues = isStatic ? [] : [objectValue];
 
 		var returnValue = await eval.CallParameterizedFunctionAsync(callback, evalStatus, getMethod, typeParameterTypes.Length, typeParameterTypes, corDebugValues.Length, corDebugValues);
-		return returnValue;
+		return returnValue is null ? null : (returnValue, setterFunction);
 	}
 
 	/// Calls ICorDebugType.GetStaticFieldValue with a retry on CORDBG_E_STATIC_VAR_NOT_AVAILABLE

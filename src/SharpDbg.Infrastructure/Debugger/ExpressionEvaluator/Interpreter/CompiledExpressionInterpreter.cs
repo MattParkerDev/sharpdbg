@@ -37,14 +37,13 @@ public partial class CompiledExpressionInterpreter(RuntimeAssemblyPrimitiveTypeC
 				throw new InvalidOperationException("Expression evaluation did not produce a single result");
 			}
 
-			var resultValue = await GetFrontStackEntryValue(evalStack, true);
-			var setterData = evalStack.First!.Value.SetterData;
+			var resolution = await GetFrontStackEntryResolution(evalStack);
 
 			return new EvaluationResult
 			{
-				Value = resultValue,
-				Editable = evalStack.First.Value.Editable && (setterData is null || setterData.SetterFunction is not null),
-				SetterData = setterData
+				Value = resolution.Value,
+				Editable = evalStack.First!.Value.Editable && (resolution.SetterData is null || resolution.SetterData.SetterFunction is not null),
+				SetterData = resolution.SetterData
 			};
 		}
 		catch (Exception ex)
@@ -133,4 +132,10 @@ public class EvaluationResult
 	public bool Editable { get; set; }
 	public SetterData? SetterData { get; set; }
 	public string? Error { get; set; }
+}
+
+public class SetterData
+{
+	public ICorDebugValue? OwnerValue { get; set; }
+	public ICorDebugFunction? SetterFunction { get; set; }
 }

@@ -125,5 +125,9 @@ public class EvalTests(ITestOutputHelper testOutputHelper)
 		evaluateResponse35.Result.Should().Be("16");
 		debugProtocolHost.WithEvaluateRequest(stackFrameId, "Namespace1.AnotherClass.MyStaticMethod()", out var evaluateResponse36);
 		evaluateResponse36.Result.Should().Be("Count = 1");
+		debugProtocolHost.WithEvaluateRequest(stackFrameId, "Namespace1.AnotherClass.IntStaticProperty = 17", out var evaluateResponse37);
+		evaluateResponse37.Result.Should().Be("17");
+		debugProtocolHost.WithEvaluateRequest(stackFrameId, "Namespace1.AnotherClass.IntStaticProperty", out var evaluateResponse38);
+		evaluateResponse38.Result.Should().Be("17");
 	}
 }

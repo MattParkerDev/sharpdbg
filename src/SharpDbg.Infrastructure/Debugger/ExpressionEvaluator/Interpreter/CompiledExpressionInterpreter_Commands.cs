@@ -90,7 +90,7 @@ public partial class CompiledExpressionInterpreter
 			entry.Identifiers.Add("this");
 		}
 
-		var (resolvedTarget, targetIsType) = await GetFrontStackEntryResolution(evalStack);
+		var (resolvedTarget, targetIsType, _) = await GetFrontStackEntryResolution(evalStack);
 		ICorDebugValue? objValue = targetIsType ? null : resolvedTarget;
 
 		if (objValue is not null)
@@ -421,7 +421,7 @@ public partial class CompiledExpressionInterpreter
 		if (entry.PreventBinding)
 			return;
 
-		var value = await GetFrontStackEntryValue(evalStack, true);
+		var value = await GetFrontStackEntryValue(evalStack);
 		entry.CorDebugValue = value;
 		entry.Identifiers.Clear();
 
@@ -471,7 +471,33 @@ public partial class CompiledExpressionInterpreter
 		var lhsEntry = evalStack.First!.Value;
 		if (!lhsEntry.Editable) throw new InvalidOperationException("Left-hand side of assignment is not editable");
 
-		var lhsValue = await GetFrontStackEntryValue(evalStack);
+		var lhsResolution = await GetFrontStackEntryResolution(evalStack);
+		var lhsValue = lhsResolution.Value;
+		var setterData = lhsResolution.SetterData;
+
+		if (setterData is not null)
+		{
+			if (setterData.SetterFunction is null) throw new InvalidOperationException("Property does not have a setter");
+			if (setterData.OwnerValue is null) throw new InvalidOperationException("Property owner is unavailable");
+
+			var setterProps = setterData.SetterFunction.Class.Module.GetMetaDataInterface<IMetaDataImport>()!.GetMethodProps(setterData.SetterFunction.Token);
+			var setterIsStatic = setterProps.pdwAttr.IsMdStatic();
+			ICorDebugValue[] setterArguments = setterIsStatic ? [rhsValue] : [setterData.OwnerValue, rhsValue];
+			var typeArguments = setterData.OwnerValue.ExactType.TypeParameters;
+			var eval = _context.Thread.CreateEval();
+			await eval.CallParameterizedFunctionAsync(
+				_debuggerManagedCallback,
+				_debugger.EvalStatus,
+				setterData.SetterFunction,
+				typeArguments.Length,
+				typeArguments,
+				setterArguments.Length,
+				setterArguments);
+
+			lhsEntry.CorDebugValue = rhsValue;
+			lhsEntry.Identifiers.Clear();
+			return;
+		}
 
 		var unwrappedLhs = lhsValue.UnwrapDebugValue();
 		var unwrappedRhs = rhsValue.UnwrapDebugValue();

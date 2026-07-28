@@ -1,6 +1,7 @@
 using System.Collections.Immutable;
 using ICorDebugSharp;
 using Microsoft.CodeAnalysis.CSharp.Symbols;
+using SharpDbg.Infrastructure.Debugger.ExpressionEvaluator.Interpreter;
 
 namespace SharpDbg.Infrastructure.Debugger;
 
@@ -9,11 +10,11 @@ public partial class ManagedDebugger
 	// e.g. localVar, or localVar.Field1.Field2, or ClassName.StaticField.SubField
 	// optionalInputValue may be provided, e.g. in the case of where the value was created in the evaluation and does not exist
 	// as a local in the stack frame.
-	internal async Task<(ICorDebugValue Value, bool IsType)> ResolveIdentifiers(List<string> identifiers, ThreadId threadId, FrameStackDepth stackDepth, ICorDebugValue? optionalInputValue, ICorDebugValue? optionalRootValue, ICorDebugType[]? genericTypeArguments = null)
+	internal async Task<(ICorDebugValue Value, bool IsType, SetterData? SetterData)> ResolveIdentifiers(List<string> identifiers, ThreadId threadId, FrameStackDepth stackDepth, ICorDebugValue? optionalInputValue, ICorDebugValue? optionalRootValue, ICorDebugType[]? genericTypeArguments = null)
 	{
 		if (identifiers.Count is 0)
 		{
-			if (optionalInputValue is not null) return (optionalInputValue, false);
+			if (optionalInputValue is not null) return (optionalInputValue, false, null);
 			throw new ArgumentException("Identifiers list cannot be empty", nameof(identifiers));
 		}
 		if (optionalInputValue is not null && optionalRootValue is not null) throw new ArgumentException("Cannot provide both an input value and a root value");
@@ -21,25 +22,28 @@ public partial class ManagedDebugger
 		var rootValue = optionalInputValue;
 		int? nextIdentifier = null;
 		var isType = false;
+		SetterData? setterData = null;
 		if (rootValue is null)
 		{
-			(rootValue, nextIdentifier, isType) = await ResolveFirstIdentifier(identifiers, threadId, stackDepth, optionalRootValue, genericTypeArguments);
+			(rootValue, nextIdentifier, isType, setterData) = await ResolveFirstIdentifier(identifiers, threadId, stackDepth, optionalRootValue, genericTypeArguments);
 			if (rootValue is null) throw new InvalidOperationException("Identifier value is null. Even if the identifier could not be resolved, an exception should have been thrown, returned as the CorDebugValue");
 		}
 
 		foreach (var identifier in identifiers.Skip(nextIdentifier ?? 1))
 		{
-			rootValue = await ResolveIdentifierAsMember(identifier, threadId, stackDepth, rootValue!);
+			var member = await ResolveIdentifierAsMember(identifier, threadId, stackDepth, rootValue!);
+			rootValue = member?.Value;
+			setterData = member?.SetterData;
 			isType = false;
 		}
 		if (rootValue is null) throw new InvalidOperationException("Final resolved identifier value is null. Even if the identifier could not be resolved, an exception should have been thrown, returned as the CorDebugValue");
-		return (rootValue, isType);
+		return (rootValue, isType, setterData);
 	}
 
 	// Only takes the full list as resolving it as a static class needs to e.g. search through namespaces
 	// We must return the next identifier index to process after the static class name
 	// An optional root value is supplied if the identifiers should be resolved against it only, e.g. for DebuggerDisplay expressions
-	private async Task<(ICorDebugValue Value, int? NextIdentifier, bool IsType)> ResolveFirstIdentifier(List<string> identifiers, ThreadId threadId, FrameStackDepth stackDepth, ICorDebugValue? optionalRootValue, ICorDebugType[]? genericTypeArguments)
+	private async Task<(ICorDebugValue Value, int? NextIdentifier, bool IsType, SetterData? SetterData)> ResolveFirstIdentifier(List<string> identifiers, ThreadId threadId, FrameStackDepth stackDepth, ICorDebugValue? optionalRootValue, ICorDebugType[]? genericTypeArguments)
 	{
 		var firstIdentifier = identifiers[0];
 		ArgumentException.ThrowIfNullOrWhiteSpace(firstIdentifier);
@@ -51,12 +55,15 @@ public partial class ManagedDebugger
 		ICorDebugValue? instanceMethodImplicitThisValue = optionalRootValue;
 
 		if (optionalRootValue is null) resolvedValue = ResolveIdentifierAsStackVariable(firstIdentifier, threadId, stackDepth, out instanceMethodImplicitThisValue);
-		if (resolvedValue is not null) return (resolvedValue, null, false);
-		if (instanceMethodImplicitThisValue is not null) resolvedValue = await ResolveIdentifierAsMember(firstIdentifier, threadId, stackDepth, instanceMethodImplicitThisValue);
-		if (resolvedValue is not null) return (resolvedValue, null, false);
+		if (resolvedValue is not null) return (resolvedValue, null, false, null);
+		if (instanceMethodImplicitThisValue is not null)
+		{
+			var member = await ResolveIdentifierAsMember(firstIdentifier, threadId, stackDepth, instanceMethodImplicitThisValue);
+			if (member is not null) return (member.Value.Value, null, false, member.Value.SetterData);
+		}
 		var result = await ResolveStaticClassFromIdentifiers(identifiers, threadId, stackDepth, genericTypeArguments);
 		resolvedValue = result?.Value;
-		if (resolvedValue is not null) return (resolvedValue, result!.Value.NextIdentifier, true);
+		if (resolvedValue is not null) return (resolvedValue, result!.Value.NextIdentifier, true, null);
 
 		throw new InvalidOperationException($"Could not resolve identifier '{firstIdentifier}' as a stack variable.");
 	}
@@ -176,15 +183,22 @@ public partial class ManagedDebugger
 		return null;
 	}
 
-	private async Task<ICorDebugValue?> ResolveIdentifierAsMember(string identifier, ThreadId threadId, FrameStackDepth stackDepth, ICorDebugValue instanceMethodImplicitThisValue)
+	private async Task<(ICorDebugValue Value, SetterData? SetterData)?> ResolveIdentifierAsMember(string identifier, ThreadId threadId, FrameStackDepth stackDepth, ICorDebugValue instanceMethodImplicitThisValue)
 	{
 		var unwrappedThisValue = instanceMethodImplicitThisValue.UnwrapDebugValueToObject();
 		var frame = GetFrameForThreadIdAndStackDepth(threadId, stackDepth);
 		var fieldValue = unwrappedThisValue.GetClassFieldValue(frame, identifier);
-		if (fieldValue is not null) return fieldValue;
+		if (fieldValue is not null) return (fieldValue, null);
 
-		var propertyValue = await instanceMethodImplicitThisValue.GetPropertyValue(_callbacks, EvalStatus, frame, identifier);
-		if (propertyValue is not null) return propertyValue;
+		var property = await instanceMethodImplicitThisValue.GetPropertyValueWithSetter(_callbacks, EvalStatus, frame, identifier);
+		if (property is not null)
+		{
+			return (property.Value.Value, new SetterData
+			{
+				OwnerValue = instanceMethodImplicitThisValue,
+				SetterFunction = property.Value.SetterFunction
+			});
+		}
 		return null;
 	}
 

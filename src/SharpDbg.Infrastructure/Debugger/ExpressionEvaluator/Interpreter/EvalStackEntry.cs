@@ -10,7 +10,6 @@ public class EvalStackEntry
 	public bool Literal { get; set; }
 	public bool Editable { get; set; }
 	public bool PreventBinding { get; set; }
-	public SetterData? SetterData { get; set; }
 
 	public void ResetEntry()
 	{
@@ -36,10 +35,4 @@ public class EvalStackEntry
 		Yes,
 		No
 	}
-}
-
-public class SetterData
-{
-	public ICorDebugValue? OwnerValue { get; set; }
-	public ICorDebugFunction? SetterFunction { get; set; }
 }

@@ -410,7 +410,7 @@ public partial class CompiledExpressionInterpreter
 		if (!evalStack.First.Value.PreventBinding)
 		{
 			evalStack.First.Value.Identifiers.Add(identifier);
-			evalStack.First.Value.GenericTypeCache = genericTypes;
+			if (genericTypes is not null) evalStack.First.Value.GenericTypeCache = genericTypes;
 		}
 
 		return Task.CompletedTask;

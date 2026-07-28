@@ -20,7 +20,8 @@ public partial class CompiledExpressionInterpreter
 			}
 			optionalRootValue = _context.RootValue;
 		}
-		return await _debugger.ResolveIdentifiers(entry.Identifiers, _context.ThreadId, _context.StackDepth, entry.CorDebugValue, optionalRootValue);
+		var genericTypeArguments = entry.GenericTypeCache?.ToArray() ?? [];
+		return await _debugger.ResolveIdentifiers(entry.Identifiers, _context.ThreadId, _context.StackDepth, entry.CorDebugValue, optionalRootValue, genericTypeArguments);
 	}
 
 	private async Task<ICorDebugType?> GetFrontStackEntryType(LinkedList<EvalStackEntry> evalStack)

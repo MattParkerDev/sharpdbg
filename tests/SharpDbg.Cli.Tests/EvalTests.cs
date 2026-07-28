@@ -116,5 +116,9 @@ public class EvalTests(ITestOutputHelper testOutputHelper)
 		evaluateResponse30.Result.Should().Be("SecondValue");
 		debugProtocolHost.WithEvaluateRequest(stackFrameId, "enumVar = MyEnum.ThirdValue", out var evaluateResponse31);
 		evaluateResponse31.Result.Should().Be("ThirdValue");
+		debugProtocolHost.WithEvaluateRequest(stackFrameId, "GenericTypeWithStaticField<string>.IntValue", out var evaluateResponse32);
+		evaluateResponse32.Result.Should().Be("4");
+		debugProtocolHost.WithEvaluateRequest(stackFrameId, "GenericTypeWithStaticField<string>.IntProperty", out var evaluateResponse33);
+		evaluateResponse33.Result.Should().Be("5");
 	}
 }

@@ -9,7 +9,7 @@ public partial class ManagedDebugger
 	// e.g. localVar, or localVar.Field1.Field2, or ClassName.StaticField.SubField
 	// optionalInputValue may be provided, e.g. in the case of where the value was created in the evaluation and does not exist
 	// as a local in the stack frame.
-	public async Task<ICorDebugValue> ResolveIdentifiers(List<string> identifiers, ThreadId threadId, FrameStackDepth stackDepth, ICorDebugValue? optionalInputValue, ICorDebugValue? optionalRootValue)
+	public async Task<ICorDebugValue> ResolveIdentifiers(List<string> identifiers, ThreadId threadId, FrameStackDepth stackDepth, ICorDebugValue? optionalInputValue, ICorDebugValue? optionalRootValue, ICorDebugType[]? genericTypeArguments = null)
 	{
 		if (identifiers.Count is 0)
 		{
@@ -22,7 +22,7 @@ public partial class ManagedDebugger
 		int? nextIdentifier = null;
 		if (rootValue is null)
 		{
-			(rootValue, nextIdentifier) = await ResolveFirstIdentifier(identifiers, threadId, stackDepth, optionalRootValue);
+			(rootValue, nextIdentifier) = await ResolveFirstIdentifier(identifiers, threadId, stackDepth, optionalRootValue, genericTypeArguments);
 			if (rootValue is null) throw new InvalidOperationException("Identifier value is null. Even if the identifier could not be resolved, an exception should have been thrown, returned as the CorDebugValue");
 		}
 
@@ -37,7 +37,7 @@ public partial class ManagedDebugger
 	// Only takes the full list as resolving it as a static class needs to e.g. search through namespaces
 	// We must return the next identifier index to process after the static class name
 	// An optional root value is supplied if the identifiers should be resolved against it only, e.g. for DebuggerDisplay expressions
-	private async Task<(ICorDebugValue Value, int? NextIdentifier)> ResolveFirstIdentifier(List<string> identifiers, ThreadId threadId, FrameStackDepth stackDepth, ICorDebugValue? optionalRootValue)
+	private async Task<(ICorDebugValue Value, int? NextIdentifier)> ResolveFirstIdentifier(List<string> identifiers, ThreadId threadId, FrameStackDepth stackDepth, ICorDebugValue? optionalRootValue, ICorDebugType[]? genericTypeArguments)
 	{
 		var firstIdentifier = identifiers[0];
 		ArgumentException.ThrowIfNullOrWhiteSpace(firstIdentifier);
@@ -52,7 +52,7 @@ public partial class ManagedDebugger
 		if (resolvedValue is not null) return (resolvedValue, null);
 		if (instanceMethodImplicitThisValue is not null) resolvedValue = await ResolveIdentifierAsMember(firstIdentifier, threadId, stackDepth, instanceMethodImplicitThisValue);
 		if (resolvedValue is not null) return (resolvedValue, null);
-		var result = await ResolveStaticClassFromIdentifiers(identifiers, threadId, stackDepth);
+		var result = await ResolveStaticClassFromIdentifiers(identifiers, threadId, stackDepth, genericTypeArguments);
 		resolvedValue = result?.Value;
 		if (resolvedValue is not null) return (resolvedValue, result!.Value.NextIdentifier);
 
@@ -186,7 +186,7 @@ public partial class ManagedDebugger
 		return null;
 	}
 
-	private async Task<(ICorDebugValue Value, int NextIdentifier)?> ResolveStaticClassFromIdentifiers(List<string> identifiers, ThreadId threadId, FrameStackDepth stackDepth)
+	private async Task<(ICorDebugValue Value, int NextIdentifier)?> ResolveStaticClassFromIdentifiers(List<string> identifiers, ThreadId threadId, FrameStackDepth stackDepth, ICorDebugType[]? genericTypeArguments)
 	{
 		// First, try to resolve using imported namespaces from the current method's PDB symbols
 		var typeTokenResult = FindTypeTokenInLoadedModulesWithNamespaceHints(identifiers, threadId, stackDepth);
@@ -195,7 +195,7 @@ public partial class ManagedDebugger
 
 		var (module, typeToken, nextIdentifier) = typeTokenResult.Value;
 		var corDebugClass = module.Module.GetClassFromToken(typeToken);
-		var classValue = await CreateTypeObjectStaticConstructor(corDebugClass, threadId, stackDepth);
+		var classValue = await CreateTypeObjectStaticConstructor(corDebugClass, genericTypeArguments ?? [], threadId, stackDepth);
 		if (classValue is null) return null;
 		return (classValue, nextIdentifier);
 	}
@@ -215,12 +215,11 @@ public partial class ManagedDebugger
 		return result;
 	}
 
-	private async Task<ICorDebugValue?> CreateTypeObjectStaticConstructor(ICorDebugClass corDebugClass, ThreadId threadId, FrameStackDepth stackDepth)
+	private async Task<ICorDebugValue?> CreateTypeObjectStaticConstructor(ICorDebugClass corDebugClass, ICorDebugType[] genericTypeArguments, ThreadId threadId, FrameStackDepth stackDepth)
 	{
 		var ilFrame = GetFrameForThreadIdAndStackDepth(threadId, stackDepth);
 		var eval = ilFrame.Chain.Thread.CreateEval();
-		// currently only working for non-generic classes
-		var value = await eval.NewParameterizedObjectNoConstructorAsync(_callbacks, EvalStatus, corDebugClass, 0, null);
+		var value = await eval.NewParameterizedObjectNoConstructorAsync(_callbacks, EvalStatus, corDebugClass, genericTypeArguments.Length, genericTypeArguments);
 		return value;
 	}
 
@@ -276,16 +275,19 @@ public partial class ManagedDebugger
 
 	private static string ParseGenericParams(string typeName)
 	{
-		int genericIndex = typeName.IndexOf('`');
-		if (genericIndex >= 0)
+		if (typeName.Contains('`')) return typeName;
+
+		var angleBracketIndex = typeName.IndexOf('<');
+		if (angleBracketIndex < 0) return typeName;
+
+		var arity = 1;
+		var depth = 0;
+		foreach (var character in typeName.AsSpan()[(angleBracketIndex + 1)..^1])
 		{
-			typeName = typeName.Substring(0, genericIndex);
+			if (character == '<') depth++;
+			else if (character == '>') depth--;
+			else if (character == ',' && depth == 0) arity++;
 		}
-		int angleBracketIndex = typeName.IndexOf('<');
-		if (angleBracketIndex >= 0)
-		{
-			typeName = typeName.Substring(0, angleBracketIndex);
-		}
-		return typeName;
+		return $"{typeName[..angleBracketIndex]}`{arity}";
 	}
 }

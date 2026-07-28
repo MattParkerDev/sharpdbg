@@ -83,6 +83,7 @@ public class VariablesClass
 	public TestRecord RecordProperty { get; init; } = new("InitProperty", 5);
 	public int ComputedProperty => IntField * 2;
 	private int ThrowingProperty => throw new InvalidOperationException("ThrowingProperty was accessed");
+	private GenericTypeWithStaticField<string> _genericTypeWithStaticField = new();
 
 	public void Test()
 	{
@@ -177,4 +178,10 @@ public class GenericBox<T>
 	{
 		Value = value;
 	}
+}
+
+public class GenericTypeWithStaticField<T>
+{
+	internal static int IntValue = 4;
+	internal static T? Value;
 }

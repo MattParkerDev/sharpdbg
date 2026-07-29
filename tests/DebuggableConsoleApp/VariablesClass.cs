@@ -84,6 +84,7 @@ public class VariablesClass
 	public int ComputedProperty => IntField * 2;
 	private int ThrowingProperty => throw new InvalidOperationException("ThrowingProperty was accessed");
 	private GenericTypeWithStaticField<string> _genericTypeWithStaticField = new();
+	private string _stringFieldWithNewLine = "Test\nValue\\n\"quoted\"\r\t";
 
 	public void Test()
 	{

@@ -44,7 +44,7 @@ public class EvalTests(ITestOutputHelper testOutputHelper)
 			new() {Name = "structVar", Value = "{DebuggableConsoleApp.MyStruct}", Type = "DebuggableConsoleApp.MyStruct", EvaluateName = "structVar", VariablesReference = 6 },
 			new() {Name = "nullableIntWithVal", Value = "4", Type = "int?", EvaluateName = "nullableIntWithVal" },
 			new() {Name = "nullableRefType", Value = "null", Type = "DebuggableConsoleApp.MyClass", EvaluateName = "nullableRefType" },
-			new() {Name = "anotherVar", Value = "asdf", Type = "string", EvaluateName = "anotherVar" },
+			new() {Name = "anotherVar", Value = "\"asdf\"", Type = "string", EvaluateName = "anotherVar" },
 		];
 
 		debugProtocolHost.WithVariablesRequest(scope.VariablesReference, out var variables);
@@ -88,21 +88,21 @@ public class EvalTests(ITestOutputHelper testOutputHelper)
 		debugProtocolHost.WithEvaluateRequest(stackFrameId, "Get14()", out var evaluateResponse17);
 		evaluateResponse17.Result.Should().Be("14");
 		debugProtocolHost.WithEvaluateRequest(stackFrameId, "IntProperty.ToString()", out var evaluateResponse18);
-		evaluateResponse18.Result.Should().Be("10");
+		evaluateResponse18.Result.Should().Be("\"10\"");
 		debugProtocolHost.WithEvaluateRequest(stackFrameId, "this.TestMethod(4, \"asdf\")", out var evaluateResponse19);
 		evaluateResponse19.Result.Should().Be("8");
 		debugProtocolHost.WithEvaluateRequest(stackFrameId, "$\"Count = {IntProperty}\"", out var evaluateResponse20);
-		evaluateResponse20.Result.Should().Be("Count = 10");
+		evaluateResponse20.Result.Should().Be("\"Count = 10\"");
 		debugProtocolHost.WithEvaluateRequest(stackFrameId, "this._classWithDebugDisplay", out var evaluateResponse21);
 		evaluateResponse21.Result.Should().Be("IntProperty = 14");
 		debugProtocolHost.WithEvaluateRequest(stackFrameId, "_classWithDebugDisplay", out var evaluateResponse22);
 		evaluateResponse22.Result.Should().Be("IntProperty = 14");
 		debugProtocolHost.WithEvaluateRequest(stackFrameId, "$\"{_instanceField}\"", out var evaluateResponse23);
-		evaluateResponse23.Result.Should().Be("5");
+		evaluateResponse23.Result.Should().Be("\"5\"");
 		debugProtocolHost.WithEvaluateRequest(stackFrameId, "_intList", out var evaluateResponse24);
 		evaluateResponse24.Result.Should().Be("Count = 4");
 		debugProtocolHost.WithEvaluateRequest(stackFrameId, "$\"Count = {_intList.Count}\"", out var evaluateResponse25);
-		evaluateResponse25.Result.Should().Be("Count = 4");
+		evaluateResponse25.Result.Should().Be("\"Count = 4\"");
 		debugProtocolHost.WithEvaluateRequest(stackFrameId, "_classWithDebugDisplay2", out var evaluateResponse26);
 		evaluateResponse26.Result.Should().Be("Test = stringValue1");
 		debugProtocolHost.WithEvaluateRequest(stackFrameId, "_classWithDebugDisplay3", out var evaluateResponse27);

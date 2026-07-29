@@ -27,7 +27,7 @@ public partial class ManagedDebugger
 		{
 			var localVariableName = module.MetadataReader.GetLocalVariableName(corDebugFunction.Token, index, currentIlOffset);
 			if (localVariableName is null) continue; // Compiler generated locals will not be found. E.g. DefaultInterpolatedStringHandler
-			var (friendlyTypeName, value, debuggerProxyInstance, resultIsError) = await GetValueForCorDebugValueAsync(localVariableCorDebugValue, threadId, stackDepth);
+			var (friendlyTypeName, value, debuggerProxyInstance, resultIsError) = await GetValueForCorDebugValueAsync(localVariableCorDebugValue, threadId, stackDepth, true);
 			VariablePresentationHint? variablePresentationHint = resultIsError ? new VariablePresentationHint { Attributes = AttributesValue.FailedEvaluation } : null;
 			var variableInfo = new VariableInfo
 			{
@@ -97,7 +97,7 @@ public partial class ManagedDebugger
 			}
 			if (implicitThisValue is not null)
 			{
-				var (friendlyTypeName, value, debuggerProxyInstance, resultIsError) = await GetValueForCorDebugValueAsync(implicitThisValue, threadId, stackDepth);
+				var (friendlyTypeName, value, debuggerProxyInstance, resultIsError) = await GetValueForCorDebugValueAsync(implicitThisValue, threadId, stackDepth, true);
 				VariablePresentationHint? variablePresentationHint = resultIsError ? new VariablePresentationHint { Attributes = AttributesValue.FailedEvaluation } : null;
 				var variableInfo = new VariableInfo
 				{
@@ -119,7 +119,7 @@ public partial class ManagedDebugger
 			var paramProps = metadataImport.GetParamProps(paramDef);
 			var argumentName = paramProps.szName;
 			if (argumentName is null) continue;
-			var (friendlyTypeName, value, debuggerProxyInstance, resultIsError) = await GetValueForCorDebugValueAsync(argumentCorDebugValue, threadId, stackDepth);
+			var (friendlyTypeName, value, debuggerProxyInstance, resultIsError) = await GetValueForCorDebugValueAsync(argumentCorDebugValue, threadId, stackDepth, true);
 			VariablePresentationHint? variablePresentationHint = resultIsError ? new VariablePresentationHint { Attributes = AttributesValue.FailedEvaluation } : null;
 			var variableInfo = new VariableInfo
 			{
@@ -140,7 +140,7 @@ public partial class ManagedDebugger
 		thread.TryGetCurrentException(out var currentException);
 		if (currentException is not null)
 		{
-			var (friendlyTypeName, value, debuggerProxyInstance, resultIsError) = await GetValueForCorDebugValueAsync(currentException, threadId, stackDepth);
+			var (friendlyTypeName, value, debuggerProxyInstance, resultIsError) = await GetValueForCorDebugValueAsync(currentException, threadId, stackDepth, true);
 			VariablePresentationHint? presentationHint = resultIsError ? new VariablePresentationHint { Attributes = AttributesValue.FailedEvaluation } : null;
 			result.Add(new VariableInfo
 			{
@@ -319,7 +319,7 @@ public partial class ManagedDebugger
 					continue;
 				}
 			}
-			var (friendlyTypeName, value, debuggerProxyInstance, resultIsError) = await GetValueForCorDebugValueAsync(fieldCorDebugValue, threadId, stackDepth);
+			var (friendlyTypeName, value, debuggerProxyInstance, resultIsError) = await GetValueForCorDebugValueAsync(fieldCorDebugValue, threadId, stackDepth, true);
 			VariablePresentationHint? variablePresentationHint = resultIsError ? new VariablePresentationHint { Attributes = AttributesValue.FailedEvaluation } : null;
 			var variableInfo = new VariableInfo
 			{
@@ -387,7 +387,7 @@ public partial class ManagedDebugger
 					continue;
 				}
 			}
-			var (friendlyTypeName, value, debuggerProxyInstance, resultIsError) = await GetValueForCorDebugValueAsync(returnValue, threadId, stackDepth);
+			var (friendlyTypeName, value, debuggerProxyInstance, resultIsError) = await GetValueForCorDebugValueAsync(returnValue, threadId, stackDepth, true);
 			VariablePresentationHint? variablePresentationHint = resultIsError ? new VariablePresentationHint { Attributes = AttributesValue.FailedEvaluation } : null;
 			var variableInfo = new VariableInfo
 			{
@@ -411,7 +411,7 @@ public partial class ManagedDebugger
 		var elements = ValueEnumerable.Range(0, itemCount).Select(i => arrayValue.GetElement(1, [checked((uint)i)])).ToArray();
 		foreach (var (i, element) in elements.Index())
 		{
-			var (friendlyTypeName, value, debuggerProxyInstance, resultIsError) = await GetValueForCorDebugValueAsync(element, threadId, stackDepth);
+			var (friendlyTypeName, value, debuggerProxyInstance, resultIsError) = await GetValueForCorDebugValueAsync(element, threadId, stackDepth, true);
 			VariablePresentationHint? variablePresentationHint = resultIsError ? new VariablePresentationHint { Attributes = AttributesValue.FailedEvaluation } : new VariablePresentationHint { Kind = PresentationHintKind.Data };
 			var variableReference = GetVariablesReference(element, friendlyTypeName, threadId, stackDepth, debuggerProxyInstance);
 			var variableInfo = new VariableInfo

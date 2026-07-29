@@ -23,12 +23,12 @@ public class Variables2Tests(ITestOutputHelper testOutputHelper)
 			.WaitForInitializedEvent(initializedEventTcs);
 		var breakpointedFilePath = Path.JoinFromGitRoot("tests", "DebuggableConsoleApp", "VariablesClass.cs");
 		debugProtocolHost
-			.WithBreakpointsRequest([140], breakpointedFilePath)
+			.WithBreakpointsRequest([141], breakpointedFilePath)
 			.WithConfigurationDoneRequest()
 			.WithOptionalResumeRuntime(p2.Id, startSuspended);
 
 		var stoppedEvent = await debugProtocolHost.WaitForStoppedEvent(debugEventTcs);
-		stoppedEvent.ReadStopInfo().Should().Be((breakpointedFilePath, 140, 3));
+		stoppedEvent.ReadStopInfo().Should().Be((breakpointedFilePath, 141, 3));
 		debugProtocolHost
 			.WithStackTraceRequest(stoppedEvent.ThreadId!.Value, out var stackTraceResponse)
 			.WithScopesRequest(stackTraceResponse.StackFrames!.First().Id, out var scopesResponse);
@@ -57,7 +57,7 @@ public class Variables2Tests(ITestOutputHelper testOutputHelper)
 			new() { VariablesReference = 0,  Name = "localNullableIntNull", 	EvaluateName = "localNullableIntNull",		Value = "null",										Type = "int?" },
 			new() { VariablesReference = 0,  Name = "localNullableDecimal", 	EvaluateName = "localNullableDecimal",		Value = "2.5",										Type = "decimal?" },
 			new() { VariablesReference = 0,  Name = "localNullableDecimalNull",	EvaluateName = "localNullableDecimalNull",	Value = "null",										Type = "decimal?" },
-			new() { VariablesReference = 0,  Name = "localString",          	EvaluateName = "localString",          		Value = "hello",									Type = "string" },
+			new() { VariablesReference = 0,  Name = "localString",          	EvaluateName = "localString",          		Value = "\"hello\"",								Type = "string" },
 			new() { VariablesReference = 0,  Name = "localNullableString",  	EvaluateName = "localNullableString",  		Value = "null",										Type = "string" },
 			new() { VariablesReference = 3,  Name = "localObject",          	EvaluateName = "localObject",          		Value = "{object}",									Type = "object" },
 			new() { VariablesReference = 0,  Name = "localNullableObject",  	EvaluateName = "localNullableObject",  		Value = "null",										Type = "object" },
@@ -121,7 +121,7 @@ file static class TestExtensions
 			new() { VariablesReference = 18,  Name = "NullableGuidField",      	    EvaluateName = "NullableGuidField",      	  Value = expectedNullableGuidField,                                   Type = "System.Guid?" },
 			new() { VariablesReference = 19,  Name = "NullableEnumField",      	    EvaluateName = "NullableEnumField",      	  Value = "Friday",                                                    Type = "System.DayOfWeek?" },
 			new() { VariablesReference =  0,  Name = "NullableEnumNullField",  	    EvaluateName = "NullableEnumNullField",  	  Value = "null",                                                      Type = "System.DayOfWeek?" },
-			new() { VariablesReference =  0,  Name = "StringField",            	    EvaluateName = "StringField",            	  Value = "Hello",                                                     Type = "string" },
+			new() { VariablesReference =  0,  Name = "StringField",            	    EvaluateName = "StringField",            	  Value = "\"Hello\"",                                                 Type = "string" },
 			new() { VariablesReference =  0,  Name = "NullableStringField",    	    EvaluateName = "NullableStringField",    	  Value = "null",                                                      Type = "string" },
 			new() { VariablesReference = 20,  Name = "ObjectField",            	    EvaluateName = "ObjectField",            	  Value = "{object}",                                                  Type = "object" },
 			new() { VariablesReference =  0,  Name = "NullableObjectField",    	    EvaluateName = "NullableObjectField",    	  Value = "null",                                                      Type = "object" },
@@ -146,11 +146,12 @@ file static class TestExtensions
 			new() { VariablesReference = 39,  Name = "TupleField",             	    EvaluateName = "TupleField",             	  Value = "(1, tuple)",                                                Type = "System.Tuple<int, string>" },
 			new() { VariablesReference = 40,  Name = "ValueTupleField",        	    EvaluateName = "ValueTupleField",        	  Value = "(123, value tuple)",                                        Type = "System.ValueTuple<int, string>" },
 			new() { VariablesReference = 41,  Name = "GenericField",           	    EvaluateName = "GenericField",           	  Value = "{DebuggableConsoleApp.GenericBox<string>}",                 Type = "DebuggableConsoleApp.GenericBox<string>" },
-			new() { VariablesReference =  0,  Name = "DynamicField",           	    EvaluateName = "DynamicField",           	  Value = "dynamic value",                                             Type = "string" },
-			new() { VariablesReference =  0,  Name = "ReadonlyField",          	    EvaluateName = "ReadonlyField",          	  Value = "readonly",                                                  Type = "string" },
+			new() { VariablesReference =  0,  Name = "DynamicField",           	    EvaluateName = "DynamicField",           	  Value = "\"dynamic value\"",                                         Type = "string" },
+			new() { VariablesReference =  0,  Name = "ReadonlyField",          	    EvaluateName = "ReadonlyField",          	  Value = "\"readonly\"",                                              Type = "string" },
 			new() { VariablesReference =  0,  Name = "IntProperty",            	    EvaluateName = "IntProperty",            	  Value = "100",                                                       Type = "int" },
 			new() { VariablesReference =  0,  Name = "NullableStringProperty", 	    EvaluateName = "NullableStringProperty", 	  Value = "null",                                                      Type = "string" },
 			new() { VariablesReference = 42,  Name = "_genericTypeWithStaticField", EvaluateName = "_genericTypeWithStaticField", Value = "{DebuggableConsoleApp.GenericTypeWithStaticField<string>}", Type = "DebuggableConsoleApp.GenericTypeWithStaticField<string>" },
+			new() { VariablesReference =  0,  Name = "_stringFieldWithNewLine",     EvaluateName = "_stringFieldWithNewLine",     Value = """ "Test\nValue\\n\"quoted\"\r\t" """.Trim(),               Type = "string" },
 			new() { VariablesReference = 43,  Name = "ClassProperty",          	    EvaluateName = "ClassProperty",          	  Value = "{DebuggableConsoleApp.TestClass}",                          Type = "DebuggableConsoleApp.TestClass" },
 			new() { VariablesReference = 44,  Name = "RecordProperty",         	    EvaluateName = "RecordProperty",         	  Value = "TestRecord { Name = InitProperty, Age = 5 }",	           Type = "DebuggableConsoleApp.TestRecord" },
 			new() { VariablesReference =  0,  Name = "ComputedProperty",       	    EvaluateName = "ComputedProperty",       	  Value = "246",                                                       Type = "int" },

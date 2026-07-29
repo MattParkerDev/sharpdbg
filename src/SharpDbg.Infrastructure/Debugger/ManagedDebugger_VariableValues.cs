@@ -4,6 +4,7 @@ using System.Reflection.Metadata;
 using System.Runtime.InteropServices;
 using Ardalis.GuardClauses;
 using ICorDebugSharp;
+using Microsoft.CodeAnalysis.CSharp;
 using SharpDbg.Infrastructure.Debugger.ExpressionEvaluator;
 using SharpDbg.Infrastructure.Debugger.ExpressionEvaluator.Compiler;
 
@@ -12,10 +13,10 @@ namespace SharpDbg.Infrastructure.Debugger;
 public readonly record struct CorDebugValueValueResult(string FriendlyTypeName, string Value, bool ValueRequiresDebuggerDisplayEval, string? DebuggerProxyTypeName);
 public partial class ManagedDebugger
 {
-	public async Task<(string friendlyTypeName, string value, ICorDebugValue? debuggerProxyInstance, bool resultIsError)> GetValueForCorDebugValueAsync(ICorDebugValue corDebugValue, ThreadId threadId, FrameStackDepth frameStackDepth)
+	public async Task<(string friendlyTypeName, string value, ICorDebugValue? debuggerProxyInstance, bool resultIsError)> GetValueForCorDebugValueAsync(ICorDebugValue corDebugValue, ThreadId threadId, FrameStackDepth frameStackDepth, bool escapeStringValue)
 	{
 		Guard.Against.Null(corDebugValue);
-		var (friendlyTypeName, value, valueRequiresDebuggerDisplayEval, debuggerProxyTypeName) = GetValueForCorDebugValue(corDebugValue);
+		var (friendlyTypeName, value, valueRequiresDebuggerDisplayEval, debuggerProxyTypeName) = GetValueForCorDebugValue(corDebugValue, escapeStringValue);
 		if (valueRequiresDebuggerDisplayEval)
 		{
 			var expressionString = $"$\"{value}\"";
@@ -28,7 +29,7 @@ public partial class ManagedDebugger
 				_logger?.Invoke($"Evaluation error: {result.Error}");
 				return (friendlyTypeName, result.Error, null, true);
 			}
-			(_, value, _, _) = GetValueForCorDebugValue(result.Value!);
+			(_, value, _, _) = GetValueForCorDebugValue(result.Value!, false);
 		}
 		ICorDebugValue? proxyInstance = null;
 		if (debuggerProxyTypeName is not null)
@@ -53,18 +54,18 @@ public partial class ManagedDebugger
 		return (friendlyTypeName, value, proxyInstance, false);
 	}
 
-	private static CorDebugValueValueResult GetValueForCorDebugValue(ICorDebugValue corDebugValue)
+	private static CorDebugValueValueResult GetValueForCorDebugValue(ICorDebugValue corDebugValue, bool escapeStringValue)
 	{
 		var (friendlyTypeName, value, valueRequiresDebuggerDisplayEval, debuggerTypeProxy) = corDebugValue switch
 		{
-			ICorDebugBoxValue corDebugBoxValue => GetCorDebugBoxValue_Value_AsString(corDebugBoxValue),
+			ICorDebugBoxValue corDebugBoxValue => GetCorDebugBoxValue_Value_AsString(corDebugBoxValue, escapeStringValue),
 			ICorDebugArrayValue corDebugArrayValue => Get_CorDebugArrayValue_AsString(corDebugArrayValue),
-			ICorDebugStringValue stringValue => Get_CorDebugStringValue_AsString(stringValue),
+			ICorDebugStringValue stringValue => Get_CorDebugStringValue_AsString(stringValue, escapeStringValue),
 
 			ICorDebugContext corDebugContext => throw new NotImplementedException(),
-			ICorDebugObjectValue corDebugObjectValue => GetCorDebugObjectValue_Value_AsString(corDebugObjectValue),
+			ICorDebugObjectValue corDebugObjectValue => GetCorDebugObjectValue_Value_AsString(corDebugObjectValue, escapeStringValue),
 			//CorDebugHandleValue corDebugHandleValue => throw new NotImplementedException(), // handled by CorDebugReferenceValue
-			ICorDebugReferenceValue corDebugReferenceValue => GetCorDebugReferenceValue_Value_AsString(corDebugReferenceValue),
+			ICorDebugReferenceValue corDebugReferenceValue => GetCorDebugReferenceValue_Value_AsString(corDebugReferenceValue, escapeStringValue),
 
 			ICorDebugHeapValue corDebugHeapValue => throw new NotImplementedException(),
 			ICorDebugGenericValue corDebugGenericValue => GetCorDebugGenericValue_Value_AsString(corDebugGenericValue),  // This should be already handled by the above classes, so we should never get here
@@ -73,9 +74,10 @@ public partial class ManagedDebugger
 		return new(friendlyTypeName, value, valueRequiresDebuggerDisplayEval, debuggerTypeProxy);
 	}
 
-	private static CorDebugValueValueResult Get_CorDebugStringValue_AsString(ICorDebugStringValue corDebugStringValue)
+	private static CorDebugValueValueResult Get_CorDebugStringValue_AsString(ICorDebugStringValue corDebugStringValue, bool escapeStringValue)
 	{
 		var text = corDebugStringValue.String;
+		if (escapeStringValue) text = SymbolDisplay.FormatLiteral(text, quote: true);
 		return new("string", text, false, null);
 	}
 
@@ -89,14 +91,14 @@ public partial class ManagedDebugger
 		return new(typeName, value, false, null);
 	}
 
-	public static CorDebugValueValueResult GetCorDebugBoxValue_Value_AsString(ICorDebugBoxValue corDebugBoxValue)
+	public static CorDebugValueValueResult GetCorDebugBoxValue_Value_AsString(ICorDebugBoxValue corDebugBoxValue, bool escapeStringValue)
 	{
 		var unboxedValue = corDebugBoxValue.Object;
-		var value = GetValueForCorDebugValue(unboxedValue);
+		var value = GetValueForCorDebugValue(unboxedValue, escapeStringValue);
 		return value;
 	}
 
-	public static CorDebugValueValueResult GetCorDebugObjectValue_Value_AsString(ICorDebugObjectValue corDebugObjectValue)
+	public static CorDebugValueValueResult GetCorDebugObjectValue_Value_AsString(ICorDebugObjectValue corDebugObjectValue, bool escapeStringValue)
 	{
 		var module = corDebugObjectValue.Class.Module;
 		var metaDataImport = module.GetMetaDataInterface<IMetaDataImport>();
@@ -105,7 +107,7 @@ public partial class ManagedDebugger
 		{
 			var valueFieldDef = metaDataImport.FindField(corDebugObjectValue.Class.Token, "value__", 0, 0);
 			var valueField = corDebugObjectValue.GetFieldValue(corDebugObjectValue.Class, valueFieldDef);
-			var value = GetValueForCorDebugValue(valueField);
+			var value = GetValueForCorDebugValue(valueField, escapeStringValue);
 
 			var enumDisplayValue = GetEnumDisplayValue(metaDataImport, corDebugObjectValue, value.Value);
 			return new(GetCorDebugTypeFriendlyName(corDebugObjectValue.ExactType), enumDisplayValue, false, null);
@@ -115,7 +117,7 @@ public partial class ManagedDebugger
 		{
 			var underlyingValueOrNull = GetUnderlyingValueOrNullFromNullableStruct(corDebugObjectValue);
 			if (underlyingValueOrNull is null) return new(typeName, "null", false, null);
-			var value = GetValueForCorDebugValue(underlyingValueOrNull);
+			var value = GetValueForCorDebugValue(underlyingValueOrNull, escapeStringValue);
 			return value with { FriendlyTypeName = typeName };
 		}
 		var hasDebuggerTypeProxyAttribute = metaDataImport.TryGetCustomAttributeByName(corDebugObjectValue.Class.Token, "System.Diagnostics.DebuggerTypeProxyAttribute", out var debuggerTypeProxyAttributePointer, out var debuggerTypeProxyAttributeSize) is Cor.S_OK;
@@ -188,13 +190,13 @@ public partial class ManagedDebugger
 		var valueFieldDef = metaDataImport.FindField(corDebugObjectValue.Class.Token, "value", 0, 0);
 
 		var hasValueDebugObjectValue = corDebugObjectValue.GetFieldValue(corDebugObjectValue.Class, hasValueFieldDef);
-		var hasValueValue = GetValueForCorDebugValue(hasValueDebugObjectValue);
+		var hasValueValue = GetValueForCorDebugValue(hasValueDebugObjectValue, false);
 		if (hasValueValue.Value is "false") return null;
 		var valueValue = corDebugObjectValue.GetFieldValue(corDebugObjectValue.Class, valueFieldDef);
 		return valueValue;
 	}
 
-	public static CorDebugValueValueResult GetCorDebugReferenceValue_Value_AsString(ICorDebugReferenceValue corDebugReferenceValue)
+	public static CorDebugValueValueResult GetCorDebugReferenceValue_Value_AsString(ICorDebugReferenceValue corDebugReferenceValue, bool escapeStringValue)
 	{
 		if (corDebugReferenceValue.IsNull)
 		{
@@ -203,7 +205,7 @@ public partial class ManagedDebugger
 			return new(typeName, "null", false, null);
 		}
 		var referencedValue = corDebugReferenceValue.Dereference();
-		var value = GetValueForCorDebugValue(referencedValue);
+		var value = GetValueForCorDebugValue(referencedValue, escapeStringValue);
 		return value;
 	}
 

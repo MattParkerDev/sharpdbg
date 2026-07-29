@@ -46,7 +46,7 @@ public class VariablesTests(ITestOutputHelper testOutputHelper)
 			new() { VariablesReference = 5, Name = "structVar",				EvaluateName = "structVar",				Value = "{DebuggableConsoleApp.MyStruct}",	Type = "DebuggableConsoleApp.MyStruct" },
 			new() { VariablesReference = 0, Name = "nullableIntWithVal",	EvaluateName = "nullableIntWithVal",	Value = "4",								Type = "int?" },
 			new() { VariablesReference = 0, Name = "nullableRefType",		EvaluateName = "nullableRefType",		Value = "null",								Type = "DebuggableConsoleApp.MyClass" },
-			new() { VariablesReference = 0, Name = "anotherVar",			EvaluateName = "anotherVar",			Value = "asdf",								Type = "string" },
+			new() { VariablesReference = 0, Name = "anotherVar",			EvaluateName = "anotherVar",			Value = "\"asdf\"",							Type = "string" },
 		];
 
 		debugProtocolHost.WithVariablesRequest(scope.VariablesReference, out var variables);
@@ -95,7 +95,7 @@ file static class TestExtensions
 		List<Variable> expectedVariables =
 		[
 			new() { Name = "Id", EvaluateName = "Id", Value = "5", Type = "int" },
-			new() { Name = "Name", EvaluateName = "Name", Value = "StructName", Type = "string" },
+			new() { Name = "Name", EvaluateName = "Name", Value = "\"StructName\"", Type = "string" },
 		];
 		debugProtocolHost.WithVariablesRequest(variablesReference, out var structMemberVariables);
 		structMemberVariables.Should().BeEquivalentTo(expectedVariables);
@@ -104,7 +104,7 @@ file static class TestExtensions
 	{
 		List<Variable> expectedVariables =
 		[
-			new() { Name = "_name", EvaluateName = "_name", Value = "TestName", Type = "string" },
+			new() { Name = "_name", EvaluateName = "_name", Value = "\"TestName\"", Type = "string" },
 			new() { Name = "_classField", EvaluateName = "_classField", Value = "{DebuggableConsoleApp.MyClass3}", Type = "DebuggableConsoleApp.MyClass3", VariablesReference = 6 },
 			new() { Name = "ClassProperty", EvaluateName = "ClassProperty", Value = "{DebuggableConsoleApp.MyClass2}", Type = "DebuggableConsoleApp.MyClass2", VariablesReference = 14 },
 			new() { Name = "ClassProperty2", EvaluateName = "ClassProperty2", Value = "{DebuggableConsoleApp.MyClass2}", Type = "DebuggableConsoleApp.MyClass2", VariablesReference = 15 },
@@ -211,7 +211,7 @@ file static class TestExtensions
 		[
 			new() { Name = "IntField", EvaluateName = "IntField", Value = "6", Type = "int" },
 			new() { Name = "IntProperty", EvaluateName = "IntProperty", Value = "6", Type = "int" },
-			new() { Name = "MyProperty", EvaluateName = "MyProperty", Value = "Hello", Type = "string" },
+			new() { Name = "MyProperty", EvaluateName = "MyProperty", Value = "\"Hello\"", Type = "string" },
 			new() { Name = "NestedClassProperty", EvaluateName = "NestedClassProperty", Value = "{DebuggableConsoleApp.MyClassContainingAnotherClass.MyNestedClass}", Type = "DebuggableConsoleApp.MyClassContainingAnotherClass.MyNestedClass", VariablesReference = 31 },
 			new() { Name = "NestedGenericClassProperty", EvaluateName = "NestedGenericClassProperty", Value = "{DebuggableConsoleApp.MyGenericClassContainingAnotherGenericClass<string, int>.MyNestedGenericClass<long, float>}", Type = "DebuggableConsoleApp.MyGenericClassContainingAnotherGenericClass<string, int>.MyNestedGenericClass<long, float>", VariablesReference = 32 },
 		];
@@ -225,7 +225,7 @@ file static class TestExtensions
 		[
 			new() { Name = "IntField", EvaluateName = "IntField", Value = "6", Type = "int" },
 			new() { Name = "IntProperty", EvaluateName = "IntProperty", Value = "6", Type = "int" },
-			new() { Name = "MyProperty", EvaluateName = "MyProperty", Value = "Hello", Type = "string" },
+			new() { Name = "MyProperty", EvaluateName = "MyProperty", Value = "\"Hello\"", Type = "string" },
 		];
 		debugProtocolHost.WithVariablesRequest(variablesReference, out var classWithNestedClassFieldVariables);
 		classWithNestedClassFieldVariables.Should().BeEquivalentTo(expectedVariables);

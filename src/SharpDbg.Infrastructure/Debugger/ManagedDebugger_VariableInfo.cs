@@ -27,17 +27,19 @@ public partial class ManagedDebugger
 		{
 			var localVariableName = module.MetadataReader.GetLocalVariableName(corDebugFunction.Token, index, currentIlOffset);
 			if (localVariableName is null) continue; // Compiler generated locals will not be found. E.g. DefaultInterpolatedStringHandler
-			var (friendlyTypeName, value, debuggerProxyInstance, resultIsError) = await GetValueForCorDebugValueAsync(localVariableCorDebugValue, threadId, stackDepth, true);
-			VariablePresentationHint? variablePresentationHint = resultIsError ? new VariablePresentationHint { Attributes = AttributesValue.FailedEvaluation } : null;
-			var variableInfo = new VariableInfo
+			await WithFailureHandling(result, localVariableName, async () =>
 			{
-				Name = localVariableName,
-				Value = value,
-				Type = friendlyTypeName,
-				PresentationHint = variablePresentationHint,
-				VariablesReference = GetVariablesReference(localVariableCorDebugValue, friendlyTypeName, threadId, stackDepth, debuggerProxyInstance)
-			};
-			result.Add(variableInfo);
+				var (friendlyTypeName, value, debuggerProxyInstance, resultIsError) = await GetValueForCorDebugValueAsync(localVariableCorDebugValue, threadId, stackDepth, true);
+				VariablePresentationHint? variablePresentationHint = resultIsError ? new VariablePresentationHint { Attributes = AttributesValue.FailedEvaluation } : null;
+				result.Add(new VariableInfo
+				{
+					Name = localVariableName,
+					Value = value,
+					Type = friendlyTypeName,
+					PresentationHint = variablePresentationHint,
+					VariablesReference = GetVariablesReference(localVariableCorDebugValue, friendlyTypeName, threadId, stackDepth, debuggerProxyInstance)
+				});
+			});
 		}
 	}
 
@@ -97,17 +99,19 @@ public partial class ManagedDebugger
 			}
 			if (implicitThisValue is not null)
 			{
-				var (friendlyTypeName, value, debuggerProxyInstance, resultIsError) = await GetValueForCorDebugValueAsync(implicitThisValue, threadId, stackDepth, true);
-				VariablePresentationHint? variablePresentationHint = resultIsError ? new VariablePresentationHint { Attributes = AttributesValue.FailedEvaluation } : null;
-				var variableInfo = new VariableInfo
+				await WithFailureHandling(result, "this", async () =>
 				{
-					Name = "this", // Hardcoded - 'this' has no metadata
-					Value = value,
-					Type = friendlyTypeName,
-					PresentationHint = variablePresentationHint,
-					VariablesReference = GetVariablesReference(implicitThisValue, friendlyTypeName, threadId, stackDepth, debuggerProxyInstance)
-				};
-				result.Add(variableInfo);
+					var (friendlyTypeName, value, debuggerProxyInstance, resultIsError) = await GetValueForCorDebugValueAsync(implicitThisValue, threadId, stackDepth, true);
+					VariablePresentationHint? variablePresentationHint = resultIsError ? new VariablePresentationHint { Attributes = AttributesValue.FailedEvaluation } : null;
+					result.Add(new VariableInfo
+					{
+						Name = "this", // Hardcoded - 'this' has no metadata
+						Value = value,
+						Type = friendlyTypeName,
+						PresentationHint = variablePresentationHint,
+						VariablesReference = GetVariablesReference(implicitThisValue, friendlyTypeName, threadId, stackDepth, debuggerProxyInstance)
+					});
+				});
 			}
 		}
 		var skipCount = isStatic ? 0 : 1; // Skip 'this' for instance methods, as we already handled it
@@ -119,17 +123,19 @@ public partial class ManagedDebugger
 			var paramProps = metadataImport.GetParamProps(paramDef);
 			var argumentName = paramProps.szName;
 			if (argumentName is null) continue;
-			var (friendlyTypeName, value, debuggerProxyInstance, resultIsError) = await GetValueForCorDebugValueAsync(argumentCorDebugValue, threadId, stackDepth, true);
-			VariablePresentationHint? variablePresentationHint = resultIsError ? new VariablePresentationHint { Attributes = AttributesValue.FailedEvaluation } : null;
-			var variableInfo = new VariableInfo
+			await WithFailureHandling(result, argumentName, async () =>
 			{
-				Name = argumentName,
-				Value = value,
-				Type = friendlyTypeName,
-				PresentationHint = variablePresentationHint,
-				VariablesReference = GetVariablesReference(argumentCorDebugValue, friendlyTypeName, threadId, stackDepth, debuggerProxyInstance)
-			};
-			result.Add(variableInfo);
+				var (friendlyTypeName, value, debuggerProxyInstance, resultIsError) = await GetValueForCorDebugValueAsync(argumentCorDebugValue, threadId, stackDepth, true);
+				VariablePresentationHint? variablePresentationHint = resultIsError ? new VariablePresentationHint { Attributes = AttributesValue.FailedEvaluation } : null;
+				result.Add(new VariableInfo
+				{
+					Name = argumentName,
+					Value = value,
+					Type = friendlyTypeName,
+					PresentationHint = variablePresentationHint,
+					VariablesReference = GetVariablesReference(argumentCorDebugValue, friendlyTypeName, threadId, stackDepth, debuggerProxyInstance)
+				});
+			});
 		}
 		return classContainingHoistedLocalsValue;
 	}
@@ -140,15 +146,18 @@ public partial class ManagedDebugger
 		thread.TryGetCurrentException(out var currentException);
 		if (currentException is not null)
 		{
-			var (friendlyTypeName, value, debuggerProxyInstance, resultIsError) = await GetValueForCorDebugValueAsync(currentException, threadId, stackDepth, true);
-			VariablePresentationHint? presentationHint = resultIsError ? new VariablePresentationHint { Attributes = AttributesValue.FailedEvaluation } : null;
-			result.Add(new VariableInfo
+			await WithFailureHandling(result, "$exception", async () =>
 			{
-				Name = "$exception",
-				Value = value,
-				Type = friendlyTypeName,
-				PresentationHint = presentationHint,
-				VariablesReference = GetVariablesReference(currentException, friendlyTypeName, threadId, stackDepth, debuggerProxyInstance)
+				var (friendlyTypeName, value, debuggerProxyInstance, resultIsError) = await GetValueForCorDebugValueAsync(currentException, threadId, stackDepth, true);
+				VariablePresentationHint? presentationHint = resultIsError ? new VariablePresentationHint { Attributes = AttributesValue.FailedEvaluation } : null;
+				result.Add(new VariableInfo
+				{
+					Name = "$exception",
+					Value = value,
+					Type = friendlyTypeName,
+					PresentationHint = presentationHint,
+					VariablesReference = GetVariablesReference(currentException, friendlyTypeName, threadId, stackDepth, debuggerProxyInstance)
+				});
 			});
 		}
 	}
@@ -271,65 +280,68 @@ public partial class ManagedDebugger
 			var fieldProps = metadataImport.GetFieldProps(mdFieldDef);
 			var fieldName = fieldProps.szField;
 			if (fieldName is null) continue;
-			GeneratedNameParser.TryParseGeneratedName(fieldName, out var generatedNameKind, out var openBracketOffset, out var closeBracketOffset);
-			if (generatedNameKind is GeneratedNameKind.HoistedLocalField)
+			await WithFailureHandling(result, fieldName, async () =>
 			{
-				// e.g. we are in an async method - local variables in the user's method are stored in fields on a generated class, e.g. "<intVar>5__1"
-				// we want to extract "intVar"
-				var originalLocalVariableName = fieldName.AsSpan()[(openBracketOffset + 1)..closeBracketOffset];
-				fieldName = originalLocalVariableName.ToString();
-			}
-			else if (generatedNameKind is not GeneratedNameKind.None)
-			{
-				continue;
-			}
-			var isStatic = fieldProps.pdwAttr.IsFdStatic();
-			var isLiteral = fieldProps.pdwAttr.IsFdLiteral();
-			var debuggerBrowsableRootHidden = false;
-			var hasDebuggerBrowsableAttribute = metadataImport.TryGetCustomAttributeByName(mdFieldDef, "System.Diagnostics.DebuggerBrowsableAttribute", out var debuggerBrowsableAttributePointer, out var debuggerBrowsableAttributeSize) is Cor.S_OK;
-			if (hasDebuggerBrowsableAttribute)
-			{
-				// https://github.com/Samsung/netcoredbg/blob/6476bc00c2beaab9255c750235a68de3a3d0cfae/src/debugger/evaluator.cpp#L913
-				var debuggerBrowsableState = (DebuggerBrowsableState)GetDebuggerBrowsableCustomAttributeResultInt(debuggerBrowsableAttributePointer, debuggerBrowsableAttributeSize);
-				if (debuggerBrowsableState == DebuggerBrowsableState.Never) continue; // I may not end up doing this, as it would be ideal to still be able to hover the variable in the editor and see the value
-				if (debuggerBrowsableState == DebuggerBrowsableState.RootHidden) debuggerBrowsableRootHidden = true;
-			}
-			if (isLiteral)
-			{
-				var literalValue = GetLiteralValue(fieldProps.ppValue, fieldProps.pdwCPlusTypeFlag);
-				var literalVariableInfo = new VariableInfo
+				GeneratedNameParser.TryParseGeneratedName(fieldName, out var generatedNameKind, out var openBracketOffset, out var closeBracketOffset);
+				if (generatedNameKind is GeneratedNameKind.HoistedLocalField)
+				{
+					// e.g. we are in an async method - local variables in the user's method are stored in fields on a generated class, e.g. "<intVar>5__1"
+					// we want to extract "intVar"
+					var originalLocalVariableName = fieldName.AsSpan()[(openBracketOffset + 1)..closeBracketOffset];
+					fieldName = originalLocalVariableName.ToString();
+				}
+				else if (generatedNameKind is not GeneratedNameKind.None)
+				{
+					return;
+				}
+				var isStatic = fieldProps.pdwAttr.IsFdStatic();
+				var isLiteral = fieldProps.pdwAttr.IsFdLiteral();
+				var debuggerBrowsableRootHidden = false;
+				var hasDebuggerBrowsableAttribute = metadataImport.TryGetCustomAttributeByName(mdFieldDef, "System.Diagnostics.DebuggerBrowsableAttribute", out var debuggerBrowsableAttributePointer, out var debuggerBrowsableAttributeSize) is Cor.S_OK;
+				if (hasDebuggerBrowsableAttribute)
+				{
+					// https://github.com/Samsung/netcoredbg/blob/6476bc00c2beaab9255c750235a68de3a3d0cfae/src/debugger/evaluator.cpp#L913
+					var debuggerBrowsableState = (DebuggerBrowsableState)GetDebuggerBrowsableCustomAttributeResultInt(debuggerBrowsableAttributePointer, debuggerBrowsableAttributeSize);
+					if (debuggerBrowsableState == DebuggerBrowsableState.Never) return; // I may not end up doing this, as it would be ideal to still be able to hover the variable in the editor and see the value
+					if (debuggerBrowsableState == DebuggerBrowsableState.RootHidden) debuggerBrowsableRootHidden = true;
+				}
+				if (isLiteral)
+				{
+					var literalValue = GetLiteralValue(fieldProps.ppValue, fieldProps.pdwCPlusTypeFlag);
+					var literalVariableInfo = new VariableInfo
+					{
+						Name = fieldName,
+						Value = literalValue.ToString()!,
+						Type = GetFriendlyTypeName(fieldProps.pdwCPlusTypeFlag),
+						VariablesReference = 0
+					};
+					result.Add(literalVariableInfo);
+					return;
+				}
+
+				var objectValue = corDebugValue.UnwrapDebugValueToObject();
+				var fieldCorDebugValue = isStatic ? await corDebugType.GetStaticFieldValueAsync(_callbacks, EvalStatus, mdFieldDef, GetFrameForThreadIdAndStackDepth(threadId, stackDepth)) : objectValue.GetFieldValue(corDebugClass, mdFieldDef);
+				if (debuggerBrowsableRootHidden)
+				{
+					var unwrappedDebugValue = fieldCorDebugValue.UnwrapDebugValue();
+					if (unwrappedDebugValue is ICorDebugArrayValue arrayValue)
+					{
+						await AddArrayElements(arrayValue, threadId, stackDepth, result);
+						return;
+					}
+				}
+				var (friendlyTypeName, value, debuggerProxyInstance, resultIsError) = await GetValueForCorDebugValueAsync(fieldCorDebugValue, threadId, stackDepth, true);
+				VariablePresentationHint? variablePresentationHint = resultIsError ? new VariablePresentationHint { Attributes = AttributesValue.FailedEvaluation } : null;
+				var variableInfo = new VariableInfo
 				{
 					Name = fieldName,
-					Value = literalValue.ToString()!,
-					Type = GetFriendlyTypeName(fieldProps.pdwCPlusTypeFlag),
-					VariablesReference = 0
+					Value = value,
+					Type = friendlyTypeName,
+					PresentationHint = variablePresentationHint,
+					VariablesReference = GetVariablesReference(fieldCorDebugValue, friendlyTypeName, threadId, stackDepth, debuggerProxyInstance)
 				};
-				result.Add(literalVariableInfo);
-				continue;
-			}
-
-			var objectValue = corDebugValue.UnwrapDebugValueToObject();
-			var fieldCorDebugValue = isStatic ? await corDebugType.GetStaticFieldValueAsync(_callbacks, EvalStatus, mdFieldDef, GetFrameForThreadIdAndStackDepth(threadId, stackDepth)) : objectValue.GetFieldValue(corDebugClass, mdFieldDef);
-			if (debuggerBrowsableRootHidden)
-			{
-				var unwrappedDebugValue = fieldCorDebugValue.UnwrapDebugValue();
-				if (unwrappedDebugValue is ICorDebugArrayValue arrayValue)
-				{
-					await AddArrayElements(arrayValue, threadId, stackDepth, result);
-					continue;
-				}
-			}
-			var (friendlyTypeName, value, debuggerProxyInstance, resultIsError) = await GetValueForCorDebugValueAsync(fieldCorDebugValue, threadId, stackDepth, true);
-			VariablePresentationHint? variablePresentationHint = resultIsError ? new VariablePresentationHint { Attributes = AttributesValue.FailedEvaluation } : null;
-			var variableInfo = new VariableInfo
-			{
-				Name = fieldName,
-				Value = value,
-				Type = friendlyTypeName,
-				PresentationHint = variablePresentationHint,
-				VariablesReference = GetVariablesReference(fieldCorDebugValue, friendlyTypeName, threadId, stackDepth, debuggerProxyInstance)
-			};
-			result.Add(variableInfo);
+				result.Add(variableInfo);
+			});
 		}
 	}
 
@@ -338,66 +350,68 @@ public partial class ManagedDebugger
 	{
 		foreach (var mdProperty in mdProperties)
 		{
-			var variablesReferenceIlFrame = GetFrameForThreadIdAndStackDepth(threadId, stackDepth);
-
 			var propertyProps = metadataImport.GetPropertyProps(mdProperty);
 			var propertyName = propertyProps.szProperty;
 			if (propertyName is null) continue;
-
-			// Get the get method for the property
-			var getMethodDef = propertyProps.pmdGetter;
-			if (getMethodDef == 0) continue; // No get method
-
-			// Get method attributes to check if it's static
-			var getterMethodProps = metadataImport.GetMethodProps(getMethodDef);
-			var getterAttr = getterMethodProps.pdwAttr;
-
-			var isStatic = getterAttr.IsMdStatic();
-
-			var debuggerBrowsableRootHidden = false;
-			var hasDebuggerBrowsableAttribute = metadataImport.TryGetCustomAttributeByName(mdProperty, "System.Diagnostics.DebuggerBrowsableAttribute", out var debuggerBrowsableAttributePointer, out var debuggerBrowsableAttributeSize) is Cor.S_OK;
-			if (hasDebuggerBrowsableAttribute)
+			await WithFailureHandling(result, propertyName, async () =>
 			{
-				// https://github.com/Samsung/netcoredbg/blob/6476bc00c2beaab9255c750235a68de3a3d0cfae/src/debugger/evaluator.cpp#L913
-				var debuggerBrowsableState = (DebuggerBrowsableState)GetDebuggerBrowsableCustomAttributeResultInt(debuggerBrowsableAttributePointer, debuggerBrowsableAttributeSize);
-				if (debuggerBrowsableState == DebuggerBrowsableState.Never) continue; // I may not end up doing this, as it would be ideal to still be able to hover the variable in the editor and see the value
-				if (debuggerBrowsableState == DebuggerBrowsableState.RootHidden) debuggerBrowsableRootHidden = true;
-			}
+				var variablesReferenceIlFrame = GetFrameForThreadIdAndStackDepth(threadId, stackDepth);
 
-			var getMethod = corDebugClass.Module.GetFunctionFromToken(getMethodDef);
-			var eval = variablesReferenceIlFrame.Chain.Thread.CreateEval();
+				// Get the get method for the property
+				var getMethodDef = propertyProps.pmdGetter;
+				if (getMethodDef == 0) return; // No get method
 
-			// May not be correct, will need further testing
-			var parameterizedContainingType = corDebugValue.ExactType;
+				// Get method attributes to check if it's static
+				var getterMethodProps = metadataImport.GetMethodProps(getMethodDef);
+				var getterAttr = getterMethodProps.pdwAttr;
 
-			var typeParameterTypes = parameterizedContainingType.TypeParameters;
+				var isStatic = getterAttr.IsMdStatic();
 
-			// For instance properties, pass the object; for static, pass nothing
-			ICorDebugValue[] corDebugValues = isStatic ? [] : [corDebugValue];
-
-			var returnValue = await eval.CallParameterizedFunctionAsync(_callbacks, EvalStatus, getMethod, typeParameterTypes.Length, typeParameterTypes, corDebugValues.Length, corDebugValues);
-
-			if (returnValue is null) continue;
-			if (debuggerBrowsableRootHidden)
-			{
-				var unwrappedDebugValue = returnValue.UnwrapDebugValue();
-				if (unwrappedDebugValue is ICorDebugArrayValue arrayValue)
+				var debuggerBrowsableRootHidden = false;
+				var hasDebuggerBrowsableAttribute = metadataImport.TryGetCustomAttributeByName(mdProperty, "System.Diagnostics.DebuggerBrowsableAttribute", out var debuggerBrowsableAttributePointer, out var debuggerBrowsableAttributeSize) is Cor.S_OK;
+				if (hasDebuggerBrowsableAttribute)
 				{
-					await AddArrayElements(arrayValue, threadId, stackDepth, result);
-					continue;
+					// https://github.com/Samsung/netcoredbg/blob/6476bc00c2beaab9255c750235a68de3a3d0cfae/src/debugger/evaluator.cpp#L913
+					var debuggerBrowsableState = (DebuggerBrowsableState)GetDebuggerBrowsableCustomAttributeResultInt(debuggerBrowsableAttributePointer, debuggerBrowsableAttributeSize);
+					if (debuggerBrowsableState == DebuggerBrowsableState.Never) return; // I may not end up doing this, as it would be ideal to still be able to hover the variable in the editor and see the value
+					if (debuggerBrowsableState == DebuggerBrowsableState.RootHidden) debuggerBrowsableRootHidden = true;
 				}
-			}
-			var (friendlyTypeName, value, debuggerProxyInstance, resultIsError) = await GetValueForCorDebugValueAsync(returnValue, threadId, stackDepth, true);
-			VariablePresentationHint? variablePresentationHint = resultIsError ? new VariablePresentationHint { Attributes = AttributesValue.FailedEvaluation } : null;
-			var variableInfo = new VariableInfo
-			{
-				Name = propertyName,
-				Value = value,
-				Type = friendlyTypeName,
-				PresentationHint = variablePresentationHint,
-				VariablesReference = GetVariablesReference(returnValue, friendlyTypeName, threadId, stackDepth, debuggerProxyInstance)
-			};
-			result.Add(variableInfo);
+
+				var getMethod = corDebugClass.Module.GetFunctionFromToken(getMethodDef);
+				var eval = variablesReferenceIlFrame.Chain.Thread.CreateEval();
+
+				// May not be correct, will need further testing
+				var parameterizedContainingType = corDebugValue.ExactType;
+
+				var typeParameterTypes = parameterizedContainingType.TypeParameters;
+
+				// For instance properties, pass the object; for static, pass nothing
+				ICorDebugValue[] corDebugValues = isStatic ? [] : [corDebugValue];
+
+				var returnValue = await eval.CallParameterizedFunctionAsync(_callbacks, EvalStatus, getMethod, typeParameterTypes.Length, typeParameterTypes, corDebugValues.Length, corDebugValues);
+
+				if (returnValue is null) return;
+				if (debuggerBrowsableRootHidden)
+				{
+					var unwrappedDebugValue = returnValue.UnwrapDebugValue();
+					if (unwrappedDebugValue is ICorDebugArrayValue arrayValue)
+					{
+						await AddArrayElements(arrayValue, threadId, stackDepth, result);
+						return;
+					}
+				}
+				var (friendlyTypeName, value, debuggerProxyInstance, resultIsError) = await GetValueForCorDebugValueAsync(returnValue, threadId, stackDepth, true);
+				VariablePresentationHint? variablePresentationHint = resultIsError ? new VariablePresentationHint { Attributes = AttributesValue.FailedEvaluation } : null;
+				var variableInfo = new VariableInfo
+				{
+					Name = propertyName,
+					Value = value,
+					Type = friendlyTypeName,
+					PresentationHint = variablePresentationHint,
+					VariablesReference = GetVariablesReference(returnValue, friendlyTypeName, threadId, stackDepth, debuggerProxyInstance)
+				};
+				result.Add(variableInfo);
+			});
 		}
 	}
 
@@ -411,18 +425,41 @@ public partial class ManagedDebugger
 		var elements = ValueEnumerable.Range(0, itemCount).Select(i => arrayValue.GetElement(1, [checked((uint)i)])).ToArray();
 		foreach (var (i, element) in elements.Index())
 		{
-			var (friendlyTypeName, value, debuggerProxyInstance, resultIsError) = await GetValueForCorDebugValueAsync(element, threadId, stackDepth, true);
-			VariablePresentationHint? variablePresentationHint = resultIsError ? new VariablePresentationHint { Attributes = AttributesValue.FailedEvaluation } : new VariablePresentationHint { Kind = PresentationHintKind.Data };
-			var variableReference = GetVariablesReference(element, friendlyTypeName, threadId, stackDepth, debuggerProxyInstance);
-			var variableInfo = new VariableInfo
+			var name = $"[{i}]";
+			await WithFailureHandling(result, name, async () =>
 			{
-				Name = $"[{i}]",
-				Type = friendlyTypeName,
-				Value = value,
-				PresentationHint = variablePresentationHint,
-				VariablesReference = variableReference
-			};
-			result.Add(variableInfo);
+				var (friendlyTypeName, value, debuggerProxyInstance, resultIsError) = await GetValueForCorDebugValueAsync(element, threadId, stackDepth, true);
+				VariablePresentationHint? variablePresentationHint = resultIsError ? new VariablePresentationHint { Attributes = AttributesValue.FailedEvaluation } : new VariablePresentationHint { Kind = PresentationHintKind.Data };
+				var variableReference = GetVariablesReference(element, friendlyTypeName, threadId, stackDepth, debuggerProxyInstance);
+				var variableInfo = new VariableInfo
+				{
+					Name = name,
+					Type = friendlyTypeName,
+					Value = value,
+					PresentationHint = variablePresentationHint,
+					VariablesReference = variableReference
+				};
+				result.Add(variableInfo);
+			});
+		}
+	}
+
+	private static async Task WithFailureHandling(List<VariableInfo> result, string fieldName, Func<Task> func)
+	{
+		try
+		{
+			await func();
+		}
+		catch (Exception ex)
+		{
+			result.Add(new VariableInfo
+			{
+				Name = fieldName,
+				Value = ex.Message,
+				Type = null,
+				PresentationHint = new VariablePresentationHint { Attributes = AttributesValue.FailedEvaluation },
+				VariablesReference = 0
+			});
 		}
 	}
 }

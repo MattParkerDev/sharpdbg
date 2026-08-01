@@ -58,7 +58,7 @@ public class VariablesTests(ITestOutputHelper testOutputHelper)
 
 		List<Variable> expectedEnumVariables =
 		[
-			new() {Name = "Static members", Value = "", Type = "", EvaluateName = "Static members", VariablesReference = 35, PresentationHint = new VariablePresentationHint { Kind = VariablePresentationHint.KindValue.Class }},
+			new() {Name = "Static members", Value = "", Type = "", EvaluateName = "Static members", VariablesReference = 70, PresentationHint = new VariablePresentationHint { Kind = VariablePresentationHint.KindValue.Class }},
 			new() {Name = "value__", Value = "1", Type = "int", EvaluateName = "value__" },
 		];
 
@@ -258,5 +258,7 @@ file static class TestExtensions
 		];
 		debugProtocolHost.WithVariablesRequest(variablesReference, out var recordVariables);
 		recordVariables.Should().BeEquivalentTo(expectedVariables);
+
+		debugProtocolHost.WithVariablesRequest(recordVariables.Single(s => s.Name == "EqualityContract").VariablesReference, out var recordEqualityContractVariables);
 	}
 }

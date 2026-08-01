@@ -45,6 +45,7 @@ public class MyClass : MyClassBase
 	private ClassWithDebugDisplay3 _classWithDebugDisplay3 = new ClassWithDebugDisplay3();
 	private MyClassWithGeneric<int> _myClassWithGeneric = new MyClassWithGeneric<int> { GenericItems = [42], GenericItemsField = [43] };
 	private Dictionary<int, int> _intDictionary = new Dictionary<int, int>() { { 5, 50 }, { 10, 100 }, { 15, 150 } };
+	private MyRecord1 _recordField = new MyRecord1(1, 2);
 	private int Get14() => 14;
 	private int DoubleNumber(int number) => number * 2;
 	private float DoubleNumber(float number) => number * 2;
@@ -73,3 +74,5 @@ public enum MyEnum
 	SecondValue,
 	ThirdValue
 }
+
+public record MyRecord1(int X, int Y);

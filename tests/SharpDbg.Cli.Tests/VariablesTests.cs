@@ -58,7 +58,7 @@ public class VariablesTests(ITestOutputHelper testOutputHelper)
 
 		List<Variable> expectedEnumVariables =
 		[
-			new() {Name = "Static members", Value = "", Type = "", EvaluateName = "Static members", VariablesReference = 34, PresentationHint = new VariablePresentationHint { Kind = VariablePresentationHint.KindValue.Class }},
+			new() {Name = "Static members", Value = "", Type = "", EvaluateName = "Static members", VariablesReference = 35, PresentationHint = new VariablePresentationHint { Kind = VariablePresentationHint.KindValue.Class }},
 			new() {Name = "value__", Value = "1", Type = "int", EvaluateName = "value__" },
 		];
 
@@ -132,6 +132,7 @@ file static class TestExtensions
 		debugProtocolHost.AssertDictionaryVariables(thisInstanceVariables.Single(s => s.Name == "_intDictionary").VariablesReference);
 		debugProtocolHost.AssertClassWithFieldOfNestedClassType_Variables(thisInstanceVariables.Single(s => s.Name == "_classField").VariablesReference);
 		debugProtocolHost.AssertPropertyStoredClass_Variables(thisInstanceVariables.Single(s => s.Name == "ClassProperty").VariablesReference);
+		debugProtocolHost.AssertRecord_Variables(thisInstanceVariables.Single(s => s.Name == "_recordField").VariablesReference);
 	}
 
 	private static void AssertInstanceThisStaticVariables(this DebugProtocolHost debugProtocolHost, int variablesReference)
@@ -245,5 +246,17 @@ file static class TestExtensions
 		];
 		debugProtocolHost.WithVariablesRequest(variablesReference, out var classWithDebuggerTypeProxyVariables);
 		classWithDebuggerTypeProxyVariables.Should().BeEquivalentTo(expectedVariables);
+	}
+
+	private static void AssertRecord_Variables(this DebugProtocolHost debugProtocolHost, int variablesReference)
+	{
+		List<Variable> expectedVariables =
+		[
+			new() { Name = "EqualityContract", EvaluateName = "EqualityContract", Value = "DebuggableConsoleApp.MyRecord1", Type = "System.RuntimeType", VariablesReference = 34 },
+			new() { Name = "X", EvaluateName = "X", Value = "1", Type = "int" },
+			new() { Name = "Y", EvaluateName = "Y", Value = "2", Type = "int" },
+		];
+		debugProtocolHost.WithVariablesRequest(variablesReference, out var recordVariables);
+		recordVariables.Should().BeEquivalentTo(expectedVariables);
 	}
 }

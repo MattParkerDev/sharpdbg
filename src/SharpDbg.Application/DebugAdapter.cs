@@ -526,8 +526,8 @@ public class DebugAdapter : DebugAdapterBase
 		}
 		catch (Exception ex)
 		{
-			_logger?.Invoke($"HandleVariablesRequestAsync failed: {ex.Message} , {ex}");
-			responder.SetError(new ProtocolException($"Failed to get variables: {ex.Message}", ex));
+			_logger?.Invoke($"HandleEvaluateRequestAsync failed: {ex.Message} , {ex}");
+			responder.SetError(new ProtocolException($"Failed to evaluate expression: {ex.Message}", ex));
 		}
 	}
 

@@ -60,7 +60,7 @@ public static class ClrDebugExtensions
 				Marshal.ThrowExceptionForHR(registerHr);
 			}
 
-			if (resumeDiagnosticSuspension) DiagnosticClientResumeRuntime(pid);
+			if (resumeDiagnosticSuspension) await DiagnosticClientHelper.DiagnosticClientResumeRuntime(pid);
 
 			var result = await _runtimeStartupTcs.Task.ConfigureAwait(false);
 			cordebug = result.CorDebug;
@@ -134,28 +134,4 @@ public static class ClrDebugExtensions
 	//
 	// 	//while (true) Thread.Sleep(1);
 	// }
-
-	// For applications like godot, which start their own CLR, diagnostics IPC may not be available immediately.
-	// Retry until it succeeds.
-	private static void DiagnosticClientResumeRuntime(int debuggeeProcessId)
-	{
-		var diagnosticsClient = new DiagnosticsClient(debuggeeProcessId);
-		const int maxRetries = 6;
-		var delayMs = 50;
-
-		for (var attempt = 1; attempt <= maxRetries; attempt++)
-		{
-			try
-			{
-				Thread.Sleep(delayMs);
-				diagnosticsClient.ResumeRuntime();
-				return;
-			}
-			catch (ServerNotAvailableException) when (attempt < maxRetries)
-			{
-				delayMs *= 2;
-			}
-		}
-		diagnosticsClient.ResumeRuntime();
-	}
 }

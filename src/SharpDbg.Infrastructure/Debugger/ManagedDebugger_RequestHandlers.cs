@@ -185,8 +185,19 @@ public partial class ManagedDebugger
 	public void HandleContinueRequest()
 	{
 		_logger?.Invoke("Continue");
-		ContinueWithVariableClear();
+		ContinueWithVariableClearAllowSuperfluousContinue();
 		if (_process!.IsRunning is false) throw new InvalidOperationException("DAP called Continue, but process is still stopped. Must be queued callbacks, please raise an issue on SharpDbg.");
+	}
+
+	private void ContinueWithVariableClearAllowSuperfluousContinue()
+	{
+		Guard.Against.Null(_process);
+		_variableManager.ClearAndDisposeHandleValues();
+		_frameReferenceManager.Clear();
+
+		var result = _process.TryContinue(false);
+		if (result is Cor.CORDBG_E_SUPERFLOUS_CONTINUE) return;
+		Marshal.ThrowExceptionForHR(result);
 	}
 
 	private void ContinueWithVariableClear()
@@ -194,6 +205,7 @@ public partial class ManagedDebugger
 		Guard.Against.Null(_process);
 		_variableManager.ClearAndDisposeHandleValues();
 		_frameReferenceManager.Clear();
+
 		_process.Continue(false);
 	}
 

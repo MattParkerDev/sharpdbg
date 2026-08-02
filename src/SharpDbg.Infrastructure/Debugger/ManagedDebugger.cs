@@ -143,11 +143,18 @@ public partial class ManagedDebugger
 		catch (Exception ex)
 		{
 			_logger?.Invoke($"Error handling event {e.GetType().Name}: {ex}");
+
+			// The process is stopped while a callback is being dispatched, and the handler that just
+			// failed is the one that owed it a Continue. Without this the debuggee stays suspended
+			// forever with the client still believing it is running, and only Disconnect releases it.
+			// TryContinue, because the handler may well have continued before it threw, in which case
+			// this is a superfluous continue rather than an error.
 			var isRunning = false;
-			_process?.TryIsRunning(out isRunning);
-			if (isRunning)
+			if (_process?.TryIsRunning(out isRunning) is Cor.S_OK && isRunning is false)
 			{
-				Continue();
+				var result = _process.TryContinue(false);
+				if (result is not (Cor.S_OK or Cor.CORDBG_E_SUPERFLOUS_CONTINUE))
+					_logger?.Invoke($"Failed to continue after the failed event handler: 0x{result:X8}");
 			}
 		}
 	}

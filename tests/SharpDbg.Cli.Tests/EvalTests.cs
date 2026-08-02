@@ -55,6 +55,7 @@ public class EvalTests(ITestOutputHelper testOutputHelper)
 		var stackFrameId = stackTraceResponse.StackFrames!.First().Id;
 		debugProtocolHost.WithEvaluateRequest(stackFrameId, "myInt + 10", out var evaluateResponse);
 		evaluateResponse.Result.Should().Be("14");
+		evaluateResponse.VariablesReference.Should().Be(0);
 		debugProtocolHost.WithEvaluateRequest(stackFrameId, "myInt + myInt", out var evaluateResponse2);
 		evaluateResponse2.Result.Should().Be("8");
 		debugProtocolHost.WithEvaluateRequest(stackFrameId, "myIntParam + 4", out var evaluateResponse3);
@@ -129,5 +130,10 @@ public class EvalTests(ITestOutputHelper testOutputHelper)
 		evaluateResponse37.Result.Should().Be("17");
 		debugProtocolHost.WithEvaluateRequest(stackFrameId, "Namespace1.AnotherClass.IntStaticProperty", out var evaluateResponse38);
 		evaluateResponse38.Result.Should().Be("17");
+		debugProtocolHost.WithEvaluateRequest(stackFrameId, "ClassProperty", out var evaluateResponse39);
+		evaluateResponse39.Result.Should().Be("{DebuggableConsoleApp.MyClass2}");
+		evaluateResponse39.VariablesReference.Should().BePositive();
+		debugProtocolHost.WithVariablesRequest(evaluateResponse39.VariablesReference, out var variablesResponse39);
+		variablesResponse39.Should().HaveCount(3);
 	}
 }

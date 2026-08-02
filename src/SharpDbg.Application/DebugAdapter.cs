@@ -514,13 +514,14 @@ public class DebugAdapter : DebugAdapterBase
 		try
 		{
 			var arguments = responder.Arguments;
-			var (result, type, variablesReference) = await _debugger.Evaluate(arguments.Expression, arguments.FrameId);
+			var variableInfo = await _debugger.Evaluate(arguments.Expression, arguments.FrameId);
 
 			var response = new EvaluateResponse
 			{
-				Result = result,
-				Type = type,
-				VariablesReference = variablesReference
+				Result = variableInfo.Value,
+				Type = variableInfo.Type,
+				VariablesReference = variableInfo.VariablesReference,
+				PresentationHint = variableInfo.PresentationHint?.ToDto()
 			};
 			responder.SetResponse(response);
 		}

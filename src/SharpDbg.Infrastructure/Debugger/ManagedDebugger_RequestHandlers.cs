@@ -586,7 +586,7 @@ public partial class ManagedDebugger
 	/// <summary>
 	/// Evaluate an expression
 	/// </summary>
-	public async Task<(string result, string? type, int variablesReference)> Evaluate(string expression, int? frameId)
+	public async Task<VariableInfo> Evaluate(string expression, int? frameId)
 	{
 		_logger?.Invoke($"Evaluate: {expression}");
 		if (frameId is null or 0) throw new InvalidOperationException("Frame ID is required for evaluation");
@@ -603,11 +603,26 @@ public partial class ManagedDebugger
 		if (result.Error is not null)
 		{
 			_logger?.Invoke($"Evaluation error: {result.Error}");
-			return (result.Error, null, 0);
+			return new VariableInfo
+			{
+				Name = null!,
+				Value = result.Error,
+				Type = null,
+				PresentationHint = new VariablePresentationHint { Attributes = AttributesValue.FailedEvaluation },
+				VariablesReference = 0
+			};
 		}
 		var (friendlyTypeName, value, debuggerProxyInstance, resultIsError) = await GetValueForCorDebugValueAsync(result.Value!, threadId, frameStackDepth, true);
-		// TODO: create variables reference. Just return a VariableInfo
-		return (value, friendlyTypeName, 0);
+		VariablePresentationHint? variablePresentationHint = resultIsError ? new VariablePresentationHint { Attributes = AttributesValue.FailedEvaluation } : null;
+		var variableInfo = new VariableInfo
+		{
+			Name = null!,
+			Value = value,
+			Type = friendlyTypeName,
+			PresentationHint = variablePresentationHint,
+			VariablesReference = GetVariablesReference(result.Value!, friendlyTypeName, threadId, frameStackDepth, debuggerProxyInstance)
+		};
+		return variableInfo;
 	}
 
 	/// <summary>

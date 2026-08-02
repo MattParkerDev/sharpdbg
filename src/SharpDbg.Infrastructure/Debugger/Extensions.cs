@@ -177,7 +177,7 @@ public static class Extensions
 	private static async Task<ICorDebugValue?> RunEvalAsync(ICorDebugEval eval, CorDebugManagedCallback managedCallback, EvalStatus evalStatus, Action startEval, Func<EvalCompleteCorDebugManagedCallbackEventArgs, ICorDebugValue?> onComplete)
 	{
 		ICorDebugValue? returnValue = null;
-		var evalCompleteTcs = new TaskCompletionSource();
+		var evalCompleteTcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
 		try
 		{
 			startEval();

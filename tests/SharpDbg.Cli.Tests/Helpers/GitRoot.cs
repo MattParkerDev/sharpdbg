@@ -7,18 +7,23 @@ public static class GitRoot
 	{
 		if (_gitRoot is not null) return _gitRoot;
 		var currentDirectory = Directory.GetCurrentDirectory();
-		var gitRoot = currentDirectory;
-		while (!Directory.Exists(Path.Combine(gitRoot, ".git")))
+		while (FolderOrFileExists(currentDirectory) is false)
 		{
-			gitRoot = Path.GetDirectoryName(gitRoot); // parent directory
-			if (string.IsNullOrWhiteSpace(gitRoot))
+			currentDirectory = Path.GetDirectoryName(currentDirectory); // parent directory
+			if (string.IsNullOrWhiteSpace(currentDirectory))
 			{
 				throw new Exception("Could not find git root");
 			}
 		}
 
-		_gitRoot = gitRoot;
+		_gitRoot = currentDirectory;
 		return _gitRoot;
+	}
+	// worktrees and submodules use a .git file
+	private static bool FolderOrFileExists(string directory)
+	{
+		var dotGitPath = Path.Combine(directory, ".git");
+		return Directory.Exists(dotGitPath) || File.Exists(dotGitPath);
 	}
 }
 

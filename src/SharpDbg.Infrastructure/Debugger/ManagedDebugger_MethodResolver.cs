@@ -31,22 +31,66 @@ public partial class ManagedDebugger
 		}
 
 		var baseType = type.Base;
-		return baseType is null ? null : FindMethodOnType(baseType, methodName, args, searchStatic, idsEmpty);
+		if (baseType is not null)
+		{
+			var baseMethod = FindMethodOnType(baseType, methodName, args, searchStatic, idsEmpty);
+			if (baseMethod is not null) return baseMethod;
+		}
+
+		// Extension methods are declared on static classes, not the receiver type, so only look them up once instance member search has failed.
+		if (searchStatic is false)
+		{
+			return FindExtensionMethod(type, methodName, args);
+		}
+
+		return null;
 	}
 
-	private bool IsMethodParameterMatch(ICorDebugFunction method, ICorDebugValue[] args)
+	private ICorDebugFunction? FindExtensionMethod(ICorDebugType receiverType, string methodName, ICorDebugValue[] args)
+	{
+		foreach (var moduleInfo in _modules.Values)
+		{
+			var module = moduleInfo.Module;
+			var metadataImport = module.GetMetaDataInterface<IMetaDataImport>();
+
+			foreach (var typeToken in metadataImport.EnumTypeDefs())
+			{
+				// Extension methods are declared in static classes marked with [Extension], so skip everything else up front
+				if (metadataImport.HasAnyAttribute(typeToken, [AttributeConstants.ExtensionMethodAttributeName]) is false) continue;
+
+				foreach (var methodToken in metadataImport.EnumMethodsWithName(typeToken, methodName))
+				{
+					var methodProps = metadataImport.GetMethodProps(methodToken);
+					if (methodProps.pdwAttr.IsMdStatic() is false) continue;
+					if (metadataImport.HasAnyAttribute(methodToken, [AttributeConstants.ExtensionMethodAttributeName]) is false) continue;
+
+					var method = module.GetFunctionFromToken(methodToken);
+					if (IsMethodParameterMatch(method, args, receiverType.Type)) return method;
+				}
+			}
+		}
+
+		return null;
+	}
+
+
+	private bool IsMethodParameterMatch(ICorDebugFunction method, ICorDebugValue[] args, CorElementType? extensionReceiverType = null)
 	{
 		var handle = MetadataTokens.Handle(method.Token);
 		if (handle.Kind is not HandleKind.MethodDefinition) return false;
 		var metadataReader = _modules[method.Class.Module.BaseAddress].MetadataReader.PeMetadataReader;
 		var methodDefinition = metadataReader.GetMethodDefinition((MethodDefinitionHandle)handle);
 		var parameterTypes = methodDefinition.DecodeSignature(CorElementTypeSignatureProvider.Instance, null).ParameterTypes;
-		if (parameterTypes.Length != args.Length) return false;
+
+		var expectedParameterCount = args.Length + (extensionReceiverType is not null ? 1 : 0);
+		if (parameterTypes.Length != expectedParameterCount) return false;
+
+		if (extensionReceiverType is not null && parameterTypes[0] != extensionReceiverType.Value) return false;
 
 		for (var i = 0; i < args.Length; i++)
 		{
 			var argType = args[i].ExactType?.Type ?? args[i].Type;
-			if (parameterTypes[i] != argType) return false;
+			if (parameterTypes[i + (extensionReceiverType is not null ? 1 : 0)] != argType) return false;
 		}
 
 		return true;

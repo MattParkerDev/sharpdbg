@@ -122,16 +122,19 @@ public partial class CompiledExpressionInterpreter
 			throw new InvalidOperationException($"Method '{methodName}' with {args.Length} parameters not found");
 		}
 
-		var methodProps2 = function.Class.Module.GetMetaDataInterface<IMetaDataImport>()!.GetMethodProps(function.Token);
+		var metaDataInterface = function.Class.Module.GetMetaDataInterface<IMetaDataImport>();
+		var methodProps2 = metaDataInterface!.GetMethodProps(function.Token);
 		isInstance = methodProps2.pdwAttr.IsMdStatic() is false;
+		var isExtensionMethod = isInstance is false && metaDataInterface.IsExtensionMethod(function.Token);
 
 		var typeArgsCount = entry.GenericTypeCache?.Count ?? 0;
-		var realArgsCount = args.Length + (isInstance ? 1 : 0);
+		var realArgsCount = args.Length + (isInstance || isExtensionMethod ? 1 : 0);
 		var typeArgs = new List<ICorDebugType>(typeArgsCount);
 		var valueArgs = new List<ICorDebugValue>(realArgsCount);
 
-		if (isInstance)
+		if (isInstance || isExtensionMethod)
 		{
+			// Extension methods are static, but the receiver still becomes the first argument
 			valueArgs.Add(objValue);
 		}
 

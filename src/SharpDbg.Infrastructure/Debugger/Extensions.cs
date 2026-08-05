@@ -128,6 +128,11 @@ public static class Extensions
 		return false;
 	}
 
+	public static bool IsExtensionMethod(this IMetaDataImport metadataImport, mdToken token)
+	{
+		return metadataImport.HasAnyAttribute(token, [AttributeConstants.ExtensionMethodAttributeName]);
+	}
+
 	public static async Task<ICorDebugValue?> CallParameterlessInstanceMethodAsync(this ICorDebugEval eval, Func<Task<CorDebugManagedCallbackEventArgs>> processEventsUntilEvalEventFunc, EvalStatus evalStatus, ICorDebugFunction corDebugFunction, ICorDebugValue corDebugValue)
 	{
 		const bool isStatic = false;

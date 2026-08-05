@@ -1,6 +1,6 @@
 namespace SharpDbg.Infrastructure.Debugger;
 
-public static class JmcConstants
+public static class AttributeConstants
 {
 	public static readonly string[] JmcTypeAttributeNames =
 	[
@@ -13,4 +13,5 @@ public static class JmcConstants
 		"System.Diagnostics.DebuggerStepThroughAttribute",
 		"System.Diagnostics.DebuggerHiddenAttribute"
 	];
+	public const string ExtensionMethodAttributeName = "System.Runtime.CompilerServices.ExtensionAttribute";
 }

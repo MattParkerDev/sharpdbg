@@ -255,7 +255,7 @@ public partial class ManagedDebugger
 			var metadataImport = ilFrame.Function.Module.GetMetaDataInterface<IMetaDataImport>();
 			var mdMethodDef = ilFrame.Function.Token;
 			var methodIsNotDebuggable =
-				metadataImport.HasAnyAttribute(mdMethodDef, JmcConstants.JmcMethodAttributeNames);
+				metadataImport.HasAnyAttribute(mdMethodDef, AttributeConstants.JmcMethodAttributeNames);
 			if (methodIsNotDebuggable)
 			{
 				SetupStepper(corThread, AsyncStepper.StepType.StepIn);

@@ -128,7 +128,7 @@ public static class Extensions
 		return false;
 	}
 
-	public static async Task<ICorDebugValue?> CallParameterlessInstanceMethodAsync(this ICorDebugEval eval, CorDebugManagedCallback managedCallback, EvalStatus evalStatus, ICorDebugFunction corDebugFunction, ICorDebugValue corDebugValue)
+	public static async Task<ICorDebugValue?> CallParameterlessInstanceMethodAsync(this ICorDebugEval eval, Func<Task<CorDebugManagedCallbackEventArgs>> processEventsUntilEvalEventFunc, EvalStatus evalStatus, ICorDebugFunction corDebugFunction, ICorDebugValue corDebugValue)
 	{
 		const bool isStatic = false;
 
@@ -136,14 +136,14 @@ public static class Extensions
 
 		// For instance properties, pass the object; for static, pass nothing. Must pass the original CorDebugReferenceValue, not the dereferenced one.
 		ICorDebugValue[] corDebugValues = isStatic ? [] : [corDebugValue];
-		var result = await eval.CallParameterizedFunctionAsync(managedCallback, evalStatus, corDebugFunction, typeParameterArgs.Length, typeParameterArgs, corDebugValues.Length, corDebugValues);
+		var result = await eval.CallParameterizedFunctionAsync(processEventsUntilEvalEventFunc, evalStatus, corDebugFunction, typeParameterArgs.Length, typeParameterArgs, corDebugValues.Length, corDebugValues);
 		return result;
 	}
 
-	public static async Task<ICorDebugValue?> CallParameterizedFunctionAsync(this ICorDebugEval eval, CorDebugManagedCallback managedCallback, EvalStatus evalStatus, ICorDebugFunction corDebugFunction, int typeParamCount, ICorDebugType[]? typeParameterArgs, int paramCount, ICorDebugValue[] corDebugValues)
+	public static async Task<ICorDebugValue?> CallParameterizedFunctionAsync(this ICorDebugEval eval, Func<Task<CorDebugManagedCallbackEventArgs>> processEventsUntilEvalEventFunc, EvalStatus evalStatus, ICorDebugFunction corDebugFunction, int typeParamCount, ICorDebugType[]? typeParameterArgs, int paramCount, ICorDebugValue[] corDebugValues)
 	{
 		// Ensure that the object passed in corDebugValues is a CorDebugReferenceValue (when containing object is an instance class), ie must not be dereferenced
-		return await RunEvalAsync(eval, managedCallback, evalStatus,
+		return await RunEvalAsync(eval, processEventsUntilEvalEventFunc, evalStatus,
 			() => eval.CallParameterizedFunction(corDebugFunction, typeParamCount, typeParameterArgs, paramCount, corDebugValues),
 			e =>
 			{
@@ -153,23 +153,23 @@ public static class Extensions
 			});
 	}
 
-	public static async Task<ICorDebugValue?> NewParameterizedObjectNoConstructorAsync(this ICorDebugEval eval, CorDebugManagedCallback managedCallback, EvalStatus evalStatus, ICorDebugClass pClass, int nTypeArgs, ICorDebugType[]? ppTypeArgs)
+	public static async Task<ICorDebugValue?> NewParameterizedObjectNoConstructorAsync(this ICorDebugEval eval, Func<Task<CorDebugManagedCallbackEventArgs>> processEventsUntilEvalEventFunc, EvalStatus evalStatus, ICorDebugClass pClass, int nTypeArgs, ICorDebugType[]? ppTypeArgs)
 	{
-		return await RunEvalAsync(eval, managedCallback, evalStatus,
+		return await RunEvalAsync(eval, processEventsUntilEvalEventFunc, evalStatus,
 			() => eval.NewParameterizedObjectNoConstructor(pClass, nTypeArgs, ppTypeArgs),
 			e => e.Eval.Result);
 	}
 
-	public static async Task<ICorDebugValue?> NewParameterizedObjectAsync(this ICorDebugEval eval, CorDebugManagedCallback managedCallback, EvalStatus evalStatus, ICorDebugFunction corDebugFunction, int nTypeArgs, ICorDebugType[]? ppTypeArgs, int argCount, ICorDebugValue[] argValues)
+	public static async Task<ICorDebugValue?> NewParameterizedObjectAsync(this ICorDebugEval eval, Func<Task<CorDebugManagedCallbackEventArgs>> processEventsUntilEvalEventFunc, EvalStatus evalStatus, ICorDebugFunction corDebugFunction, int nTypeArgs, ICorDebugType[]? ppTypeArgs, int argCount, ICorDebugValue[] argValues)
 	{
-		return await RunEvalAsync(eval, managedCallback, evalStatus,
+		return await RunEvalAsync(eval, processEventsUntilEvalEventFunc, evalStatus,
 			() => eval.NewParameterizedObject(corDebugFunction, nTypeArgs, ppTypeArgs, argCount, argValues),
 			e => e.Eval.Result);
 	}
 
-	public static async Task<ICorDebugValue> NewStringAsync(this ICorDebugEval eval, CorDebugManagedCallback managedCallback, EvalStatus evalStatus, string str)
+	public static async Task<ICorDebugValue> NewStringAsync(this ICorDebugEval eval, Func<Task<CorDebugManagedCallbackEventArgs>> processEventsUntilEvalEventFunc, EvalStatus evalStatus, string str)
 	{
-		return (await RunEvalAsync(eval, managedCallback, evalStatus,
+		return (await RunEvalAsync(eval, processEventsUntilEvalEventFunc, evalStatus,
 			() => eval.NewString(str),
 			e => e.Eval.Result))!;
 	}

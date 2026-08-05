@@ -89,12 +89,12 @@ public static class CorDebugValueExtensions
 		return corDebugGenericValue;
 	}
 
-	public static async Task<ICorDebugValue?> GetPropertyValue(this ICorDebugValue objectValue, CorDebugManagedCallback callback, EvalStatus evalStatus, ICorDebugILFrame ilFrame, string propertyName)
+	public static async Task<ICorDebugValue?> GetPropertyValue(this ICorDebugValue objectValue, Func<Task<CorDebugManagedCallbackEventArgs>> processEventsUntilEvalEventFunc, EvalStatus evalStatus, ICorDebugILFrame ilFrame, string propertyName)
 	{
-		return (await GetPropertyValueWithSetter(objectValue, callback, evalStatus, ilFrame, propertyName))?.Value;
+		return (await GetPropertyValueWithSetter(objectValue, processEventsUntilEvalEventFunc, evalStatus, ilFrame, propertyName))?.Value;
 	}
 
-	public static async Task<(ICorDebugValue Value, ICorDebugFunction? SetterFunction)?> GetPropertyValueWithSetter(this ICorDebugValue objectValue, CorDebugManagedCallback callback, EvalStatus evalStatus, ICorDebugILFrame ilFrame, string propertyName)
+	public static async Task<(ICorDebugValue Value, ICorDebugFunction? SetterFunction)?> GetPropertyValueWithSetter(this ICorDebugValue objectValue, Func<Task<CorDebugManagedCallbackEventArgs>> processEventsUntilEvalEventFunc, EvalStatus evalStatus, ICorDebugILFrame ilFrame, string propertyName)
 	{
 		var unwrappedValue = objectValue.UnwrapDebugValueToObject();
 
@@ -145,20 +145,20 @@ public static class CorDebugValueExtensions
 		// For instance properties, pass the object; for static, pass nothing. Must pass the original CorDebugReferenceValue, not the dereferenced one.
 		ICorDebugValue[] corDebugValues = isStatic ? [] : [objectValue];
 
-		var returnValue = await eval.CallParameterizedFunctionAsync(callback, evalStatus, getMethod, typeParameterTypes.Length, typeParameterTypes, corDebugValues.Length, corDebugValues);
+		var returnValue = await eval.CallParameterizedFunctionAsync(processEventsUntilEvalEventFunc, evalStatus, getMethod, typeParameterTypes.Length, typeParameterTypes, corDebugValues.Length, corDebugValues);
 		return returnValue is null ? null : (returnValue, setterFunction);
 	}
 
 	/// Calls ICorDebugType.GetStaticFieldValue with a retry on CORDBG_E_STATIC_VAR_NOT_AVAILABLE
 	/// This would occur if a type's static constructor had not been invoked yet
-	public static async ValueTask<ICorDebugValue> GetStaticFieldValueAsync(this ICorDebugType type, CorDebugManagedCallback managedCallback, EvalStatus evalStatus, mdFieldDef fieldDef, ICorDebugILFrame ilFrame)
+	public static async ValueTask<ICorDebugValue> GetStaticFieldValueAsync(this ICorDebugType type, Func<Task<CorDebugManagedCallbackEventArgs>> processEventsUntilEvalEventFunc, EvalStatus evalStatus, mdFieldDef fieldDef, ICorDebugILFrame ilFrame)
 	{
 		var result = type.TryGetStaticFieldValue(fieldDef, ilFrame, out var value);
 		if (result is Cor.CORDBG_E_STATIC_VAR_NOT_AVAILABLE)
 		{
 			var typeParameters = type.TypeParameters;
 			var eval = ilFrame.Chain.Thread.CreateEval();
-			await eval.NewParameterizedObjectNoConstructorAsync(managedCallback, evalStatus, type.Class, typeParameters.Length, typeParameters);
+			await eval.NewParameterizedObjectNoConstructorAsync(processEventsUntilEvalEventFunc, evalStatus, type.Class, typeParameters.Length, typeParameters);
 			result = type.TryGetStaticFieldValue(fieldDef, ilFrame, out value);
 		}
 

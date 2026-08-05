@@ -7,7 +7,6 @@ namespace SharpDbg.Infrastructure.Debugger;
 
 public class AsyncStepper
 {
-	private readonly CorDebugManagedCallback _managedCallback;
 	private readonly ManagedDebugger _debugger;
 	private enum AsyncStepStatus
 	{
@@ -75,10 +74,9 @@ public class AsyncStepper
 	private AsyncBreakpoint? _notifyDebuggerBreakpoint;
 	private readonly AsyncLock _lock2 = new AsyncLock();
 
-	public AsyncStepper(Dictionary<CORDB_ADDRESS, ModuleInfo> modules, CorDebugManagedCallback managedCallback, ManagedDebugger debugger)
+	public AsyncStepper(Dictionary<CORDB_ADDRESS, ModuleInfo> modules, ManagedDebugger debugger)
 	{
 		_modules = modules;
-		_managedCallback = managedCallback;
 		_debugger = debugger;
 	}
 
@@ -102,7 +100,7 @@ public class AsyncStepper
 			var typeParameterArgs = objectValue.ExactType.TypeParameters;
 			// result should be null, as SetNotificationForWaitCompletion returns void
 			var result = await eval.CallParameterizedFunctionAsync(
-				_managedCallback,
+				_debugger.ProcessRuntimeEventsUntilEvalEvent,
 				_debugger.EvalStatus,
 				function,
 				typeParameterArgs.Length,
@@ -538,7 +536,7 @@ public class AsyncStepper
 
 		// Call ObjectIdForDebugger getter
 		var result = await eval.CallParameterizedFunctionAsync(
-			_managedCallback,
+			_debugger.ProcessRuntimeEventsUntilEvalEvent,
 			_debugger.EvalStatus,
 			getMethod,
 			builder.ExactType.TypeParameters.Length,

@@ -61,7 +61,7 @@ public partial class ManagedDebugger
 		_frameReferenceManager = new FrameReferenceManager();
 		_callbacks = new CorDebugManagedCallback();
 		EvalStatus = new EvalStatus();
-		_asyncStepper = new AsyncStepper(_modules, _callbacks, this);
+		_asyncStepper = new AsyncStepper(_modules, this);
 		_runtimeEventChannel = Channel.CreateUnbounded<CorDebugManagedCallbackEventArgs>(new UnboundedChannelOptions
 		{
 			SingleReader = false,

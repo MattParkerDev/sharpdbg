@@ -91,7 +91,7 @@ public partial class ManagedDebugger
 			MapRuntimePrimitiveTypesToCorDebugClass(corModule);
 			// We can now initialize the expression interpreter, and assume that modules will be loaded before any stop event is allowed to be returned
 			var runtimeAssemblyPrimitiveTypeClasses = new RuntimeAssemblyPrimitiveTypeClasses(CorElementToValueClassMap, CorVoidClass, CorDecimalClass);
-			_expressionInterpreter = new CompiledExpressionInterpreter(runtimeAssemblyPrimitiveTypeClasses, _callbacks, this);
+			_expressionInterpreter = new CompiledExpressionInterpreter(runtimeAssemblyPrimitiveTypeClasses, this);
 		}
 
 		// Fire the module loaded event

@@ -692,10 +692,10 @@ public partial class ManagedDebugger
 		var frameStackDepth = new FrameStackDepth(0);
 		var (friendlyTypeName, _, _, _) = await GetValueForCorDebugValueAsync(currentException, threadId, frameStackDepth, false);
 
-		var (_, hResult, _, _) = await GetValueForCorDebugValueAsync((await currentException.GetPropertyValue(_callbacks, EvalStatus, (ICorDebugILFrame)thread.ActiveFrame, "HResult"))!, threadId, frameStackDepth, false);
-		var (_, source, _, _) = await GetValueForCorDebugValueAsync((await currentException.GetPropertyValue(_callbacks, EvalStatus, (ICorDebugILFrame)thread.ActiveFrame, "Source"))!, threadId, frameStackDepth, false);
-		var (_, message, _, _) = await GetValueForCorDebugValueAsync((await currentException.GetPropertyValue(_callbacks, EvalStatus, (ICorDebugILFrame)thread.ActiveFrame, "Message"))!, threadId, frameStackDepth, false);
-		var (_, stackTrace, _, _) = await GetValueForCorDebugValueAsync((await currentException.GetPropertyValue(_callbacks, EvalStatus, (ICorDebugILFrame)thread.ActiveFrame, "StackTrace"))!, threadId, frameStackDepth, false);
+		var (_, hResult, _, _) = await GetValueForCorDebugValueAsync((await currentException.GetPropertyValue(ProcessRuntimeEventsUntilEvalEvent, EvalStatus, (ICorDebugILFrame)thread.ActiveFrame, "HResult"))!, threadId, frameStackDepth, false);
+		var (_, source, _, _) = await GetValueForCorDebugValueAsync((await currentException.GetPropertyValue(ProcessRuntimeEventsUntilEvalEvent, EvalStatus, (ICorDebugILFrame)thread.ActiveFrame, "Source"))!, threadId, frameStackDepth, false);
+		var (_, message, _, _) = await GetValueForCorDebugValueAsync((await currentException.GetPropertyValue(ProcessRuntimeEventsUntilEvalEvent, EvalStatus, (ICorDebugILFrame)thread.ActiveFrame, "Message"))!, threadId, frameStackDepth, false);
+		var (_, stackTrace, _, _) = await GetValueForCorDebugValueAsync((await currentException.GetPropertyValue(ProcessRuntimeEventsUntilEvalEvent, EvalStatus, (ICorDebugILFrame)thread.ActiveFrame, "StackTrace"))!, threadId, frameStackDepth, false);
 
 		var typeNameSpan = friendlyTypeName.AsSpan();
 		var lastDot = typeNameSpan.LastIndexOf('.');

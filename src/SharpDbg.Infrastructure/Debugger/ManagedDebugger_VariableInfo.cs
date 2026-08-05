@@ -320,7 +320,7 @@ public partial class ManagedDebugger
 				}
 
 				var objectValue = corDebugValue.UnwrapDebugValueToObject();
-				var fieldCorDebugValue = isStatic ? await corDebugType.GetStaticFieldValueAsync(_callbacks, EvalStatus, mdFieldDef, GetFrameForThreadIdAndStackDepth(threadId, stackDepth)) : objectValue.GetFieldValue(corDebugClass, mdFieldDef);
+				var fieldCorDebugValue = isStatic ? await corDebugType.GetStaticFieldValueAsync(ProcessRuntimeEventsUntilEvalEvent, EvalStatus, mdFieldDef, GetFrameForThreadIdAndStackDepth(threadId, stackDepth)) : objectValue.GetFieldValue(corDebugClass, mdFieldDef);
 				if (debuggerBrowsableRootHidden)
 				{
 					var unwrappedDebugValue = fieldCorDebugValue.UnwrapDebugValue();
@@ -388,7 +388,7 @@ public partial class ManagedDebugger
 				// For instance properties, pass the object; for static, pass nothing
 				ICorDebugValue[] corDebugValues = isStatic ? [] : [corDebugValue];
 
-				var returnValue = await eval.CallParameterizedFunctionAsync(_callbacks, EvalStatus, getMethod, typeParameterTypes.Length, typeParameterTypes, corDebugValues.Length, corDebugValues);
+				var returnValue = await eval.CallParameterizedFunctionAsync(ProcessRuntimeEventsUntilEvalEvent, EvalStatus, getMethod, typeParameterTypes.Length, typeParameterTypes, corDebugValues.Length, corDebugValues);
 
 				if (returnValue is null) return;
 				if (debuggerBrowsableRootHidden)

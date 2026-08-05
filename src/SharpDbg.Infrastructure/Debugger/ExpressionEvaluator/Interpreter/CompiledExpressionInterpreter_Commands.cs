@@ -163,7 +163,7 @@ public partial class CompiledExpressionInterpreter
 		entry.ResetEntry();
 		var eval = _context.Thread.CreateEval();
 		var result = await eval.CallParameterizedFunctionAsync(
-			_debuggerManagedCallback,
+			_debugger.ProcessRuntimeEventsUntilEvalEvent,
 			_debugger.EvalStatus,
 			function,
 			typeArgs.Count,
@@ -333,7 +333,7 @@ public partial class CompiledExpressionInterpreter
 		var corDebugFunction = _debugger.FindMethodOnType(value.ExactType, "ToString", [], false, true);
 		if (corDebugFunction is null) throw new InvalidOperationException("ToString method not found");
 		var eval = _context.Thread.CreateEval();
-		var result = await eval.CallParameterlessInstanceMethodAsync(_debuggerManagedCallback, _debugger.EvalStatus, corDebugFunction, value);
+		var result = await eval.CallParameterlessInstanceMethodAsync(_debugger.ProcessRuntimeEventsUntilEvalEvent, _debugger.EvalStatus, corDebugFunction, value);
 		var unwrappedResult = result!.UnwrapDebugValue();
 		if (unwrappedResult is not ICorDebugStringValue stringValue) throw new InvalidOperationException("ToString did not return a string");
 
@@ -486,7 +486,7 @@ public partial class CompiledExpressionInterpreter
 			var typeArguments = setterData.OwnerValue.ExactType.TypeParameters;
 			var eval = _context.Thread.CreateEval();
 			await eval.CallParameterizedFunctionAsync(
-				_debuggerManagedCallback,
+				_debugger.ProcessRuntimeEventsUntilEvalEvent,
 				_debugger.EvalStatus,
 				setterData.SetterFunction,
 				typeArguments.Length,

@@ -190,7 +190,7 @@ public partial class ManagedDebugger
 		var fieldValue = unwrappedThisValue.GetClassFieldValue(frame, identifier);
 		if (fieldValue is not null) return (fieldValue, null);
 
-		var property = await instanceMethodImplicitThisValue.GetPropertyValueWithSetter(_callbacks, EvalStatus, frame, identifier);
+		var property = await instanceMethodImplicitThisValue.GetPropertyValueWithSetter(ProcessRuntimeEventsUntilEvalEvent, EvalStatus, frame, identifier);
 		if (property is not null)
 		{
 			return (property.Value.Value, new SetterData
@@ -235,7 +235,7 @@ public partial class ManagedDebugger
 	{
 		var ilFrame = GetFrameForThreadIdAndStackDepth(threadId, stackDepth);
 		var eval = ilFrame.Chain.Thread.CreateEval();
-		var value = await eval.NewParameterizedObjectNoConstructorAsync(_callbacks, EvalStatus, corDebugClass, genericTypeArguments.Length, genericTypeArguments);
+		var value = await eval.NewParameterizedObjectNoConstructorAsync(ProcessRuntimeEventsUntilEvalEvent, EvalStatus, corDebugClass, genericTypeArguments.Length, genericTypeArguments);
 		return value;
 	}
 

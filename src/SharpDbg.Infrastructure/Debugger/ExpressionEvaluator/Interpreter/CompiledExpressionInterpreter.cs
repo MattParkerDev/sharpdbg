@@ -4,10 +4,9 @@ using SharpDbg.Infrastructure.Debugger.ExpressionEvaluator.Compiler;
 
 namespace SharpDbg.Infrastructure.Debugger.ExpressionEvaluator.Interpreter;
 
-public partial class CompiledExpressionInterpreter(RuntimeAssemblyPrimitiveTypeClasses runtimeAssemblyPrimitiveTypeClasses, CorDebugManagedCallback debuggerManagedCallback, ManagedDebugger debugger)
+public partial class CompiledExpressionInterpreter(RuntimeAssemblyPrimitiveTypeClasses runtimeAssemblyPrimitiveTypeClasses, ManagedDebugger debugger)
 {
 	private readonly ManagedDebugger _debugger = debugger;
-	private readonly CorDebugManagedCallback _debuggerManagedCallback = debuggerManagedCallback;
 	private readonly RuntimeAssemblyPrimitiveTypeClasses _runtimeAssemblyPrimitiveTypeClasses = runtimeAssemblyPrimitiveTypeClasses;
 
 	private CompiledExpressionEvaluationContext _context = null!;

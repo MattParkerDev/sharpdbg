@@ -10,6 +10,7 @@ public class AnotherClass
 		var myResult = myList
 			.Where(s => s is 4)
 			.ToList();
+		var myResult2 = myList.ToList();
 		return myResult;
 	}
 

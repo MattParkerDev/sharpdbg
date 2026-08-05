@@ -58,13 +58,13 @@ public class AsyncStepTests(ITestOutputHelper testOutputHelper)
 		var stoppedEvent6 = await debugProtocolHost.WithStepInRequest(stoppedEvent5.ThreadId!.Value).WaitForStoppedEvent(debugEventTcs);
 		var stopInfo6 = stoppedEvent6.ReadStopInfo();
 		stopInfo6.filePath.Should().EndWith("AnotherClass.cs");
-		stopInfo6.line.Should().Be(17);
+		stopInfo6.line.Should().Be(18);
 
 		// step over
 		var stoppedEvent7 = await debugProtocolHost.WithStepInRequest(stoppedEvent5.ThreadId!.Value).WaitForStoppedEvent(debugEventTcs);
 		var stopInfo7 = stoppedEvent7.ReadStopInfo();
 		stopInfo7.filePath.Should().EndWith("AnotherClass.cs");
-		stopInfo7.line.Should().Be(18);
+		stopInfo7.line.Should().Be(19);
 
 		// step out of an async await method
 		// if JMC is enabled, this lands us on the line after the invocation of the async method (ie line 14)
@@ -84,7 +84,7 @@ public class AsyncStepTests(ITestOutputHelper testOutputHelper)
 		var stoppedEvent10 = await debugProtocolHost.WithStepInRequest(stoppedEvent5.ThreadId!.Value).WaitForStoppedEvent(debugEventTcs);
 		var stopInfo10 = stoppedEvent10.ReadStopInfo();
 		stopInfo10.filePath.Should().EndWith("AnotherClass.cs");
-		stopInfo10.line.Should().Be(24);
+		stopInfo10.line.Should().Be(25);
 
 		// step out of async void method
 		var stoppedEvent11 = await debugProtocolHost.WithStepOutRequest(stoppedEvent5.ThreadId!.Value).WaitForStoppedEvent(debugEventTcs);

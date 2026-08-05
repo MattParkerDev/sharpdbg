@@ -53,7 +53,7 @@ public class AsyncVariablesTests(ITestOutputHelper testOutputHelper)
 		var stoppedEvent2 = await debugProtocolHost.WithStepInRequest(stoppedEvent.ThreadId!.Value).WaitForStoppedEvent(debugEventTcs);
 		var stopInfo = stoppedEvent2.ReadStopInfo();
 		stopInfo.filePath.Should().EndWith("AnotherClass.cs");
-		stopInfo.line.Should().Be(17);
+		stopInfo.line.Should().Be(18);
 
 		debugProtocolHost
 			.WithStackTraceRequest(stoppedEvent.ThreadId!.Value, out var stackTraceResponse2)

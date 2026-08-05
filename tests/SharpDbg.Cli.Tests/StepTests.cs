@@ -75,11 +75,11 @@ public class StepTests(ITestOutputHelper testOutputHelper)
 		stopInfo8.filePath.Should().EndWith("AnotherClass.cs");
 		stopInfo8.line.Should().Be(13);
 
-		// ensure that we do not receive stop info with no source
+		// ensure that we do not receive stop info with no source. StepIn with JMC false, landing in non-user code, continues and stops at the next user code
 		var stoppedEvent9 = await debugProtocolHost.WithStepInRequest(stoppedEvent.ThreadId!.Value).WaitForStoppedEvent(debugEventTcs);
 		var stopInfo9 = stoppedEvent9.ReadStopInfo();
 		stopInfo9.filePath.Should().EndWith("AnotherClass.cs");
-		stopInfo9.line.Should().Be(13);
+		stopInfo9.line.Should().Be(14);
 
 		List<int> threadIds = [stoppedEvent.ThreadId!.Value, stoppedEvent2.ThreadId!.Value, stoppedEvent3.ThreadId!.Value, stoppedEvent4.ThreadId!.Value, stoppedEvent5.ThreadId!.Value, stoppedEvent6.ThreadId!.Value, stoppedEvent7.ThreadId!.Value, stoppedEvent8.ThreadId!.Value, stoppedEvent9.ThreadId!.Value];
 		threadIds.Distinct().Should().HaveCount(1);

@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Runtime.InteropServices;
+using System.Threading.Channels;
 using Ardalis.GuardClauses;
 using ICorDebugSharp;
 using SharpDbg.Infrastructure.Debugger.ExpressionEvaluator;
@@ -47,6 +48,9 @@ public partial class ManagedDebugger
 
 	public EvalStatus EvalStatus { get; }
 
+	private Task? _runtimeEventCallbackProcessing;
+	private readonly Channel<CorDebugManagedCallbackEventArgs> _runtimeEventChannel;
+
 	public ManagedDebugger(Action<string>? logger = null)
 	{
 		_logger = logger;
@@ -56,12 +60,31 @@ public partial class ManagedDebugger
 		_callbacks = new CorDebugManagedCallback();
 		EvalStatus = new EvalStatus();
 		_asyncStepper = new AsyncStepper(_modules, _callbacks, this);
-
-		// Subscribe to callback events
-		_callbacks.OnAnyEvent += OnAnyEvent;
+		_runtimeEventChannel = Channel.CreateUnbounded<CorDebugManagedCallbackEventArgs>(new UnboundedChannelOptions
+		{
+			SingleReader = true,
+			SingleWriter = true
+		});
+		_callbacks.OnAnyEvent += QueueEvent;
+		_runtimeEventCallbackProcessing = Task.Run(ProcessRuntimeEventQueue);
 	}
 
-	private async void OnAnyEvent(object? sender, CorDebugManagedCallbackEventArgs e)
+	private void QueueEvent(object? sender, CorDebugManagedCallbackEventArgs e)
+	{
+		_runtimeEventChannel.Writer.TryWrite(e);
+	}
+
+	private async Task ProcessRuntimeEventQueue()
+	{
+		var reader = _runtimeEventChannel.Reader;
+		while (await reader.WaitToReadAsync())
+		{
+			if (reader.TryRead(out var callbackEvent) is false) throw new InvalidOperationException();
+			await OnAnyEvent(this, callbackEvent).ConfigureAwait(false);
+		}
+	}
+
+	private async Task OnAnyEvent(object? sender, CorDebugManagedCallbackEventArgs e)
 	{
 		try
 		{
@@ -382,7 +405,9 @@ public partial class ManagedDebugger
 		_frameReferenceManager.Clear();
 
 		// Unsubscribe from callbacks to avoid any further event dispatch
-		_callbacks.OnAnyEvent -= OnAnyEvent;
+		_callbacks.OnAnyEvent -= QueueEvent;
+		_runtimeEventChannel.Writer.Complete();
+		_runtimeEventCallbackProcessing?.GetAwaiter().GetResult();
 
 		// Detach from the process
 		_process?.TryDetach();

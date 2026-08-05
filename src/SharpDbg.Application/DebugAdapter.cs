@@ -37,24 +37,60 @@ public class DebugAdapter : DebugAdapterBase
 		InitializeProtocolClient(input, output);
 	}
 
-	private static async Task<T> ExecuteWithDebuggerProcessingLockAsync<T>(Func<Task<T>> func)
+	private async Task<T> ExecuteWithExceptionHandling<T>(Func<T> func)
 	{
-		return await func().ConfigureAwait(false);
+		try
+		{
+			using (await _debugger.DapRequestAndRuntimeEventLock.LockAsync())
+			{
+				await _debugger.DrainRuntimeEventQueue();
+				return func();
+			}
+		}
+		catch (ProtocolException)
+		{
+			throw;
+		}
+		catch (Exception ex)
+		{
+			throw new ProtocolException(ex.Message, ex);
+		}
 	}
 
-	private static async Task ExecuteWithDebuggerProcessingLockAsync(Func<Task> func)
+	private async Task<T> ExecuteWithDebuggerProcessingLockAsync<T>(Func<Task<T>> func)
 	{
-		await func().ConfigureAwait(false);
+		using (await _debugger.DapRequestAndRuntimeEventLock.LockAsync())
+		{
+			await _debugger.DrainRuntimeEventQueue();
+			return await func().ConfigureAwait(false);
+		}
 	}
 
-	private static async Task<T> ExecuteWithDebuggerProcessingLockAsync<T>(Func<T> func)
+	private async Task ExecuteWithDebuggerProcessingLockAsync(Func<Task> func)
 	{
-		return func();
+		using (await _debugger.DapRequestAndRuntimeEventLock.LockAsync())
+		{
+			await _debugger.DrainRuntimeEventQueue();
+			await func().ConfigureAwait(false);
+		}
 	}
 
-	private static async Task ExecuteWithDebuggerProcessingLockAsync(Action func)
+	private async Task<T> ExecuteWithDebuggerProcessingLockAsync<T>(Func<T> func)
 	{
-		func();
+		using (await _debugger.DapRequestAndRuntimeEventLock.LockAsync())
+		{
+			await _debugger.DrainRuntimeEventQueue();
+			return func();
+		}
+	}
+
+	private async Task ExecuteWithDebuggerProcessingLockAsync(Action func)
+	{
+		using (await _debugger.DapRequestAndRuntimeEventLock.LockAsync())
+		{
+			await _debugger.DrainRuntimeEventQueue();
+			func();
+		}
 	}
 
 	// Helper method to extract configuration properties from LaunchArguments/AttachArguments

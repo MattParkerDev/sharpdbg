@@ -3,6 +3,7 @@ using System.Runtime.InteropServices;
 using System.Threading.Channels;
 using Ardalis.GuardClauses;
 using ICorDebugSharp;
+using NeoSmart.AsyncLock;
 using SharpDbg.Infrastructure.Debugger.ExpressionEvaluator;
 using SharpDbg.Infrastructure.Debugger.ExpressionEvaluator.Compiler;
 using SharpDbg.Infrastructure.Debugger.ExpressionEvaluator.Interpreter;
@@ -50,6 +51,7 @@ public partial class ManagedDebugger
 
 	private Task? _runtimeEventCallbackProcessing;
 	private readonly Channel<CorDebugManagedCallbackEventArgs> _runtimeEventChannel;
+	public readonly AsyncLock DapRequestAndRuntimeEventLock = new();
 
 	public ManagedDebugger(Action<string>? logger = null)
 	{
@@ -62,7 +64,7 @@ public partial class ManagedDebugger
 		_asyncStepper = new AsyncStepper(_modules, _callbacks, this);
 		_runtimeEventChannel = Channel.CreateUnbounded<CorDebugManagedCallbackEventArgs>(new UnboundedChannelOptions
 		{
-			SingleReader = true,
+			SingleReader = false,
 			SingleWriter = true
 		});
 		_callbacks.OnAnyEvent += QueueEvent;
@@ -74,13 +76,31 @@ public partial class ManagedDebugger
 		_runtimeEventChannel.Writer.TryWrite(e);
 	}
 
+	public async Task DrainRuntimeEventQueue()
+	{
+		// Caller should have obtained this lock, and we are re-entrant here
+		using (await DapRequestAndRuntimeEventLock.LockAsync())
+		{
+			var reader = _runtimeEventChannel.Reader;
+			// Process all immediately available events
+			while (reader.TryRead(out var callbackEvent))
+			{
+				await OnAnyEvent(this, callbackEvent).ConfigureAwait(false);
+			}
+		}
+	}
+
 	private async Task ProcessRuntimeEventQueue()
 	{
 		var reader = _runtimeEventChannel.Reader;
 		while (await reader.WaitToReadAsync())
 		{
-			if (reader.TryRead(out var callbackEvent) is false) throw new InvalidOperationException();
-			await OnAnyEvent(this, callbackEvent).ConfigureAwait(false);
+			// If a Dap request has obtained the lock, we will pause here. It will drain runtime events, and our TryRead may return false, which is fine
+			using (await DapRequestAndRuntimeEventLock.LockAsync())
+			{
+				if (reader.TryRead(out var callbackEvent) is false) continue;
+				await OnAnyEvent(this, callbackEvent).ConfigureAwait(false);
+			}
 		}
 	}
 

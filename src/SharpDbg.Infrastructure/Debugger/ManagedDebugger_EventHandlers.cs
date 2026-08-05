@@ -73,15 +73,21 @@ public partial class ManagedDebugger
 			_logger?.Invoke($"  Error loading symbols for {moduleName}: {ex.Message}");
 		}
 
-		// EnC is enabled for assemblies/projects that are authored by the user, so we can use it as a heuristic to determine if this is user code or system code.
-		var isUserCode = corModule.JITCompilerFlags is CorDebugJITCompilerFlags.CORDEBUG_JIT_DISABLE_OPTIMIZATION or CorDebugJITCompilerFlags.CORDEBUG_JIT_ENABLE_ENC;
-
 		if (metadataReader is null)
 		{
 			_logger?.Invoke($"  Module metadata unavailable for {moduleName}");
 			Continue();
 			return;
 		}
+
+		// EnC is enabled for assemblies/projects that are authored by the user, so we can use it as a heuristic to determine if this is user code or system code.
+		var isUserCode = corModule.JITCompilerFlags is CorDebugJITCompilerFlags.CORDEBUG_JIT_DISABLE_OPTIMIZATION or CorDebugJITCompilerFlags.CORDEBUG_JIT_ENABLE_ENC;
+		if (_justMyCode && isUserCode && metadataReader.HasSymbols)
+		{
+			// JMC Status starts as false
+			corModule.SetJMCStatus(true, 0, []);
+		}
+
 		var moduleInfo = new ModuleInfo(corModule, modulePath, metadataReader, isUserCode);
 		_modules[baseAddress] = moduleInfo;
 

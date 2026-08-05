@@ -227,7 +227,7 @@ public partial class ManagedDebugger
 		ICorDebugStepper stepper = frame.CreateStepper();
 		stepper.SetInterceptMask(CorDebugIntercept.INTERCEPT_ALL & ~(CorDebugIntercept.INTERCEPT_SECURITY | CorDebugIntercept.INTERCEPT_CLASS_INIT));
 		stepper.SetUnmappedStopMask(CorDebugUnmappedStop.STOP_NONE);
-		//stepper.SetJMC(true);
+		if (_justMyCode) stepper.SetJMC(true);
 
 		if (stepType == AsyncStepper.StepType.StepOut)
 		{

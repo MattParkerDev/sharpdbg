@@ -186,7 +186,6 @@ public partial class ManagedDebugger
 	{
 		_logger?.Invoke("Continue");
 		ContinueWithVariableClearAllowSuperfluousContinue();
-		if (_process!.IsRunning is false) throw new InvalidOperationException("DAP called Continue, but process is still stopped. Must be queued callbacks, please raise an issue on SharpDbg.");
 	}
 
 	private void ContinueWithVariableClearAllowSuperfluousContinue()

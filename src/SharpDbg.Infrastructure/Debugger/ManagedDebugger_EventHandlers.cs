@@ -116,6 +116,12 @@ public partial class ManagedDebugger
 		var breakpoint = breakpointCorDebugManagedCallbackEventArgs.Breakpoint;
 		ArgumentNullException.ThrowIfNull(breakpoint);
 
+		if (EvalStatus.IsRunning)
+		{
+			Continue();
+			return;
+		}
+
 		if (_stepper is not null)
 		{
 			// We have hit a breakpoint. If _stepper is not null, it means we have hit a breakpoint during an in progress step.

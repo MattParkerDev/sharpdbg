@@ -174,46 +174,28 @@ public static class Extensions
 			e => e.Eval.Result))!;
 	}
 
-	private static async Task<ICorDebugValue?> RunEvalAsync(ICorDebugEval eval, CorDebugManagedCallback managedCallback, EvalStatus evalStatus, Action startEval, Func<EvalCompleteCorDebugManagedCallbackEventArgs, ICorDebugValue?> onComplete)
+	private static async Task<ICorDebugValue?> RunEvalAsync(ICorDebugEval eval, Func<Task<CorDebugManagedCallbackEventArgs>> processEventsUntilEvalEventFunc, EvalStatus evalStatus, Action startEval, Func<EvalCompleteCorDebugManagedCallbackEventArgs, ICorDebugValue?> onComplete)
 	{
 		ICorDebugValue? returnValue = null;
-		var evalCompleteTcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-		try
-		{
-			startEval();
 
-			managedCallback.OnEvalComplete += OnEvalComplete;
-			managedCallback.OnEvalException += OnEvalException;
+		startEval();
 
-			evalStatus.IsRunning = true;
-			eval.Thread.Process.Continue(false);
-			await evalCompleteTcs.Task;
-			return returnValue;
-		}
-		finally
+		evalStatus.IsRunning = true;
+		eval.Thread.Process.Continue(false);
+		var evalEvent = await processEventsUntilEvalEventFunc();
+		evalStatus.IsRunning = false;
+		if (evalEvent is EvalCompleteCorDebugManagedCallbackEventArgs completeEvent)
 		{
-			evalStatus.IsRunning = false;
-			managedCallback.OnEvalComplete -= OnEvalComplete;
-			managedCallback.OnEvalException -= OnEvalException;
+			if (completeEvent.Eval != eval) throw new ManagedDebugger.EvalException("EvalComplete callback error - Eval does not match");
+			returnValue = onComplete(completeEvent);
 		}
-		void OnEvalComplete(object? s, EvalCompleteCorDebugManagedCallbackEventArgs e)
+		else if (evalEvent is EvalExceptionCorDebugManagedCallbackEventArgs exceptionEvent)
 		{
-			if (e.Eval != eval) return;
-			returnValue = onComplete(e);
-			evalCompleteTcs.SetResult();
+			if (exceptionEvent.Eval != eval) throw new ManagedDebugger.EvalException("EvalException callback error - Eval does not match");
+			if (exceptionEvent.Eval.Result is null) throw new ManagedDebugger.EvalException("EvalException callback error - Result is null");
+			returnValue = exceptionEvent.Eval.Result;
 		}
-		void OnEvalException(object? sender, EvalExceptionCorDebugManagedCallbackEventArgs e)
-		{
-			if (e.Eval != eval) return;
-			if (e.Eval.Result is null)
-			{
-				evalCompleteTcs.SetException(new ManagedDebugger.EvalException("EvalException callback error - Result is null"));
-				return;
-			}
-
-			returnValue = e.Eval.Result;
-			evalCompleteTcs.SetResult();
-		}
+		return returnValue;
 	}
 
 	public static ICorDebugValue NewBooleanValue(this ICorDebugEval eval, bool value)

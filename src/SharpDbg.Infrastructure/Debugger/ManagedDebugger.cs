@@ -104,6 +104,21 @@ public partial class ManagedDebugger
 		}
 	}
 
+	internal async Task<CorDebugManagedCallbackEventArgs> ProcessRuntimeEventsUntilEvalEvent()
+	{
+		var reader = _runtimeEventChannel.Reader;
+		while (await reader.WaitToReadAsync())
+		{
+			if (reader.TryRead(out var callbackEvent) is false) throw new InvalidOperationException("Expected to read an event from the runtime event queue, but none was available");
+			await OnAnyEvent(this, callbackEvent).ConfigureAwait(false);
+			if (callbackEvent is EvalCompleteCorDebugManagedCallbackEventArgs or EvalExceptionCorDebugManagedCallbackEventArgs)
+			{
+				return callbackEvent;
+			}
+		}
+		throw new InvalidOperationException("Expected to read an eval event from the runtime event queue, but Channel completed unexpectedly");
+	}
+
 	private async Task OnAnyEvent(object? sender, CorDebugManagedCallbackEventArgs e)
 	{
 		try

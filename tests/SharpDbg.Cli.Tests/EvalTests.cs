@@ -135,5 +135,7 @@ public class EvalTests(ITestOutputHelper testOutputHelper)
 		evaluateResponse39.VariablesReference.Should().BePositive();
 		debugProtocolHost.WithVariablesRequest(evaluateResponse39.VariablesReference, out var variablesResponse39);
 		variablesResponse39.Should().HaveCount(3);
+		debugProtocolHost.WithEvaluateRequest(stackFrameId, "structVar.ExtensionMethod()", out var evaluateResponse40);
+		evaluateResponse40.Result.Should().Be("5");
 	}
 }

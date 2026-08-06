@@ -101,7 +101,7 @@ public partial class ManagedDebugger
 		public static CorElementTypeSignatureProvider Instance { get; } = new();
 
 		public CorElementType GetArrayType(CorElementType elementType, ArrayShape shape) => CorElementType.ARRAY;
-		public CorElementType GetByReferenceType(CorElementType elementType) => CorElementType.BYREF;
+		public CorElementType GetByReferenceType(CorElementType elementType) => elementType;
 		public CorElementType GetFunctionPointerType(MethodSignature<CorElementType> signature) => CorElementType.FNPTR;
 		public CorElementType GetGenericInstantiation(CorElementType genericType, ImmutableArray<CorElementType> typeArguments) => CorElementType.GENERICINST;
 		public CorElementType GetGenericMethodParameter(object? genericContext, int index) => CorElementType.MVAR;

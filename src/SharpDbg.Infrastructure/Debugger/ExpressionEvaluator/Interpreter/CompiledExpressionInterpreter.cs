@@ -59,6 +59,10 @@ public partial class CompiledExpressionInterpreter(RuntimeAssemblyPrimitiveTypeC
 	{
 		switch (command.OpCode)
 		{
+			case eOpCode.Argument:
+				if (evalStack.First is null) throw new InvalidOperationException("Argument command with empty evaluation stack");
+				evalStack.First.Value.IsByRefArgument = true;
+				break;
 			case eOpCode.IdentifierName: await IdentifierName((command as OneOperandCommand)!, evalStack); break;
 			case eOpCode.GenericName: await GenericName((command as TwoOperandCommand)!, evalStack); break;
 			case eOpCode.InvocationExpression: await InvocationExpression((command as OneOperandCommand)!, evalStack); break;

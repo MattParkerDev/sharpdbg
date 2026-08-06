@@ -10,6 +10,7 @@ public class EvalStackEntry
 	public bool Literal { get; set; }
 	public bool Editable { get; set; }
 	public bool PreventBinding { get; set; }
+	public bool IsByRefArgument { get; set; }
 
 	public void ResetEntry()
 	{
@@ -17,6 +18,7 @@ public class EvalStackEntry
 		Identifiers.Clear();
 		GenericTypeCache = null;
 		Literal = false;
+		IsByRefArgument = false;
 	}
 
 	public void ResetEntry(ResetLiteralStatus resetLiteral)

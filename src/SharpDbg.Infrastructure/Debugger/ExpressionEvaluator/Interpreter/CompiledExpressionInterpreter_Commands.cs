@@ -58,9 +58,12 @@ public partial class CompiledExpressionInterpreter
 			throw new ArgumentException("Invalid argument count");
 
 		var args = new ICorDebugValue[argCount];
+		var argsByRef = new bool[argCount];
 		for (var i = argCount - 1; i >= 0; i--)
 		{
+			var argEntry = evalStack.First!.Value;
 			args[i] = await GetFrontStackEntryValue(evalStack);
+			argsByRef[i] = argEntry.IsByRefArgument;
 			evalStack.RemoveFirst();
 		}
 
@@ -115,7 +118,7 @@ public partial class CompiledExpressionInterpreter
 		if (objType is null) throw new InvalidOperationException("Could not resolve target type for method invocation");
 
 		ICorDebugFunction? function = null;
-		function = _debugger.FindMethodOnType(objType, methodName, args, targetIsType, idsEmpty);
+		function = _debugger.FindMethodOnType(objType, methodName, args, targetIsType, idsEmpty, argsByRef);
 
 		if (function is null)
 		{

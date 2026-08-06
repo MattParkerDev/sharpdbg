@@ -12,7 +12,8 @@ public partial class ManagedDebugger
 		string methodName,
 		ICorDebugValue[] args,
 		bool searchStatic,
-		bool idsEmpty)
+		bool idsEmpty,
+		bool[]? argsByRef = null)
 	{
 		var typeClass = type.Class;
 		var module = typeClass.Module;
@@ -27,26 +28,26 @@ public partial class ManagedDebugger
 			if ((searchStatic && !isStatic) || (!searchStatic && isStatic && !idsEmpty)) continue;
 
 			var method = module.GetFunctionFromToken(methodToken);
-			if (IsMethodParameterMatch(method, args)) return method;
+			if (IsMethodParameterMatch(method, args, argsByRef)) return method;
 		}
 
 		var baseType = type.Base;
 		if (baseType is not null)
 		{
-			var baseMethod = FindMethodOnType(baseType, methodName, args, searchStatic, idsEmpty);
+			var baseMethod = FindMethodOnType(baseType, methodName, args, searchStatic, idsEmpty, argsByRef);
 			if (baseMethod is not null) return baseMethod;
 		}
 
 		// Extension methods are declared on static classes, not the receiver type, so only look them up once instance member search has failed.
 		if (searchStatic is false)
 		{
-			return FindExtensionMethod(type, methodName, args);
+			return FindExtensionMethod(type, methodName, args, argsByRef);
 		}
 
 		return null;
 	}
 
-	private ICorDebugFunction? FindExtensionMethod(ICorDebugType receiverType, string methodName, ICorDebugValue[] args)
+	private ICorDebugFunction? FindExtensionMethod(ICorDebugType receiverType, string methodName, ICorDebugValue[] args, bool[]? argsByRef = null)
 	{
 		foreach (var moduleInfo in _modules.Values)
 		{
@@ -65,7 +66,7 @@ public partial class ManagedDebugger
 					if (metadataImport.HasAnyAttribute(methodToken, [AttributeConstants.ExtensionMethodAttributeName]) is false) continue;
 
 					var method = module.GetFunctionFromToken(methodToken);
-					if (IsMethodParameterMatch(method, args, receiverType.Type)) return method;
+					if (IsMethodParameterMatch(method, args, argsByRef, receiverType.Type)) return method;
 				}
 			}
 		}
@@ -74,7 +75,7 @@ public partial class ManagedDebugger
 	}
 
 
-	private bool IsMethodParameterMatch(ICorDebugFunction method, ICorDebugValue[] args, CorElementType? extensionReceiverType = null)
+	private bool IsMethodParameterMatch(ICorDebugFunction method, ICorDebugValue[] args, bool[]? argsByRef = null, CorElementType? extensionReceiverType = null)
 	{
 		var handle = MetadataTokens.Handle(method.Token);
 		if (handle.Kind is not HandleKind.MethodDefinition) return false;
@@ -85,33 +86,57 @@ public partial class ManagedDebugger
 		var expectedParameterCount = args.Length + (extensionReceiverType is not null ? 1 : 0);
 		if (parameterTypes.Length != expectedParameterCount) return false;
 
-		if (extensionReceiverType is not null && parameterTypes[0] != extensionReceiverType.Value) return false;
+		if (extensionReceiverType is not null && !parameterTypes[0].Equals(new ParameterType(extensionReceiverType.Value, isByRef: false))) return false;
 
 		for (var i = 0; i < args.Length; i++)
 		{
+			var parameterType = parameterTypes[i + (extensionReceiverType is not null ? 1 : 0)];
 			var argType = args[i].ExactType?.Type ?? args[i].Type;
-			if (parameterTypes[i + (extensionReceiverType is not null ? 1 : 0)] != argType) return false;
+			if (parameterType.ElementType != argType) return false;
+
+			var isByRefArg = argsByRef?[i] ?? false;
+			if (parameterType.IsByRef != isByRefArg) return false;
 		}
 
 		return true;
 	}
 
-	private sealed class CorElementTypeSignatureProvider : ISignatureTypeProvider<CorElementType, object?>
+	private readonly struct ParameterType : IEquatable<ParameterType>
+	{
+		public readonly CorElementType ElementType;
+		public readonly bool IsByRef;
+
+		public ParameterType(CorElementType elementType, bool isByRef)
+		{
+			ElementType = elementType;
+			IsByRef = isByRef;
+		}
+
+		public bool Equals(ParameterType other) => ElementType == other.ElementType && IsByRef == other.IsByRef;
+
+		public override bool Equals(object? obj) => obj is ParameterType other && Equals(other);
+
+		public override int GetHashCode() => HashCode.Combine(ElementType, IsByRef);
+	}
+
+	private sealed class CorElementTypeSignatureProvider : ISignatureTypeProvider<ParameterType, object?>
 	{
 		public static CorElementTypeSignatureProvider Instance { get; } = new();
 
-		public CorElementType GetArrayType(CorElementType elementType, ArrayShape shape) => CorElementType.ARRAY;
-		public CorElementType GetByReferenceType(CorElementType elementType) => elementType;
-		public CorElementType GetFunctionPointerType(MethodSignature<CorElementType> signature) => CorElementType.FNPTR;
-		public CorElementType GetGenericInstantiation(CorElementType genericType, ImmutableArray<CorElementType> typeArguments) => CorElementType.GENERICINST;
-		public CorElementType GetGenericMethodParameter(object? genericContext, int index) => CorElementType.MVAR;
-		public CorElementType GetGenericTypeParameter(object? genericContext, int index) => CorElementType.VAR;
-		public CorElementType GetModifiedType(CorElementType modifier, CorElementType unmodifiedType, bool isRequired) => unmodifiedType;
-		public CorElementType GetPinnedType(CorElementType elementType) => elementType;
-		public CorElementType GetPointerType(CorElementType elementType) => CorElementType.PTR;
-		public CorElementType GetSZArrayType(CorElementType elementType) => CorElementType.SZARRAY;
+		private static ParameterType ByValue(CorElementType elementType) => new(elementType, isByRef: false);
 
-		public CorElementType GetPrimitiveType(PrimitiveTypeCode typeCode) => typeCode switch
+		public ParameterType GetArrayType(ParameterType elementType, ArrayShape shape) => ByValue(CorElementType.ARRAY);
+		public ParameterType GetByReferenceType(ParameterType elementType) => new(elementType.ElementType, isByRef: true);
+		public ParameterType GetFunctionPointerType(MethodSignature<ParameterType> signature) => ByValue(CorElementType.FNPTR);
+		public ParameterType GetGenericInstantiation(ParameterType genericType, ImmutableArray<ParameterType> typeArguments) => ByValue(CorElementType.GENERICINST);
+		public ParameterType GetGenericMethodParameter(object? genericContext, int index) => ByValue(CorElementType.MVAR);
+		public ParameterType GetGenericTypeParameter(object? genericContext, int index) => ByValue(CorElementType.VAR);
+		public ParameterType GetModifiedType(ParameterType modifier, ParameterType unmodifiedType, bool isRequired) => unmodifiedType;
+		public ParameterType GetPinnedType(ParameterType elementType) => elementType;
+		public ParameterType GetPointerType(ParameterType elementType) => ByValue(CorElementType.PTR);
+		public ParameterType GetSZArrayType(ParameterType elementType) => ByValue(CorElementType.SZARRAY);
+
+		public ParameterType GetPrimitiveType(PrimitiveTypeCode typeCode) => ByValue(typeCode switch
 		{
 			PrimitiveTypeCode.Void => CorElementType.VOID,
 			PrimitiveTypeCode.Boolean => CorElementType.BOOLEAN,
@@ -132,15 +157,15 @@ public partial class ManagedDebugger
 			PrimitiveTypeCode.UIntPtr => CorElementType.U,
 			PrimitiveTypeCode.Object => CorElementType.OBJECT,
 			_ => CorElementType.END
-		};
+		});
 
-		public CorElementType GetTypeFromDefinition(MetadataReader reader, TypeDefinitionHandle handle, byte rawTypeKind) =>
-			rawTypeKind == (byte)SignatureTypeKind.ValueType ? CorElementType.VALUETYPE : CorElementType.CLASS;
+		public ParameterType GetTypeFromDefinition(MetadataReader reader, TypeDefinitionHandle handle, byte rawTypeKind) =>
+			ByValue(rawTypeKind == (byte)SignatureTypeKind.ValueType ? CorElementType.VALUETYPE : CorElementType.CLASS);
 
-		public CorElementType GetTypeFromReference(MetadataReader reader, TypeReferenceHandle handle, byte rawTypeKind) =>
-			rawTypeKind == (byte)SignatureTypeKind.ValueType ? CorElementType.VALUETYPE : CorElementType.CLASS;
+		public ParameterType GetTypeFromReference(MetadataReader reader, TypeReferenceHandle handle, byte rawTypeKind) =>
+			ByValue(rawTypeKind == (byte)SignatureTypeKind.ValueType ? CorElementType.VALUETYPE : CorElementType.CLASS);
 
-		public CorElementType GetTypeFromSpecification(MetadataReader reader, object? genericContext, TypeSpecificationHandle handle, byte rawTypeKind) =>
+		public ParameterType GetTypeFromSpecification(MetadataReader reader, object? genericContext, TypeSpecificationHandle handle, byte rawTypeKind) =>
 			reader.GetTypeSpecification(handle).DecodeSignature(this, genericContext);
 	}
 }

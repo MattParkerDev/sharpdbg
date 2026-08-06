@@ -1,6 +1,7 @@
 using Ardalis.GuardClauses;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 using static SharpDbg.Infrastructure.Debugger.ExpressionEvaluator.Compiler.CompilerConstants;
 
 namespace SharpDbg.Infrastructure.Debugger.ExpressionEvaluator.Compiler;
@@ -217,6 +218,14 @@ public class ExpressionSyntaxVisitor(List<CommandBase> commands, bool isDebugger
 					goto default;
 				// skip, in case of stack machine program creation we don't use this kinds directly
 				case SyntaxKind.Argument:
+					// Mark the argument just pushed onto the stack with its ref-kind (ref/out/in), so method
+					// resolution can enforce that byref parameters receive a ref/out/in argument.
+					if (node is ArgumentSyntax argument && argument.RefKindKeyword.Kind() is var refKindKeyword
+						&& refKindKeyword is SyntaxKind.RefKeyword or SyntaxKind.OutKeyword or SyntaxKind.InKeyword)
+					{
+						_commands.Add(new OneOperandCommand(nodeSyntaxKind, CurrentScopeFlags.Peek(), refKindKeyword));
+					}
+					break;
 				case SyntaxKind.Interpolation:
 				case SyntaxKind.BracketedArgumentList:
 				case SyntaxKind.ConditionalAccessExpression:

@@ -44,6 +44,7 @@ internal static class CompilerConstants
 
 	public static readonly Dictionary<SyntaxKind, eOpCode> KindAlias = new Dictionary<SyntaxKind, eOpCode>
 	{
+		{ SyntaxKind.Argument,                      eOpCode.Argument },
 		{ SyntaxKind.IdentifierName,                eOpCode.IdentifierName },
 		{ SyntaxKind.GenericName,                   eOpCode.GenericName },
 		{ SyntaxKind.InvocationExpression,          eOpCode.InvocationExpression },

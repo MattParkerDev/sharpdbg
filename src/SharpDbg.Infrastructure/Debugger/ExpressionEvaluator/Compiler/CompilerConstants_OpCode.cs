@@ -2,6 +2,7 @@ namespace SharpDbg.Infrastructure.Debugger.ExpressionEvaluator.Compiler;
 
 public enum eOpCode
 {
+	Argument,
 	IdentifierName,
 	GenericName,
 	InvocationExpression,

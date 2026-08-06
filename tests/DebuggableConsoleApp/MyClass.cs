@@ -50,6 +50,8 @@ public class MyClass : MyClassBase
 	private int DoubleNumber(int number) => number * 2;
 	private float DoubleNumber(float number) => number * 2;
 	private int TestMethod(int myInt, string myString) => myInt + myString.Length;
+
+	private int ByRefMethod(ref int myInt) => myInt * 2;
 }
 
 public class MyClass2

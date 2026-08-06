@@ -137,5 +137,8 @@ public class EvalTests(ITestOutputHelper testOutputHelper)
 		variablesResponse39.Should().HaveCount(3);
 		debugProtocolHost.WithEvaluateRequest(stackFrameId, "structVar.ExtensionMethod()", out var evaluateResponse40);
 		evaluateResponse40.Result.Should().Be("5");
+
+		debugProtocolHost.WithEvaluateRequest(stackFrameId, "ByRefMethod(ref myInt)", out var evaluateResponse41);
+		evaluateResponse41.Result.Should().Be("10");
 	}
 }

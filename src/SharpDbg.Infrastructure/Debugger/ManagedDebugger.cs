@@ -143,9 +143,7 @@ public partial class ManagedDebugger
 		catch (Exception ex)
 		{
 			_logger?.Invoke($"Error handling event {e.GetType().Name}: {ex}");
-			var isRunning = false;
-			_process?.TryIsRunning(out isRunning);
-			if (isRunning)
+			if (_process is not null && _process.TryIsRunning(out var isRunning) is Cor.S_OK && isRunning is false)
 			{
 				Continue();
 			}

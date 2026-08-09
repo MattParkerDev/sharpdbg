@@ -92,15 +92,23 @@ public partial class ManagedDebugger
 
 	private async Task ProcessRuntimeEventQueue()
 	{
-		var reader = _runtimeEventChannel.Reader;
-		while (await reader.WaitToReadAsync())
+		try
 		{
-			// If a Dap request has obtained the lock, we will pause here. It will drain runtime events, and our TryRead may return false, which is fine
-			using (await DapRequestAndRuntimeEventLock.LockAsync())
+			var reader = _runtimeEventChannel.Reader;
+			while (await reader.WaitToReadAsync())
 			{
-				if (reader.TryRead(out var callbackEvent) is false) continue;
-				await OnAnyEvent(this, callbackEvent).ConfigureAwait(false);
+				// If a Dap request has obtained the lock, we will pause here. It will drain runtime events, and our TryRead may return false, which is fine
+				using (await DapRequestAndRuntimeEventLock.LockAsync())
+				{
+					if (reader.TryRead(out var callbackEvent) is false) continue;
+					await OnAnyEvent(this, callbackEvent).ConfigureAwait(false);
+				}
 			}
+		}
+		catch (Exception e)
+		{
+			_logger?.Invoke($"Critical failure processing runtime event queue, no further events will be processed: {e}");
+			throw;
 		}
 	}
 

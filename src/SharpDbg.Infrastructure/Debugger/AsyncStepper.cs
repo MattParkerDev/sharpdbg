@@ -1,7 +1,6 @@
 using Ardalis.GuardClauses;
 using ICorDebugSharp;
 using NeoSmart.AsyncLock;
-using SharpDbg.Infrastructure.Debugger.ExpressionEvaluator.Interpreter;
 
 namespace SharpDbg.Infrastructure.Debugger;
 

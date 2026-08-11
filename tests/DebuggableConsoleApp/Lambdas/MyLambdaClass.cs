@@ -36,4 +36,19 @@ public class MyLambdaClass
 
 		return resultValue;
 	}
+
+	public int VariableShadowingMethod()
+	{
+		var value = 100;
+		Func<int, int> outerLambda = x =>
+		{
+			var outerLocal = x + value;
+			Func<int, int> innerLambda = value =>
+			{
+				return value + outerLocal;
+			};
+			return innerLambda(200) + outerLocal;
+		};
+		return outerLambda(3);
+	}
 }

@@ -13,6 +13,16 @@ public struct MyStruct
 {
 	public int Id;
 	public string Name;
+
+	public static MyStruct operator +(MyStruct left, MyStruct right) => new() { Id = left.Id + right.Id, Name = left.Name };
+	public static MyStruct operator +(int left, MyStruct right) => new() { Id = left + right.Id, Name = right.Name };
+	public static MyStruct operator -(MyStruct value) => new() { Id = -value.Id, Name = value.Name };
+
+	public static bool operator ==(MyStruct left, MyStruct right) => left.Id == right.Id && left.Name == right.Name;
+	public static bool operator !=(MyStruct left, MyStruct right) => !(left == right);
+	public override bool Equals(object? obj) => obj is MyStruct other && this == other;
+	public override int GetHashCode() => HashCode.Combine(Id, Name);
+	public int GetId() => Id;
 }
 
 public static class MyStructExtensions

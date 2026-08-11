@@ -9,7 +9,7 @@ public static class Program
 	{
 		Console.WriteLine("DebuggableConsoleApp is running");
 		Console.WriteLine("Log2");
-		var myLambdaClass = new MyLambdaClass();
+		var myLambdaClass = new MyLambdaClass();var myClassWithGenericMethod = new MyClassWithGenericMethod();
 		var myClass = new MyClass();
 		var myAsyncClass = new MyAsyncClass();
 		var myAsyncMethodEvalClass = new AsyncMethodEvalClass();
@@ -36,6 +36,8 @@ public static class Program
 			SameNamedClass.Test();
 			Namespace3.SameNamedClass.Test();
 			OverloadedMethodsClass.CallAllMethods();
+			myLambdaClass.VariableShadowingMethod();
+			myClassWithGenericMethod.Test(4);
 			Thread.Sleep(100);
 			//await Task.Delay(500);
 		}

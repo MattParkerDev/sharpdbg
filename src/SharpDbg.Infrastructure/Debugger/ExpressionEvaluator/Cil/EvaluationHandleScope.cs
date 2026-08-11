@@ -2,6 +2,7 @@ using ICorDebugSharp;
 
 namespace SharpDbg.Infrastructure.Debugger.ExpressionEvaluator.Cil;
 
+// 🤖
 internal sealed class EvaluationHandleScope : IDisposable
 {
 	private readonly HashSet<ICorDebugHandleValue> _handles = new(ReferenceEqualityComparer.Instance);

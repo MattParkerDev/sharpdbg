@@ -3,6 +3,7 @@ using SharpDbg.Infrastructure.Debugger.ExpressionEvaluator.Compiler;
 
 namespace SharpDbg.Infrastructure.Debugger.ExpressionEvaluator.Cil;
 
+// 🤖
 internal sealed class CilExpressionEvaluator(RuntimeAssemblyPrimitiveTypeClasses primitiveTypes, ManagedDebugger debugger)
 {
 	private readonly CilExpressionCompiler _compiler = new(debugger);

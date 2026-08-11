@@ -18,29 +18,15 @@ internal readonly record struct ResolvedRuntimeField(ResolvedRuntimeType Declari
 	public mdFieldDef Token => (mdFieldDef)MetadataTokens.GetToken(Handle);
 }
 
-internal readonly record struct ResolvedRuntimeMethod(
-	ResolvedRuntimeType DeclaringType,
-	MethodDefinitionHandle Handle,
-	string Name,
-	MethodSignature<string> Signature,
-	bool IsStatic,
-	ImmutableArray<ResolvedCilType> MethodTypeArguments = default)
+internal readonly record struct ResolvedRuntimeMethod(ResolvedRuntimeType DeclaringType, MethodDefinitionHandle Handle, string Name, MethodSignature<string> Signature, bool IsStatic, ImmutableArray<ResolvedCilType> MethodTypeArguments = default)
 {
 	public ICorDebugFunction Function => DeclaringType.Module.Module.GetFunctionFromToken((mdMethodDef)MetadataTokens.GetToken(Handle));
 }
 
-internal readonly record struct ResolvedEvaluationMethod(
-	MethodDefinitionHandle Handle,
-	MethodSignature<string> Signature,
-	bool IsStatic);
+internal readonly record struct ResolvedEvaluationMethod(MethodDefinitionHandle Handle, MethodSignature<string> Signature, bool IsStatic);
+internal sealed record ResolvedCilType(PrimitiveTypeCode? Primitive, ResolvedRuntimeType? RuntimeType, ResolvedCilType? ElementType = null, int ArrayRank = 0, bool IsSzArray = false);
 
-internal sealed record ResolvedCilType(
-	PrimitiveTypeCode? Primitive,
-	ResolvedRuntimeType? RuntimeType,
-	ResolvedCilType? ElementType = null,
-	int ArrayRank = 0,
-	bool IsSzArray = false);
-
+// 🤖
 internal sealed class EvaluationMetadataResolver(ManagedDebugger debugger, MetadataReader evaluationReader, PEReader evaluationPeReader, ICorDebugAppDomain appDomain, ICorDebugType[] typeGenericArguments, ICorDebugType[] methodGenericArguments, ModuleInfo? currentFrameModule)
 {
 	/// <summary>

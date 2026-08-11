@@ -3,6 +3,7 @@ using System.Reflection.Metadata;
 
 namespace SharpDbg.Infrastructure.Debugger.ExpressionEvaluator.Cil;
 
+// 🤖
 internal sealed class LocalCountSignatureProvider : ISignatureTypeProvider<object, object?>
 {
 	public static LocalCountSignatureProvider Instance { get; } = new();

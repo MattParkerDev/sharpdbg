@@ -65,6 +65,7 @@ internal sealed class CompiledEvaluationMethod : IDisposable
 	}
 }
 
+// 🤖
 internal sealed class CilExpressionCompiler(ManagedDebugger debugger)
 {
 	private static readonly PortableExecutableReference _intrinsicMethodsReference = MetadataReference.CreateFromImage(CreateIntrinsicMethodsAssembly());

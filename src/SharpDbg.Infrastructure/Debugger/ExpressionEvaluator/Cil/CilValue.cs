@@ -2,6 +2,7 @@ using ICorDebugSharp;
 
 namespace SharpDbg.Infrastructure.Debugger.ExpressionEvaluator.Cil;
 
+// 🤖
 internal sealed class CilValue
 {
 	private CilValue(object? value, ICorDebugValue? corValue, ICilLocation? location = null)

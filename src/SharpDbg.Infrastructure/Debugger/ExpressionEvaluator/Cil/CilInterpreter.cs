@@ -10,6 +10,7 @@ namespace SharpDbg.Infrastructure.Debugger.ExpressionEvaluator.Cil;
 
 internal readonly record struct CilInterpretationResult(ICorDebugValue Value, ICorDebugHandleValue? OwnedResultHandle);
 
+// 🤖
 internal sealed class CilInterpreter(ManagedDebugger debugger, RuntimeAssemblyPrimitiveTypeClasses primitiveTypes)
 {
 	public async Task<CilInterpretationResult> InterpretAsync(CompiledEvaluationMethod compiled, CompiledExpressionEvaluationContext context)

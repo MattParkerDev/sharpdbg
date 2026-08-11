@@ -32,6 +32,23 @@ public static partial class TestHelper
 		}
 	}
 
+	// No debuggee process - the debugger starts it. The first stop needs its own TaskCompletionSource:
+	// a launch binds and hits within milliseconds, and TcsContainer only holds the latest event.
+	public static (DisposableDebugProtocolHost, TaskCompletionSource InitializedEventTcs, TaskCompletionSource<StoppedEvent> FirstStoppedEventTcs, IDisposable DebugAdapterDisposable) GetRunningDebugProtocolHostForLaunchInProc(ITestOutputHelper testOutputHelper)
+	{
+		var (input, output, debugAdapterDisposable) = SharpDbgInMemory.NewDebugAdapterStreams(Log);
+		var initializedEventTcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+		var debugProtocolHost = DebugAdapterProcessHelper.GetDebugProtocolHost(input, output, testOutputHelper, initializedEventTcs);
+		var firstStoppedEventTcs = new TaskCompletionSource<StoppedEvent>(TaskCreationOptions.RunContinuationsAsynchronously);
+		debugProtocolHost.RegisterEventType<StoppedEvent>(@event => firstStoppedEventTcs.TrySetResult(@event));
+		debugProtocolHost.Run();
+		return (debugProtocolHost, initializedEventTcs, firstStoppedEventTcs, debugAdapterDisposable);
+		void Log(string message)
+		{
+			testOutputHelper.WriteLine($"Log [SharpDbg]: {message}");
+		}
+	}
+
 	private static (DisposableDebugProtocolHost, TaskCompletionSource InitializedEventTcs, TcsContainer debugEventTcs, IDisposable DebugAdapterDisposable, Process DebuggableProcess) GetRunningDebugProtocolHostCore(ITestOutputHelper testOutputHelper, bool startSuspended, Stream input, Stream output, IDisposable debugAdapterDisposable)
 	{
 		var debuggableProcess = DebuggableProcessHelper.StartDebuggableProcess(startSuspended);
@@ -120,10 +137,26 @@ public static partial class TestHelper
 		return debugProtocolHost;
 	}
 
+	public static DebugProtocolHost WithLaunchRequest(this DebugProtocolHost debugProtocolHost, string program, bool justMyCode = true)
+	{
+		var launchRequest = DebugAdapterProcessHelper.GetLaunchRequest(program, justMyCode);
+		debugProtocolHost.SendRequestSync(launchRequest);
+		return debugProtocolHost;
+	}
+
 	public static DebugProtocolHost WithConfigurationDoneRequest(this DebugProtocolHost debugProtocolHost)
 	{
 		var configurationDoneRequest = new ConfigurationDoneRequest();
 		debugProtocolHost.SendRequestSync(configurationDoneRequest);
+		return debugProtocolHost;
+	}
+
+	// A launch runs inside configurationDone, so a program that cannot be started leaves the request
+	// unanswered - without a bound the whole run hangs instead of failing one test
+	public static async Task<DebugProtocolHost> WithConfigurationDoneRequestAsync(this DebugProtocolHost debugProtocolHost, int timeoutSeconds = 60)
+	{
+		var configurationDone = Task.Run(() => debugProtocolHost.SendRequestSync(new ConfigurationDoneRequest()), TestContext.Current.CancellationToken);
+		await configurationDone.WaitAsync(TimeSpan.FromSeconds(timeoutSeconds), TestContext.Current.CancellationToken);
 		return debugProtocolHost;
 	}
 

@@ -17,6 +17,9 @@ public partial class ModuleMetadataReader : IDisposable
 	private MetadataReaderProvider? _pdbProvider;
 	private MetadataReader? _pdbMetadataReader;
 	internal MetadataReader PeMetadataReader => _peMetadataReader;
+	internal MetadataReader? PdbMetadataReader => _pdbMetadataReader;
+	private Guid? _mvid;
+	internal Guid Mvid => _mvid ??= _peMetadataReader.GetGuid(_peMetadataReader.GetModuleDefinition().Mvid);
 	public bool HasSymbols => _pdbMetadataReader is not null;
 
 	/// Lines and columns are 1 based

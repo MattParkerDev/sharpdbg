@@ -391,26 +391,36 @@ public partial class ManagedDebugger
 				var returnValue = await eval.CallParameterizedFunctionAsync(ProcessRuntimeEventsUntilEvalEvent, EvalStatus, getMethod, typeParameterTypes.Length, typeParameterTypes, corDebugValues.Length, corDebugValues);
 
 				if (returnValue is null) return;
-				if (debuggerBrowsableRootHidden)
+				var retainReturnValue = false;
+				try
 				{
-					var unwrappedDebugValue = returnValue.UnwrapDebugValue();
-					if (unwrappedDebugValue is ICorDebugArrayValue arrayValue)
+					if (debuggerBrowsableRootHidden)
 					{
-						await AddArrayElements(arrayValue, threadId, stackDepth, result);
-						return;
+						var unwrappedDebugValue = returnValue.UnwrapDebugValue();
+						if (unwrappedDebugValue is ICorDebugArrayValue arrayValue)
+						{
+							await AddArrayElements(arrayValue, threadId, stackDepth, result);
+							return;
+						}
 					}
+					var (friendlyTypeName, value, debuggerProxyInstance, resultIsError) = await GetValueForCorDebugValueAsync(returnValue, threadId, stackDepth, true);
+					VariablePresentationHint? variablePresentationHint = resultIsError ? new VariablePresentationHint { Attributes = AttributesValue.FailedEvaluation } : null;
+					var variablesReference = GetVariablesReference(returnValue, friendlyTypeName, threadId, stackDepth, debuggerProxyInstance);
+					var variableInfo = new VariableInfo
+					{
+						Name = propertyName,
+						Value = value,
+						Type = friendlyTypeName,
+						PresentationHint = variablePresentationHint,
+						VariablesReference = variablesReference
+					};
+					retainReturnValue = variablesReference != 0;
+					result.Add(variableInfo);
 				}
-				var (friendlyTypeName, value, debuggerProxyInstance, resultIsError) = await GetValueForCorDebugValueAsync(returnValue, threadId, stackDepth, true);
-				VariablePresentationHint? variablePresentationHint = resultIsError ? new VariablePresentationHint { Attributes = AttributesValue.FailedEvaluation } : null;
-				var variableInfo = new VariableInfo
+				finally
 				{
-					Name = propertyName,
-					Value = value,
-					Type = friendlyTypeName,
-					PresentationHint = variablePresentationHint,
-					VariablesReference = GetVariablesReference(returnValue, friendlyTypeName, threadId, stackDepth, debuggerProxyInstance)
-				};
-				result.Add(variableInfo);
+					if (!retainReturnValue && returnValue is ICorDebugHandleValue handle) handle.TryDispose();
+				}
 			});
 		}
 	}

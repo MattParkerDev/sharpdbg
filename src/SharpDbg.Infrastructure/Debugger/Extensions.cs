@@ -145,10 +145,10 @@ public static class Extensions
 		return result;
 	}
 
-	public static async Task<ICorDebugValue?> CallParameterizedFunctionAsync(this ICorDebugEval eval, Func<Task<CorDebugManagedCallbackEventArgs>> processEventsUntilEvalEventFunc, EvalStatus evalStatus, ICorDebugFunction corDebugFunction, int typeParamCount, ICorDebugType[]? typeParameterArgs, int paramCount, ICorDebugValue[] corDebugValues)
+	public static async Task<ICorDebugValue?> CallParameterizedFunctionAsync(this ICorDebugEval eval, Func<Task<CorDebugManagedCallbackEventArgs>> processEventsUntilEvalEventFunc, EvalStatus evalStatus, ICorDebugFunction corDebugFunction, int typeParamCount, ICorDebugType[]? typeParameterArgs, int paramCount, ICorDebugValue[] corDebugValues, bool throwOnException = false)
 	{
 		// Ensure that the object passed in corDebugValues is a CorDebugReferenceValue (when containing object is an instance class), ie must not be dereferenced
-		return await RunEvalAsync(eval, processEventsUntilEvalEventFunc, evalStatus,
+		return await RunEvalAsync(eval, processEventsUntilEvalEventFunc, evalStatus, throwOnException,
 			() => eval.CallParameterizedFunction(corDebugFunction, typeParamCount, typeParameterArgs, paramCount, corDebugValues),
 			e =>
 			{
@@ -158,49 +158,73 @@ public static class Extensions
 			});
 	}
 
-	public static async Task<ICorDebugValue?> NewParameterizedObjectNoConstructorAsync(this ICorDebugEval eval, Func<Task<CorDebugManagedCallbackEventArgs>> processEventsUntilEvalEventFunc, EvalStatus evalStatus, ICorDebugClass pClass, int nTypeArgs, ICorDebugType[]? ppTypeArgs)
+	public static async Task<ICorDebugValue?> NewParameterizedObjectNoConstructorAsync(this ICorDebugEval eval, Func<Task<CorDebugManagedCallbackEventArgs>> processEventsUntilEvalEventFunc, EvalStatus evalStatus, ICorDebugClass pClass, int nTypeArgs, ICorDebugType[]? ppTypeArgs, bool throwOnException = false)
 	{
-		return await RunEvalAsync(eval, processEventsUntilEvalEventFunc, evalStatus,
+		return await RunEvalAsync(eval, processEventsUntilEvalEventFunc, evalStatus, throwOnException,
 			() => eval.NewParameterizedObjectNoConstructor(pClass, nTypeArgs, ppTypeArgs),
 			e => e.Eval.Result);
 	}
 
-	public static async Task<ICorDebugValue?> NewParameterizedObjectAsync(this ICorDebugEval eval, Func<Task<CorDebugManagedCallbackEventArgs>> processEventsUntilEvalEventFunc, EvalStatus evalStatus, ICorDebugFunction corDebugFunction, int nTypeArgs, ICorDebugType[]? ppTypeArgs, int argCount, ICorDebugValue[] argValues)
+	public static async Task<ICorDebugValue?> NewParameterizedObjectAsync(this ICorDebugEval eval, Func<Task<CorDebugManagedCallbackEventArgs>> processEventsUntilEvalEventFunc, EvalStatus evalStatus, ICorDebugFunction corDebugFunction, int nTypeArgs, ICorDebugType[]? ppTypeArgs, int argCount, ICorDebugValue[] argValues, bool throwOnException = false)
 	{
-		return await RunEvalAsync(eval, processEventsUntilEvalEventFunc, evalStatus,
+		return await RunEvalAsync(eval, processEventsUntilEvalEventFunc, evalStatus, throwOnException,
 			() => eval.NewParameterizedObject(corDebugFunction, nTypeArgs, ppTypeArgs, argCount, argValues),
 			e => e.Eval.Result);
 	}
 
-	public static async Task<ICorDebugValue> NewStringAsync(this ICorDebugEval eval, Func<Task<CorDebugManagedCallbackEventArgs>> processEventsUntilEvalEventFunc, EvalStatus evalStatus, string str)
+	public static async Task<ICorDebugValue?> NewParameterizedArrayAsync(this ICorDebugEval eval, Func<Task<CorDebugManagedCallbackEventArgs>> processEventsUntilEvalEventFunc, EvalStatus evalStatus, ICorDebugType elementType, uint length, bool throwOnException = false)
 	{
-		return (await RunEvalAsync(eval, processEventsUntilEvalEventFunc, evalStatus,
+		return await RunEvalAsync(eval, processEventsUntilEvalEventFunc, evalStatus, throwOnException,
+			() => eval.NewParameterizedArray(elementType, 1, [length], [0]),
+			e => e.Eval.Result);
+	}
+
+	public static async Task<ICorDebugValue> NewStringAsync(this ICorDebugEval eval, Func<Task<CorDebugManagedCallbackEventArgs>> processEventsUntilEvalEventFunc, EvalStatus evalStatus, string str, bool throwOnException = false)
+	{
+		return (await RunEvalAsync(eval, processEventsUntilEvalEventFunc, evalStatus, throwOnException,
 			() => eval.NewString(str),
 			e => e.Eval.Result))!;
 	}
 
-	private static async Task<ICorDebugValue?> RunEvalAsync(ICorDebugEval eval, Func<Task<CorDebugManagedCallbackEventArgs>> processEventsUntilEvalEventFunc, EvalStatus evalStatus, Action startEval, Func<EvalCompleteCorDebugManagedCallbackEventArgs, ICorDebugValue?> onComplete)
+	private static async Task<ICorDebugValue?> RunEvalAsync(ICorDebugEval eval, Func<Task<CorDebugManagedCallbackEventArgs>> processEventsUntilEvalEventFunc, EvalStatus evalStatus, bool throwOnException, Action startEval, Func<EvalCompleteCorDebugManagedCallbackEventArgs, ICorDebugValue?> onComplete)
 	{
 		ICorDebugValue? returnValue = null;
 
 		startEval();
 
 		evalStatus.IsRunning = true;
-		eval.Thread.Process.Continue(false);
-		var evalEvent = await processEventsUntilEvalEventFunc();
-		evalStatus.IsRunning = false;
-		if (evalEvent is EvalCompleteCorDebugManagedCallbackEventArgs completeEvent)
+		try
 		{
-			if (completeEvent.Eval != eval) throw new ManagedDebugger.EvalException("EvalComplete callback error - Eval does not match");
-			returnValue = onComplete(completeEvent);
+			eval.Thread.Process.Continue(false);
+			var evalEvent = await processEventsUntilEvalEventFunc();
+			if (evalEvent is EvalCompleteCorDebugManagedCallbackEventArgs completeEvent)
+			{
+				if (completeEvent.Eval != eval) throw new ManagedDebugger.EvalException("EvalComplete callback error - Eval does not match");
+				returnValue = onComplete(completeEvent);
+			}
+			else if (evalEvent is EvalExceptionCorDebugManagedCallbackEventArgs exceptionEvent)
+			{
+				if (exceptionEvent.Eval != eval) throw new ManagedDebugger.EvalException("EvalException callback error - Eval does not match");
+				var exceptionValue = exceptionEvent.Eval.Result ?? throw new ManagedDebugger.EvalException("EvalException callback error - Result is null");
+				if (throwOnException)
+				{
+					try
+					{
+						throw new ManagedDebugger.EvalException($"Evaluation threw {ManagedDebugger.GetCorDebugTypeFriendlyName(exceptionValue.ExactType)}");
+					}
+					finally
+					{
+						if (exceptionValue is ICorDebugHandleValue handle) handle.TryDispose();
+					}
+				}
+				returnValue = exceptionValue;
+			}
+			return returnValue;
 		}
-		else if (evalEvent is EvalExceptionCorDebugManagedCallbackEventArgs exceptionEvent)
+		finally
 		{
-			if (exceptionEvent.Eval != eval) throw new ManagedDebugger.EvalException("EvalException callback error - Eval does not match");
-			if (exceptionEvent.Eval.Result is null) throw new ManagedDebugger.EvalException("EvalException callback error - Result is null");
-			returnValue = exceptionEvent.Eval.Result;
+			evalStatus.IsRunning = false;
 		}
-		return returnValue;
 	}
 
 	public static ICorDebugValue NewBooleanValue(this ICorDebugEval eval, bool value)

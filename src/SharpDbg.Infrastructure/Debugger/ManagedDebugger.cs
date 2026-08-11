@@ -6,7 +6,7 @@ using ICorDebugSharp;
 using NeoSmart.AsyncLock;
 using SharpDbg.Infrastructure.Debugger.ExpressionEvaluator;
 using SharpDbg.Infrastructure.Debugger.ExpressionEvaluator.Compiler;
-using SharpDbg.Infrastructure.Debugger.ExpressionEvaluator.Interpreter;
+using SharpDbg.Infrastructure.Debugger.ExpressionEvaluator.Cil;
 using SharpDbg.Infrastructure.Debugger.Models;
 using ZLinq;
 
@@ -29,7 +29,7 @@ public partial class ManagedDebugger
 	private int? _pendingAttachProcessId;
 	private bool _justMyCode;
 	private AsyncStepper? _asyncStepper;
-	private CompiledExpressionInterpreter _expressionInterpreter = null!;
+	private CilExpressionEvaluator _expressionEvaluator = null!;
 
 	private Process? _debuggeeProcess;
 
@@ -388,10 +388,21 @@ public partial class ManagedDebugger
 	internal ICorDebugILFrame GetFrameForThreadIdAndStackDepth(ThreadId threadId, FrameStackDepth stackDepth)
 	{
 		// We need to re-obtain the IlFrame in case it has been neutered
-		var thread = _process!.Threads.Single(s => s.Id == threadId.Value);
+		var thread = _process!.GetThread(threadId.Value);
 		var frame = thread.ActiveChain.Frames[stackDepth.Value];
 		if (frame is not ICorDebugILFrame ilFrame) throw new InvalidOperationException("Frame is not an IL frame");
 		return ilFrame;
+	}
+
+	internal IReadOnlyCollection<ModuleInfo> AllModules => _modules.Values;
+	internal ModuleInfo GetModuleInfoForModule(ICorDebugModule module) => _modules[module.BaseAddress];
+
+	internal ICorDebugValue? GetCurrentException(ThreadId threadId)
+	{
+		var thread = _process?.GetThread(threadId.Value);
+		if (thread is null) return null;
+		thread.TryGetCurrentException(out var currentException);
+		return currentException;
 	}
 
 	private static string GetFunctionFormattedName(ICorDebugFunction function)

@@ -606,10 +606,9 @@ public partial class ManagedDebugger
 		if (frameInfo is not var (threadId, frameStackDepth)) throw new InvalidOperationException("Frame ID does not exist");
 		var thread = _process!.Threads.Single(s => s.Id == threadId.Value);
 
-		var compiledExpression = ExpressionCompiler.Compile(expression, false);
 		var evalContext = new CompiledExpressionEvaluationContext(thread, threadId, frameStackDepth);
-		ArgumentNullException.ThrowIfNull(_expressionInterpreter);
-		var result = await _expressionInterpreter.Interpret(compiledExpression, evalContext);
+		ArgumentNullException.ThrowIfNull(_expressionEvaluator);
+		using var result = await _expressionEvaluator.Evaluate(expression, evalContext);
 
 		if (result.Error is not null)
 		{
@@ -625,14 +624,16 @@ public partial class ManagedDebugger
 		}
 		var (friendlyTypeName, value, debuggerProxyInstance, resultIsError) = await GetValueForCorDebugValueAsync(result.Value!, threadId, frameStackDepth, true);
 		VariablePresentationHint? variablePresentationHint = resultIsError ? new VariablePresentationHint { Attributes = AttributesValue.FailedEvaluation } : null;
+		var variablesReference = GetVariablesReference(result.Value!, friendlyTypeName, threadId, frameStackDepth, debuggerProxyInstance);
 		var variableInfo = new VariableInfo
 		{
 			Name = null!,
 			Value = value,
 			Type = friendlyTypeName,
 			PresentationHint = variablePresentationHint,
-			VariablesReference = GetVariablesReference(result.Value!, friendlyTypeName, threadId, frameStackDepth, debuggerProxyInstance)
+			VariablesReference = variablesReference
 		};
+		if (variablesReference != 0) result.RelinquishResultHandleOwnership();
 		return variableInfo;
 	}
 
@@ -691,10 +692,10 @@ public partial class ManagedDebugger
 		var frameStackDepth = new FrameStackDepth(0);
 		var (friendlyTypeName, _, _, _) = await GetValueForCorDebugValueAsync(currentException, threadId, frameStackDepth, false);
 
-		var (_, hResult, _, _) = await GetValueForCorDebugValueAsync((await currentException.GetPropertyValue(ProcessRuntimeEventsUntilEvalEvent, EvalStatus, (ICorDebugILFrame)thread.ActiveFrame, "HResult"))!, threadId, frameStackDepth, false);
-		var (_, source, _, _) = await GetValueForCorDebugValueAsync((await currentException.GetPropertyValue(ProcessRuntimeEventsUntilEvalEvent, EvalStatus, (ICorDebugILFrame)thread.ActiveFrame, "Source"))!, threadId, frameStackDepth, false);
-		var (_, message, _, _) = await GetValueForCorDebugValueAsync((await currentException.GetPropertyValue(ProcessRuntimeEventsUntilEvalEvent, EvalStatus, (ICorDebugILFrame)thread.ActiveFrame, "Message"))!, threadId, frameStackDepth, false);
-		var (_, stackTrace, _, _) = await GetValueForCorDebugValueAsync((await currentException.GetPropertyValue(ProcessRuntimeEventsUntilEvalEvent, EvalStatus, (ICorDebugILFrame)thread.ActiveFrame, "StackTrace"))!, threadId, frameStackDepth, false);
+		var hResult = await GetExceptionPropertyValue("HResult");
+		var source = await GetExceptionPropertyValue("Source");
+		var message = await GetExceptionPropertyValue("Message");
+		var stackTrace = await GetExceptionPropertyValue("StackTrace");
 
 		var typeNameSpan = friendlyTypeName.AsSpan();
 		var lastDot = typeNameSpan.LastIndexOf('.');
@@ -722,5 +723,20 @@ public partial class ManagedDebugger
 			}
 		};
 		return exceptionInfo;
+
+		async Task<string> GetExceptionPropertyValue(string propertyName)
+		{
+			var propertyValue = await currentException.GetPropertyValue(ProcessRuntimeEventsUntilEvalEvent, EvalStatus, (ICorDebugILFrame)thread.ActiveFrame, propertyName)
+				?? throw new InvalidOperationException($"Exception property '{propertyName}' returned no value");
+			try
+			{
+				var (_, value, _, _) = await GetValueForCorDebugValueAsync(propertyValue, threadId, frameStackDepth, false);
+				return value;
+			}
+			finally
+			{
+				if (propertyValue is ICorDebugHandleValue handle) handle.TryDispose();
+			}
+		}
 	}
 }

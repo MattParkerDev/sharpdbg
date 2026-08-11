@@ -14,9 +14,8 @@ public partial class ManagedDebugger
 			var threadId = new ThreadId(corThread.Id);
 			var frameStackDepth = new FrameStackDepth(0); // Top frame
 
-			var compiledExpression = ExpressionCompiler.Compile(condition, false);
 			var evalContext = new CompiledExpressionEvaluationContext(corThread, threadId, frameStackDepth);
-			var result = await _expressionInterpreter.Interpret(compiledExpression, evalContext);
+			using var result = await _expressionEvaluator.Evaluate(condition, evalContext);
 
 			if (result.Error is not null)
 			{

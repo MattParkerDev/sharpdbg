@@ -20,10 +20,9 @@ public partial class ManagedDebugger
 		if (valueRequiresDebuggerDisplayEval)
 		{
 			var expressionString = $"$\"{value}\"";
-			var compiledExpression = ExpressionCompiler.Compile(expressionString, true);
 			var thread = _process!.GetThread(threadId.Value);
 			var evalContext = new CompiledExpressionEvaluationContext(thread, threadId, frameStackDepth, corDebugValue);
-			var result = await _expressionInterpreter!.Interpret(compiledExpression, evalContext);
+			using var result = await _expressionEvaluator!.Evaluate(expressionString, evalContext);
 			if (result.Error is not null)
 			{
 				_logger?.Invoke($"Evaluation error: {result.Error}");
@@ -42,7 +41,7 @@ public partial class ManagedDebugger
 			ArgumentNullException.ThrowIfNull(debugProxyCorDebugTypeDef);
 			var debugProxyCorDebugClass = module.GetClassFromToken(debugProxyCorDebugTypeDef.Value);
 
-			// TODO: pass a specific signature to handle proxy types that have multiple constructors - see CompiledExpressionInterpreter.FindMethodOnType
+			// TODO: pass a specific signature to handle proxy types that have multiple constructors - see ManagedDebugger.FindMethodOnType
 			var debugProxyTypeConstructorMethodDef = metadataImport.FindMethod(debugProxyCorDebugClass.Token, ".ctor", 0, 0);
 			//var debugProxyTypeCtorMethodProps = metadataImport.GetMethodProps(debugProxyTypeConstructorMethodDef);
 			var corDebugFunction = module.GetFunctionFromToken(debugProxyTypeConstructorMethodDef);

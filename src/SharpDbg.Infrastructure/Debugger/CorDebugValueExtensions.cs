@@ -154,7 +154,7 @@ public static class CorDebugValueExtensions
 	public static async ValueTask<ICorDebugValue> GetStaticFieldValueAsync(this ICorDebugType type, Func<Task<CorDebugManagedCallbackEventArgs>> processEventsUntilEvalEventFunc, EvalStatus evalStatus, mdFieldDef fieldDef, ICorDebugILFrame ilFrame)
 	{
 		var result = type.TryGetStaticFieldValue(fieldDef, ilFrame, out var value);
-		if (result is Cor.CORDBG_E_STATIC_VAR_NOT_AVAILABLE or Cor.CORDBG_E_CLASS_NOT_LOADED)
+		if (result is Cor.CORDBG_E_STATIC_VAR_NOT_AVAILABLE or Cor.CORDBG_E_CLASS_NOT_LOADED or Cor.E_FAIL)
 		{
 			var typeParameters = type.TypeParameters;
 			var eval = ilFrame.Chain.Thread.CreateEval();

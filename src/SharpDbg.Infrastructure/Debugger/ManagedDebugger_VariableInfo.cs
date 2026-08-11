@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using Ardalis.GuardClauses;
 using ICorDebugSharp;
 using Microsoft.CodeAnalysis.CSharp.Symbols;
 using SharpDbg.Infrastructure.Debugger.Models.Response;
@@ -142,7 +143,8 @@ public partial class ManagedDebugger
 
 	private async Task AddCurrentException(List<VariableInfo> result, ThreadId threadId, FrameStackDepth stackDepth)
 	{
-		var thread = _process!.Threads.Single(s => s.Id == threadId.Value);
+		var thread = _threads.GetValueOrDefault(threadId.Value);
+		Guard.Against.Null(thread);
 		thread.TryGetCurrentException(out var currentException);
 		if (currentException is not null)
 		{

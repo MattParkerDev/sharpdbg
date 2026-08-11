@@ -509,7 +509,8 @@ public partial class ManagedDebugger
 
 		var localVariables = frame.LocalVariables;
 		var arguments = frame.Arguments;
-		var thread = _process!.Threads.Single(s => s.Id == threadId.Value);
+		var thread = _threads.GetValueOrDefault(threadId.Value);
+		Guard.Against.Null(thread);
 		var hasCurrentException = thread.TryGetCurrentException(out _) is Cor.S_OK;
 		if (localVariables.Length is 0 && arguments.Length is 0 && !hasCurrentException) return result;
 
@@ -603,7 +604,8 @@ public partial class ManagedDebugger
 
 		var frameInfo = _frameReferenceManager.GetFrameInfoById(frameId.Value);
 		if (frameInfo is not var (threadId, frameStackDepth)) throw new InvalidOperationException("Frame ID does not exist");
-		var thread = _process!.Threads.Single(s => s.Id == threadId.Value);
+		var thread = _threads.GetValueOrDefault(threadId.Value);
+		Guard.Against.Null(thread);
 
 		var evalContext = new CompiledExpressionEvaluationContext(thread, threadId, frameStackDepth);
 		ArgumentNullException.ThrowIfNull(_expressionEvaluator);

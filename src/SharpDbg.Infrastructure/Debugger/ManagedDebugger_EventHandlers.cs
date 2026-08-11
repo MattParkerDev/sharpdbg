@@ -207,12 +207,12 @@ public partial class ManagedDebugger
 			var sourceInfo = GetSourceInfoAtFrame(corThread.ActiveFrame);
 			// There exists a 'function breakpoint' type, but netcoredbg et al do not use it, so lets just use 'breakpoint'
 			if (sourceInfo is null) OnStopped?.Invoke(corThread.Id, "breakpoint");
-			else OnStopped2?.Invoke(corThread.Id, sourceInfo.Value.FilePath, sourceInfo.Value.StartLine, sourceInfo.Value.StartColumn, "breakpoint", sourceInfo.Value.DecompiledSourceInfo);
+			else OnStopped2?.Invoke(corThread.Id, sourceInfo.Value.FilePath, sourceInfo.Value.StartLine, sourceInfo.Value.StartColumn, "breakpoint", [managedBreakpoint.Id], sourceInfo.Value.DecompiledSourceInfo);
 			return;
 		}
 
 		if (managedBreakpoint.ResolvedBreakpointFromPdb is not {} resolvedBreakpoint) throw new UnreachableException("Breakpoint was not resolved from PDB - this should never happen, as source breakpoints are only bound to resolved source locations");
-		OnStopped2?.Invoke(corThread.Id, managedBreakpoint.FilePath, resolvedBreakpoint.StartLine, resolvedBreakpoint.StartColumn, "breakpoint", null);
+		OnStopped2?.Invoke(corThread.Id, managedBreakpoint.FilePath, resolvedBreakpoint.StartLine, resolvedBreakpoint.StartColumn, "breakpoint", [managedBreakpoint.Id], null);
 	}
 
 	private void HandleStepComplete(object? sender, StepCompleteCorDebugManagedCallbackEventArgs stepCompleteEventArgs)
@@ -266,7 +266,7 @@ public partial class ManagedDebugger
 
 		var (sourceFilePath, line, column, decompiledSourceInfo) = sourceInfo.Value;
 		//_logger?.Invoke($"StepComplete: method 0x{ilFrame.Function.Token} IL offset {ilFrame.IP.pnOffset}, reason: {stepCompleteEventArgs.Reason}");
-		OnStopped2?.Invoke(corThread.Id, sourceFilePath, line, column, "step", decompiledSourceInfo);
+		OnStopped2?.Invoke(corThread.Id, sourceFilePath, line, column, "step", null, decompiledSourceInfo);
 	}
 
 	private void HandleBreak(object? sender, BreakCorDebugManagedCallbackEventArgs breakEventArgs)

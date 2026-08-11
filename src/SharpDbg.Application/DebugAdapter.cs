@@ -115,14 +115,15 @@ public class DebugAdapter : DebugAdapterBase
 			});
 		};
 
-		_debugger.OnStopped2 += (threadId, filePath, line, column, reason, decompiledSourceInfo) =>
+		_debugger.OnStopped2 += (threadId, filePath, line, column, reason, hitBreakpointIds, decompiledSourceInfo) =>
 		{
 			var source = new Source { Path = filePath };
 			var stoppedEvent = new StoppedEvent
 			{
 				Reason = ConvertStopReason(reason),
 				ThreadId = threadId,
-				AllThreadsStopped = true
+				AllThreadsStopped = true,
+				HitBreakpointIds = hitBreakpointIds
 			};
 			stoppedEvent.AdditionalProperties["source"] = JToken.FromObject(source);
 			stoppedEvent.AdditionalProperties["line"] = JToken.FromObject(line);

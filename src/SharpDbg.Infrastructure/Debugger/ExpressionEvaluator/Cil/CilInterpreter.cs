@@ -2,7 +2,6 @@ using System.Reflection.Emit;
 using System.Reflection.Metadata;
 using System.Reflection.Metadata.Ecma335;
 using System.Text;
-using Ardalis.GuardClauses;
 using ICorDebugSharp;
 using SharpDbg.Infrastructure.Debugger.ExpressionEvaluator.Compiler;
 
@@ -18,57 +17,59 @@ internal sealed class CilInterpreter(ManagedDebugger debugger, RuntimeAssemblyPr
 		using var handles = new EvaluationHandleScope();
 		var method = compiled.MetadataReader.GetMethodDefinition(compiled.EntryMethod);
 		var body = compiled.PeReader.GetMethodBody(method.RelativeVirtualAddress);
-		var ilBytes = body.GetILBytes();
-		Guard.Against.Null(ilBytes);
-		var instructions = CilInstructionDecoder.Decode(ilBytes);
-		var arguments = CreateArguments(compiled.Frame, context);
-		var locals = CreateLocals(compiled, body.LocalSignature, context.RootValue is not null);
+		var decoded = compiled.GetDecodedMethod(compiled.EntryMethod);
+		var frame = context.RootValue is null ? debugger.GetFrameForThreadIdAndStackDepth(context.ThreadId, context.StackDepth) : null;
+		var arguments = CreateArguments(frame, context);
+		var locals = CreateLocals(compiled, frame, body.LocalSignature, context.RootValue is not null);
 		var (typeGenericArguments, methodGenericArguments) = context.RootValue is not null
 			? (context.RootValue.ExactType.TypeParameters, [])
-			: SplitFrameTypeParameters(debugger, compiled.Frame);
+			: SplitFrameTypeParameters(debugger, frame);
 		// The module the expression was compiled against (the frame module for frame evaluations, or the root
 		// value's module for DebuggerDisplay evaluations) is preferred when resolving tokens, so runtime resolution
 		// binds to the same assembly instance Roslyn compiled against.
-		var preferredModule = context.RootValue is not null ? context.RootValue.ExactType.Class.Module : compiled.Frame.Function.Module;
+		var preferredModule = context.RootValue is not null ? context.RootValue.ExactType.Class.Module : frame!.Function.Module;
 		var currentFrameModule = debugger.GetModuleInfoForModule(preferredModule);
 		var resolver = new EvaluationMetadataResolver(debugger, compiled.MetadataReader, compiled.PeReader, context.Thread.AppDomain, typeGenericArguments, methodGenericArguments, currentFrameModule);
 		var syntheticVariables = new Dictionary<string, ICilLocation>(StringComparer.Ordinal);
-		var result = await InterpretAsync(instructions, arguments, locals, resolver, context, handles, syntheticVariables);
+		var result = await InterpretAsync(compiled, decoded, arguments, locals, resolver, context, handles, syntheticVariables);
 		var value = await MaterializeAsync(result, context, handles, resolver.ResolveMethodReturnType(compiled.EntryMethod), resolver);
 		return new CilInterpretationResult(value, handles.DetachIfOwned(value));
 	}
 
-	private static ICilLocation[] CreateArguments(ICorDebugILFrame frame, CompiledExpressionEvaluationContext context)
+	private static ICilLocation[] CreateArguments(ICorDebugILFrame? frame, CompiledExpressionEvaluationContext context)
 	{
 		if (context.RootValue is not null)
 		{
 			return [new CorDebugLocation(context.RootValue)];
 		}
 
-		return frame.Arguments.Select(value => (ICilLocation)new CorDebugLocation(value)).ToArray();
+		return frame!.Arguments.Select(value => (ICilLocation)new CorDebugLocation(value)).ToArray();
 	}
 
-	private static ICilLocation[] CreateLocals(CompiledEvaluationMethod compiled, StandaloneSignatureHandle localSignature, bool isTypeContext)
+	private static ICilLocation[] CreateLocals(CompiledEvaluationMethod compiled, ICorDebugILFrame? frame, StandaloneSignatureHandle localSignature, bool isTypeContext)
 	{
 		var localCount = localSignature.IsNil
 			? 0
 			: compiled.MetadataReader.GetStandaloneSignature(localSignature)
 				.DecodeLocalSignature(LocalCountSignatureProvider.Instance, genericContext: null).Length;
-		var frameLocals = compiled.Frame.LocalVariables;
+		var frameLocals = frame?.LocalVariables;
 		var result = new ICilLocation[localCount];
 		for (var i = 0; i < result.Length; i++)
 		{
-			result[i] = !isTypeContext && i < frameLocals.Length
+			result[i] = !isTypeContext && i < frameLocals!.Length
 				? new CorDebugLocation(frameLocals[i])
 				: new TemporaryLocation(CilValue.Null());
 		}
 		return result;
 	}
 
-	private static ICilLocation[] CreateTemporaryLocals(EvaluationMetadataResolver resolver, StandaloneSignatureHandle localSignature) =>
-		Enumerable.Range(0, resolver.GetEvaluationLocalCount(localSignature))
-			.Select(_ => (ICilLocation)new TemporaryLocation(CilValue.Null()))
-			.ToArray();
+	private static ICilLocation[] CreateTemporaryLocals(EvaluationMetadataResolver resolver, StandaloneSignatureHandle localSignature)
+	{
+		var count = resolver.GetEvaluationLocalCount(localSignature);
+		var result = new ICilLocation[count];
+		for (var i = 0; i < count; i++) result[i] = new TemporaryLocation(CilValue.Null());
+		return result;
+	}
 
 	private static (ICorDebugType[] TypeArguments, ICorDebugType[] MethodArguments) SplitFrameTypeParameters(ManagedDebugger debugger, ICorDebugILFrame? frame)
 	{
@@ -104,7 +105,8 @@ internal sealed class CilInterpreter(ManagedDebugger debugger, RuntimeAssemblyPr
 	}
 
 	private async Task<CilValue> InterpretAsync(
-		IReadOnlyList<CilInstruction> instructions,
+		CompiledEvaluationMethod compiled,
+		DecodedMethod decoded,
 		ICilLocation[] arguments,
 		ICilLocation[] locals,
 		EvaluationMetadataResolver resolver,
@@ -112,7 +114,8 @@ internal sealed class CilInterpreter(ManagedDebugger debugger, RuntimeAssemblyPr
 		EvaluationHandleScope handles,
 		Dictionary<string, ICilLocation> syntheticVariables)
 	{
-		var offsets = instructions.Select((instruction, index) => (instruction.Offset, index)).ToDictionary(x => x.Offset, x => x.index);
+		var instructions = decoded.Instructions;
+		var offsets = decoded.Offsets;
 		var stack = new Stack<CilValue>();
 		var index = 0;
 		ResolvedCilType? constrainedType = null;
@@ -464,13 +467,11 @@ internal sealed class CilInterpreter(ManagedDebugger debugger, RuntimeAssemblyPr
 					{
 						var methodArguments = new CilValue[evaluationMethod.Signature.ParameterTypes.Length + (evaluationMethod.IsStatic ? 0 : 1)];
 						for (var argument = methodArguments.Length - 1; argument >= 0; argument--) methodArguments[argument] = stack.Pop();
-						var methodBody = resolver.GetEvaluationMethodBody(evaluationMethod.Handle);
-						var ilBytes = methodBody.GetILBytes();
-						Guard.Against.Null(ilBytes);
 						var methodResult = await InterpretAsync(
-							CilInstructionDecoder.Decode(ilBytes),
+							compiled,
+							compiled.GetDecodedMethod(evaluationMethod.Handle),
 							methodArguments.Select(value => (ICilLocation)new TemporaryLocation(value)).ToArray(),
-							CreateTemporaryLocals(resolver, methodBody.LocalSignature),
+							CreateTemporaryLocals(resolver, resolver.GetEvaluationMethodBody(evaluationMethod.Handle).LocalSignature),
 							resolver,
 							context,
 							handles,

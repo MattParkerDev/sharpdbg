@@ -23,7 +23,7 @@ internal sealed class CilExpressionEvaluator(RuntimeAssemblyPrimitiveTypeClasses
 				var handle = handles.CreateOwnedHandle(reference);
 				return new EvaluationResult { Value = handle, OwnedResultHandle = handles.DetachIfOwned(handle) };
 			}
-			using var compiled = _compiler.TryCompile(expression, context, out var error);
+			var compiled = _compiler.TryCompile(expression, context, out var error);
 			if (compiled is null) return new EvaluationResult { Error = $"error: {error}" };
 			var interpretationResult = await _interpreter.InterpretAsync(compiled, context);
 			return new EvaluationResult { Value = interpretationResult.Value, OwnedResultHandle = interpretationResult.OwnedResultHandle };

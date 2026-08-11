@@ -90,6 +90,7 @@ public partial class ManagedDebugger
 
 		var moduleInfo = new ModuleInfo(corModule, modulePath, metadataReader, isUserCode);
 		_modules[baseAddress] = moduleInfo;
+		ModuleSet_Version++;
 
 		if (moduleName is "System.Private.CoreLib.dll")
 		{

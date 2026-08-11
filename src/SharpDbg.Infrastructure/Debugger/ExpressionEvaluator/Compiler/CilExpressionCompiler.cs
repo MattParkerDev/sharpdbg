@@ -1,6 +1,7 @@
 using System.Collections.Immutable;
 using System.Reflection.Metadata;
 using System.Reflection.Metadata.Ecma335;
+using Ardalis.GuardClauses;
 using ICorDebugSharp;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -12,19 +13,20 @@ using Microsoft.CodeAnalysis.ExpressionEvaluator;
 using Microsoft.CodeAnalysis.PooledObjects;
 using Microsoft.VisualStudio.Debugger.Evaluation;
 using Microsoft.VisualStudio.Debugger.Clr;
+using SharpDbg.Infrastructure.Debugger.ExpressionEvaluator.Cil;
 
 namespace SharpDbg.Infrastructure.Debugger.ExpressionEvaluator.Compiler;
 
 internal sealed class CompiledEvaluationMethod : IDisposable
 {
 	private readonly MemoryStream _peStream;
+	private readonly Dictionary<MethodDefinitionHandle, DecodedMethod> _decodedMethods = new();
 
-	public CompiledEvaluationMethod(byte[] assembly, string typeName, string methodName, ICorDebugILFrame frame)
+	public CompiledEvaluationMethod(byte[] assembly, string typeName, string methodName)
 	{
 		Assembly = assembly;
 		TypeName = typeName;
 		MethodName = methodName;
-		Frame = frame;
 		_peStream = new MemoryStream(assembly, writable: false);
 		PeReader = new System.Reflection.PortableExecutable.PEReader(_peStream);
 		MetadataReader = PeReader.GetMetadataReader();
@@ -34,10 +36,27 @@ internal sealed class CompiledEvaluationMethod : IDisposable
 	public byte[] Assembly { get; }
 	public string TypeName { get; }
 	public string MethodName { get; }
-	public ICorDebugILFrame Frame { get; }
 	public System.Reflection.PortableExecutable.PEReader PeReader { get; }
 	public MetadataReader MetadataReader { get; }
 	public MethodDefinitionHandle EntryMethod { get; }
+
+	/// <summary>
+	/// Returns the decoded CIL instructions and branch-target offsets map for a method in the evaluation assembly,
+	/// decoding at most once per method body since the assembly is immutable for the lifetime of this object.
+	/// </summary>
+	public DecodedMethod GetDecodedMethod(MethodDefinitionHandle handle)
+	{
+		if (_decodedMethods.TryGetValue(handle, out var decoded)) return decoded;
+		var method = MetadataReader.GetMethodDefinition(handle);
+		var body = PeReader.GetMethodBody(method.RelativeVirtualAddress);
+		var ilBytes = body.GetILBytes();
+		Guard.Against.Null(ilBytes);
+		var instructions = CilInstructionDecoder.Decode(ilBytes);
+		var offsets = instructions.Select((instruction, index) => (instruction.Offset, index)).ToDictionary(x => x.Offset, x => x.index);
+		decoded = new DecodedMethod(instructions, offsets);
+		_decodedMethods[handle] = decoded;
+		return decoded;
+	}
 
 	public void Dispose()
 	{
@@ -70,6 +89,17 @@ internal sealed class CilExpressionCompiler(ManagedDebugger debugger)
 {
 	private static readonly PortableExecutableReference _intrinsicMethodsReference = MetadataReference.CreateFromImage(CreateIntrinsicMethodsAssembly());
 
+	private const int CacheCapacity = 256;
+	private readonly record struct CompileCacheKey(int ModuleVersion, CompileContextKind ContextKind, CORDB_ADDRESS Module, int Token, int IlOffset, string Expression, bool HasException);
+	private enum CompileContextKind { Method, Type }
+	private readonly Dictionary<CompileCacheKey, CacheEntry> _compileCache = new();
+	private readonly LinkedList<CompileCacheKey> _compileLru = new();
+	private readonly record struct CacheEntry(CompiledEvaluationMethod Value, LinkedListNode<CompileCacheKey> Node);
+
+	private readonly record struct MetadataBlocksKey(int ModuleVersion, CORDB_ADDRESS PreferredModule);
+	private readonly Dictionary<MetadataBlocksKey, ImmutableArray<MetadataBlock>> _metadataBlocksCache = new();
+	private int _cachedModuleVersion = -1;
+
 	public CompiledEvaluationMethod? TryCompile(string expression, CompiledExpressionEvaluationContext context, out string? errorMessage)
 	{
 		errorMessage = null;
@@ -80,6 +110,11 @@ internal sealed class CilExpressionCompiler(ManagedDebugger debugger)
 		}
 		var frame = debugger.GetFrameForThreadIdAndStackDepth(context.ThreadId, context.StackDepth);
 		var preferredModule = context.RootValue is not null ? context.RootValue.ExactType.Class.Module : frame.Function.Module;
+		var hasException = debugger.GetCurrentException(context.ThreadId) is not null;
+		EnsureModuleVersion();
+		var key = CreateCacheKey(expression, context, frame, preferredModule, hasException);
+		if (TryGetCachedCompiled(key, out var cached)) return cached;
+
 		var blocks = GetMetadataBlocks(preferredModule);
 		var evaluationContext = context.RootValue is null
 			? CreateMethodContext(blocks, frame)
@@ -88,7 +123,7 @@ internal sealed class CilExpressionCompiler(ManagedDebugger debugger)
 		var diagnostics = DiagnosticBag.GetInstance();
 		try
 		{
-			var aliases = GetAliases(context);
+			var aliases = GetAliases(hasException);
 			var result = evaluationContext.CompileExpression(
 				expression,
 				DkmEvaluationFlags.TreatAsExpression,
@@ -105,7 +140,7 @@ internal sealed class CilExpressionCompiler(ManagedDebugger debugger)
 				return null;
 			}
 
-			return new CompiledEvaluationMethod(result.Assembly, result.TypeName, result.MethodName, frame);
+			return CacheCompiled(key, new CompiledEvaluationMethod(result.Assembly, result.TypeName, result.MethodName));
 		}
 		finally
 		{
@@ -113,12 +148,67 @@ internal sealed class CilExpressionCompiler(ManagedDebugger debugger)
 		}
 	}
 
-	private ImmutableArray<Alias> GetAliases(CompiledExpressionEvaluationContext context)
+	private CompileCacheKey CreateCacheKey(string expression, CompiledExpressionEvaluationContext context, ICorDebugILFrame frame, ICorDebugModule preferredModule, bool hasException)
 	{
-		var exception = debugger.GetCurrentException(context.ThreadId);
-		if (exception is null) return ImmutableArray<Alias>.Empty;
-		return [new Alias(DkmClrAliasKind.Exception, "Error", "$exception", typeof(Exception).AssemblyQualifiedName!, Guid.Empty, null!)];
+		if (context.RootValue is not null)
+		{
+			return new CompileCacheKey(
+				debugger.ModuleSet_Version,
+				CompileContextKind.Type,
+				preferredModule.BaseAddress,
+				context.RootValue.ExactType.Class.Token,
+				0,
+				expression,
+				hasException);
+		}
+		return new CompileCacheKey(
+			debugger.ModuleSet_Version,
+			CompileContextKind.Method,
+			preferredModule.BaseAddress,
+			frame.Function.Token,
+			EvaluationContextBase.NormalizeILOffset((uint)frame.IP.pnOffset),
+			expression,
+			hasException);
 	}
+
+	private bool TryGetCachedCompiled(CompileCacheKey key, out CompiledEvaluationMethod result)
+	{
+		if (_compileCache.TryGetValue(key, out var entry))
+		{
+			_compileLru.Remove(entry.Node);
+			_compileLru.AddFirst(entry.Node);
+			result = entry.Value;
+			return true;
+		}
+		result = null!;
+		return false;
+	}
+
+	private CompiledEvaluationMethod CacheCompiled(CompileCacheKey key, CompiledEvaluationMethod compiled)
+	{
+		if (_compileCache.Count >= CacheCapacity)
+		{
+			var evictedKey = _compileLru.Last!;
+			_compileLru.RemoveLast();
+			if (_compileCache.Remove(evictedKey.Value, out var evicted)) evicted.Value.Dispose();
+		}
+		_compileCache[key] = new CacheEntry(compiled, _compileLru.AddFirst(key));
+		return compiled;
+	}
+
+	private void EnsureModuleVersion()
+	{
+		if (debugger.ModuleSet_Version == _cachedModuleVersion) return;
+		_cachedModuleVersion = debugger.ModuleSet_Version;
+		foreach (var entry in _compileCache.Values) entry.Value.Dispose();
+		_compileCache.Clear();
+		_compileLru.Clear();
+		_metadataBlocksCache.Clear();
+	}
+
+	private static ImmutableArray<Alias> GetAliases(bool hasException) => hasException
+		? [new Alias(DkmClrAliasKind.Exception, "Error", "$exception", typeof(Exception).AssemblyQualifiedName!, Guid.Empty, null!)]
+		: ImmutableArray<Alias>.Empty;
 
 	/// <summary>
 	/// Builds the metadata blocks passed to the Roslyn evaluator. When multiple loaded modules share an assembly
@@ -129,6 +219,15 @@ internal sealed class CilExpressionCompiler(ManagedDebugger debugger)
 	/// must match the instance the user is actually debugging.
 	/// </summary>
 	private ImmutableArray<MetadataBlock> GetMetadataBlocks(ICorDebugModule preferredModule)
+	{
+		var key = new MetadataBlocksKey(debugger.ModuleSet_Version, preferredModule.BaseAddress);
+		if (_metadataBlocksCache.TryGetValue(key, out var cached)) return cached;
+		var blocks = BuildMetadataBlocks(preferredModule);
+		_metadataBlocksCache[key] = blocks;
+		return blocks;
+	}
+
+	private ImmutableArray<MetadataBlock> BuildMetadataBlocks(ICorDebugModule preferredModule)
 	{
 		var modules = GetMetadataModulesPreferringModule(preferredModule);
 		var builder = ImmutableArray.CreateBuilder<MetadataBlock>(modules.Count);

@@ -36,6 +36,11 @@ internal sealed class EvaluationMetadataResolver(ManagedDebugger debugger, Metad
 	/// value's own type arguments.
 	/// </summary>
 	private readonly (ICorDebugType[] TypeArguments, ICorDebugType[] MethodArguments) _genericArguments = (typeGenericArguments, methodGenericArguments);
+	private readonly Dictionary<int, ResolvedRuntimeField> _fieldCache = new();
+	private readonly Dictionary<int, ResolvedRuntimeMethod> _methodCache = new();
+	private readonly Dictionary<int, ResolvedCilType> _typeTokenCache = new();
+	private readonly Dictionary<string, ResolvedRuntimeMethod> _runtimeMethodCache = new();
+	private readonly Dictionary<string, ResolvedRuntimeType> _runtimeTypeCache = new();
 
 	public string ResolveUserString(int token) => evaluationReader.GetUserString(MetadataTokens.UserStringHandle(token));
 
@@ -44,13 +49,14 @@ internal sealed class EvaluationMetadataResolver(ManagedDebugger debugger, Metad
 
 	public ResolvedCilType ResolveTypeToken(int token)
 	{
+		if (_typeTokenCache.TryGetValue(token, out var cached)) return cached;
 		var handle = MetadataTokens.EntityHandle(token);
-		if (handle.Kind == HandleKind.TypeSpecification)
-		{
-			return evaluationReader.GetTypeSpecification((TypeSpecificationHandle)handle)
-				.DecodeSignature(new RuntimeTypeSignatureProvider(this), genericContext: null);
-		}
-		return new ResolvedCilType(null, ResolveType(handle));
+		var result = handle.Kind == HandleKind.TypeSpecification
+			? evaluationReader.GetTypeSpecification((TypeSpecificationHandle)handle)
+				.DecodeSignature(new RuntimeTypeSignatureProvider(this), genericContext: null)
+			: new ResolvedCilType(null, ResolveType(handle));
+		_typeTokenCache[token] = result;
+		return result;
 	}
 
 	public ResolvedCilType ResolveGenericTypeParameter(int index) =>
@@ -111,6 +117,7 @@ internal sealed class EvaluationMetadataResolver(ManagedDebugger debugger, Metad
 
 	public ResolvedRuntimeField ResolveField(int token)
 	{
+		if (_fieldCache.TryGetValue(token, out var cached)) return cached;
 		var handle = MetadataTokens.EntityHandle(token);
 		if (handle.Kind != HandleKind.MemberReference)
 		{
@@ -127,7 +134,9 @@ internal sealed class EvaluationMetadataResolver(ManagedDebugger debugger, Metad
 			var field = reader.GetFieldDefinition(fieldHandle);
 			if (reader.GetString(field.Name) == name)
 			{
-				return new ResolvedRuntimeField(declaringType, fieldHandle, (field.Attributes & FieldAttributes.Static) != 0);
+				var result = new ResolvedRuntimeField(declaringType, fieldHandle, (field.Attributes & FieldAttributes.Static) != 0);
+				_fieldCache[token] = result;
+				return result;
 			}
 		}
 
@@ -136,6 +145,7 @@ internal sealed class EvaluationMetadataResolver(ManagedDebugger debugger, Metad
 
 	public ResolvedRuntimeMethod ResolveMethod(int token)
 	{
+		if (_methodCache.TryGetValue(token, out var cached)) return cached;
 		var handle = MetadataTokens.EntityHandle(token);
 		ImmutableArray<ResolvedCilType> methodTypeArguments = default;
 		if (handle.Kind == HandleKind.MethodSpecification)
@@ -161,7 +171,9 @@ internal sealed class EvaluationMetadataResolver(ManagedDebugger debugger, Metad
 			var signature = method.DecodeSignature(SignatureNameProvider.Instance, genericContext: null);
 			if (SignaturesEqual(expectedSignature, signature))
 			{
-				return new ResolvedRuntimeMethod(declaringType, methodHandle, name, signature, (method.Attributes & MethodAttributes.Static) != 0, methodTypeArguments);
+				var result = new ResolvedRuntimeMethod(declaringType, methodHandle, name, signature, (method.Attributes & MethodAttributes.Static) != 0, methodTypeArguments);
+				_methodCache[token] = result;
+				return result;
 			}
 		}
 
@@ -269,6 +281,8 @@ internal sealed class EvaluationMetadataResolver(ManagedDebugger debugger, Metad
 
 	public ResolvedRuntimeMethod ResolveRuntimeMethod(string @namespace, string typeName, string methodName, params string[] parameterTypes)
 	{
+		var cacheKey = $"{@namespace}.{typeName}.{methodName}({string.Join(",", parameterTypes)})";
+		if (_runtimeMethodCache.TryGetValue(cacheKey, out var cached)) return cached;
 		var declaringType = FindRuntimeType(@namespace, typeName);
 		var reader = declaringType.Module.MetadataReader.PeMetadataReader;
 		foreach (var handle in reader.GetTypeDefinition(declaringType.Handle).GetMethods())
@@ -278,7 +292,9 @@ internal sealed class EvaluationMetadataResolver(ManagedDebugger debugger, Metad
 			var signature = method.DecodeSignature(SignatureNameProvider.Instance, genericContext: null);
 			if (signature.ParameterTypes.SequenceEqual(parameterTypes))
 			{
-				return new ResolvedRuntimeMethod(declaringType, handle, methodName, signature, (method.Attributes & MethodAttributes.Static) != 0);
+				var result = new ResolvedRuntimeMethod(declaringType, handle, methodName, signature, (method.Attributes & MethodAttributes.Static) != 0);
+				_runtimeMethodCache[cacheKey] = result;
+				return result;
 			}
 		}
 		throw new MissingMethodException($"{@namespace}.{typeName}", methodName);
@@ -436,6 +452,8 @@ internal sealed class EvaluationMetadataResolver(ManagedDebugger debugger, Metad
 
 	private ResolvedRuntimeType FindRuntimeType(string @namespace, string name)
 	{
+		var cacheKey = $"{@namespace}.{name}";
+		if (_runtimeTypeCache.TryGetValue(cacheKey, out var cached)) return cached;
 		foreach (var module in FindModules(null))
 		{
 			var reader = module.MetadataReader.PeMetadataReader;
@@ -444,7 +462,9 @@ internal sealed class EvaluationMetadataResolver(ManagedDebugger debugger, Metad
 				var type = reader.GetTypeDefinition(handle);
 				if (reader.GetString(type.Namespace) == @namespace && reader.GetString(type.Name) == name)
 				{
-					return new ResolvedRuntimeType(module, handle);
+					var result = new ResolvedRuntimeType(module, handle);
+					_runtimeTypeCache[cacheKey] = result;
+					return result;
 				}
 			}
 		}

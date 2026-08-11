@@ -5,6 +5,8 @@ namespace SharpDbg.Infrastructure.Debugger.ExpressionEvaluator.Cil;
 
 internal readonly record struct CilInstruction(int Offset, OpCode OpCode, object? Operand);
 
+internal readonly record struct DecodedMethod(IReadOnlyList<CilInstruction> Instructions, IReadOnlyDictionary<int, int> Offsets);
+
 // 🤖
 internal static class CilInstructionDecoder
 {

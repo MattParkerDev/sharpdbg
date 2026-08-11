@@ -221,6 +221,7 @@ public class DebugAdapter : DebugAdapterBase
 		};
 		_debugger.SendRunInTerminalRequest += launchInfo =>
 		{
+			var programForTitle = launchInfo.Program is "dotnet" ? launchInfo.Arguments[0] : launchInfo.Program;
 			var runInTerminalRequest = new RunInTerminalRequest
 			{
 				Kind = launchInfo.LaunchRequestConsoleType switch
@@ -232,7 +233,7 @@ public class DebugAdapter : DebugAdapterBase
 				Arguments = [launchInfo.Program, ..launchInfo.Arguments],
 				Cwd = launchInfo.Cwd,
 				Env = launchInfo.Env.ToDictionary(kvp => kvp.Key, kvp => (object)kvp.Value),
-				Title = $"{Path.GetFileName(launchInfo.Program)} [DEBUG]"
+				Title = $"{Path.GetFileName(programForTitle)} [DEBUG]"
 			};
 			runInTerminalRequest.Env["DOTNET_DefaultDiagnosticPortSuspend"] = "1";
 			var resp = Protocol.SendClientRequestSync(runInTerminalRequest);

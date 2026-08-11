@@ -47,8 +47,7 @@ public partial class ManagedDebugger
 
 		var processStartInfo = new ProcessStartInfo
 		{
-			FileName = "dotnet",
-			ArgumentList = { launchInfo.Program },
+			FileName = launchInfo.Program,
 			WorkingDirectory = launchInfo.Cwd ?? Environment.CurrentDirectory,
 			UseShellExecute = false,
 			CreateNoWindow = true,

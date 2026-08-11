@@ -228,7 +228,7 @@ public class DebugAdapter : DebugAdapterBase
 					LaunchRequestConsoleType.ExternalTerminal => RunInTerminalArguments.KindValue.External,
 					_ => throw new ArgumentOutOfRangeException(nameof(launchInfo.LaunchRequestConsoleType), $"Invalid LaunchRequestConsoleType for RunInTerminalRequest: '{launchInfo.LaunchRequestConsoleType}'")
 				},
-				Arguments = ["dotnet", launchInfo.Program, ..launchInfo.Arguments],
+				Arguments = [launchInfo.Program, ..launchInfo.Arguments],
 				Cwd = launchInfo.Cwd,
 				Env = launchInfo.Env.ToDictionary(kvp => kvp.Key, kvp => (object)kvp.Value),
 				Title = $"{Path.GetFileName(launchInfo.Program)} [DEBUG]"
@@ -298,6 +298,11 @@ public class DebugAdapter : DebugAdapterBase
 				null => LaunchRequestConsoleType.InternalConsole, // Default to internalConsole if not specified
 				_ => throw new ArgumentOutOfRangeException(nameof(console), $"Invalid console type: '{console}'")
 			};
+
+			(program, args) = Path.GetExtension(program).Equals(".dll", StringComparison.OrdinalIgnoreCase)
+				? ("dotnet", [program, ..args])
+				: (program, args);
+
 			var launchInfo = new LaunchInfo
 			{
 				Program = program,

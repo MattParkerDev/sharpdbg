@@ -149,16 +149,17 @@ public static class CorDebugValueExtensions
 		return returnValue is null ? null : (returnValue, setterFunction);
 	}
 
-	/// Calls ICorDebugType.GetStaticFieldValue with a retry on CORDBG_E_STATIC_VAR_NOT_AVAILABLE
-	/// This would occur if a type's static constructor had not been invoked yet
+	/// Calls ICorDebugType.GetStaticFieldValue with a retry on CORDBG_E_STATIC_VAR_NOT_AVAILABLE or CORDBG_E_CLASS_NOT_LOADED
+	/// This would occur if a type's static constructor had not been invoked yet, or the type isn't loaded(?)
 	public static async ValueTask<ICorDebugValue> GetStaticFieldValueAsync(this ICorDebugType type, Func<Task<CorDebugManagedCallbackEventArgs>> processEventsUntilEvalEventFunc, EvalStatus evalStatus, mdFieldDef fieldDef, ICorDebugILFrame ilFrame)
 	{
 		var result = type.TryGetStaticFieldValue(fieldDef, ilFrame, out var value);
-		if (result is Cor.CORDBG_E_STATIC_VAR_NOT_AVAILABLE)
+		if (result is Cor.CORDBG_E_STATIC_VAR_NOT_AVAILABLE or Cor.CORDBG_E_CLASS_NOT_LOADED)
 		{
 			var typeParameters = type.TypeParameters;
 			var eval = ilFrame.Chain.Thread.CreateEval();
-			await eval.NewParameterizedObjectNoConstructorAsync(processEventsUntilEvalEventFunc, evalStatus, type.Class, typeParameters.Length, typeParameters);
+			var initializationValue = await eval.NewParameterizedObjectNoConstructorAsync(processEventsUntilEvalEventFunc, evalStatus, type.Class, typeParameters.Length, typeParameters);
+			if (initializationValue is ICorDebugHandleValue handle) handle.TryDispose();
 			result = type.TryGetStaticFieldValue(fieldDef, ilFrame, out value);
 		}
 

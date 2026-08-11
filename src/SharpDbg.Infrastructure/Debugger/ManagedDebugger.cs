@@ -1,14 +1,10 @@
 using System.Diagnostics;
-using System.Runtime.InteropServices;
 using System.Threading.Channels;
 using Ardalis.GuardClauses;
 using ICorDebugSharp;
 using NeoSmart.AsyncLock;
-using SharpDbg.Infrastructure.Debugger.ExpressionEvaluator;
-using SharpDbg.Infrastructure.Debugger.ExpressionEvaluator.Compiler;
 using SharpDbg.Infrastructure.Debugger.ExpressionEvaluator.Cil;
 using SharpDbg.Infrastructure.Debugger.Models;
-using ZLinq;
 
 namespace SharpDbg.Infrastructure.Debugger;
 
@@ -459,7 +455,10 @@ public partial class ManagedDebugger
 		// Unsubscribe from callbacks to avoid any further event dispatch
 		_callbacks.OnAnyEvent -= QueueEvent;
 		_runtimeEventChannel.Writer.Complete();
-		_runtimeEventCallbackProcessing?.GetAwaiter().GetResult();
+		// ProcessRuntimeEventQueue is blocked on DapRequestAndRuntimeEventLock (which we hold) and would
+		// never complete if we waited on it here — that is the deadlock. Read and discard remaining events ourselves,
+		// then let the processor exit once the lock is released.
+		while (_runtimeEventChannel.Reader.TryRead(out _)) { }
 
 		// Detach from the process
 		_process?.TryDetach();

@@ -445,17 +445,23 @@ public partial class ManagedDebugger
 
 			foreach (var (index, frame) in filterFrames.Index())
 			{
+				var stackFrameInfo = new StackFrameInfo
+				{
+					Id = 0,
+					Name = null!,
+					Line = 0,
+					EndLine = 0,
+					Column = 0,
+					EndColumn = 0,
+					Source = null
+				};
 				if (frame is ICorDebugILFrame ilFrame)
 				{
 					var function = ilFrame.Function;
 
-					var frameId = _frameReferenceManager.GetOrCreateFrameId(new ThreadId(threadId), new FrameStackDepth(startFrame + index));
+					stackFrameInfo.Id = _frameReferenceManager.GetOrCreateFrameId(new ThreadId(threadId), new FrameStackDepth(startFrame + index));
+					stackFrameInfo.Name = GetFunctionFormattedName(function);
 					var module = _modules[function.Module.BaseAddress];
-					var line = 0;
-					var column = 0;
-					var endLine = 0;
-					var endColumn = 0;
-					string? sourceFilePath = null;
 					if (module.MetadataReader.HasSymbols)
 					{
 						var ilOffset = ilFrame.IP.pnOffset;
@@ -463,24 +469,15 @@ public partial class ManagedDebugger
 						var sourceInfo = module.MetadataReader.GetSourceLocationForOffset(methodToken, ilOffset);
 						if (sourceInfo is not null)
 						{
-							line = sourceInfo.Value.startLine;
-							column = sourceInfo.Value.startColumn;
-							endLine = sourceInfo.Value.endLine;
-							endColumn = sourceInfo.Value.endColumn;
-							sourceFilePath = sourceInfo.Value.sourceFilePath;
+							stackFrameInfo.Line = sourceInfo.Value.startLine;
+							stackFrameInfo.EndLine = sourceInfo.Value.endLine;
+							stackFrameInfo.Column = sourceInfo.Value.startColumn;
+							stackFrameInfo.EndColumn = sourceInfo.Value.endColumn;
+							stackFrameInfo.Source = sourceInfo.Value.sourceFilePath;
 						}
 					}
 
-					result.Add(new StackFrameInfo
-					{
-						Id = frameId,
-						Name = GetFunctionFormattedName(function),
-						Line = line,
-						EndLine = endLine,
-						Column = column,
-						EndColumn = endColumn,
-						Source = sourceFilePath
-					});
+					result.Add(stackFrameInfo);
 				}
 			}
 		}

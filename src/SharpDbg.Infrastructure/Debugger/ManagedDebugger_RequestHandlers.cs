@@ -479,6 +479,22 @@ public partial class ManagedDebugger
 
 					result.Add(stackFrameInfo);
 				}
+				else if (frame is ICorDebugInternalFrame internalFrame)
+				{
+					stackFrameInfo.Id = _frameReferenceManager.GetOrCreateFrameId(new ThreadId(threadId), new FrameStackDepth(startFrame + index));
+					stackFrameInfo.Name = internalFrame.FrameType.ToDisplayName();
+					result.Add(stackFrameInfo);
+				}
+				else if (frame is ICorDebugNativeFrame nativeFrame)
+				{
+					stackFrameInfo.Id = _frameReferenceManager.GetOrCreateFrameId(new ThreadId(threadId), new FrameStackDepth(startFrame + index));
+					stackFrameInfo.Name = "[Native Frame]";
+					result.Add(stackFrameInfo);
+				}
+				else
+				{
+					throw new ArgumentOutOfRangeException(nameof(frame), "Unknown frame type");
+				}
 			}
 		}
 		catch (Exception ex)

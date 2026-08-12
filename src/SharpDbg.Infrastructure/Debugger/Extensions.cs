@@ -248,4 +248,22 @@ public static class Extensions
 
 		return corValue;
 	}
+
+	public static string ToDisplayName(this CorDebugInternalFrameType frameType)
+	{
+		return frameType switch
+		{
+			CorDebugInternalFrameType.STUBFRAME_M2U => "[Managed to Native Transition]",
+			CorDebugInternalFrameType.STUBFRAME_U2M => "[Native to Managed Transition]",
+			CorDebugInternalFrameType.STUBFRAME_APPDOMAIN_TRANSITION => "[Appdomain Transition]",
+			CorDebugInternalFrameType.STUBFRAME_LIGHTWEIGHT_FUNCTION => "[Lightweight function]",
+			CorDebugInternalFrameType.STUBFRAME_FUNC_EVAL => "[Func Eval]",
+			CorDebugInternalFrameType.STUBFRAME_INTERNALCALL => "[Internal Call]",
+			CorDebugInternalFrameType.STUBFRAME_CLASS_INIT => "[Class Init]",
+			CorDebugInternalFrameType.STUBFRAME_EXCEPTION => "[Exception]",
+			CorDebugInternalFrameType.STUBFRAME_SECURITY => "[Security]",
+			CorDebugInternalFrameType.STUBFRAME_JIT_COMPILATION => "[JIT Compilation]",
+			_ => "[Unknown]"
+		};
+	}
 }

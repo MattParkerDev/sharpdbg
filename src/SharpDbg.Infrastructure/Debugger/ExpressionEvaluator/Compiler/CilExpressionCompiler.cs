@@ -108,7 +108,7 @@ internal sealed class CilExpressionCompiler(ManagedDebugger debugger)
 			var syntax = SyntaxFactory.ParseExpression(expression);
 			expression = new RemoveFormatSpecifierAlignmentRewriter().Visit(syntax)!.ToFullString();
 		}
-		var frame = debugger.GetFrameForThreadIdAndStackDepth(context.ThreadId, context.StackDepth);
+		var frame = debugger.GetIlFrameForThreadIdAndStackDepth(context.ThreadId, context.StackDepth);
 		var preferredModule = context.RootValue is not null ? context.RootValue.ExactType.Class.Module : frame.Function.Module;
 		var hasException = debugger.GetCurrentException(context.ThreadId) is not null;
 		EnsureModuleVersion();

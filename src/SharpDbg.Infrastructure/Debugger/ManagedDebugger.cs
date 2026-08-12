@@ -387,7 +387,7 @@ public partial class ManagedDebugger
 		return wasVerified is false && bp.Verified;
 	}
 
-	internal ICorDebugILFrame GetFrameForThreadIdAndStackDepth(ThreadId threadId, FrameStackDepth stackDepth)
+	internal ICorDebugILFrame GetIlFrameForThreadIdAndStackDepth(ThreadId threadId, FrameStackDepth stackDepth)
 	{
 		// We need to re-obtain the IlFrame in case it has been neutered
 		var thread = _process!.GetThread(threadId.Value);

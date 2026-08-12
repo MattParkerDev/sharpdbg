@@ -505,7 +505,7 @@ public partial class ManagedDebugger
 
 		var frameInfo = _frameReferenceManager.GetFrameInfoById(frameId);
 		if (frameInfo is not var (threadId, frameStackDepth)) return result;
-		var frame = GetFrameForThreadIdAndStackDepth(threadId, frameStackDepth);
+		var frame = GetIlFrameForThreadIdAndStackDepth(threadId, frameStackDepth);
 
 		var localVariables = frame.LocalVariables;
 		var arguments = frame.Arguments;
@@ -534,7 +534,7 @@ public partial class ManagedDebugger
 
 		var variablesReferenceNullable = _variableManager.GetReference(variablesReferenceInt);
 		if (variablesReferenceNullable is not {} variablesReference) throw new ArgumentException("Invalid variables reference");
-		var ilFrame = GetFrameForThreadIdAndStackDepth(variablesReference.ThreadId, variablesReference.FrameStackDepth);
+		var ilFrame = GetIlFrameForThreadIdAndStackDepth(variablesReference.ThreadId, variablesReference.FrameStackDepth);
 		try
 		{
 			if (variablesReference.ReferenceKind is StoredReferenceKind.Scope)

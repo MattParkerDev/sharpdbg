@@ -18,7 +18,7 @@ internal sealed class CilInterpreter(ManagedDebugger debugger, RuntimeAssemblyPr
 		var method = compiled.MetadataReader.GetMethodDefinition(compiled.EntryMethod);
 		var body = compiled.PeReader.GetMethodBody(method.RelativeVirtualAddress);
 		var decoded = compiled.GetDecodedMethod(compiled.EntryMethod);
-		var frame = context.RootValue is null ? debugger.GetFrameForThreadIdAndStackDepth(context.ThreadId, context.StackDepth) : null;
+		var frame = context.RootValue is null ? debugger.GetIlFrameForThreadIdAndStackDepth(context.ThreadId, context.StackDepth) : null;
 		var arguments = CreateArguments(frame, context);
 		var locals = CreateLocals(compiled, frame, body.LocalSignature, context.RootValue is not null);
 		var (typeGenericArguments, methodGenericArguments) = context.RootValue is not null
@@ -653,7 +653,7 @@ internal sealed class CilInterpreter(ManagedDebugger debugger, RuntimeAssemblyPr
 	private async ValueTask<ICorDebugValue> GetStaticFieldValue(ResolvedRuntimeField field, EvaluationMetadataResolver resolver, CompiledExpressionEvaluationContext context)
 	{
 		var type = resolver.GetCorDebugType(field.DeclaringType);
-		var frame = debugger.GetFrameForThreadIdAndStackDepth(context.ThreadId, context.StackDepth);
+		var frame = debugger.GetIlFrameForThreadIdAndStackDepth(context.ThreadId, context.StackDepth);
 		return await type.GetStaticFieldValueAsync(debugger.ProcessRuntimeEventsUntilEvalEvent, debugger.EvalStatus, field.Token, frame);
 	}
 

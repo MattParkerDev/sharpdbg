@@ -21,7 +21,7 @@ public partial class ManagedDebugger
 			// on the lambda method frame and must also be read below.
 			await AddClosureChainMembers(classContainingHoistedLocalsValue, threadId, stackDepth, result);
 		}
-		var corDebugIlFrame = GetFrameForThreadIdAndStackDepth(threadId, stackDepth);
+		var corDebugIlFrame = GetIlFrameForThreadIdAndStackDepth(threadId, stackDepth);
 		if (corDebugIlFrame.LocalVariables.Length is 0) return;
 		var currentIlOffset = corDebugIlFrame.IP.pnOffset;
 		foreach (var (index, localVariableCorDebugValue) in corDebugIlFrame.LocalVariables.Index())
@@ -70,7 +70,7 @@ public partial class ManagedDebugger
 	/// Returns classContainingHoistedLocalsValue if applicable
 	private async Task<ICorDebugValue?> AddArguments(ModuleInfo module, ICorDebugFunction corDebugFunction, List<VariableInfo> result, ThreadId threadId, FrameStackDepth stackDepth)
 	{
-		var corDebugIlFrame = GetFrameForThreadIdAndStackDepth(threadId, stackDepth);
+		var corDebugIlFrame = GetIlFrameForThreadIdAndStackDepth(threadId, stackDepth);
 		var arguments = corDebugIlFrame.Arguments;
 		if (arguments.Length is 0) return null;
 		var metadataImport = module.Module.GetMetaDataInterface<IMetaDataImport>();
@@ -322,7 +322,7 @@ public partial class ManagedDebugger
 				}
 
 				var objectValue = corDebugValue.UnwrapDebugValueToObject();
-				var fieldCorDebugValue = isStatic ? await corDebugType.GetStaticFieldValueAsync(ProcessRuntimeEventsUntilEvalEvent, EvalStatus, mdFieldDef, GetFrameForThreadIdAndStackDepth(threadId, stackDepth)) : objectValue.GetFieldValue(corDebugClass, mdFieldDef);
+				var fieldCorDebugValue = isStatic ? await corDebugType.GetStaticFieldValueAsync(ProcessRuntimeEventsUntilEvalEvent, EvalStatus, mdFieldDef, GetIlFrameForThreadIdAndStackDepth(threadId, stackDepth)) : objectValue.GetFieldValue(corDebugClass, mdFieldDef);
 				if (debuggerBrowsableRootHidden)
 				{
 					var unwrappedDebugValue = fieldCorDebugValue.UnwrapDebugValue();
@@ -357,7 +357,7 @@ public partial class ManagedDebugger
 			if (propertyName is null) continue;
 			await WithFailureHandling(result, propertyName, async () =>
 			{
-				var variablesReferenceIlFrame = GetFrameForThreadIdAndStackDepth(threadId, stackDepth);
+				var variablesReferenceIlFrame = GetIlFrameForThreadIdAndStackDepth(threadId, stackDepth);
 
 				// Get the get method for the property
 				var getMethodDef = propertyProps.pmdGetter;

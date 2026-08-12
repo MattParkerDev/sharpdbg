@@ -398,8 +398,20 @@ public partial class ManagedDebugger
 	{
 		// We need to re-obtain the frame in case it has been neutered
 		var thread = _process!.GetThread(threadId.Value);
-		var frame = thread.ActiveChain.Frames[stackDepth.Value];
+		var frame = EnumerateFramesForThread(thread).ElementAt(stackDepth.Value);
 		return frame;
+	}
+
+	private static IEnumerable<ICorDebugFrame> EnumerateFramesForThread(ICorDebugThread thread)
+	{
+		foreach (var chain in thread.EnumerateChains())
+		{
+			if (chain.IsManaged is false) continue;
+			foreach (var frame in chain.EnumerateFrames())
+			{
+				yield return frame;
+			}
+		}
 	}
 
 	internal IReadOnlyCollection<ModuleInfo> AllModules => _modules.Values;

@@ -523,8 +523,7 @@ public class DebugAdapter : DebugAdapterBase
 
 			responder.SetResponse(new StackTraceResponse
 			{
-				StackFrames = responseFrames,
-				TotalFrames = responseFrames.Count
+				StackFrames = responseFrames
 			});
 		}
 		catch (Exception ex)

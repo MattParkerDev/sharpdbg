@@ -440,51 +440,47 @@ public partial class ManagedDebugger
 
 		try
 		{
-			var chains = thread.EnumerateChains();
-			foreach (var chain in chains)
+			var frames = EnumerateFramesForThread(thread);
+			var filterFrames = frames.AsValueEnumerable().Skip(startFrame).Take(levels ?? int.MaxValue);
+
+			foreach (var (index, frame) in filterFrames.Index())
 			{
-				var frames = chain.Frames;
-				var filterFrames = frames.AsValueEnumerable().Skip(startFrame).Take(levels ?? int.MaxValue);
-
-				foreach (var (index, frame) in filterFrames.Index())
+				if (frame is ICorDebugILFrame ilFrame)
 				{
-					if (frame is ICorDebugILFrame ilFrame)
+					var function = ilFrame.Function;
+
+					var frameId = _frameReferenceManager.GetOrCreateFrameId(new ThreadId(threadId), new FrameStackDepth(startFrame + index));
+					var module = _modules[function.Module.BaseAddress];
+					var line = 0;
+					var column = 0;
+					var endLine = 0;
+					var endColumn = 0;
+					string? sourceFilePath = null;
+					if (module.MetadataReader.HasSymbols)
 					{
-						var function = ilFrame.Function;
-
-						var frameId = _frameReferenceManager.GetOrCreateFrameId(new ThreadId(threadId), new FrameStackDepth(startFrame + index));
-						var module = _modules[function.Module.BaseAddress];
-						var line = 0;
-						var column = 0;
-						var endLine = 0;
-						var endColumn = 0;
-						string? sourceFilePath = null;
-						if (module.MetadataReader.HasSymbols)
+						var ilOffset = ilFrame.IP.pnOffset;
+						var methodToken = function.Token;
+						var sourceInfo = module.MetadataReader.GetSourceLocationForOffset(methodToken, ilOffset);
+						if (sourceInfo is not null)
 						{
-							var ilOffset = ilFrame.IP.pnOffset;
-							var methodToken = function.Token;
-							var sourceInfo = module.MetadataReader.GetSourceLocationForOffset(methodToken, ilOffset);
-							if (sourceInfo is not null)
-							{
-								line = sourceInfo.Value.startLine;
-								column = sourceInfo.Value.startColumn;
-								endLine = sourceInfo.Value.endLine;
-								endColumn = sourceInfo.Value.endColumn;
-								sourceFilePath = sourceInfo.Value.sourceFilePath;
-							}
+							line = sourceInfo.Value.startLine;
+							column = sourceInfo.Value.startColumn;
+							endLine = sourceInfo.Value.endLine;
+							endColumn = sourceInfo.Value.endColumn;
+							sourceFilePath = sourceInfo.Value.sourceFilePath;
 						}
-
-						result.Add(new StackFrameInfo
-						{
-							Id = frameId,
-							Name = GetFunctionFormattedName(function),
-							Line = line,
-							EndLine = endLine,
-							Column = column,
-							EndColumn = endColumn,
-							Source = sourceFilePath
-						});
 					}
+
+					result.Add(new StackFrameInfo
+					{
+						Id = frameId,
+						Name = GetFunctionFormattedName(function),
+						Line = line,
+						EndLine = endLine,
+						Column = column,
+						EndColumn = endColumn,
+						Source = sourceFilePath
+					});
 				}
 			}
 		}

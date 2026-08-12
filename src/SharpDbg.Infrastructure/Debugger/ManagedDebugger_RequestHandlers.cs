@@ -447,7 +447,7 @@ public partial class ManagedDebugger
 			{
 				var stackFrameInfo = new StackFrameInfo
 				{
-					Id = 0,
+					Id = _frameReferenceManager.GetOrCreateFrameId(new ThreadId(threadId), new FrameStackDepth(startFrame + index)),
 					Name = null!,
 					Line = 0,
 					EndLine = 0,
@@ -458,8 +458,6 @@ public partial class ManagedDebugger
 				if (frame is ICorDebugILFrame ilFrame)
 				{
 					var function = ilFrame.Function;
-
-					stackFrameInfo.Id = _frameReferenceManager.GetOrCreateFrameId(new ThreadId(threadId), new FrameStackDepth(startFrame + index));
 					stackFrameInfo.Name = GetFunctionFormattedName(function);
 					var module = _modules[function.Module.BaseAddress];
 					if (module.MetadataReader.HasSymbols)
@@ -476,25 +474,17 @@ public partial class ManagedDebugger
 							stackFrameInfo.Source = sourceInfo.Value.sourceFilePath;
 						}
 					}
-
-					result.Add(stackFrameInfo);
 				}
 				else if (frame is ICorDebugInternalFrame internalFrame)
 				{
-					stackFrameInfo.Id = _frameReferenceManager.GetOrCreateFrameId(new ThreadId(threadId), new FrameStackDepth(startFrame + index));
 					stackFrameInfo.Name = internalFrame.FrameType.ToDisplayName();
-					result.Add(stackFrameInfo);
 				}
 				else if (frame is ICorDebugNativeFrame nativeFrame)
 				{
-					stackFrameInfo.Id = _frameReferenceManager.GetOrCreateFrameId(new ThreadId(threadId), new FrameStackDepth(startFrame + index));
 					stackFrameInfo.Name = "[Native Frame]";
-					result.Add(stackFrameInfo);
 				}
-				else
-				{
-					throw new ArgumentOutOfRangeException(nameof(frame), "Unknown frame type");
-				}
+				else throw new ArgumentOutOfRangeException(nameof(frame), "Unknown frame type");
+				result.Add(stackFrameInfo);
 			}
 		}
 		catch (Exception ex)
@@ -544,11 +534,11 @@ public partial class ManagedDebugger
 
 		var variablesReferenceNullable = _variableManager.GetReference(variablesReferenceInt);
 		if (variablesReferenceNullable is not {} variablesReference) throw new ArgumentException("Invalid variables reference");
-		var ilFrame = GetIlFrameForThreadIdAndStackDepth(variablesReference.ThreadId, variablesReference.FrameStackDepth);
 		try
 		{
 			if (variablesReference.ReferenceKind is StoredReferenceKind.Scope)
 			{
+				var ilFrame = GetIlFrameForThreadIdAndStackDepth(variablesReference.ThreadId, variablesReference.FrameStackDepth);
 				var corDebugFunction = ilFrame.Function;
 				var module = _modules[corDebugFunction.Module.BaseAddress];
 				await AddCurrentException(result, variablesReference.ThreadId, variablesReference.FrameStackDepth);

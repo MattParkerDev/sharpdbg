@@ -41,6 +41,7 @@ async Task Run()
 		{
 			var repositories = Repository.Factory.GetCoreV3("https://api.nuget.org/v3/index.json");
 			resource = await repositories.GetResourceAsync<FindPackageByIdResource>();
+			ArgumentNullException.ThrowIfNull(resource);
 		}
 
 		var packageAndSpecificVersionExistsOnNuget = await resource.DoesPackageExistAsync(nugetPackageId, packageVersion, cache, NullLogger.Instance, CancellationToken.None);

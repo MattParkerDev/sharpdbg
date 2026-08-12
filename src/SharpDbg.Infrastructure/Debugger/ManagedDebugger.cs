@@ -478,7 +478,10 @@ public partial class ManagedDebugger
 
 		// Unsubscribe from callbacks to avoid any further event dispatch
 		_callbacks.OnAnyEvent -= QueueEvent;
-		_runtimeEventChannel.Writer.Complete();
+		// TryComplete because this can run twice: Terminate disposes whether or not it succeeded, so a
+		// client that sends terminate and then disconnect would get a ChannelClosedException out of the
+		// second one
+		_runtimeEventChannel.Writer.TryComplete();
 		// ProcessRuntimeEventQueue is blocked on DapRequestAndRuntimeEventLock (which we hold) and would
 		// never complete if we waited on it here — that is the deadlock. Read and discard remaining events ourselves,
 		// then let the processor exit once the lock is released.

@@ -389,11 +389,17 @@ public partial class ManagedDebugger
 
 	internal ICorDebugILFrame GetIlFrameForThreadIdAndStackDepth(ThreadId threadId, FrameStackDepth stackDepth)
 	{
-		// We need to re-obtain the IlFrame in case it has been neutered
-		var thread = _process!.GetThread(threadId.Value);
-		var frame = thread.ActiveChain.Frames[stackDepth.Value];
+		var frame = GetFrameForThreadIdAndStackDepth(threadId, stackDepth);
 		if (frame is not ICorDebugILFrame ilFrame) throw new InvalidOperationException("Frame is not an IL frame");
 		return ilFrame;
+	}
+
+	internal ICorDebugFrame GetFrameForThreadIdAndStackDepth(ThreadId threadId, FrameStackDepth stackDepth)
+	{
+		// We need to re-obtain the frame in case it has been neutered
+		var thread = _process!.GetThread(threadId.Value);
+		var frame = thread.ActiveChain.Frames[stackDepth.Value];
+		return frame;
 	}
 
 	internal IReadOnlyCollection<ModuleInfo> AllModules => _modules.Values;

@@ -505,10 +505,11 @@ public partial class ManagedDebugger
 
 		var frameInfo = _frameReferenceManager.GetFrameInfoById(frameId);
 		if (frameInfo is not var (threadId, frameStackDepth)) return result;
-		var frame = GetIlFrameForThreadIdAndStackDepth(threadId, frameStackDepth);
+		var frame = GetFrameForThreadIdAndStackDepth(threadId, frameStackDepth);
+		if (frame is not ICorDebugILFrame ilFrame) return result;
 
-		var localVariables = frame.LocalVariables;
-		var arguments = frame.Arguments;
+		var localVariables = ilFrame.LocalVariables;
+		var arguments = ilFrame.Arguments;
 		var thread = _threads.GetValueOrDefault(threadId.Value);
 		Guard.Against.Null(thread);
 		var hasCurrentException = thread.TryGetCurrentException(out _) is Cor.S_OK;

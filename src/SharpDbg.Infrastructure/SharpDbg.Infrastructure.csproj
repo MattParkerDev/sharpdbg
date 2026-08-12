@@ -22,7 +22,7 @@
 	</PackageReference>
     <PackageReference Include="Ardalis.GuardClauses" Version="5.0.0" />
 	<PackageReference Include="ICorDebugSharp" Version="0.1.8" />
-	<PackageReference Include="ICSharpCode.Decompiler" Version="10.1.1.8388" />
+	<PackageReference Include="ICSharpCode.Decompiler" Version="11.0.0.9375" />
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="5.6.0" />
 	<PackageReference Include="MP.Microsoft.CodeAnalysis.CSharp.ExpressionEvaluator.ExpressionCompiler" Version="5.6.0" />
     <PackageReference Include="Microsoft.Diagnostics.NETCore.Client" Version="0.2.661903" />

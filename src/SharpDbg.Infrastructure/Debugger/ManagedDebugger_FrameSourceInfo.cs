@@ -138,7 +138,8 @@ public partial class ManagedDebugger
 				var pdbDirectory = Path.GetDirectoryName(pdbPathToWriteTo)!;
 				if (!Directory.Exists(pdbDirectory)) Directory.CreateDirectory(pdbDirectory);
 				using var pdbStream = File.Create(pdbPathToWriteTo);
-				PortablePdbWriter2.WritePdb(file, decompilerTypeSystem, decompilerSettings, pdbStream, noLogo: true);
+				var portablePdbWriter2 = new PortablePdbWriter2 { NoLogo = true };
+				portablePdbWriter2.WritePdb(file, decompilerTypeSystem, decompilerSettings, pdbStream);
 			}
 			catch (Exception ex)
 			{

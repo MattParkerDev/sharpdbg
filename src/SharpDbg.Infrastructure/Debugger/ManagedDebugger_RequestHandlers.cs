@@ -415,7 +415,7 @@ public partial class ManagedDebugger
 			var threads = _process.EnumerateThreads();
 			foreach (var thread in threads)
 			{
-				result.Add((thread.Id, $"Thread {thread.Id}"));
+				result.Add((thread.Id, thread.GetThreadName()));
 			}
 		}
 		catch (Exception ex)

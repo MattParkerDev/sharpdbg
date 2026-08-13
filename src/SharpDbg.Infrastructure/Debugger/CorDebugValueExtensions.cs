@@ -182,4 +182,43 @@ public static class CorDebugValueExtensions
 		}
 		return false;
 	}
+
+	public static string GetThreadName(this ICorDebugThread thread) => thread.GetThreadNameOrNull() ?? "<No Name>";
+	public static string? GetThreadNameOrNull(this ICorDebugThread thread)
+	{
+		// GetObject fails with CORDBG_E_BAD_THREAD_STATE while a thread has no managed Thread object yet
+		if (thread.TryGetObject(out var threadObjectValue) is not Cor.S_OK) return null;
+		if (threadObjectValue.UnwrapDebugValue() is not ICorDebugObjectValue threadObject) return null;
+
+		var corClass = threadObject.Class;
+		var metadataImport = corClass.Module.GetMetaDataInterface<IMetaDataImport>();
+
+		var name = GetThreadNameField(threadObject, corClass, metadataImport);
+		if (string.IsNullOrEmpty(name) is false) return name;
+
+		var managedThreadId = GetManagedThreadIdField(threadObject, corClass, metadataImport);
+		if (managedThreadId is 1) return "Main Thread";
+
+		return null;
+	}
+
+	private static string? GetThreadNameField(ICorDebugObjectValue threadObject, ICorDebugClass corClass, IMetaDataImport metadataImport)
+	{
+		var fieldDef = metadataImport.EnumFieldsWithName(corClass.Token, "_name").SingleOrDefault();
+		if (fieldDef.IsNil) return null;
+
+		var fieldValue = threadObject.GetFieldValue(corClass, fieldDef);
+		if (fieldValue?.UnwrapDebugValue() is not ICorDebugStringValue stringValue) return null;
+		return stringValue.String;
+	}
+
+	private static int? GetManagedThreadIdField(ICorDebugObjectValue threadObject, ICorDebugClass corClass, IMetaDataImport metadataImport)
+	{
+		var fieldDef = metadataImport.EnumFieldsWithName(corClass.Token, "_managedThreadId").SingleOrDefault();
+		if (fieldDef.IsNil) return null;
+
+		var fieldValue = threadObject.GetFieldValue(corClass, fieldDef);
+		if (fieldValue?.UnwrapDebugValue() is not ICorDebugGenericValue genericValue) return null;
+		return BitConverter.ToInt32(genericValue.GetValueAsBytes(), 0);
+	}
 }

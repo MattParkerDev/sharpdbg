@@ -185,7 +185,12 @@ public partial class ManagedDebugger
 		}
 
 		var managedBreakpoint = _breakpointManager.FindByCorBreakpoint(functionBreakpoint);
-		ArgumentNullException.ThrowIfNull(managedBreakpoint);
+		if (managedBreakpoint is null)
+		{
+			_logger?.Invoke("Hit a breakpoint that has since been replaced - continuing");
+			ContinueWithVariableClear();
+			return;
+		}
 
 		managedBreakpoint.HitCount++;
 

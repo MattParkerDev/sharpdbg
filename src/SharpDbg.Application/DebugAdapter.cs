@@ -179,7 +179,7 @@ public class DebugAdapter : DebugAdapterBase
 			Protocol.SendEvent(new TerminatedEvent());
 		};
 
-		_debugger.OnThreadStarted += (threadId, name) =>
+		_debugger.OnThreadStarted += threadId =>
 		{
 			Protocol.SendEvent(new ThreadEvent
 			{
@@ -188,7 +188,7 @@ public class DebugAdapter : DebugAdapterBase
 			});
 		};
 
-		_debugger.OnThreadExited += (threadId, name) =>
+		_debugger.OnThreadExited += threadId =>
 		{
 			Protocol.SendEvent(new ThreadEvent
 			{

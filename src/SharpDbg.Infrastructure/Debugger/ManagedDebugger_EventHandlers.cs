@@ -30,7 +30,7 @@ public partial class ManagedDebugger
 	{
 		var corThread = createThreadCorDebugManagedCallbackEventArgs.Thread;
 		_threads[corThread.Id] = corThread;
-		OnThreadStarted?.Invoke(corThread.Id, $"Thread {corThread.Id}");
+		OnThreadStarted?.Invoke(corThread.Id);
 		Continue();
 	}
 
@@ -38,7 +38,7 @@ public partial class ManagedDebugger
 	{
 		var corThread = exitThreadCorDebugManagedCallbackEventArgs.Thread;
 		_threads.Remove(corThread.Id);
-		OnThreadExited?.Invoke(corThread.Id, $"Thread {corThread.Id}");
+		OnThreadExited?.Invoke(corThread.Id);
 		Continue();
 	}
 

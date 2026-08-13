@@ -41,8 +41,8 @@ public partial class ManagedDebugger
 	public event Action<int>? OnContinued;
 	public event Action? OnExited;
 	public event Action? OnTerminated;
-	public event Action<int, string>? OnThreadStarted;
-	public event Action<int, string>? OnThreadExited;
+	public event Action<int>? OnThreadStarted;
+	public event Action<int>? OnThreadExited;
 	public event Action<string, string, string>? OnModuleLoaded;
 	// Output text, isError (true for stderr, false for stdout)
 	public event Action<string, bool>? OnOutput;

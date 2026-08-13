@@ -449,6 +449,8 @@ public partial class ManagedDebugger
 	// Not intended to implement IDisposable - it is intended that this is called via Disconnect()
 	private void Dispose()
 	{
+		if (_process is null) return; // A client may call Terminate, then Disconnect, both of which call Dispose. Dispose only needs to be run once.
+
 		// Dispose modules, which releases PDB files
 		foreach (var moduleInfo in _modules.Values)
 		{

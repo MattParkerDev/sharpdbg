@@ -93,6 +93,7 @@ public partial class ManagedDebugger
 		_isAttached = true;
 
 		_logger?.Invoke($"Successfully attached to process: {processId}");
+		OnProcessStarted?.Invoke(processId, launchInfo.Program);
 		SendAllBreakpointEvents();
 		return;
 

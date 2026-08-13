@@ -211,6 +211,17 @@ public class DebugAdapter : DebugAdapterBase
 			});
 		};
 
+		_debugger.OnProcessStarted += (processId, name) =>
+		{
+			Protocol.SendEvent(new ProcessEvent
+			{
+				Name = name,
+				SystemProcessId = processId,
+				StartMethod = ProcessEvent.StartMethodValue.Launch,
+				IsLocalProcess = true
+			});
+		};
+
 		_debugger.OnOutput += (output, isStdError) =>
 		{
 			Protocol.SendEvent(new OutputEvent

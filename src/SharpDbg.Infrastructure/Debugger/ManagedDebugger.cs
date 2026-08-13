@@ -46,6 +46,7 @@ public partial class ManagedDebugger
 	public event Action<string, string, string>? OnModuleLoaded;
 	// Output text, isError (true for stderr, false for stdout)
 	public event Action<string, bool>? OnOutput;
+	public event Action<int, string>? OnProcessStarted;
 	public event Action<BreakpointManager.BreakpointInfo>? OnBreakpointChanged;
 	public event Func<LaunchInfo, int> SendRunInTerminalRequest = null!;
 

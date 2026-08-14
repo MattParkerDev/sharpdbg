@@ -190,6 +190,7 @@ file static class TestExtensions
 			new() { VariablesReference =  0, Name = "ConstField",  EvaluateName = "ConstField",  Value = "\"const\"", Type = "string" },
 			new() { VariablesReference =  0, Name = "ConstFieldNullString",  EvaluateName = "ConstFieldNullString",  Value = "null", Type = "string" },
 			new() { VariablesReference =  0, Name = "ConstFieldBool",  EvaluateName = "ConstFieldBool",  Value = "true", Type = "bool" },
+			new() { VariablesReference =  0, Name = "ConstFieldDecimal",  EvaluateName = "ConstFieldDecimal",  Value = "4.5", Type = "decimal" },
 		];
 		staticMemberVariables.Should().HaveCount(expectedVariables.Count);
 		staticMemberVariables.Should().BeEquivalentTo(expectedVariables, options => options.Excluding(s => s.MemoryReference).Excluding(s => s.PresentationHint));

@@ -69,18 +69,31 @@ internal static class Program
 			adapter.Initialize(inputStream, outputStream);
 
 			Log("Protocol server starting...");
+
+			Exception? dispatcherError = null;
+			adapter.Protocol.DispatcherError += (_, e) =>
+			{
+				Interlocked.CompareExchange(ref dispatcherError, e.Exception, null);
+
+				var message = $"SharpDbg DAP protocol dispatcher error: {e.Exception}";
+				Log(message);
+				Console.Error.WriteLine(message);
+			};
+
 			// Run() starts the protocol client's message loop in a background thread
 			adapter.Protocol.Run();
 			// WaitForReader() blocks until the input stream is closed (client disconnects)
 			adapter.Protocol.WaitForReader();
 			Log("Protocol server stopped");
 
+			if (dispatcherError is not null) return 1;
 			return 0;
 		}
 		catch (Exception ex)
 		{
-			Log($"Fatal error: {ex.Message}");
-			Log($"Stack trace: {ex.StackTrace}");
+			var message = $"SharpDbg fatal error: {ex}";
+			Log(message);
+			Console.Error.WriteLine(message);
 			return 1;
 		}
 		finally

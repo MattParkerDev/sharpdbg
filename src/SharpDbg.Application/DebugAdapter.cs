@@ -35,6 +35,11 @@ public class DebugAdapter : DebugAdapterBase
 	public void Initialize(Stream input, Stream output)
 	{
 		InitializeProtocolClient(input, output);
+		Protocol.RemoveRequestRegistration("vsCustomMessage");
+		Protocol.RegisterRequestType<VsCustomMessageRequest, VsCustomMessageArguments, VsCustomMessageResponse>(responder =>
+		{
+			responder.SetResponse(new VsCustomMessageResponse());
+		});
 	}
 
 	private async Task<T> ExecuteWithExceptionHandling<T>(Func<T> func)
@@ -262,6 +267,7 @@ public class DebugAdapter : DebugAdapterBase
 		_clientColumnsStartAt1 = arguments.ColumnsStartAt1 ?? true;
 
 		// Send initialized event
+		// This event MUST be sent after the InitializeResponse. We achieve that currently because DebugAdapter queues events for synchronous handlers such as this one.
 		Protocol.SendEvent(new InitializedEvent());
 
 		return new InitializeResponse

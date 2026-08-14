@@ -225,7 +225,7 @@ public partial class ManagedDebugger
 	/// <summary>
 	/// Step to the next line
 	/// </summary>
-	public async void StepNext(int threadId)
+	public async Task StepNext(int threadId)
 	{
 		_logger?.Invoke($"StepNext on thread {threadId}");
 		if (_threads.TryGetValue(threadId, out var thread))
@@ -256,7 +256,7 @@ public partial class ManagedDebugger
 	/// <summary>
 	/// Step into
 	/// </summary>
-	public async void StepIn(int threadId)
+	public async Task StepIn(int threadId)
 	{
 		_logger?.Invoke($"StepIn on thread {threadId}");
 		if (_threads.TryGetValue(threadId, out var thread))
@@ -287,7 +287,7 @@ public partial class ManagedDebugger
 	/// <summary>
 	/// Step out
 	/// </summary>
-	public async void StepOut(int threadId)
+	public async Task StepOut(int threadId)
 	{
 		_logger?.Invoke($"StepOut on thread {threadId}");
 		if (_threads.TryGetValue(threadId, out var thread))

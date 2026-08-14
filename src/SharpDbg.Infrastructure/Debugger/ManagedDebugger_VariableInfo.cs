@@ -316,6 +316,7 @@ public partial class ManagedDebugger
 					var literalValueFormatted = literalValue switch
 					{
 						null => "null",
+						bool b => b.ToString().ToLowerInvariant(),
 						string str => SymbolDisplay.FormatLiteral(str, quote: true),
 						_ => literalValue.ToString()!
 					};

@@ -108,7 +108,7 @@ public partial class ManagedDebugger
 			var valueField = corDebugObjectValue.GetFieldValue(corDebugObjectValue.Class, valueFieldDef);
 			var value = GetValueForCorDebugValue(valueField, escapeStringValue);
 
-			var enumDisplayValue = GetEnumDisplayValue(metaDataImport, corDebugObjectValue, value.Value);
+			var enumDisplayValue = GetEnumDisplayValue(metaDataImport, corDebugObjectValue.Class.Token, value.Value);
 			return new(GetCorDebugTypeFriendlyName(corDebugObjectValue.ExactType), enumDisplayValue, false, null);
 		}
 		var typeName = GetCorDebugTypeFriendlyName(corDebugObjectValue.ExactType);

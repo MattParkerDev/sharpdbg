@@ -1,6 +1,9 @@
 using System.Diagnostics;
+using System.Collections.Immutable;
 using System.Reflection.Metadata;
 using System.Reflection.Metadata.Ecma335;
+using System.Runtime.InteropServices;
+using System.Runtime.InteropServices.Marshalling;
 using Ardalis.GuardClauses;
 using ICorDebugSharp;
 using Microsoft.CodeAnalysis.CSharp;
@@ -313,6 +316,8 @@ public partial class ManagedDebugger
 				if (isLiteral)
 				{
 					var literalValue = GetLiteralValue(fieldProps.ppValue, fieldProps.pdwCPlusTypeFlag, fieldProps.pcchValue);
+					var fieldType = GetFieldType(corDebugClass, mdFieldDef);
+					var fieldTypeName = fieldType?.FriendlyName ?? GetFriendlyTypeName(fieldProps.pdwCPlusTypeFlag);
 					var literalValueFormatted = literalValue switch
 					{
 						null => "null",
@@ -321,11 +326,15 @@ public partial class ManagedDebugger
 						string str => SymbolDisplay.FormatLiteral(str, quote: true),
 						_ => literalValue.ToString()!
 					};
+					if (fieldType is { } declaredType && TryGetEnumDisplayValue(declaredType, literalValueFormatted, out var enumDisplayValue))
+					{
+						literalValueFormatted = enumDisplayValue;
+					}
 					var literalVariableInfo = new VariableInfo
 					{
 						Name = fieldName,
 						Value = literalValueFormatted,
-						Type = GetFieldFriendlyTypeName(corDebugClass, mdFieldDef) ?? GetFriendlyTypeName(fieldProps.pdwCPlusTypeFlag),
+						Type = fieldTypeName,
 						VariablesReference = 0
 					};
 					result.Add(literalVariableInfo);
@@ -358,14 +367,16 @@ public partial class ManagedDebugger
 		}
 	}
 
-	private string? GetFieldFriendlyTypeName(ICorDebugClass corDebugClass, mdFieldDef mdFieldDef)
+	private (string FriendlyName, ModuleInfo Module, EntityHandle Handle)? GetFieldType(ICorDebugClass corDebugClass, mdFieldDef mdFieldDef)
 	{
 		if (_modules.TryGetValue(corDebugClass.Module.BaseAddress, out var moduleInfo) is false) return null;
 		var handle = MetadataTokens.Handle(mdFieldDef);
 		if (handle.Kind is not HandleKind.FieldDefinition) return null;
-		var field = moduleInfo.MetadataReader.PeMetadataReader.GetFieldDefinition((FieldDefinitionHandle)handle);
+		var reader = moduleInfo.MetadataReader.PeMetadataReader;
+		var field = reader.GetFieldDefinition((FieldDefinitionHandle)handle);
 		var typeName = field.DecodeSignature(new FunctionBreakpointSignatureTypeProvider(), null);
-		return ClassNameToMaybeLanguageAlias(typeName);
+		var typeHandle = field.DecodeSignature(FieldTypeHandleProvider.Instance, null);
+		return (ClassNameToMaybeLanguageAlias(typeName), moduleInfo, typeHandle);
 	}
 
 	internal class EvalException(string message) : Exception(message);

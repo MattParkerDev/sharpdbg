@@ -67,9 +67,9 @@ public class VariablesTests(ITestOutputHelper testOutputHelper)
 
 		List<Variable> expectedEnumStaticMemberVariables =
 		[
-			new() { Name = "FirstValue", Value = "0", Type = "int", EvaluateName = "FirstValue" },
-			new() { Name = "SecondValue", Value = "1", Type = "int", EvaluateName = "SecondValue" },
-			new() { Name = "ThirdValue", Value = "2", Type = "int", EvaluateName = "ThirdValue" },
+			new() { Name = "FirstValue", Value = "FirstValue", Type = "DebuggableConsoleApp.MyEnum", EvaluateName = "FirstValue" },
+			new() { Name = "SecondValue", Value = "SecondValue", Type = "DebuggableConsoleApp.MyEnum", EvaluateName = "SecondValue" },
+			new() { Name = "ThirdValue", Value = "ThirdValue", Type = "DebuggableConsoleApp.MyEnum", EvaluateName = "ThirdValue" },
 		];
 
 		debugProtocolHost.WithVariablesRequest(enumNestedVariables.Single(s => s.Name == "Static members").VariablesReference, out var enumStaticVariables);

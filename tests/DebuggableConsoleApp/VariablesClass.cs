@@ -81,6 +81,7 @@ public class VariablesClass
 	public const decimal ConstFieldDecimal = 4.5m;
 	public const char ConstFieldChar = 'D';
 	public const MyEnum ConstFieldEnum = MyEnum.SecondValue;
+	public const MyEnumWithFlags ConstFieldFlagsEnum = MyEnumWithFlags.FlagValue1 | MyEnumWithFlags.FlagValue3;
 	//private static ReadOnlySpan<byte> ConstByteArraySpan => [1, 2, 3, 4]; // The compiler optimizes this and puts the literal in the IL
 
 	public int IntProperty { get; set; } = 100;

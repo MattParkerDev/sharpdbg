@@ -23,12 +23,12 @@ public class Variables2Tests(ITestOutputHelper testOutputHelper)
 			.WaitForInitializedEvent(initializedEventTcs);
 		var breakpointedFilePath = Path.JoinFromGitRoot("tests", "DebuggableConsoleApp", "VariablesClass.cs");
 		debugProtocolHost
-			.WithBreakpointsRequest([144], breakpointedFilePath)
+			.WithBreakpointsRequest([145], breakpointedFilePath)
 			.WithConfigurationDoneRequest()
 			.WithOptionalResumeRuntime(p2.Id, startSuspended);
 
 		var stoppedEvent = await debugProtocolHost.WaitForStoppedEvent(debugEventTcs);
-		stoppedEvent.ReadStopInfo().Should().Be((breakpointedFilePath, 144, 3));
+		stoppedEvent.ReadStopInfo().Should().Be((breakpointedFilePath, 145, 3));
 		debugProtocolHost
 			.WithStackTraceRequest(stoppedEvent.ThreadId!.Value, out var stackTraceResponse)
 			.WithScopesRequest(stackTraceResponse.StackFrames!.First().Id, out var scopesResponse);
@@ -97,7 +97,7 @@ file static class TestExtensions
 		var expectedTimeSpanField = TimeSpan.FromMinutes(5).ToString();
 		var expectedGuidField = "a1b2c3d4-e5f6-7890-abcd-ef1234567890";
 		var expectedNullableGuidField= "f0e1d2c3-b4a5-9687-7869-5a4b3c2d1e0f";
-		var expectedThrowingPropertyValue = $"System.InvalidOperationException: ThrowingProperty was accessed{Environment.NewLine}   at DebuggableConsoleApp.VariablesClass.get_ThrowingProperty() in {breakpointedFilePath}:line 88";
+		var expectedThrowingPropertyValue = $"System.InvalidOperationException: ThrowingProperty was accessed{Environment.NewLine}   at DebuggableConsoleApp.VariablesClass.get_ThrowingProperty() in {breakpointedFilePath}:line 89";
 
 		List<Variable> expectedVariables =
 		[
@@ -191,6 +191,7 @@ file static class TestExtensions
 			new() { VariablesReference =  0, Name = "ConstFieldNullString",  EvaluateName = "ConstFieldNullString",  Value = "null", Type = "string" },
 			new() { VariablesReference =  0, Name = "ConstFieldBool",  EvaluateName = "ConstFieldBool",  Value = "true", Type = "bool" },
 			new() { VariablesReference =  0, Name = "ConstFieldDecimal",  EvaluateName = "ConstFieldDecimal",  Value = "4.5", Type = "decimal" },
+			new() { VariablesReference =  0, Name = "ConstFieldChar",  EvaluateName = "ConstFieldChar",  Value = "68 'D'", Type = "char" },
 		];
 		staticMemberVariables.Should().HaveCount(expectedVariables.Count);
 		staticMemberVariables.Should().BeEquivalentTo(expectedVariables, options => options.Excluding(s => s.MemoryReference).Excluding(s => s.PresentationHint));

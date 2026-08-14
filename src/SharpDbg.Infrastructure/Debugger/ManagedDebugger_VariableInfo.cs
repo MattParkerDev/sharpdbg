@@ -317,6 +317,7 @@ public partial class ManagedDebugger
 					{
 						null => "null",
 						bool b => b.ToString().ToLowerInvariant(),
+						char c => $"{(int)c} '{c}'",
 						string str => SymbolDisplay.FormatLiteral(str, quote: true),
 						_ => literalValue.ToString()!
 					};

@@ -79,6 +79,7 @@ public class VariablesClass
 	public const string? ConstFieldNullString = null;
 	public const bool ConstFieldBool = true;
 	public const decimal ConstFieldDecimal = 4.5m;
+	public const char ConstFieldChar = 'D';
 
 	public int IntProperty { get; set; } = 100;
 	public string? NullableStringProperty { get; set; } = null;

@@ -76,6 +76,7 @@ public class VariablesClass
 	public static int StaticField = 999;
 	public readonly string ReadonlyField = "readonly";
 	public const string ConstField = "const";
+	public const string? ConstFieldNullString = null;
 
 	public int IntProperty { get; set; } = 100;
 	public string? NullableStringProperty { get; set; } = null;

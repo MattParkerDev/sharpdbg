@@ -25,8 +25,8 @@ public partial class ManagedDebugger
 			const CorFieldAttr requiredAttributesForEnumOption = CorFieldAttr.fdPublic | CorFieldAttr.fdStatic | CorFieldAttr.fdLiteral | CorFieldAttr.fdHasDefault;
 			var fieldProps = metaDataImport.GetFieldProps(field);
 			if ((fieldProps.pdwAttr & requiredAttributesForEnumOption) != requiredAttributesForEnumOption) continue;
-			var fieldValue = GetLiteralValue(fieldProps.ppValue, fieldProps.pdwCPlusTypeFlag);
-			if (fieldValue.ToString() == valueAsString)
+			var fieldValue = GetLiteralValue(fieldProps.ppValue, fieldProps.pdwCPlusTypeFlag, fieldProps.pcchValue);
+			if (fieldValue?.ToString() == valueAsString)
 			{
 				return fieldProps.szField;
 			}
@@ -51,7 +51,7 @@ public partial class ManagedDebugger
 			var fieldProps = metaDataImport.GetFieldProps(field);
 			if ((fieldProps.pdwAttr & requiredAttributesForEnumOption) != requiredAttributesForEnumOption) continue;
 
-			var fieldValueObj = GetLiteralValue(fieldProps.ppValue, fieldProps.pdwCPlusTypeFlag);
+			var fieldValueObj = GetLiteralValue(fieldProps.ppValue, fieldProps.pdwCPlusTypeFlag, fieldProps.pcchValue);
 
 			ulong fieldValue = Convert.ToUInt64(fieldValueObj);
 

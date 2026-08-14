@@ -348,12 +348,14 @@ public partial class ManagedDebugger
 		}
 	}
 
-	private static object GetLiteralValue(IntPtr ppValue, CorElementType elementType)
+	private static object? GetLiteralValue(IntPtr ppValue, CorElementType elementType, int pcchValue)
 	{
-		if (ppValue == IntPtr.Zero) throw new ArgumentNullException(nameof(ppValue));
+		if (ppValue == IntPtr.Zero) return elementType == CorElementType.STRING ? null : throw new ArgumentNullException(nameof(ppValue));
 
 		object? result = elementType switch
 		{
+			CorElementType.BOOLEAN => Marshal.ReadByte(ppValue) != 0,
+			CorElementType.CHAR => (char)Marshal.ReadInt16(ppValue),
 			CorElementType.I1 => (sbyte)Marshal.ReadByte(ppValue),
 			CorElementType.I2 => Marshal.ReadInt16(ppValue),
 			CorElementType.I4 => Marshal.ReadInt32(ppValue),
@@ -362,6 +364,7 @@ public partial class ManagedDebugger
 			CorElementType.U2 => (ushort)Marshal.ReadInt16(ppValue),
 			CorElementType.U4 => (uint)Marshal.ReadInt32(ppValue),
 			CorElementType.U8 => (ulong)Marshal.ReadInt64(ppValue),
+			CorElementType.STRING => Marshal.PtrToStringUni(ppValue, pcchValue),
 			_ => throw new ArgumentOutOfRangeException(nameof(elementType), $"Unsupported literal type: {elementType}"),
 		};
 		return result;

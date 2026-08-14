@@ -163,6 +163,7 @@ file static class TestExtensions
 		thisInstanceVariables.Should().HaveCount(expectedVariables.Count);
 		thisInstanceVariables.Should().BeEquivalentTo(expectedVariables, options => options.Excluding(s => s.MemoryReference).Excluding(s => s.PresentationHint));
 		debugProtocolHost.AssertStaticFieldsOnGenericType(thisInstanceVariables.Single(s => s.Name == "_genericTypeWithStaticField").VariablesReference);
+		debugProtocolHost.AssertInstanceThisStaticVariables(thisInstanceVariables.Single(s => s.Name == "Static members").VariablesReference);
 	}
 
 	private static void AssertStaticFieldsOnGenericType(this DebugProtocolHost debugProtocolHost, int variablesReference)
@@ -178,5 +179,17 @@ file static class TestExtensions
 		debugProtocolHost.WithVariablesRequest(staticMembersVariablesReference, out var staticFieldsOnGenericType);
 		staticFieldsOnGenericType.Should().HaveCount(expectedVariables.Count);
 		staticFieldsOnGenericType.Should().BeEquivalentTo(expectedVariables, options => options.Excluding(s => s.MemoryReference).Excluding(s => s.PresentationHint));
+	}
+
+	private static void AssertInstanceThisStaticVariables(this DebugProtocolHost debugProtocolHost, int variablesReference)
+	{
+		debugProtocolHost.WithVariablesRequest(variablesReference, out var staticMemberVariables);
+		List<Variable> expectedVariables =
+		[
+			new() { VariablesReference =  0, Name = "StaticField", EvaluateName = "StaticField", Value = "999",       Type = "int" },
+			new() { VariablesReference =  0, Name = "ConstField",  EvaluateName = "ConstField",  Value = "\"const\"", Type = "string" },
+		];
+		staticMemberVariables.Should().HaveCount(expectedVariables.Count);
+		staticMemberVariables.Should().BeEquivalentTo(expectedVariables, options => options.Excluding(s => s.MemoryReference).Excluding(s => s.PresentationHint));
 	}
 }

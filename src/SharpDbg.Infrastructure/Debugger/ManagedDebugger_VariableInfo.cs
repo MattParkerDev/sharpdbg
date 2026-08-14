@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using Ardalis.GuardClauses;
 using ICorDebugSharp;
+using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Symbols;
 using SharpDbg.Infrastructure.Debugger.Models.Response;
 using SharpDbg.Infrastructure.Debugger.PresentationHintModels;
@@ -309,11 +310,17 @@ public partial class ManagedDebugger
 				}
 				if (isLiteral)
 				{
-					var literalValue = GetLiteralValue(fieldProps.ppValue, fieldProps.pdwCPlusTypeFlag);
+					var literalValue = GetLiteralValue(fieldProps.ppValue, fieldProps.pdwCPlusTypeFlag, fieldProps.pcchValue);
+					var literalValueFormatted = literalValue switch
+					{
+						null => "null",
+						string str => SymbolDisplay.FormatLiteral(str, quote: true),
+						_ => literalValue.ToString()!
+					};
 					var literalVariableInfo = new VariableInfo
 					{
 						Name = fieldName,
-						Value = literalValue.ToString()!,
+						Value = literalValueFormatted,
 						Type = GetFriendlyTypeName(fieldProps.pdwCPlusTypeFlag),
 						VariablesReference = 0
 					};

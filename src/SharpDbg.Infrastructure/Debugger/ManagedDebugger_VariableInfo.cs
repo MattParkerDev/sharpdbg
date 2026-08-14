@@ -1,4 +1,6 @@
 using System.Diagnostics;
+using System.Reflection.Metadata;
+using System.Reflection.Metadata.Ecma335;
 using Ardalis.GuardClauses;
 using ICorDebugSharp;
 using Microsoft.CodeAnalysis.CSharp;
@@ -321,7 +323,7 @@ public partial class ManagedDebugger
 					{
 						Name = fieldName,
 						Value = literalValueFormatted,
-						Type = GetFriendlyTypeName(fieldProps.pdwCPlusTypeFlag),
+						Type = GetFieldFriendlyTypeName(corDebugClass, mdFieldDef) ?? GetFriendlyTypeName(fieldProps.pdwCPlusTypeFlag),
 						VariablesReference = 0
 					};
 					result.Add(literalVariableInfo);
@@ -352,6 +354,16 @@ public partial class ManagedDebugger
 				result.Add(variableInfo);
 			});
 		}
+	}
+
+	private string? GetFieldFriendlyTypeName(ICorDebugClass corDebugClass, mdFieldDef mdFieldDef)
+	{
+		if (_modules.TryGetValue(corDebugClass.Module.BaseAddress, out var moduleInfo) is false) return null;
+		var handle = MetadataTokens.Handle(mdFieldDef);
+		if (handle.Kind is not HandleKind.FieldDefinition) return null;
+		var field = moduleInfo.MetadataReader.PeMetadataReader.GetFieldDefinition((FieldDefinitionHandle)handle);
+		var typeName = field.DecodeSignature(new FunctionBreakpointSignatureTypeProvider(), null);
+		return ClassNameToMaybeLanguageAlias(typeName);
 	}
 
 	internal class EvalException(string message) : Exception(message);

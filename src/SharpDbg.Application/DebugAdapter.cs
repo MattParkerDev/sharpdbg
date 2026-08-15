@@ -171,11 +171,12 @@ public class DebugAdapter : DebugAdapterBase
 			});
 		};
 
-		_debugger.OnExited += () =>
+		_debugger.OnExited += exitCode =>
 		{
+			// exitCode will be null in the attach scenario, as we cannot obtain the exit code of the process we attached to
 			Protocol.SendEvent(new ExitedEvent
 			{
-				ExitCode = 0 // There is no built-in, cross-platform way to get the exit code of an exited process
+				ExitCode = exitCode ?? 0
 			});
 		};
 

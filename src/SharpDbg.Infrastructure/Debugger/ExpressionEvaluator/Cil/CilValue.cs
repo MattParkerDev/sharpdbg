@@ -6,16 +6,18 @@ namespace SharpDbg.Infrastructure.Debugger.ExpressionEvaluator.Cil;
 // 🤖
 internal sealed class CilValue
 {
-	private CilValue(object? value, ICorDebugValue? corValue, ICilLocation? location = null)
+	private CilValue(object? value, ICorDebugValue? corValue, ICilLocation? location = null, ICilLocation? sourceLocation = null)
 	{
 		Value = value;
 		CorValue = corValue;
 		Location = location;
+		SourceLocation = sourceLocation;
 	}
 
 	public object? Value { get; }
 	public ICorDebugValue? CorValue { get; }
 	public ICilLocation? Location { get; }
+	public ICilLocation? SourceLocation { get; }
 	public bool IsNull => Value is null && (CorValue is null || CorValue is ICorDebugReferenceValue { IsNull: true });
 
 	public static CilValue FromPrimitive(object value) => new(value, null);
@@ -40,6 +42,7 @@ internal sealed class CilValue
 	/// </summary>
 	public string? GetStringText() => Value as string ?? (CorValue?.UnwrapDebugValue() as ICorDebugStringValue)?.String;
 
+	public CilValue WithSourceLocation(ICilLocation location) => new(Value, CorValue, Location, location);
 	public CilValue Dereference() => Location?.Read() ?? throw new InvalidOperationException("CIL value is not a managed location");
 
 	public int AsInt32() => Value switch
@@ -164,6 +167,7 @@ internal sealed class EvaluationObject(TypeDefinitionHandle type, MethodDefiniti
 	public TypeDefinitionHandle Type { get; } = type;
 	public MethodDefinitionHandle Constructor { get; } = constructor;
 	public Dictionary<FieldDefinitionHandle, ICilLocation> Fields { get; } = new();
+	public Dictionary<FieldDefinitionHandle, ICilLocation> FieldBindings { get; } = new();
 	public ICorDebugValue? MaterializedValue { get; set; }
 }
 

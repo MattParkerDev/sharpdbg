@@ -260,8 +260,20 @@ public class EvalTests(ITestOutputHelper testOutputHelper)
 		// All delegates in one expression share the same closure, including captures that are only written.
 		debugProtocolHost.WithEvaluateRequest(stackFrameId, "_intList.Select(value => myInt = value).Last()", out var writeOnlyCaptureLambdaResponse);
 		writeOnlyCaptureLambdaResponse.Result.Should().Be("25");
+		debugProtocolHost.WithEvaluateRequest(stackFrameId, "myInt", out var writeOnlyCaptureValueResponse);
+		writeOnlyCaptureValueResponse.Result.Should().Be("25");
+		debugProtocolHost.WithEvaluateRequest(stackFrameId, "myInt = 42", out var resetMyIntBeforeSharedClosureResponse);
+		resetMyIntBeforeSharedClosureResponse.Result.Should().Be("42");
 		debugProtocolHost.WithEvaluateRequest(stackFrameId, "_intList.Select(value => myInt++).Select(value => myInt).ToList().Last()", out var sharedClosureLambdaResponse);
 		sharedClosureLambdaResponse.Result.Should().Be("46");
+		debugProtocolHost.WithEvaluateRequest(stackFrameId, "myInt", out var sharedClosureValueResponse);
+		sharedClosureValueResponse.Result.Should().Be("46");
+		debugProtocolHost.WithEvaluateRequest(stackFrameId, "myInt = 42", out var resetMyIntBeforeSameExpressionResponse);
+		resetMyIntBeforeSameExpressionResponse.Result.Should().Be("42");
+		debugProtocolHost.WithEvaluateRequest(stackFrameId, "_intList.Select(value => myInt++).Last() + myInt", out var sameExpressionCaptureResponse);
+		sameExpressionCaptureResponse.Result.Should().Be("85");
+		debugProtocolHost.WithEvaluateRequest(stackFrameId, "myInt", out var sameExpressionCaptureValueResponse);
+		sameExpressionCaptureValueResponse.Result.Should().Be("43");
 		debugProtocolHost.WithEvaluateRequest(stackFrameId, "myInt = 42", out var restoreMyIntAfterLambdaResponse);
 		restoreMyIntAfterLambdaResponse.Result.Should().Be("42");
 

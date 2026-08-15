@@ -39,7 +39,8 @@ public partial class ManagedDebugger
 	// ThreadId, FilePath, Line, Column, Reason, HitBreakpointIds, DecompiledSourceInfo
 	public event Action<int, string, int, int, string, List<int>?, DecompiledSourceInfo?>? OnStopped2;
 	public event Action<int>? OnContinued;
-	public event Action? OnExited;
+	// Exit code, or null when it cannot be known - we attached rather than launched
+	public event Action<int?>? OnExited;
 	public event Action? OnTerminated;
 	public event Action<int>? OnThreadStarted;
 	public event Action<int>? OnThreadExited;

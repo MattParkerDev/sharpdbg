@@ -22,7 +22,12 @@ public partial class ManagedDebugger
 	private void HandleProcessExited(object? sender, ExitProcessCorDebugManagedCallbackEventArgs exitProcessCorDebugManagedCallbackEventArgs)
 	{
 		_logger?.Invoke($"Process exited");
-		OnExited?.Invoke();
+
+		// Read here rather than letting a subscriber ask later: Dispose releases _debuggeeProcess, and
+		// a process we launched has already been reaped by the time this callback runs
+		var exitCode = _debuggeeProcess?.HasExited == true ? _debuggeeProcess.ExitCode : (int?)null;
+
+		OnExited?.Invoke(exitCode);
 		OnTerminated?.Invoke();
 	}
 

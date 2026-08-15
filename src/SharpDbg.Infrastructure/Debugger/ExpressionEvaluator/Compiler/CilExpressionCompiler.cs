@@ -101,7 +101,7 @@ internal sealed class CilExpressionCompiler(ManagedDebugger debugger)
 
 	private readonly record struct MetadataBlocksKey(int ModuleVersion, CORDB_ADDRESS PreferredModule);
 	private readonly Dictionary<MetadataBlocksKey, ImmutableArray<MetadataBlock>> _metadataBlocksCache = new();
-	private readonly Dictionary<CORDB_ADDRESS, DelegateMaterializerAssembly> _delegateMaterializerCache = new();
+	private DelegateMaterializerAssembly? _delegateMaterializer;
 	private int _cachedModuleVersion = -1;
 
 	public CompiledEvaluationMethod? TryCompile(string expression, CompiledExpressionEvaluationContext context, out string? errorMessage)
@@ -216,9 +216,9 @@ internal sealed class CilExpressionCompiler(ManagedDebugger debugger)
 
 	internal DelegateMaterializerAssembly GetDelegateMaterializer(CompiledExpressionEvaluationContext context)
 	{
+		if (_delegateMaterializer is { } cached) return cached;
 		var frame = debugger.GetIlFrameForThreadIdAndStackDepth(context.ThreadId, context.StackDepth);
 		var preferredModule = context.RootValue is not null ? context.RootValue.ExactType.Class.Module : frame.Function.Module;
-		if (_delegateMaterializerCache.TryGetValue(preferredModule.BaseAddress, out var cached)) return cached;
 
 		var id = Guid.NewGuid().ToString("N");
 		var assemblyName = $"SharpDbg.DelegateMaterializer.{id}";
@@ -306,9 +306,7 @@ internal sealed class CilExpressionCompiler(ManagedDebugger debugger)
 		using var peReader = new System.Reflection.PortableExecutable.PEReader(new MemoryStream(assembly, writable: false));
 		var reader = peReader.GetMetadataReader();
 		var moduleVersionId = reader.GetGuid(reader.GetModuleDefinition().Mvid);
-		var result = new DelegateMaterializerAssembly(assemblyName, moduleVersionId, typeName, "Create", assembly);
-		_delegateMaterializerCache[preferredModule.BaseAddress] = result;
-		return result;
+		return _delegateMaterializer = new DelegateMaterializerAssembly(assemblyName, moduleVersionId, typeName, "Create", assembly);
 	}
 
 	/// <summary>

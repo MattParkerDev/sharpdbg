@@ -84,6 +84,8 @@ internal sealed class CompiledEvaluationMethod : IDisposable
 	}
 }
 
+internal sealed record DelegateMaterializerAssembly(string AssemblyName, string TypeName, string MethodName, byte[] Assembly);
+
 // 🤖
 internal sealed class CilExpressionCompiler(ManagedDebugger debugger)
 {
@@ -98,6 +100,7 @@ internal sealed class CilExpressionCompiler(ManagedDebugger debugger)
 
 	private readonly record struct MetadataBlocksKey(int ModuleVersion, CORDB_ADDRESS PreferredModule);
 	private readonly Dictionary<MetadataBlocksKey, ImmutableArray<MetadataBlock>> _metadataBlocksCache = new();
+	private readonly Dictionary<CORDB_ADDRESS, DelegateMaterializerAssembly> _delegateMaterializerCache = new();
 	private int _cachedModuleVersion = -1;
 
 	public CompiledEvaluationMethod? TryCompile(string expression, CompiledExpressionEvaluationContext context, out string? errorMessage)
@@ -210,6 +213,66 @@ internal sealed class CilExpressionCompiler(ManagedDebugger debugger)
 		? [new Alias(DkmClrAliasKind.Exception, "Error", "$exception", typeof(Exception).AssemblyQualifiedName!, Guid.Empty, null!)]
 		: ImmutableArray<Alias>.Empty;
 
+	internal DelegateMaterializerAssembly GetDelegateMaterializer(CompiledExpressionEvaluationContext context)
+	{
+		var frame = debugger.GetIlFrameForThreadIdAndStackDepth(context.ThreadId, context.StackDepth);
+		var preferredModule = context.RootValue is not null ? context.RootValue.ExactType.Class.Module : frame.Function.Module;
+		if (_delegateMaterializerCache.TryGetValue(preferredModule.BaseAddress, out var cached)) return cached;
+
+		var id = Guid.NewGuid().ToString("N");
+		var assemblyName = $"SharpDbg.DelegateMaterializer.{id}";
+		var typeName = $"SharpDbgDelegateMaterializer_{id}";
+		var source = $$"""
+			public static class {{typeName}}
+			{
+				private static System.Reflection.Assembly FindAssembly(string assemblyName)
+				{
+					foreach (var candidate in System.AppDomain.CurrentDomain.GetAssemblies())
+					{
+						if (candidate.GetName().Name == assemblyName) return candidate;
+					}
+					throw new System.InvalidOperationException("Generated evaluation assembly is not loaded");
+				}
+
+				public static object CreateObject(string assemblyName, int constructorToken)
+				{
+					var constructor = (System.Reflection.ConstructorInfo)FindAssembly(assemblyName).ManifestModule.ResolveMethod(constructorToken);
+					return constructor.Invoke(null);
+				}
+
+				public static void SetField(string assemblyName, int fieldToken, object target, object value)
+				{
+					var field = FindAssembly(assemblyName).ManifestModule.ResolveField(fieldToken);
+					field.SetValue(target, value);
+				}
+
+				public static object Create(string assemblyName, int methodToken, string delegateTypeName, object target)
+				{
+					var method = (System.Reflection.MethodInfo)FindAssembly(assemblyName).ManifestModule.ResolveMethod(methodToken);
+					var delegateType = System.Type.GetType(delegateTypeName, throwOnError: true);
+					return method.CreateDelegate(delegateType, target);
+				}
+			}
+			""";
+		var referenceCompilation = GetMetadataBlocks(preferredModule)
+			.ToCompilation(moduleId: default, MakeAssemblyReferencesKind.AllAssemblies);
+		var compilation = CSharpCompilation.Create(
+			assemblyName,
+			[SyntaxFactory.ParseSyntaxTree(source)],
+			referenceCompilation.References,
+			new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, optimizationLevel: OptimizationLevel.Release));
+		using var stream = new MemoryStream();
+		var emit = compilation.Emit(stream);
+		if (!emit.Success)
+		{
+			var errors = string.Join("; ", emit.Diagnostics.Where(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error).Select(diagnostic => diagnostic.GetMessage()));
+			throw new InvalidOperationException($"Delegate materializer compilation failed: {errors}");
+		}
+		var result = new DelegateMaterializerAssembly(assemblyName, typeName, "Create", stream.ToArray());
+		_delegateMaterializerCache[preferredModule.BaseAddress] = result;
+		return result;
+	}
+
 	/// <summary>
 	/// Builds the metadata blocks passed to the Roslyn evaluator. When multiple loaded modules share an assembly
 	/// identity (e.g. the same assembly loaded into several AssemblyLoadContexts), only one module per identity is
@@ -281,7 +344,7 @@ internal sealed class CilExpressionCompiler(ManagedDebugger debugger)
 	{
 		var moduleInfo = debugger.GetModuleInfoForModule(frame.Function.Module);
 		var moduleId = new ModuleId(moduleInfo.MetadataReader.Mvid, moduleInfo.ModuleName);
-		var compilation = blocks.ToCompilation(moduleId: default, MakeAssemblyReferencesKind.AllAssemblies).AddReferences(_intrinsicMethodsReference);
+		var compilation = AddRuntimeAccessAttributes(blocks.ToCompilation(moduleId: default, MakeAssemblyReferencesKind.AllAssemblies).AddReferences(_intrinsicMethodsReference));
 		var methodToken = frame.Function.Token;
 		var methodHandle = (MethodDefinitionHandle)MetadataTokens.Handle(methodToken);
 		var currentSourceMethod = compilation.GetSourceMethod(moduleId, methodHandle);
@@ -324,7 +387,7 @@ internal sealed class CilExpressionCompiler(ManagedDebugger debugger)
 		var rootType = rootValue.ExactType;
 		var moduleInfo = debugger.GetModuleInfoForModule(rootType.Class.Module);
 		var moduleId = new ModuleId(moduleInfo.MetadataReader.Mvid, moduleInfo.ModuleName);
-		var compilation = blocks.ToCompilation(moduleId: default, MakeAssemblyReferencesKind.AllAssemblies).AddReferences(_intrinsicMethodsReference);
+		var compilation = AddRuntimeAccessAttributes(blocks.ToCompilation(moduleId: default, MakeAssemblyReferencesKind.AllAssemblies).AddReferences(_intrinsicMethodsReference));
 		var currentType = compilation.GetType(moduleId, rootType.Class.Token);
 		var currentFrame = new SynthesizedContextMethodSymbol(currentType);
 		return new EvaluationContext(
@@ -335,6 +398,25 @@ internal sealed class CilExpressionCompiler(ManagedDebugger debugger)
 			locals: default,
 			inScopeHoistedLocalSlots: ImmutableSortedSet<int>.Empty,
 			methodDebugInfo: MethodDebugInfo<TypeSymbol, LocalSymbol>.None);
+	}
+
+	private static CSharpCompilation AddRuntimeAccessAttributes(CSharpCompilation compilation)
+	{
+		var attributes = string.Join("\n", compilation.ReferencedAssemblyNames.Select(identity =>
+			$"[assembly: System.Runtime.CompilerServices.IgnoresAccessChecksTo({SyntaxFactory.LiteralExpression(SyntaxKind.StringLiteralExpression, SyntaxFactory.Literal(identity.Name))})]"));
+		var source = $$"""
+			{{attributes}}
+
+			namespace System.Runtime.CompilerServices
+			{
+				[System.AttributeUsage(System.AttributeTargets.Assembly, AllowMultiple = true)]
+				internal sealed class IgnoresAccessChecksToAttribute : System.Attribute
+				{
+					public IgnoresAccessChecksToAttribute(string assemblyName) { }
+				}
+			}
+			""";
+		return compilation.AddSyntaxTrees(SyntaxFactory.ParseSyntaxTree(source));
 	}
 
 	private static ImmutableArray<byte> CreateIntrinsicMethodsAssembly()

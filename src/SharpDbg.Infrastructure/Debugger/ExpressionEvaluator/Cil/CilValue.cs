@@ -1,3 +1,4 @@
+using System.Reflection.Metadata;
 using ICorDebugSharp;
 
 namespace SharpDbg.Infrastructure.Debugger.ExpressionEvaluator.Cil;
@@ -18,6 +19,7 @@ internal sealed class CilValue
 	public bool IsNull => Value is null && (CorValue is null || CorValue is ICorDebugReferenceValue { IsNull: true });
 
 	public static CilValue FromPrimitive(object value) => new(value, null);
+	public static CilValue FromVirtual(object value) => new(value, null);
 	public static CilValue FromTypeToken(ResolvedCilType type, ICorDebugValue value) => new(type, value);
 	public static CilValue FromCorValue(ICorDebugValue value)
 	{
@@ -156,6 +158,17 @@ internal sealed class CilValue
 		return data.Length is 1 or 2 or 4 or 8;
 	}
 }
+
+internal sealed class EvaluationObject(TypeDefinitionHandle type, MethodDefinitionHandle constructor)
+{
+	public TypeDefinitionHandle Type { get; } = type;
+	public MethodDefinitionHandle Constructor { get; } = constructor;
+	public Dictionary<FieldDefinitionHandle, ICilLocation> Fields { get; } = new();
+	public ICorDebugValue? MaterializedValue { get; set; }
+}
+
+internal sealed record EvaluationFunctionPointer(int MethodToken, ResolvedRuntimeMethod? RuntimeMethod = null);
+internal sealed record EvaluationDelegate(EvaluationFunctionPointer Function, CilValue Target, ResolvedRuntimeType DelegateType);
 
 internal interface ICilLocation
 {

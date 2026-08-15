@@ -32,11 +32,8 @@ internal sealed class CilInterpreter(ManagedDebugger debugger, RuntimeAssemblyPr
 
 	private static unsafe void SetByte(ICorDebugGenericValue destination, byte value) => destination.SetValue((nint)(&value));
 
-	private ModuleInfo? FindAssemblyModule(string assemblyName) => debugger.AllModules.FirstOrDefault(module =>
-	{
-		var reader = module.MetadataReader.PeMetadataReader;
-		return reader.IsAssembly && reader.GetString(reader.GetAssemblyDefinition().Name) == assemblyName;
-	});
+	private ModuleInfo? FindModule(Guid moduleVersionId) =>
+		debugger.AllModules.FirstOrDefault(module => module.MetadataReader.Mvid == moduleVersionId);
 
 	private EvaluationMetadataResolver CreateResolver(CompiledEvaluationMethod compiled, CompiledExpressionEvaluationContext context, ICorDebugILFrame? frame)
 	{
@@ -978,38 +975,38 @@ internal sealed class CilInterpreter(ManagedDebugger debugger, RuntimeAssemblyPr
 		EvaluationHandleScope handles)
 	{
 		var delegateValue = value.Value as EvaluationDelegate ?? throw new InvalidOperationException("CIL value is not an evaluation delegate");
-		string methodAssemblyName;
+		Guid methodModuleVersionId;
 		if (delegateValue.Function.RuntimeMethod is { } runtimeMethod)
 		{
-			var reader = runtimeMethod.DeclaringType.Module.MetadataReader.PeMetadataReader;
-			methodAssemblyName = reader.GetString(reader.GetAssemblyDefinition().Name);
+			methodModuleVersionId = runtimeMethod.DeclaringType.Module.MetadataReader.Mvid;
 		}
 		else
 		{
-			methodAssemblyName = resolver.GetEvaluationAssemblyName();
-			await EnsureAssemblyLoadedAsync(methodAssemblyName, compiled.Assembly, resolver, context, handles);
+			methodModuleVersionId = compiled.ModuleVersionId;
+			await EnsureAssemblyLoadedAsync(methodModuleVersionId, compiled.Assembly, resolver, context, handles);
 		}
 
 		var target = delegateValue.Target.IsNull
 			? await MaterializeAsync(CilValue.Null(), context, handles)
 			: await MaterializeForCallAsync(delegateValue.Target, compiled, resolver, delegateMaterializer, context, handles);
-		var materializerModule = await EnsureAssemblyLoadedAsync(delegateMaterializer.AssemblyName, delegateMaterializer.Assembly, resolver, context, handles);
+		var materializerModule = await EnsureAssemblyLoadedAsync(delegateMaterializer.ModuleVersionId, delegateMaterializer.Assembly, resolver, context, handles);
 		var reader2 = materializerModule.MetadataReader.PeMetadataReader;
 		var typeHandle = reader2.TypeDefinitions.First(handle => reader2.GetString(reader2.GetTypeDefinition(handle).Name) == delegateMaterializer.TypeName);
 		var methodHandle = reader2.GetTypeDefinition(typeHandle).GetMethods().First(handle => reader2.GetString(reader2.GetMethodDefinition(handle).Name) == delegateMaterializer.MethodName);
 		var factory = materializerModule.Module.GetFunctionFromToken((mdMethodDef)MetadataTokens.GetToken(methodHandle));
-		var assemblyName = await MaterializeAsync(CilValue.FromPrimitive(methodAssemblyName), context, handles);
+		var methodModule = await MaterializeAsync(CilValue.FromPrimitive(methodModuleVersionId.ToString("D")), context, handles);
 		var methodToken = await MaterializeAsync(CilValue.FromPrimitive(delegateValue.Function.MethodToken), context, handles);
 		var delegateTypeName = resolver.GetAssemblyQualifiedTypeName(new ResolvedCilType(null, delegateValue.DelegateType));
 		var delegateType = await MaterializeAsync(CilValue.FromPrimitive(delegateTypeName), context, handles);
+		var contextModule = await MaterializeAsync(CilValue.FromPrimitive(resolver.CurrentFrameModuleVersionId.ToString("D")), context, handles);
 		var result = await context.Thread.CreateEval().CallParameterizedFunctionAsync(
 			debugger.ProcessRuntimeEventsUntilEvalEvent,
 			debugger.EvalStatus,
 			factory,
 			0,
 			null,
-			4,
-			[assemblyName, methodToken, delegateType, target],
+			5,
+			[methodModule, methodToken, delegateType, contextModule, target],
 			throwOnException: true) ?? throw new InvalidOperationException("Delegate materializer returned no value");
 		return handles.Root(CilValue.FromCorValue(result)).CorValue!;
 	}
@@ -1023,14 +1020,13 @@ internal sealed class CilInterpreter(ManagedDebugger debugger, RuntimeAssemblyPr
 		EvaluationHandleScope handles)
 	{
 		if (evaluationObject.MaterializedValue is not null) return evaluationObject.MaterializedValue;
-		var evaluationAssemblyName = resolver.GetEvaluationAssemblyName();
-		await EnsureAssemblyLoadedAsync(evaluationAssemblyName, compiled.Assembly, resolver, context, handles);
-		var materializerModule = await EnsureAssemblyLoadedAsync(delegateMaterializer.AssemblyName, delegateMaterializer.Assembly, resolver, context, handles);
+		await EnsureAssemblyLoadedAsync(compiled.ModuleVersionId, compiled.Assembly, resolver, context, handles);
+		var materializerModule = await EnsureAssemblyLoadedAsync(delegateMaterializer.ModuleVersionId, delegateMaterializer.Assembly, resolver, context, handles);
 		var materializerReader = materializerModule.MetadataReader.PeMetadataReader;
 		var materializerType = materializerReader.TypeDefinitions.First(handle => materializerReader.GetString(materializerReader.GetTypeDefinition(handle).Name) == delegateMaterializer.TypeName);
 		var createObjectHandle = materializerReader.GetTypeDefinition(materializerType).GetMethods().First(handle => materializerReader.GetString(materializerReader.GetMethodDefinition(handle).Name) == "CreateObject");
 		var createObject = materializerModule.Module.GetFunctionFromToken((mdMethodDef)MetadataTokens.GetToken(createObjectHandle));
-		var assemblyName = await MaterializeAsync(CilValue.FromPrimitive(evaluationAssemblyName), context, handles);
+		var moduleVersionId = await MaterializeAsync(CilValue.FromPrimitive(compiled.ModuleVersionId.ToString("D")), context, handles);
 		var constructorToken = await MaterializeAsync(CilValue.FromPrimitive(MetadataTokens.GetToken(evaluationObject.Constructor)), context, handles);
 		var created = await context.Thread.CreateEval().CallParameterizedFunctionAsync(
 			debugger.ProcessRuntimeEventsUntilEvalEvent,
@@ -1039,7 +1035,7 @@ internal sealed class CilInterpreter(ManagedDebugger debugger, RuntimeAssemblyPr
 			0,
 			null,
 			2,
-			[assemblyName, constructorToken],
+			[moduleVersionId, constructorToken],
 			throwOnException: true) ?? throw new InvalidOperationException("Failed to materialize generated closure object");
 		var value = handles.Root(CilValue.FromCorValue(created)).CorValue!;
 		evaluationObject.MaterializedValue = value;
@@ -1065,20 +1061,20 @@ internal sealed class CilInterpreter(ManagedDebugger debugger, RuntimeAssemblyPr
 				0,
 				null,
 				4,
-				[assemblyName, fieldToken, value, materializedField],
+				[moduleVersionId, fieldToken, value, materializedField],
 				throwOnException: true);
 		}
 		return value;
 	}
 
 	private async Task<ModuleInfo> EnsureAssemblyLoadedAsync(
-		string assemblyName,
+		Guid moduleVersionId,
 		byte[] assembly,
 		EvaluationMetadataResolver resolver,
 		CompiledExpressionEvaluationContext context,
 		EvaluationHandleScope handles)
 	{
-		if (FindAssemblyModule(assemblyName) is { } loaded) return loaded;
+		if (FindModule(moduleVersionId) is { } loaded) return loaded;
 		var byteType = resolver.GetCorDebugType(new ResolvedCilType(PrimitiveTypeCode.Byte, null));
 		var eval = context.Thread.CreateEval();
 		var arrayReference = handles.Track(await eval.NewParameterizedArrayAsync(
@@ -1105,8 +1101,8 @@ internal sealed class CilInterpreter(ManagedDebugger debugger, RuntimeAssemblyPr
 			1,
 			[arrayReference],
 			throwOnException: true));
-		return FindAssemblyModule(assemblyName)
-			?? throw new InvalidOperationException($"Loaded generated assembly '{assemblyName}' was not reported by the runtime");
+		return FindModule(moduleVersionId)
+			?? throw new InvalidOperationException($"Loaded generated module '{moduleVersionId}' was not reported by the runtime");
 	}
 
 	/// <summary>

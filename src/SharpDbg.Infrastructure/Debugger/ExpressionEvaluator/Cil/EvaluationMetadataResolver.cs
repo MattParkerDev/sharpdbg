@@ -53,8 +53,8 @@ internal sealed class EvaluationMetadataResolver(ManagedDebugger debugger, Metad
 	public TypeDefinitionHandle GetEvaluationMethodDeclaringType(MethodDefinitionHandle handle) =>
 		evaluationReader.GetMethodDefinition(handle).GetDeclaringType();
 
-	public string GetEvaluationAssemblyName() =>
-		evaluationReader.GetString(evaluationReader.GetAssemblyDefinition().Name);
+	public Guid CurrentFrameModuleVersionId =>
+		currentFrameModule?.MetadataReader.Mvid ?? throw new InvalidOperationException("The current frame module is unavailable");
 
 	public IReadOnlyList<FieldDefinitionHandle> GetEvaluationInstanceFields(TypeDefinitionHandle handle) =>
 		evaluationReader.GetTypeDefinition(handle).GetFields()

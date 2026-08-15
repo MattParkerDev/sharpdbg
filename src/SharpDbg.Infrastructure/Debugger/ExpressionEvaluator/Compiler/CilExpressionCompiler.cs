@@ -39,6 +39,7 @@ internal sealed class CompiledEvaluationMethod : IDisposable
 	public System.Reflection.PortableExecutable.PEReader PeReader { get; }
 	public MetadataReader MetadataReader { get; }
 	public MethodDefinitionHandle EntryMethod { get; }
+	public Guid ModuleVersionId => MetadataReader.GetGuid(MetadataReader.GetModuleDefinition().Mvid);
 
 	/// <summary>
 	/// Returns the decoded CIL instructions and branch-target offsets map for a method in the evaluation assembly,
@@ -84,7 +85,7 @@ internal sealed class CompiledEvaluationMethod : IDisposable
 	}
 }
 
-internal sealed record DelegateMaterializerAssembly(string AssemblyName, string TypeName, string MethodName, byte[] Assembly);
+internal sealed record DelegateMaterializerAssembly(string AssemblyName, Guid ModuleVersionId, string TypeName, string MethodName, byte[] Assembly);
 
 // 🤖
 internal sealed class CilExpressionCompiler(ManagedDebugger debugger)
@@ -225,31 +226,64 @@ internal sealed class CilExpressionCompiler(ManagedDebugger debugger)
 		var source = $$"""
 			public static class {{typeName}}
 			{
-				private static System.Reflection.Assembly FindAssembly(string assemblyName)
+				private static System.Reflection.Module FindModule(string moduleVersionId)
 				{
+					var expected = new System.Guid(moduleVersionId);
 					foreach (var candidate in System.AppDomain.CurrentDomain.GetAssemblies())
 					{
-						if (candidate.GetName().Name == assemblyName) return candidate;
+						foreach (var module in candidate.GetModules())
+						{
+							if (module.ModuleVersionId == expected) return module;
+						}
 					}
-					throw new System.InvalidOperationException("Generated evaluation assembly is not loaded");
+					throw new System.InvalidOperationException("The requested module is not loaded");
 				}
 
-				public static object CreateObject(string assemblyName, int constructorToken)
+				private static System.Reflection.Assembly ResolveAssembly(
+					System.Reflection.AssemblyName requested,
+					System.Reflection.Assembly contextAssembly)
 				{
-					var constructor = (System.Reflection.ConstructorInfo)FindAssembly(assemblyName).ManifestModule.ResolveMethod(constructorToken);
+					var loadContext = System.Runtime.Loader.AssemblyLoadContext.GetLoadContext(contextAssembly);
+					if (loadContext != null)
+					{
+						foreach (var candidate in loadContext.Assemblies)
+						{
+							if (System.Reflection.AssemblyName.ReferenceMatchesDefinition(candidate.GetName(), requested)) return candidate;
+						}
+					}
+					foreach (var candidate in System.AppDomain.CurrentDomain.GetAssemblies())
+					{
+						if (System.Reflection.AssemblyName.ReferenceMatchesDefinition(candidate.GetName(), requested)) return candidate;
+					}
+					throw new System.InvalidOperationException("The requested type assembly is not loaded");
+				}
+
+				private static System.Type ResolveType(string typeName, string contextModuleVersionId)
+				{
+					var contextAssembly = FindModule(contextModuleVersionId).Assembly;
+					return System.Type.GetType(
+						typeName,
+						requested => ResolveAssembly(requested, contextAssembly),
+						(assembly, name, ignoreCase) => (assembly ?? contextAssembly).GetType(name, throwOnError: true, ignoreCase),
+						throwOnError: true)!;
+				}
+
+				public static object CreateObject(string moduleVersionId, int constructorToken)
+				{
+					var constructor = (System.Reflection.ConstructorInfo)FindModule(moduleVersionId).ResolveMethod(constructorToken);
 					return constructor.Invoke(null);
 				}
 
-				public static void SetField(string assemblyName, int fieldToken, object target, object value)
+				public static void SetField(string moduleVersionId, int fieldToken, object target, object value)
 				{
-					var field = FindAssembly(assemblyName).ManifestModule.ResolveField(fieldToken);
+					var field = FindModule(moduleVersionId).ResolveField(fieldToken);
 					field.SetValue(target, value);
 				}
 
-				public static object Create(string assemblyName, int methodToken, string delegateTypeName, object target)
+				public static object Create(string methodModuleVersionId, int methodToken, string delegateTypeName, string contextModuleVersionId, object target)
 				{
-					var method = (System.Reflection.MethodInfo)FindAssembly(assemblyName).ManifestModule.ResolveMethod(methodToken);
-					var delegateType = System.Type.GetType(delegateTypeName, throwOnError: true);
+					var method = (System.Reflection.MethodInfo)FindModule(methodModuleVersionId).ResolveMethod(methodToken);
+					var delegateType = ResolveType(delegateTypeName, contextModuleVersionId);
 					return method.CreateDelegate(delegateType, target);
 				}
 			}
@@ -268,7 +302,11 @@ internal sealed class CilExpressionCompiler(ManagedDebugger debugger)
 			var errors = string.Join("; ", emit.Diagnostics.Where(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error).Select(diagnostic => diagnostic.GetMessage()));
 			throw new InvalidOperationException($"Delegate materializer compilation failed: {errors}");
 		}
-		var result = new DelegateMaterializerAssembly(assemblyName, typeName, "Create", stream.ToArray());
+		var assembly = stream.ToArray();
+		using var peReader = new System.Reflection.PortableExecutable.PEReader(new MemoryStream(assembly, writable: false));
+		var reader = peReader.GetMetadataReader();
+		var moduleVersionId = reader.GetGuid(reader.GetModuleDefinition().Mvid);
+		var result = new DelegateMaterializerAssembly(assemblyName, moduleVersionId, typeName, "Create", assembly);
 		_delegateMaterializerCache[preferredModule.BaseAddress] = result;
 		return result;
 	}

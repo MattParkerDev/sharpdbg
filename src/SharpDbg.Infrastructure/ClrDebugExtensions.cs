@@ -63,7 +63,7 @@ public static class ClrDebugExtensions
 
 			if (resumeDiagnosticSuspension) await DiagnosticClientHelper.DiagnosticClientResumeRuntime(pid);
 
-			var result = await runtimeStartupTcs.Task.ConfigureAwait(false);
+			var result = await runtimeStartupTcs.Task.WaitAsync(TimeSpan.FromSeconds(5)).ConfigureAwait(false);
 			cordebug = result.CorDebug;
 			hr = result.Hr;
 		}

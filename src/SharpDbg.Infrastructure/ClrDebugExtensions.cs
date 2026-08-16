@@ -15,10 +15,10 @@ public static class ClrDebugExtensions
 	public static unsafe void OnRuntimeStartup(void* pCorDebug, void* parameter, int hr)
 	{
 		var corDebug = ComInterfaceMarshaller<ICorDebug>.ConvertToManaged(pCorDebug);
-		Guard.Against.Null(_runtimeStartupTcs);
-		_runtimeStartupTcs.SetResult((corDebug, hr));
+		var runtimeStartupTcs = GCHandle.FromIntPtr((IntPtr)parameter).Target as TaskCompletionSource<(ICorDebug? CorDebug, int Hr)>;
+		Guard.Against.Null(runtimeStartupTcs);
+		runtimeStartupTcs.SetResult((corDebug, hr));
 	}
-	private static TaskCompletionSource<(ICorDebug? CorDebug, int Hr)>? _runtimeStartupTcs;
 
 	public static ICorDebug Mobile(RemoteAttachInfo remoteAttachInfo)
 	{
@@ -39,6 +39,7 @@ public static class ClrDebugExtensions
 	public static async Task<ICorDebug> Automatic(int pid, bool resumeDiagnosticSuspension = false)
 	{
 		IntPtr unregisterToken = IntPtr.Zero;
+		GCHandle runtimeStartupTcsHandle = default;
 
 		ICorDebug? cordebug = null;
 		int hr = Cor.COR_E_FAILFAST;
@@ -52,24 +53,24 @@ public static class ClrDebugExtensions
 			 * technically speaking there is the possibility of a race occurring even without us stepping in the debugger, but that's the risk you take when
 			 * you use RegisterForRuntimeStartup */
 
-			if (_runtimeStartupTcs is not null) throw new InvalidOperationException("OnRuntimeStartup has already been registered. Only one registration is allowed at a time.");
-			_runtimeStartupTcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
+			var runtimeStartupTcs = new TaskCompletionSource<(ICorDebug? CorDebug, int Hr)>(TaskCreationOptions.RunContinuationsAsynchronously);
+			runtimeStartupTcsHandle = GCHandle.Alloc(runtimeStartupTcs);
 			unsafe
 			{
-				var registerHr = DbgShim.RegisterForRuntimeStartup(checked((uint)pid), &OnRuntimeStartup, 0, out unregisterToken);
+				var registerHr = DbgShim.RegisterForRuntimeStartup(checked((uint)pid), &OnRuntimeStartup, GCHandle.ToIntPtr(runtimeStartupTcsHandle), out unregisterToken);
 				Marshal.ThrowExceptionForHR(registerHr);
 			}
 
 			if (resumeDiagnosticSuspension) await DiagnosticClientHelper.DiagnosticClientResumeRuntime(pid);
 
-			var result = await _runtimeStartupTcs.Task.ConfigureAwait(false);
+			var result = await runtimeStartupTcs.Task.ConfigureAwait(false);
 			cordebug = result.CorDebug;
 			hr = result.Hr;
 		}
 		finally
 		{
 			if (unregisterToken != IntPtr.Zero) DbgShim.UnregisterForRuntimeStartup(unregisterToken);
-			_runtimeStartupTcs = null;
+			if (runtimeStartupTcsHandle.IsAllocated) runtimeStartupTcsHandle.Free();
 		}
 
 		//if callbackHR was not S_OK, an error occurred while attempting to register for runtime startup

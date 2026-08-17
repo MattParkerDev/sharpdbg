@@ -24,8 +24,8 @@ internal sealed class CilInterpreter(ManagedDebugger debugger, RuntimeAssemblyPr
 		var resolver = CreateResolver(compiled, context, frame);
 		await using var delegateAssemblyLoader = new DebuggeeDelegateAssemblyLoader(debugger, compiled, resolver, context, handles, delegateMaterializer);
 		var syntheticVariables = new Dictionary<string, ICilLocation>(StringComparer.Ordinal);
-		var evaluationObjects = new HashSet<EvaluationObject>(ReferenceEqualityComparer.Instance);
-		var result = await InterpretAsync(compiled, decoded, arguments, locals, resolver, context, handles, syntheticVariables, new Dictionary<FieldDefinitionHandle, ICilLocation>(), evaluationObjects, delegateAssemblyLoader);
+		var evaluationClosures = new HashSet<EvaluationClosure>(ReferenceEqualityComparer.Instance);
+		var result = await InterpretAsync(compiled, decoded, arguments, locals, resolver, context, handles, syntheticVariables, new Dictionary<FieldDefinitionHandle, ICilLocation>(), evaluationClosures, delegateAssemblyLoader);
 		var value = result.Value is EvaluationDelegate
 			? await MaterializeDelegateAsync(result, compiled, resolver, delegateAssemblyLoader, context, handles)
 			: await MaterializeAsync(result, context, handles, resolver.ResolveMethodReturnType(compiled.EntryMethod), resolver);
@@ -127,7 +127,7 @@ internal sealed class CilInterpreter(ManagedDebugger debugger, RuntimeAssemblyPr
 		EvaluationHandleScope handles,
 		Dictionary<string, ICilLocation> syntheticVariables,
 		Dictionary<FieldDefinitionHandle, ICilLocation> evaluationStaticFields,
-		HashSet<EvaluationObject> evaluationObjects,
+		HashSet<EvaluationClosure> evaluationClosures,
 		DebuggeeDelegateAssemblyLoader delegateAssemblyLoader)
 	{
 		var instructions = decoded.Instructions;
@@ -376,7 +376,7 @@ internal sealed class CilInterpreter(ManagedDebugger debugger, RuntimeAssemblyPr
 				{
 					if (MetadataTokens.EntityHandle((int)instruction.Operand!) is { Kind: HandleKind.FieldDefinition } evaluationField)
 					{
-						var receiver = GetEvaluationObject(stack.Pop());
+						var receiver = GetEvaluationClosure(stack.Pop());
 						var evaluationFieldLocation = receiver.Fields[(FieldDefinitionHandle)evaluationField];
 						stack.Push(handles.Root(evaluationFieldLocation.Read()).WithSourceLocation(evaluationFieldLocation));
 						continue;
@@ -390,7 +390,7 @@ internal sealed class CilInterpreter(ManagedDebugger debugger, RuntimeAssemblyPr
 				{
 					if (MetadataTokens.EntityHandle((int)instruction.Operand!) is { Kind: HandleKind.FieldDefinition } evaluationField)
 					{
-						var receiver = GetEvaluationObject(stack.Pop());
+						var receiver = GetEvaluationClosure(stack.Pop());
 						stack.Push(CilValue.FromLocation(receiver.Fields[(FieldDefinitionHandle)evaluationField]));
 						continue;
 					}
@@ -404,7 +404,7 @@ internal sealed class CilInterpreter(ManagedDebugger debugger, RuntimeAssemblyPr
 					var value = stack.Pop();
 					if (MetadataTokens.EntityHandle((int)instruction.Operand!) is { Kind: HandleKind.FieldDefinition } evaluationField)
 					{
-						var receiver = GetEvaluationObject(stack.Pop());
+						var receiver = GetEvaluationClosure(stack.Pop());
 						var fieldHandle = (FieldDefinitionHandle)evaluationField;
 						var evaluationFieldLocation = receiver.Fields[fieldHandle];
 						if (evaluationFieldLocation is TemporaryLocation && value.SourceLocation is { } sourceLocation)
@@ -461,13 +461,13 @@ internal sealed class CilInterpreter(ManagedDebugger debugger, RuntimeAssemblyPr
 						var constructorHandle = (MethodDefinitionHandle)evaluationConstructor;
 						var signature = resolver.ResolveEvaluationMethodSignature(constructorHandle);
 						if (signature.ParameterTypes.Length != 0) throw new NotSupportedException("Generated evaluation constructors with parameters are not supported");
-						var evaluationObject = new EvaluationObject(resolver.GetEvaluationMethodDeclaringType(constructorHandle), constructorHandle);
-						foreach (var field in resolver.GetEvaluationInstanceFields(evaluationObject.Type))
+						var evaluationClosure = new EvaluationClosure(resolver.GetEvaluationMethodDeclaringType(constructorHandle), constructorHandle);
+						foreach (var field in resolver.GetEvaluationInstanceFields(evaluationClosure.Type))
 						{
-							evaluationObject.Fields[field] = new TemporaryLocation(CilValue.Null());
+							evaluationClosure.Fields[field] = new TemporaryLocation(CilValue.Null());
 						}
-						evaluationObjects.Add(evaluationObject);
-						stack.Push(CilValue.FromVirtual(evaluationObject));
+						evaluationClosures.Add(evaluationClosure);
+						stack.Push(CilValue.FromVirtual(evaluationClosure));
 						continue;
 					}
 					var constructor = resolver.ResolveMethod((int)instruction.Operand!);
@@ -563,7 +563,7 @@ internal sealed class CilInterpreter(ManagedDebugger debugger, RuntimeAssemblyPr
 							handles,
 							syntheticVariables,
 							evaluationStaticFields,
-							evaluationObjects,
+							evaluationClosures,
 							delegateAssemblyLoader);
 						if (evaluationMethod.Signature.ReturnType != PrimitiveTypeCode.Void.ToString()) stack.Push(methodResult);
 						continue;
@@ -605,7 +605,7 @@ internal sealed class CilInterpreter(ManagedDebugger debugger, RuntimeAssemblyPr
 						var receiver = receiverValue!;
 						if (receiver.Location is not null) receiver = receiver.Dereference();
 						if (receiver.IsNull) throw new NullReferenceException();
-						callArguments[0] = receiver.Value is EvaluationDelegate or EvaluationObject
+						callArguments[0] = receiver.Value is EvaluationDelegate or EvaluationClosure
 							? await MaterializeForCallAsync(receiver, compiled, resolver, delegateAssemblyLoader, context, handles)
 							: await MaterializeReceiverAsync(receiver, context, callConstrainedType, resolver, handles);
 					}
@@ -637,7 +637,7 @@ internal sealed class CilInterpreter(ManagedDebugger debugger, RuntimeAssemblyPr
 					finally
 					{
 						WriteBackTemporaryByRefArguments(temporaryByRefArguments, handles);
-						SynchronizeEvaluationObjects(evaluationObjects.Select(CilValue.FromVirtual), handles);
+						SynchronizeEvaluationClosures(evaluationClosures.Select(CilValue.FromVirtual), handles);
 					}
 					if (method.Signature.ReturnType != PrimitiveTypeCode.Void.ToString())
 					{
@@ -664,44 +664,44 @@ internal sealed class CilInterpreter(ManagedDebugger debugger, RuntimeAssemblyPr
 	private static EvaluationFunctionPointer CreateRuntimeFunctionPointer(ResolvedRuntimeMethod method) =>
 		new(MetadataTokens.GetToken(method.Handle), method);
 
-	private static EvaluationObject GetEvaluationObject(CilValue value)
+	private static EvaluationClosure GetEvaluationClosure(CilValue value)
 	{
 		if (value.Location is not null) value = value.Dereference();
-		return value.Value as EvaluationObject ?? throw new InvalidOperationException("Generated evaluation field requires an evaluation object");
+		return value.Value as EvaluationClosure ?? throw new InvalidOperationException("Generated evaluation field requires an evaluation object");
 	}
 
-	private static void SynchronizeEvaluationObjects(IEnumerable<CilValue> values, EvaluationHandleScope handles)
+	private static void SynchronizeEvaluationClosures(IEnumerable<CilValue> values, EvaluationHandleScope handles)
 	{
-		var visited = new HashSet<EvaluationObject>(ReferenceEqualityComparer.Instance);
-		foreach (var value in values) SynchronizeEvaluationObject(value, handles, visited);
+		var visited = new HashSet<EvaluationClosure>(ReferenceEqualityComparer.Instance);
+		foreach (var value in values) SynchronizeEvaluationClosure(value, handles, visited);
 	}
 
-	private static void SynchronizeEvaluationObject(CilValue value, EvaluationHandleScope handles, HashSet<EvaluationObject> visited)
+	private static void SynchronizeEvaluationClosure(CilValue value, EvaluationHandleScope handles, HashSet<EvaluationClosure> visited)
 	{
 		if (value.Location is not null) value = value.Dereference();
 		if (value.Value is EvaluationDelegate evaluationDelegate)
 		{
-			SynchronizeEvaluationObject(evaluationDelegate.Target, handles, visited);
+			SynchronizeEvaluationClosure(evaluationDelegate.Target, handles, visited);
 			return;
 		}
-		if (value.Value is not EvaluationObject evaluationObject ||
-			evaluationObject.MaterializedValue is null ||
-			!visited.Add(evaluationObject)) return;
+		if (value.Value is not EvaluationClosure evaluationClosure ||
+			evaluationClosure.MaterializedValue is null ||
+			!visited.Add(evaluationClosure)) return;
 
-		var materializedObject = evaluationObject.MaterializedValue.UnwrapDebugValueToObject();
-		var materializedClass = evaluationObject.MaterializedValue.ExactType.Class;
-		foreach (var (fieldHandle, location) in evaluationObject.Fields)
+		var materializedObject = evaluationClosure.MaterializedValue.UnwrapDebugValueToObject();
+		var materializedClass = evaluationClosure.MaterializedValue.ExactType.Class;
+		foreach (var (fieldHandle, location) in evaluationClosure.Fields)
 		{
 			var currentValue = location.Read();
-			if (currentValue.Value is EvaluationObject or EvaluationDelegate)
+			if (currentValue.Value is EvaluationClosure or EvaluationDelegate)
 			{
-				SynchronizeEvaluationObject(currentValue, handles, visited);
+				SynchronizeEvaluationClosure(currentValue, handles, visited);
 				continue;
 			}
 			var fieldValue = materializedObject.GetFieldValue(materializedClass, (mdFieldDef)MetadataTokens.GetToken(fieldHandle));
 			var synchronizedValue = handles.Root(CilValue.FromCorValue(fieldValue));
 			location.Write(synchronizedValue);
-			if (evaluationObject.FieldBindings.TryGetValue(fieldHandle, out var binding)) binding.Write(synchronizedValue);
+			if (evaluationClosure.FieldBindings.TryGetValue(fieldHandle, out var binding)) binding.Write(synchronizedValue);
 		}
 	}
 
@@ -1004,7 +1004,7 @@ internal sealed class CilInterpreter(ManagedDebugger debugger, RuntimeAssemblyPr
 		return value.Value switch
 		{
 			EvaluationDelegate => await MaterializeDelegateAsync(value, compiled, resolver, delegateAssemblyLoader, context, handles),
-			EvaluationObject evaluationObject => await MaterializeEvaluationObjectAsync(evaluationObject, compiled, resolver, delegateAssemblyLoader, context, handles),
+			EvaluationClosure evaluationClosure => await MaterializeEvaluationClosureAsync(evaluationClosure, compiled, resolver, delegateAssemblyLoader, context, handles),
 			_ => await MaterializeForCallAsync(value, context, handles)
 		};
 	}
@@ -1053,19 +1053,19 @@ internal sealed class CilInterpreter(ManagedDebugger debugger, RuntimeAssemblyPr
 		return handles.Root(CilValue.FromCorValue(result)).CorValue!;
 	}
 
-	private async Task<ICorDebugValue> MaterializeEvaluationObjectAsync(
-		EvaluationObject evaluationObject,
+	private async Task<ICorDebugValue> MaterializeEvaluationClosureAsync(
+		EvaluationClosure evaluationClosure,
 		CompiledEvaluationMethod compiled,
 		EvaluationMetadataResolver resolver,
 		DebuggeeDelegateAssemblyLoader delegateAssemblyLoader,
 		CompiledExpressionEvaluationContext context,
 		EvaluationHandleScope handles)
 	{
-		if (evaluationObject.MaterializedValue is not null) return evaluationObject.MaterializedValue;
+		if (evaluationClosure.MaterializedValue is not null) return evaluationClosure.MaterializedValue;
 		var delegateAssemblySessionId = await delegateAssemblyLoader.GetSessionIdAsync();
 		var createObject = await delegateAssemblyLoader.GetMaterializerFunctionAsync("CreateObject");
 		var sessionIdArgument = await MaterializeAsync(CilValue.FromPrimitive(delegateAssemblySessionId), context, handles);
-		var constructorToken = await MaterializeAsync(CilValue.FromPrimitive(MetadataTokens.GetToken(evaluationObject.Constructor)), context, handles);
+		var constructorToken = await MaterializeAsync(CilValue.FromPrimitive(MetadataTokens.GetToken(evaluationClosure.Constructor)), context, handles);
 		var created = await context.Thread.CreateEval().CallParameterizedFunctionAsync(
 			debugger.ProcessRuntimeEventsUntilEvalEvent,
 			debugger.EvalStatus,
@@ -1076,9 +1076,9 @@ internal sealed class CilInterpreter(ManagedDebugger debugger, RuntimeAssemblyPr
 			[sessionIdArgument, constructorToken],
 			throwOnException: true) ?? throw new InvalidOperationException("Failed to materialize generated closure object");
 		var value = handles.Root(CilValue.FromCorValue(created)).CorValue!;
-		evaluationObject.MaterializedValue = value;
+		evaluationClosure.MaterializedValue = value;
 		var setField = await delegateAssemblyLoader.GetMaterializerFunctionAsync("SetField");
-		foreach (var (fieldHandle, location) in evaluationObject.Fields)
+		foreach (var (fieldHandle, location) in evaluationClosure.Fields)
 		{
 			var fieldValue = location.Read();
 			if (fieldValue.Location is not null) fieldValue = fieldValue.Dereference();

@@ -3,7 +3,7 @@ using ICorDebugSharp;
 
 namespace SharpDbg.Infrastructure.Debugger.ExpressionEvaluator.Cil;
 
-internal sealed class EvaluationObject(TypeDefinitionHandle type, MethodDefinitionHandle constructor)
+internal sealed class EvaluationClosure(TypeDefinitionHandle type, MethodDefinitionHandle constructor)
 {
 	public TypeDefinitionHandle Type { get; } = type;
 	public MethodDefinitionHandle Constructor { get; } = constructor;

@@ -207,8 +207,8 @@ file static class TestExtensions
 		debugProtocolHost.WithVariablesRequest(variablesReference, out var enumerableMembers);
 		List<Variable> expectedVariables =
 		[
-			new() { VariablesReference = 0, Name = "Raw View", EvaluateName = "Raw View", Value = "", Type = "" },
-			new() { VariablesReference = 0, Name = "Results", EvaluateName = "Results", Value = "Expanding will force enumeration of the object", Type = "" },
+			new() { VariablesReference = 50, Name = "Raw View", EvaluateName = "Raw View", Value = "", Type = "" },
+			new() { VariablesReference = 51, Name = "Results", EvaluateName = "Results", Value = "Expanding will force enumeration of the object", Type = "" },
 		];
 		enumerableMembers.Should().HaveCount(expectedVariables.Count);
 		enumerableMembers.Should().BeEquivalentTo(expectedVariables, options => options.Excluding(s => s.MemoryReference).Excluding(s => s.PresentationHint));

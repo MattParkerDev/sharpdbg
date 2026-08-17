@@ -33,24 +33,25 @@ public partial class ManagedDebugger
 		ICorDebugValue? proxyInstance = null;
 		if (debuggerProxyTypeName is not null)
 		{
-			var thread = _process!.GetThread(threadId.Value);
-			var eval = thread.CreateEval();
 			var module = corDebugValue.ExactType.Class.Module;
-			var metadataImport = module.GetMetaDataInterface<IMetaDataImport>();
-			var debugProxyCorDebugTypeDef = metadataImport.FindMaybeNestedTypeDefByNameOrNull(debuggerProxyTypeName);
-			ArgumentNullException.ThrowIfNull(debugProxyCorDebugTypeDef);
-			var debugProxyCorDebugClass = module.GetClassFromToken(debugProxyCorDebugTypeDef.Value);
-
-			// TODO: pass a specific signature to handle proxy types that have multiple constructors - see ManagedDebugger.FindMethodOnType
-			var debugProxyTypeConstructorMethodDef = metadataImport.FindMethod(debugProxyCorDebugClass.Token, ".ctor", 0, 0);
-			//var debugProxyTypeCtorMethodProps = metadataImport.GetMethodProps(debugProxyTypeConstructorMethodDef);
-			var corDebugFunction = module.GetFunctionFromToken(debugProxyTypeConstructorMethodDef);
-			ICorDebugValue[] evalArgs = [corDebugValue];
-			var typeParameterArgs = corDebugValue.ExactType.TypeParameters;
-			proxyInstance = await eval.NewParameterizedObjectAsync(ProcessRuntimeEventsUntilEvalEvent, EvalStatus, corDebugFunction, typeParameterArgs.Length, typeParameterArgs, evalArgs.Length, evalArgs);
-			ArgumentNullException.ThrowIfNull(proxyInstance);
+			proxyInstance = await CreateDebuggerProxyInstance(corDebugValue, threadId, module, debuggerProxyTypeName, corDebugValue.ExactType.TypeParameters);
 		}
 		return (friendlyTypeName, value, proxyInstance, false);
+	}
+
+	private async Task<ICorDebugValue> CreateDebuggerProxyInstance(ICorDebugValue value, ThreadId threadId, ICorDebugModule module, string proxyTypeName, ICorDebugType[] typeArguments)
+	{
+		var metadataImport = module.GetMetaDataInterface<IMetaDataImport>();
+		var proxyTypeDef = metadataImport.FindMaybeNestedTypeDefByNameOrNull(proxyTypeName);
+		ArgumentNullException.ThrowIfNull(proxyTypeDef);
+		var proxyClass = module.GetClassFromToken(proxyTypeDef.Value);
+
+		// TODO: pass a specific signature to handle proxy types that have multiple constructors - see ManagedDebugger.FindMethodOnType
+		var constructor = metadataImport.FindMethod(proxyClass.Token, ".ctor", 0, 0);
+		var eval = _process!.GetThread(threadId.Value).CreateEval();
+		var proxyInstance = await eval.NewParameterizedObjectAsync(ProcessRuntimeEventsUntilEvalEvent, EvalStatus, module.GetFunctionFromToken(constructor), typeArguments.Length, typeArguments, 1, [value]);
+		ArgumentNullException.ThrowIfNull(proxyInstance);
+		return proxyInstance;
 	}
 
 	private static CorDebugValueValueResult GetValueForCorDebugValue(ICorDebugValue corDebugValue, bool escapeStringValue)

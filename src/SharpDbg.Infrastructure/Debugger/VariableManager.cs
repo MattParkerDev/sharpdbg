@@ -7,6 +7,8 @@ public enum StoredReferenceKind
 	Scope,
 	StackVariable,
 	StaticClassVariable, // This reference was stored as a pseudo variable for the static members of a "StackVariable" class
+	EnumerableRawView,
+	EnumerableResults,
 }
 
 public readonly record struct ThreadId

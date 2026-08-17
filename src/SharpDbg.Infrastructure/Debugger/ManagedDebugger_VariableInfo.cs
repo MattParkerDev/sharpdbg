@@ -228,6 +228,67 @@ public partial class ManagedDebugger
 		}
 	}
 
+	private void AddEnumerablePseudoVariables(VariablesReference variablesReference, List<VariableInfo> result)
+	{
+		result.Add(new VariableInfo
+		{
+			Name = "Raw View",
+			Value = "",
+			Type = "",
+			PresentationHint = new VariablePresentationHint { Kind = PresentationHintKind.Class },
+			VariablesReference = _variableManager.CreateReference(variablesReference with { ReferenceKind = StoredReferenceKind.EnumerableRawView })
+		});
+		result.Add(new VariableInfo
+		{
+			Name = "Results",
+			Value = "Expanding will force enumeration of the object",
+			Type = "",
+			PresentationHint = new VariablePresentationHint { Kind = PresentationHintKind.Class },
+			VariablesReference = _variableManager.CreateReference(variablesReference with { ReferenceKind = StoredReferenceKind.EnumerableResults })
+		});
+	}
+
+	private bool IsEnumerable(ICorDebugType type)
+	{
+		for (var currentType = type; currentType is not null; currentType = currentType.Base)
+		{
+			var metadataReader = currentType.Class.Module.GetMetaDataInterface<IMetaDataImport>();
+			foreach (var interfaceImpl in metadataReader.EnumInterfaceImpls(currentType.Class.Token))
+			{
+				var interfaceToken = metadataReader.GetInterfaceImplProps(interfaceImpl).ptkIface;
+				var interfaceHandle = MetadataTokens.Handle(checked((int)interfaceToken.Value));
+				var peMetadataReader = _modules[currentType.Class.Module.BaseAddress].MetadataReader.PeMetadataReader;
+				var interfaceName = interfaceHandle.Kind switch
+				{
+					HandleKind.TypeDefinition => FunctionBreakpointSignatureTypeProvider.GetTypeName(peMetadataReader, (TypeDefinitionHandle)interfaceHandle),
+					HandleKind.TypeReference => FunctionBreakpointSignatureTypeProvider.GetTypeName(peMetadataReader, (TypeReferenceHandle)interfaceHandle),
+					HandleKind.TypeSpecification => peMetadataReader.GetTypeSpecification((TypeSpecificationHandle)interfaceHandle).DecodeSignature(new FunctionBreakpointSignatureTypeProvider(), null),
+					_ => null
+				};
+				if (interfaceName is "System.Collections.IEnumerable" || interfaceName?.StartsWith("System.Collections.Generic.IEnumerable`1<", StringComparison.Ordinal) is true)
+					return true;
+			}
+		}
+		return false;
+	}
+
+	private async Task AddEnumerableResults(VariablesReference variablesReference, List<VariableInfo> result)
+	{
+		var linqModule = _modules.Values.FirstOrDefault(module => module.ModuleName is "System.Linq.dll");
+		if (linqModule is null) throw new InvalidOperationException("System.Linq is not loaded");
+
+		var proxyInstance = await CreateDebuggerProxyInstance(variablesReference.ObjectValue!, variablesReference.ThreadId, linqModule.Module, "System.Linq.SystemCore_EnumerableDebugView", []);
+		try
+		{
+			var proxyObject = proxyInstance.UnwrapDebugValueToObject();
+			await AddMembers(proxyInstance, proxyObject.ExactType, variablesReference.ThreadId, variablesReference.FrameStackDepth, result, false);
+		}
+		finally
+		{
+			if (proxyInstance is ICorDebugHandleValue handle) handle.TryDispose();
+		}
+	}
+
 	/// Returns a bool indicating if a Static Members pseudo variable is required
 	private async Task<bool> AddMembers(ICorDebugValue corDebugValue, ICorDebugType corDebugType, ThreadId threadId, FrameStackDepth stackDepth, List<VariableInfo> result, bool includeNonPublicMembers = true)
 	{

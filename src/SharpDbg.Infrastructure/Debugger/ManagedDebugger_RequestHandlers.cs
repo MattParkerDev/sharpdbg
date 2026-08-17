@@ -581,7 +581,14 @@ public partial class ManagedDebugger
 				}
 				else if (unwrappedDebugValue is ICorDebugObjectValue objectValue)
 				{
-					await AddMembersAndStaticPseudoVariable(variablesReference.ObjectValue!, objectValue.ExactType, variablesReference.ThreadId, variablesReference.FrameStackDepth, result);
+					if (IsEnumerable(objectValue.ExactType))
+					{
+						AddEnumerablePseudoVariables(variablesReference, result);
+					}
+					else
+					{
+						await AddMembersAndStaticPseudoVariable(variablesReference.ObjectValue!, objectValue.ExactType, variablesReference.ThreadId, variablesReference.FrameStackDepth, result);
+					}
 				}
 				else
 				{
@@ -592,6 +599,15 @@ public partial class ManagedDebugger
 			{
 				var objectValue = variablesReference.ObjectValue!.UnwrapDebugValueToObject();
 				await AddStaticMembers(variablesReference.ObjectValue!, objectValue.ExactType, variablesReference.ThreadId, variablesReference.FrameStackDepth, result);
+			}
+			else if (variablesReference.ReferenceKind is StoredReferenceKind.EnumerableRawView)
+			{
+				var objectValue = variablesReference.ObjectValue!.UnwrapDebugValueToObject();
+				await AddMembersAndStaticPseudoVariable(variablesReference.ObjectValue!, objectValue.ExactType, variablesReference.ThreadId, variablesReference.FrameStackDepth, result);
+			}
+			else if (variablesReference.ReferenceKind is StoredReferenceKind.EnumerableResults)
+			{
+				await AddEnumerableResults(variablesReference, result);
 			}
 		}
 		catch (Exception ex)

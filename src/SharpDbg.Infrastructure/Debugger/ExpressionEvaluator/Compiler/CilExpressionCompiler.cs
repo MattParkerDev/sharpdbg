@@ -226,6 +226,38 @@ internal sealed class CilExpressionCompiler(ManagedDebugger debugger)
 		var source = $$"""
 			public static class {{typeName}}
 			{
+				private sealed class DelegateAssemblyLoadContext : System.Runtime.Loader.AssemblyLoadContext
+				{
+					private readonly System.Runtime.Loader.AssemblyLoadContext? _context;
+
+					public DelegateAssemblyLoadContext(System.Reflection.Assembly contextAssembly)
+						: base("SharpDbg.Evaluation." + System.Guid.NewGuid().ToString("N"), isCollectible: true)
+					{
+						_context = System.Runtime.Loader.AssemblyLoadContext.GetLoadContext(contextAssembly);
+					}
+
+					protected override System.Reflection.Assembly? Load(System.Reflection.AssemblyName requested)
+					{
+						if (_context != null)
+						{
+							foreach (var candidate in _context.Assemblies)
+							{
+								if (System.Reflection.AssemblyName.ReferenceMatchesDefinition(candidate.GetName(), requested)) return candidate;
+							}
+						}
+						foreach (var candidate in System.Runtime.Loader.AssemblyLoadContext.Default.Assemblies)
+						{
+							if (System.Reflection.AssemblyName.ReferenceMatchesDefinition(candidate.GetName(), requested)) return candidate;
+						}
+						return null;
+					}
+				}
+
+				private sealed record DelegateAssemblySession(DelegateAssemblyLoadContext LoadContext, System.Reflection.Assembly Assembly);
+				private static readonly object DelegateAssemblySessionLock = new();
+				private static readonly System.Collections.Generic.Dictionary<int, DelegateAssemblySession> DelegateAssemblySessions = new();
+				private static int NextSessionId;
+
 				private static System.Reflection.Module FindModule(string moduleVersionId)
 				{
 					var expected = new System.Guid(moduleVersionId);
@@ -268,21 +300,50 @@ internal sealed class CilExpressionCompiler(ManagedDebugger debugger)
 						throwOnError: true)!;
 				}
 
-				public static object CreateObject(string moduleVersionId, int constructorToken)
+				private static DelegateAssemblySession GetSession(int sessionId)
 				{
-					var constructor = (System.Reflection.ConstructorInfo)FindModule(moduleVersionId).ResolveMethod(constructorToken);
+					lock (DelegateAssemblySessionLock) return DelegateAssemblySessions[sessionId];
+				}
+
+				public static int Begin(byte[] assembly, string contextModuleVersionId)
+				{
+					var loadContext = new DelegateAssemblyLoadContext(FindModule(contextModuleVersionId).Assembly);
+					System.Reflection.Assembly loaded;
+					using (var stream = new System.IO.MemoryStream(assembly, writable: false)) loaded = loadContext.LoadFromStream(stream);
+					lock (DelegateAssemblySessionLock)
+					{
+						var sessionId = ++NextSessionId;
+						DelegateAssemblySessions.Add(sessionId, new DelegateAssemblySession(loadContext, loaded));
+						return sessionId;
+					}
+				}
+
+				public static void End(int sessionId)
+				{
+					DelegateAssemblySession? session;
+					lock (DelegateAssemblySessionLock)
+					{
+						if (!DelegateAssemblySessions.Remove(sessionId, out session)) return;
+					}
+					session.LoadContext.Unload();
+				}
+
+				public static object CreateObject(int sessionId, int constructorToken)
+				{
+					var constructor = (System.Reflection.ConstructorInfo)GetSession(sessionId).Assembly.ManifestModule.ResolveMethod(constructorToken);
 					return constructor.Invoke(null);
 				}
 
-				public static void SetField(string moduleVersionId, int fieldToken, object target, object value)
+				public static void SetField(int sessionId, int fieldToken, object target, object value)
 				{
-					var field = FindModule(moduleVersionId).ResolveField(fieldToken);
+					var field = GetSession(sessionId).Assembly.ManifestModule.ResolveField(fieldToken);
 					field.SetValue(target, value);
 				}
 
-				public static object Create(string methodModuleVersionId, int methodToken, string delegateTypeName, string contextModuleVersionId, object target)
+				public static object Create(int sessionId, string methodModuleVersionId, int methodToken, string delegateTypeName, string contextModuleVersionId, object target)
 				{
-					var method = (System.Reflection.MethodInfo)FindModule(methodModuleVersionId).ResolveMethod(methodToken);
+					var module = sessionId == 0 ? FindModule(methodModuleVersionId) : GetSession(sessionId).Assembly.ManifestModule;
+					var method = (System.Reflection.MethodInfo)module.ResolveMethod(methodToken);
 					var delegateType = ResolveType(delegateTypeName, contextModuleVersionId);
 					return method.CreateDelegate(delegateType, target);
 				}

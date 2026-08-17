@@ -20,12 +20,22 @@ public partial class ManagedDebugger
 	private readonly Action<string>? _logger;
 	private readonly Dictionary<int, ICorDebugThread> _threads = new();
 	private readonly Dictionary<CORDB_ADDRESS, ModuleInfo> _modules = new();
+	private readonly HashSet<Guid> _transientEvaluationModules = new();
 	/// <summary>
 	/// Monotonically increasing version of the set of loaded debuggee modules. Incremented whenever a module
 	/// is loaded, so anything derived from <see cref="AllModules"/> (the expression compile cache and the
 	/// metadata-blocks cache) can detect staleness and rebuild.
 	/// </summary>
 	internal int ModuleSet_Version { get; private set; }
+	internal void RegisterTransientEvaluationModule(Guid moduleVersionId)
+	{
+		lock (_transientEvaluationModules) _transientEvaluationModules.Add(moduleVersionId);
+	}
+
+	private bool TryConsumeTransientEvaluationModule(Guid moduleVersionId)
+	{
+		lock (_transientEvaluationModules) return _transientEvaluationModules.Remove(moduleVersionId);
+	}
 	private bool _isAttached;
 	private bool _isRemoteAttach;
 	private int? _pendingAttachProcessId;

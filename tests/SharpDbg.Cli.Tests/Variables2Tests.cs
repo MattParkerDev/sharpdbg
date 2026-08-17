@@ -199,5 +199,30 @@ file static class TestExtensions
 		];
 		staticMemberVariables.Should().HaveCount(expectedVariables.Count);
 		staticMemberVariables.Should().BeEquivalentTo(expectedVariables, options => options.Excluding(s => s.MemoryReference).Excluding(s => s.PresentationHint));
+		debugProtocolHost.AssertIEnumerableMembers(staticMemberVariables.Single(s => s.Name == "StaticEnumerableField").VariablesReference);
+	}
+
+	private static void AssertIEnumerableMembers(this DebugProtocolHost debugProtocolHost, int variablesReference)
+	{
+		debugProtocolHost.WithVariablesRequest(variablesReference, out var enumerableMembers);
+		List<Variable> expectedVariables =
+		[
+			new() { VariablesReference = 0, Name = "Raw View", EvaluateName = "Raw View", Value = "", Type = "" },
+			new() { VariablesReference = 0, Name = "Results", EvaluateName = "Results", Value = "Expanding will force enumeration of the object", Type = "" },
+		];
+		enumerableMembers.Should().HaveCount(expectedVariables.Count);
+		enumerableMembers.Should().BeEquivalentTo(expectedVariables, options => options.Excluding(s => s.MemoryReference).Excluding(s => s.PresentationHint));
+
+		List<Variable> expectedVariables2 =
+		[
+			new() { VariablesReference =  0, Name = "[0]", EvaluateName = "[0]", Value = "1", Type = "int" },
+			new() { VariablesReference =  0, Name = "[1]", EvaluateName = "[1]", Value = "2", Type = "int" },
+			new() { VariablesReference =  0, Name = "[2]", EvaluateName = "[2]", Value = "3", Type = "int" },
+			new() { VariablesReference =  0, Name = "[3]", EvaluateName = "[3]", Value = "4", Type = "int" },
+		];
+
+		debugProtocolHost.WithVariablesRequest(enumerableMembers.Single(s => s.Name == "Results").VariablesReference, out var enumerableResultsMembers);
+		enumerableResultsMembers.Should().HaveCount(expectedVariables2.Count);
+		enumerableResultsMembers.Should().BeEquivalentTo(expectedVariables2, options => options.Excluding(s => s.MemoryReference).Excluding(s => s.PresentationHint));
 	}
 }

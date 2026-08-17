@@ -520,7 +520,7 @@ public partial class ManagedDebugger
 		}
 	}
 
-	private async Task AddArrayElements(ICorDebugArrayValue arrayValue, ThreadId threadId, FrameStackDepth stackDepth, List<VariableInfo> result, uint[]? indexPrefix = null)
+	private async Task AddArrayElements(ICorDebugArrayValue arrayValue, ThreadId threadId, FrameStackDepth stackDepth, List<VariableInfo> result, uint[]? indexPrefix = null, uint? startOffset = null, uint? count = null)
 	{
 		var rank = arrayValue.Rank;
 		indexPrefix ??= [];
@@ -547,12 +547,34 @@ public partial class ManagedDebugger
 			}
 			return;
 		}
+		if (count is null && currentDimensionLength > 100)
+		{
+			for (var rangeStart = 0u; rangeStart < currentDimensionLength; rangeStart += 100)
+			{
+				var rangeCount = Math.Min(100u, currentDimensionLength - rangeStart);
+				var firstIndex = currentDimensionStart + rangeStart;
+				var lastIndex = firstIndex + rangeCount - 1;
+				var name = indexPrefix.Length is 0
+					? $"[{firstIndex}..{lastIndex}]"
+					: $"[{string.Join(", ", indexPrefix)}, {firstIndex}..{lastIndex}]";
+				result.Add(new VariableInfo
+				{
+					Name = name,
+					Value = "",
+					Type = "",
+					PresentationHint = new VariablePresentationHint { Kind = PresentationHintKind.Class },
+					VariablesReference = _variableManager.CreateReference(new VariablesReference(StoredReferenceKind.ArrayRange, arrayValue, threadId, stackDepth, null, indexPrefix, rangeStart, rangeCount))
+				});
+			}
+			return;
+		}
 
 		// Get the elements first, as the CorDebugArrayValue arrayValue may get neutered during 'await GetValueForCorDebugValueAsync' below, if any evals are required
-		var elements = ValueEnumerable.Range(0, checked((int)currentDimensionLength))
+		var elementCount = count ?? currentDimensionLength;
+		var elements = ValueEnumerable.Range(0, checked((int)elementCount))
 			.Select(offset =>
 			{
-				uint[] indices = [.. indexPrefix, currentDimensionStart + checked((uint)offset)];
+				uint[] indices = [.. indexPrefix, currentDimensionStart + (startOffset ?? 0) + checked((uint)offset)];
 				return (Indices: indices, Element: arrayValue.GetElement(rank, indices));
 			})
 			.ToArray();

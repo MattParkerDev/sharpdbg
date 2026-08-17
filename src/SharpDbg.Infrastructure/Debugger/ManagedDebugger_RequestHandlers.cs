@@ -612,7 +612,7 @@ public partial class ManagedDebugger
 			else if (variablesReference.ReferenceKind is StoredReferenceKind.ArrayRange)
 			{
 				var arrayValue = (ICorDebugArrayValue)variablesReference.ObjectValue!.UnwrapDebugValue();
-				await AddArrayElements(arrayValue, variablesReference.ThreadId, variablesReference.FrameStackDepth, result, variablesReference.ArrayIndices);
+				await AddArrayElements(arrayValue, variablesReference.ThreadId, variablesReference.FrameStackDepth, result, variablesReference.ArrayIndices, variablesReference.ArrayStartOffset, variablesReference.ArrayCount);
 			}
 		}
 		catch (Exception ex)

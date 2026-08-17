@@ -20,6 +20,8 @@ public partial class ManagedDebugger
 	private readonly Action<string>? _logger;
 	private readonly Dictionary<int, ICorDebugThread> _threads = new();
 	private readonly Dictionary<CORDB_ADDRESS, ModuleInfo> _modules = new();
+	private readonly HashSet<COR_TYPEID> _initializedStaticTypes = [];
+	private ICorDebugFunction? _suppressFinalizeFunction;
 	/// <summary>
 	/// Monotonically increasing version of the set of loaded debuggee modules. Incremented whenever a module
 	/// is loaded, so anything derived from <see cref="AllModules"/> (the expression compile cache and the
@@ -476,6 +478,8 @@ public partial class ManagedDebugger
 		_asyncStepper = null;
 		_stepper = null!;
 		_threads.Clear();
+		_initializedStaticTypes.Clear();
+		_suppressFinalizeFunction = null;
 		_variableManager.ClearAndTryDisposeHandleValues();
 		_frameReferenceManager.Clear();
 

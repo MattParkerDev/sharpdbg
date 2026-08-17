@@ -342,7 +342,7 @@ public partial class ManagedDebugger
 				}
 
 				var objectValue = corDebugValue.UnwrapDebugValueToObject();
-				var fieldCorDebugValue = isStatic ? await corDebugType.GetStaticFieldValueAsync(ProcessRuntimeEventsUntilEvalEvent, EvalStatus, mdFieldDef, GetIlFrameForThreadIdAndStackDepth(threadId, stackDepth)) : objectValue.GetFieldValue(corDebugClass, mdFieldDef);
+				var fieldCorDebugValue = isStatic ? await GetStaticFieldValueAsync(corDebugType, mdFieldDef, threadId, stackDepth) : objectValue.GetFieldValue(corDebugClass, mdFieldDef);
 				if (debuggerBrowsableRootHidden)
 				{
 					var unwrappedDebugValue = fieldCorDebugValue.UnwrapDebugValue();

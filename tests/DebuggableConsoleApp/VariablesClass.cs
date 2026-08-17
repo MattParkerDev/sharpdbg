@@ -74,6 +74,7 @@ public class VariablesClass
 	public GenericBox<string> GenericField = new("generic");
 	public dynamic DynamicField = "dynamic value";
 	public static int StaticField = 999;
+	public static IEnumerable<int> StaticEnumerableField = Enumerable.Range(1, 4);
 	public readonly string ReadonlyField = "readonly";
 	public const string ConstField = "const";
 	public const string? ConstFieldNullString = null;

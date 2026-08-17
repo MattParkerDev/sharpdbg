@@ -3,6 +3,8 @@ using System.Runtime.InteropServices;
 using System.Text;
 using Ardalis.GuardClauses;
 using ICorDebugSharp;
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 using SharpDbg.Infrastructure.Debugger.ExpressionEvaluator;
 using SharpDbg.Infrastructure.Debugger.ExpressionEvaluator.Compiler;
 using SharpDbg.Infrastructure.Debugger.Models;
@@ -349,6 +351,12 @@ public partial class ManagedDebugger
 		foreach (var request in breakpoints)
 		{
 			var bp = _breakpointManager.CreateBreakpoint(filePath, request.Line, request.Column, request.Condition, request.HitCondition);
+			if (request.Condition is not null && SyntaxFactory.ParseExpression(request.Condition).DescendantNodesAndSelf().Any(static node => node is AnonymousFunctionExpressionSyntax))
+			{
+				bp.Message = "Lambda expressions are not supported in breakpoint conditions.";
+				result.Add(bp);
+				continue;
+			}
 
 			// Try to bind the breakpoint if we have a process
 			if (_process is not null)

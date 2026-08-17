@@ -19,16 +19,35 @@ public partial class ManagedDebugger
 		var (friendlyTypeName, value, valueRequiresDebuggerDisplayEval, debuggerProxyTypeName) = GetValueForCorDebugValue(corDebugValue, escapeStringValue);
 		if (valueRequiresDebuggerDisplayEval)
 		{
-			var expressionString = $"$\"{value}\"";
-			var thread = _process!.GetThread(threadId.Value);
-			var evalContext = new CompiledExpressionEvaluationContext(thread, threadId, frameStackDepth, corDebugValue);
-			using var result = await _expressionEvaluator!.Evaluate(expressionString, evalContext);
-			if (result.Error is not null)
+			if (value is "{ToString()}") // Fast path to avoid EE, which is far slower
 			{
-				_logger?.Invoke($"Evaluation error: {result.Error}");
-				return (friendlyTypeName, result.Error, null, true);
+				var toStringFunction = FindMethodOnType(corDebugValue.ExactType, "ToString", [], false, false) ?? throw new InvalidOperationException($"Could not find ToString on {friendlyTypeName}");
+				var thread = _process!.GetThread(threadId.Value);
+				var typeParameters = corDebugValue.ExactType.TypeParameters;
+				var result = await thread.CreateEval().CallParameterizedFunctionAsync(ProcessRuntimeEventsUntilEvalEvent, EvalStatus, toStringFunction, typeParameters.Length, typeParameters, 1, [corDebugValue], throwOnException: true) ?? throw new InvalidOperationException($"ToString returned no value for {friendlyTypeName}");
+				try
+				{
+					value = (result.UnwrapDebugValue() as ICorDebugStringValue)?.String ?? throw new InvalidOperationException($"ToString returned a non-string value for {friendlyTypeName}");
+				}
+				finally
+				{
+					if (result is ICorDebugHandleValue handle) handle.TryDispose();
+				}
 			}
-			(_, value, _, _) = GetValueForCorDebugValue(result.Value!, false);
+			else
+			{
+				// Since the move to proper roslyn EE, eval is much slower. Consider a more primitive 'evaluator' similar to the old implementation, for DebuggerDisplay evaluation
+				var expressionString = $"$\"{value}\"";
+				var thread = _process!.GetThread(threadId.Value);
+				var evalContext = new CompiledExpressionEvaluationContext(thread, threadId, frameStackDepth, corDebugValue);
+				using var result = await _expressionEvaluator!.Evaluate(expressionString, evalContext);
+				if (result.Error is not null)
+				{
+					_logger?.Invoke($"Evaluation error: {result.Error}");
+					return (friendlyTypeName, result.Error, null, true);
+				}
+				(_, value, _, _) = GetValueForCorDebugValue(result.Value!, false);
+			}
 		}
 		ICorDebugValue? proxyInstance = null;
 		if (debuggerProxyTypeName is not null)

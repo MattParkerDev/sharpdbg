@@ -9,6 +9,7 @@ public enum StoredReferenceKind
 	StaticClassVariable, // This reference was stored as a pseudo variable for the static members of a "StackVariable" class
 	RawView,
 	EnumerableResults,
+	ArrayRange,
 }
 
 public readonly record struct ThreadId
@@ -31,7 +32,7 @@ public readonly record struct FrameStackDepth
 		Value = value;
 	}
 };
-public record struct VariablesReference(StoredReferenceKind ReferenceKind, ICorDebugValue? ObjectValue, ThreadId ThreadId, FrameStackDepth FrameStackDepth, ICorDebugValue? DebuggerProxyInstance);
+public record struct VariablesReference(StoredReferenceKind ReferenceKind, ICorDebugValue? ObjectValue, ThreadId ThreadId, FrameStackDepth FrameStackDepth, ICorDebugValue? DebuggerProxyInstance, uint[]? ArrayIndices = null);
 /// <summary>
 /// Manages variable references for scopes and variables
 /// </summary>

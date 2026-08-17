@@ -171,9 +171,8 @@ file static class TestExtensions
 	{
 		List<Variable> expectedVariables =
 		[
-			// Variables References are placeholders until real impl
-			new() { VariablesReference =  98, Name = "[0, ...]",    EvaluateName = "[0, ...]",    Value = "",    Type = "" },
-			new() { VariablesReference =  99, Name = "[1, ...]",    EvaluateName = "[1, ...]",    Value = "",    Type = "" },
+			new() { VariablesReference =  52, Name = "[0, ...]",    EvaluateName = "[0, ...]",    Value = "",    Type = "" },
+			new() { VariablesReference =  53, Name = "[1, ...]",    EvaluateName = "[1, ...]",    Value = "",    Type = "" },
 		];
 		debugProtocolHost.WithVariablesRequest(variablesReference, out var multiDimArrayVariables);
 		multiDimArrayVariables.Should().HaveCount(expectedVariables.Count);

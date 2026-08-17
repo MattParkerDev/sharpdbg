@@ -520,17 +520,45 @@ public partial class ManagedDebugger
 		}
 	}
 
-	private async Task AddArrayElements(ICorDebugArrayValue arrayValue, ThreadId threadId, FrameStackDepth stackDepth, List<VariableInfo> result)
+	private async Task AddArrayElements(ICorDebugArrayValue arrayValue, ThreadId threadId, FrameStackDepth stackDepth, List<VariableInfo> result, uint[]? indexPrefix = null)
 	{
 		var rank = arrayValue.Rank;
-		if (rank > 1) throw new NotImplementedException("Multidimensional arrays not yet supported");
-		var itemCount = arrayValue.Count;
+		indexPrefix ??= [];
+		var dimensions = arrayValue.GetDimensions(rank);
+		var baseIndices = arrayValue.HasBaseIndicies() ? arrayValue.GetBaseIndicies(rank) : new uint[rank];
+		var currentDimension = indexPrefix.Length;
+		var currentDimensionStart = baseIndices[currentDimension];
+		var currentDimensionLength = dimensions[currentDimension];
+
+		if (currentDimension < rank - 1)
+		{
+			for (var offset = 0u; offset < currentDimensionLength; offset++)
+			{
+				uint[] indices = [.. indexPrefix, currentDimensionStart + offset];
+				var name = $"[{string.Join(", ", indices)}, ...]";
+				result.Add(new VariableInfo
+				{
+					Name = name,
+					Value = "",
+					Type = "",
+					PresentationHint = new VariablePresentationHint { Kind = PresentationHintKind.Class },
+					VariablesReference = _variableManager.CreateReference(new VariablesReference(StoredReferenceKind.ArrayRange, arrayValue, threadId, stackDepth, null, indices))
+				});
+			}
+			return;
+		}
 
 		// Get the elements first, as the CorDebugArrayValue arrayValue may get neutered during 'await GetValueForCorDebugValueAsync' below, if any evals are required
-		var elements = ValueEnumerable.Range(0, itemCount).Select(i => arrayValue.GetElement(1, [checked((uint)i)])).ToArray();
-		foreach (var (i, element) in elements.Index())
+		var elements = ValueEnumerable.Range(0, checked((int)currentDimensionLength))
+			.Select(offset =>
+			{
+				uint[] indices = [.. indexPrefix, currentDimensionStart + checked((uint)offset)];
+				return (Indices: indices, Element: arrayValue.GetElement(rank, indices));
+			})
+			.ToArray();
+		foreach (var (indices, element) in elements)
 		{
-			var name = $"[{i}]";
+			var name = $"[{string.Join(", ", indices)}]";
 			await WithFailureHandling(result, name, async () =>
 			{
 				var (friendlyTypeName, value, debuggerProxyInstance, resultIsError) = await GetValueForCorDebugValueAsync(element, threadId, stackDepth, true);

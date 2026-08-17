@@ -609,6 +609,11 @@ public partial class ManagedDebugger
 			{
 				await AddEnumerableResults(variablesReference, result);
 			}
+			else if (variablesReference.ReferenceKind is StoredReferenceKind.ArrayRange)
+			{
+				var arrayValue = (ICorDebugArrayValue)variablesReference.ObjectValue!.UnwrapDebugValue();
+				await AddArrayElements(arrayValue, variablesReference.ThreadId, variablesReference.FrameStackDepth, result, variablesReference.ArrayIndices);
+			}
 		}
 		catch (Exception ex)
 		{

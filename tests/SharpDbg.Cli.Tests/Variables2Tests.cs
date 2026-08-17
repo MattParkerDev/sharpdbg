@@ -164,6 +164,33 @@ file static class TestExtensions
 		thisInstanceVariables.Should().BeEquivalentTo(expectedVariables, options => options.Excluding(s => s.MemoryReference).Excluding(s => s.PresentationHint));
 		debugProtocolHost.AssertStaticFieldsOnGenericType(thisInstanceVariables.Single(s => s.Name == "_genericTypeWithStaticField").VariablesReference);
 		debugProtocolHost.AssertInstanceThisStaticVariables(thisInstanceVariables.Single(s => s.Name == "Static members").VariablesReference);
+		debugProtocolHost.AssertMultiDimArrayVariables(thisInstanceVariables.Single(s => s.Name == "MultiDimArrayField").VariablesReference);
+	}
+
+	private static void AssertMultiDimArrayVariables(this DebugProtocolHost debugProtocolHost, int variablesReference)
+	{
+		List<Variable> expectedVariables =
+		[
+			// Variables References are placeholders until real impl
+			new() { VariablesReference =  98, Name = "[0, ...]",    EvaluateName = "[0, ...]",    Value = "",    Type = "" },
+			new() { VariablesReference =  99, Name = "[1, ...]",    EvaluateName = "[1, ...]",    Value = "",    Type = "" },
+		];
+		debugProtocolHost.WithVariablesRequest(variablesReference, out var multiDimArrayVariables);
+		multiDimArrayVariables.Should().HaveCount(expectedVariables.Count);
+		multiDimArrayVariables.Should().BeEquivalentTo(expectedVariables, options => options.Excluding(s => s.MemoryReference).Excluding(s => s.PresentationHint));
+
+		List<Variable> expectedVariables2 =
+		[
+			new() { VariablesReference =  0, Name = "[0, 0]",    EvaluateName = "[0, 0]",    Value = "1",    Type = "int" },
+			new() { VariablesReference =  0, Name = "[0, 1]",    EvaluateName = "[0, 1]",    Value = "2",    Type = "int" },
+			new() { VariablesReference =  0, Name = "[0, 2]",    EvaluateName = "[0, 2]",    Value = "3",    Type = "int" },
+			new() { VariablesReference =  0, Name = "[0, 3]",    EvaluateName = "[0, 3]",    Value = "4",    Type = "int" },
+			new() { VariablesReference =  0, Name = "[0, 4]",    EvaluateName = "[0, 4]",    Value = "5",    Type = "int" },
+		];
+
+		debugProtocolHost.WithVariablesRequest(multiDimArrayVariables[0].VariablesReference, out var multiDimArrayRankVariables);
+		multiDimArrayRankVariables.Should().HaveCount(expectedVariables2.Count);
+		multiDimArrayRankVariables.Should().BeEquivalentTo(expectedVariables2, options => options.Excluding(s => s.MemoryReference).Excluding(s => s.PresentationHint));
 	}
 
 	private static void AssertStaticFieldsOnGenericType(this DebugProtocolHost debugProtocolHost, int variablesReference)

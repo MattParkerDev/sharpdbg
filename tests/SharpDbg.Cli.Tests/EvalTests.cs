@@ -232,6 +232,55 @@ public class EvalTests(ITestOutputHelper testOutputHelper)
 		debugProtocolHost.WithEvaluateRequest(stackFrameId, "this.DoubleNumber(myInt)", out var evaluateResponse68);
 		evaluateResponse68.Result.Should().Be("84");
 
+		debugProtocolHost.WithEvaluateRequest(stackFrameId, "_intList.Where(s => s == 4).ToList()", out var evaluateResponse69);
+		evaluateResponse69.Result.Should().Be("Count = 1");
+		debugProtocolHost.WithEvaluateRequest(stackFrameId, "_intList.Where(s => s == myInt).ToList()", out var evaluateResponse70);
+		evaluateResponse70.Result.Should().Be("Count = 0");
+		debugProtocolHost.WithEvaluateRequest(stackFrameId, "_intList.Where(s => s == myInt).Select(s => s).ToList()", out var evaluateResponse71);
+		evaluateResponse71.Result.Should().Be("Count = 0");
+		debugProtocolHost.WithEvaluateRequest(stackFrameId, "((Func<int, int>)(value => value + 1))(4)", out var inlineLambdaInvocationResponse);
+		inlineLambdaInvocationResponse.Result.Should().Be("5");
+
+		// Lambdas retain the stopped frame's lexical context, including this and non-public members and types.
+		debugProtocolHost.WithEvaluateRequest(stackFrameId, "_intList.Where(value => value == _instanceField).ToList()", out var instanceCaptureLambdaResponse);
+		instanceCaptureLambdaResponse.Result.Should().Be("Count = 0");
+		debugProtocolHost.WithEvaluateRequest(stackFrameId, "new[] { this }.Where(value => value == this).Count()", out var thisCaptureLambdaResponse);
+		thisCaptureLambdaResponse.Result.Should().Be("1");
+		debugProtocolHost.WithEvaluateRequest(stackFrameId, "_intList.Select(value => DoubleNumber(value)).Last()", out var privateMethodLambdaResponse);
+		privateMethodLambdaResponse.Result.Should().Be("50");
+		debugProtocolHost.WithEvaluateRequest(stackFrameId, "new[] { 1 }.Select(value => typeof(EvaluationLifetimeTracker).Name).Single()", out var internalTypeLambdaResponse);
+		internalTypeLambdaResponse.Result.Should().Be("\"EvaluationLifetimeTracker\"");
+
+		// Nested lambdas and method groups retain their generated targets and methods.
+		debugProtocolHost.WithEvaluateRequest(stackFrameId, "new[] { 1, 2 }.Where(value => new[] { value }.Any(inner => inner == value)).Count()", out var nestedLambdaResponse);
+		nestedLambdaResponse.Result.Should().Be("2");
+		debugProtocolHost.WithEvaluateRequest(stackFrameId, "new[] { -1 }.Where(value => value < 0).Select(Math.Abs).Single()", out var lambdaAndMethodGroupResponse);
+		lambdaAndMethodGroupResponse.Result.Should().Be("1");
+
+		// All delegates in one expression share the same closure, including captures that are only written.
+		debugProtocolHost.WithEvaluateRequest(stackFrameId, "_intList.Select(value => myInt = value).Last()", out var writeOnlyCaptureLambdaResponse);
+		writeOnlyCaptureLambdaResponse.Result.Should().Be("25");
+		debugProtocolHost.WithEvaluateRequest(stackFrameId, "myInt", out var writeOnlyCaptureValueResponse);
+		writeOnlyCaptureValueResponse.Result.Should().Be("25");
+		debugProtocolHost.WithEvaluateRequest(stackFrameId, "myInt = 42", out var resetMyIntBeforeSharedClosureResponse);
+		resetMyIntBeforeSharedClosureResponse.Result.Should().Be("42");
+		debugProtocolHost.WithEvaluateRequest(stackFrameId, "_intList.Select(value => myInt++).Select(value => myInt).ToList().Last()", out var sharedClosureLambdaResponse);
+		sharedClosureLambdaResponse.Result.Should().Be("46");
+		debugProtocolHost.WithEvaluateRequest(stackFrameId, "myInt", out var sharedClosureValueResponse);
+		sharedClosureValueResponse.Result.Should().Be("46");
+		debugProtocolHost.WithEvaluateRequest(stackFrameId, "myInt = 42", out var resetMyIntBeforeSameExpressionResponse);
+		resetMyIntBeforeSameExpressionResponse.Result.Should().Be("42");
+		debugProtocolHost.WithEvaluateRequest(stackFrameId, "_intList.Select(value => myInt++).Last() + myInt", out var sameExpressionCaptureResponse);
+		sameExpressionCaptureResponse.Result.Should().Be("85");
+		debugProtocolHost.WithEvaluateRequest(stackFrameId, "myInt", out var sameExpressionCaptureValueResponse);
+		sameExpressionCaptureValueResponse.Result.Should().Be("43");
+		debugProtocolHost.WithEvaluateRequest(stackFrameId, "myInt = 42", out var restoreMyIntAfterLambdaResponse);
+		restoreMyIntAfterLambdaResponse.Result.Should().Be("42");
+
+		// We don't support this.
+		// debugProtocolHost.WithEvaluateRequest(stackFrameId, "new[] { 1 }.Select(delegate(int value) { return value + 1; }).Single()", out var anonymousMethodResponse);
+		// anonymousMethodResponse.Result.Should().Be("2");
+
 		debugProtocolHost.WithEvaluateRequest(stackFrameId, "nullableRefType == null", out var nullEqualityResponse);
 		nullEqualityResponse.Result.Should().Be("true");
 		debugProtocolHost.WithEvaluateRequest(stackFrameId, "this == this", out var referenceEqualityResponse);

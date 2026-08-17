@@ -25,7 +25,8 @@ internal sealed class CilExpressionEvaluator(RuntimeAssemblyPrimitiveTypeClasses
 			}
 			var compiled = _compiler.TryCompile(expression, context, out var error);
 			if (compiled is null) return new EvaluationResult { Error = $"error: {error}" };
-			var interpretationResult = await _interpreter.InterpretAsync(compiled, context);
+			var delegateMaterializer = new Lazy<DelegateMaterializerAssembly>(() => _compiler.GetDelegateMaterializer(context));
+			var interpretationResult = await _interpreter.InterpretAsync(compiled, context, delegateMaterializer);
 			return new EvaluationResult { Value = interpretationResult.Value, OwnedResultHandle = interpretationResult.OwnedResultHandle };
 		}
 		catch (Exception ex)

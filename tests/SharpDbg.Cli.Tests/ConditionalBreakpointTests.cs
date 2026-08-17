@@ -7,6 +7,30 @@ namespace SharpDbg.Cli.Tests;
 public class ConditionalBreakpointTests(ITestOutputHelper testOutputHelper)
 {
 	[Fact]
+	public async Task ConditionalBreakpoint_WithLambda_IsRejected()
+	{
+		var startSuspended = true;
+		var (debugProtocolHost, initializedEventTcs, _, adapter, p2) = TestHelper.GetRunningDebugProtocolHostInProc(testOutputHelper, startSuspended);
+		using var _ = adapter;
+		using var __ = new ProcessKiller(p2);
+		using var ___ = debugProtocolHost;
+
+		await debugProtocolHost
+			.WithInitializeRequest()
+			.WithAttachRequest(p2.Id)
+			.WaitForInitializedEvent(initializedEventTcs);
+
+		debugProtocolHost.WithBreakpointsRequest(
+			Path.JoinFromGitRoot("tests", "DebuggableConsoleApp", "MyClass.cs"),
+			[new SharpDbgBreakpointRequest(15, "_intList.Any(value => value == 4)")],
+			out var response);
+
+		var breakpoint = response.Breakpoints.Should().ContainSingle().Subject;
+		breakpoint.Verified.Should().BeFalse();
+		breakpoint.Message.Should().Be("Lambda expressions are not supported in breakpoint conditions.");
+	}
+
+	[Fact]
 	public async Task ConditionalBreakpoint_WithTrueCondition_Stops()
 	{
 		var startSuspended = true;

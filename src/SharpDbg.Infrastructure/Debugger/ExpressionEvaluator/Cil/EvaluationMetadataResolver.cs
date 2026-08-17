@@ -47,6 +47,20 @@ internal sealed class EvaluationMetadataResolver(ManagedDebugger debugger, Metad
 	public ResolvedCilType ResolveMethodReturnType(MethodDefinitionHandle handle) =>
 		evaluationReader.GetMethodDefinition(handle).DecodeSignature(new RuntimeTypeSignatureProvider(this), genericContext: null).ReturnType;
 
+	public MethodSignature<string> ResolveEvaluationMethodSignature(MethodDefinitionHandle handle) =>
+		evaluationReader.GetMethodDefinition(handle).DecodeSignature(SignatureNameProvider.Instance, genericContext: null);
+
+	public TypeDefinitionHandle GetEvaluationMethodDeclaringType(MethodDefinitionHandle handle) =>
+		evaluationReader.GetMethodDefinition(handle).GetDeclaringType();
+
+	public Guid CurrentFrameModuleVersionId =>
+		currentFrameModule?.MetadataReader.Mvid ?? throw new InvalidOperationException("The current frame module is unavailable");
+
+	public IReadOnlyList<FieldDefinitionHandle> GetEvaluationInstanceFields(TypeDefinitionHandle handle) =>
+		evaluationReader.GetTypeDefinition(handle).GetFields()
+			.Where(field => (evaluationReader.GetFieldDefinition(field).Attributes & FieldAttributes.Static) == 0)
+			.ToArray();
+
 	public ResolvedCilType ResolveTypeToken(int token)
 	{
 		if (_typeTokenCache.TryGetValue(token, out var cached)) return cached;
@@ -278,6 +292,9 @@ internal sealed class EvaluationMetadataResolver(ManagedDebugger debugger, Metad
 		type.Module.MetadataReader.PeMetadataReader.GetTypeDefinition(type.Handle).GetGenericParameters().Count();
 
 	public string GetAssemblyQualifiedTypeName(ResolvedCilType type) => $"{GetReflectionTypeName(type)}, {GetTypeAssemblyName(type)}";
+
+	public ResolvedCilType ResolveEvaluationFieldType(FieldDefinitionHandle handle) =>
+		evaluationReader.GetFieldDefinition(handle).DecodeSignature(new RuntimeTypeSignatureProvider(this), genericContext: null);
 
 	public ResolvedRuntimeMethod ResolveRuntimeMethod(string @namespace, string typeName, string methodName, params string[] parameterTypes)
 	{
@@ -528,10 +545,20 @@ internal sealed class EvaluationMetadataResolver(ManagedDebugger debugger, Metad
 	private string GetTypeAssemblyName(ResolvedCilType type)
 	{
 		if (type.ElementType is not null) return GetTypeAssemblyName(type.ElementType);
-		if (type.Primitive is not null) return "System.Private.CoreLib";
-		var runtimeType = type.RuntimeType ?? throw new TypeLoadException("The CIL type is unresolved");
-		var reader = runtimeType.Module.MetadataReader.PeMetadataReader;
-		return reader.IsAssembly ? reader.GetString(reader.GetAssemblyDefinition().Name) : Path.GetFileNameWithoutExtension(runtimeType.Module.Module.Name);
+		var module = type.Primitive is not null
+			? FindModules("System.Private.CoreLib").First()
+			: type.RuntimeType?.Module ?? throw new TypeLoadException("The CIL type is unresolved");
+		var reader = module.MetadataReader.PeMetadataReader;
+		if (!reader.IsAssembly) return Path.GetFileNameWithoutExtension(module.Module.Name);
+		var definition = reader.GetAssemblyDefinition();
+		var assemblyName = new AssemblyName
+		{
+			Name = reader.GetString(definition.Name),
+			Version = definition.Version,
+			CultureName = definition.Culture.IsNil ? null : reader.GetString(definition.Culture)
+		};
+		if (!definition.PublicKey.IsNil) assemblyName.SetPublicKey(reader.GetBlobBytes(definition.PublicKey));
+		return assemblyName.FullName!;
 	}
 
 	private static string GetPrimitiveTypeName(PrimitiveTypeCode primitive) => primitive switch

@@ -80,6 +80,13 @@ public partial class ManagedDebugger
 			Continue();
 			return;
 		}
+		if (TryConsumeTransientEvaluationModule(metadataReader.Mvid))
+		{
+			_logger?.Invoke($"  Ignoring transient evaluation module {metadataReader.Mvid}");
+			metadataReader.Dispose();
+			Continue();
+			return;
+		}
 
 		// EnC is enabled for assemblies/projects that are authored by the user, so we can use it as a heuristic to determine if this is user code or system code.
 		var isUserCode = corModule.JITCompilerFlags is CorDebugJITCompilerFlags.CORDEBUG_JIT_DISABLE_OPTIMIZATION or CorDebugJITCompilerFlags.CORDEBUG_JIT_ENABLE_ENC;

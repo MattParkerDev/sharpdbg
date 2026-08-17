@@ -39,6 +39,7 @@ internal sealed class CompiledEvaluationMethod : IDisposable
 	public System.Reflection.PortableExecutable.PEReader PeReader { get; }
 	public MetadataReader MetadataReader { get; }
 	public MethodDefinitionHandle EntryMethod { get; }
+	public Guid ModuleVersionId => MetadataReader.GetGuid(MetadataReader.GetModuleDefinition().Mvid);
 
 	/// <summary>
 	/// Returns the decoded CIL instructions and branch-target offsets map for a method in the evaluation assembly,
@@ -98,6 +99,7 @@ internal sealed class CilExpressionCompiler(ManagedDebugger debugger)
 
 	private readonly record struct MetadataBlocksKey(int ModuleVersion, CORDB_ADDRESS PreferredModule);
 	private readonly Dictionary<MetadataBlocksKey, ImmutableArray<MetadataBlock>> _metadataBlocksCache = new();
+	private DelegateMaterializerAssembly? _delegateMaterializer;
 	private int _cachedModuleVersion = -1;
 
 	public CompiledEvaluationMethod? TryCompile(string expression, CompiledExpressionEvaluationContext context, out string? errorMessage)
@@ -210,6 +212,16 @@ internal sealed class CilExpressionCompiler(ManagedDebugger debugger)
 		? [new Alias(DkmClrAliasKind.Exception, "Error", "$exception", typeof(Exception).AssemblyQualifiedName!, Guid.Empty, null!)]
 		: ImmutableArray<Alias>.Empty;
 
+	internal DelegateMaterializerAssembly GetDelegateMaterializer(CompiledExpressionEvaluationContext context)
+	{
+		if (_delegateMaterializer is { } cached) return cached;
+		var frame = debugger.GetIlFrameForThreadIdAndStackDepth(context.ThreadId, context.StackDepth);
+		var preferredModule = context.RootValue is not null ? context.RootValue.ExactType.Class.Module : frame.Function.Module;
+		var referenceCompilation = GetMetadataBlocks(preferredModule)
+			.ToCompilation(moduleId: default, MakeAssemblyReferencesKind.AllAssemblies);
+		return _delegateMaterializer = DelegateMaterializerCompiler.Compile(referenceCompilation.References);
+	}
+
 	/// <summary>
 	/// Builds the metadata blocks passed to the Roslyn evaluator. When multiple loaded modules share an assembly
 	/// identity (e.g. the same assembly loaded into several AssemblyLoadContexts), only one module per identity is
@@ -281,7 +293,7 @@ internal sealed class CilExpressionCompiler(ManagedDebugger debugger)
 	{
 		var moduleInfo = debugger.GetModuleInfoForModule(frame.Function.Module);
 		var moduleId = new ModuleId(moduleInfo.MetadataReader.Mvid, moduleInfo.ModuleName);
-		var compilation = blocks.ToCompilation(moduleId: default, MakeAssemblyReferencesKind.AllAssemblies).AddReferences(_intrinsicMethodsReference);
+		var compilation = AddRuntimeAccessAttributes(blocks.ToCompilation(moduleId: default, MakeAssemblyReferencesKind.AllAssemblies).AddReferences(_intrinsicMethodsReference));
 		var methodToken = frame.Function.Token;
 		var methodHandle = (MethodDefinitionHandle)MetadataTokens.Handle(methodToken);
 		var currentSourceMethod = compilation.GetSourceMethod(moduleId, methodHandle);
@@ -324,7 +336,7 @@ internal sealed class CilExpressionCompiler(ManagedDebugger debugger)
 		var rootType = rootValue.ExactType;
 		var moduleInfo = debugger.GetModuleInfoForModule(rootType.Class.Module);
 		var moduleId = new ModuleId(moduleInfo.MetadataReader.Mvid, moduleInfo.ModuleName);
-		var compilation = blocks.ToCompilation(moduleId: default, MakeAssemblyReferencesKind.AllAssemblies).AddReferences(_intrinsicMethodsReference);
+		var compilation = AddRuntimeAccessAttributes(blocks.ToCompilation(moduleId: default, MakeAssemblyReferencesKind.AllAssemblies).AddReferences(_intrinsicMethodsReference));
 		var currentType = compilation.GetType(moduleId, rootType.Class.Token);
 		var currentFrame = new SynthesizedContextMethodSymbol(currentType);
 		return new EvaluationContext(
@@ -335,6 +347,25 @@ internal sealed class CilExpressionCompiler(ManagedDebugger debugger)
 			locals: default,
 			inScopeHoistedLocalSlots: ImmutableSortedSet<int>.Empty,
 			methodDebugInfo: MethodDebugInfo<TypeSymbol, LocalSymbol>.None);
+	}
+
+	private static CSharpCompilation AddRuntimeAccessAttributes(CSharpCompilation compilation)
+	{
+		var attributes = string.Join("\n", compilation.ReferencedAssemblyNames.Select(identity =>
+			$"[assembly: System.Runtime.CompilerServices.IgnoresAccessChecksTo({SyntaxFactory.LiteralExpression(SyntaxKind.StringLiteralExpression, SyntaxFactory.Literal(identity.Name))})]"));
+		var source = $$"""
+			{{attributes}}
+
+			namespace System.Runtime.CompilerServices
+			{
+				[System.AttributeUsage(System.AttributeTargets.Assembly, AllowMultiple = true)]
+				internal sealed class IgnoresAccessChecksToAttribute : System.Attribute
+				{
+					public IgnoresAccessChecksToAttribute(string assemblyName) { }
+				}
+			}
+			""";
+		return compilation.AddSyntaxTrees(SyntaxFactory.ParseSyntaxTree(source));
 	}
 
 	private static ImmutableArray<byte> CreateIntrinsicMethodsAssembly()

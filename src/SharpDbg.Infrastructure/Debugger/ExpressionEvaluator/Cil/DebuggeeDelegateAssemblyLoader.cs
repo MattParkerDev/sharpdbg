@@ -6,7 +6,7 @@ using SharpDbg.Infrastructure.Debugger.ExpressionEvaluator.Compiler;
 namespace SharpDbg.Infrastructure.Debugger.ExpressionEvaluator.Cil;
 
 /// <summary>
-/// Loads generated delegate code into a collectible assembly load context in the debuggee.
+/// 🤖, Loads generated delegate code into a collectible assembly load context in the debuggee.
 /// </summary>
 internal sealed class DebuggeeDelegateAssemblyLoader(
 	ManagedDebugger debugger,

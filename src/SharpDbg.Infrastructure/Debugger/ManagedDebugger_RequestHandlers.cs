@@ -28,6 +28,7 @@ public partial class ManagedDebugger
 	/// </summary>
 	public void Launch(LaunchInfo launchInfo, bool justMyCode)
 	{
+		EnsureNoProcessBeingDebugged();
 		_logger?.Invoke($"Launching program: {launchInfo.Program} {string.Join(' ', launchInfo.Arguments)}");
 		_justMyCode = justMyCode;
 		_pendingLaunchInfo = launchInfo;
@@ -137,6 +138,7 @@ public partial class ManagedDebugger
 	/// </summary>
 	public void Attach(int processId, bool justMyCode)
 	{
+		EnsureNoProcessBeingDebugged();
 		_logger?.Invoke($"Storing attach target: {processId}");
 		_justMyCode = justMyCode;
 		_pendingAttachProcessId = processId;
@@ -144,6 +146,7 @@ public partial class ManagedDebugger
 
 	public void AttachRemote(RemoteAttachInfo remoteAttachInfo, bool justMyCode)
 	{
+		EnsureNoProcessBeingDebugged();
 		_justMyCode = justMyCode;
 		_pendingRemoteAttachInfo = remoteAttachInfo;
 		_isRemoteAttach = true;

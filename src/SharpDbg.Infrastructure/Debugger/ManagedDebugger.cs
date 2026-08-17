@@ -390,6 +390,11 @@ public partial class ManagedDebugger
 		return wasVerified is false && bp.Verified;
 	}
 
+	private void EnsureNoProcessBeingDebugged()
+	{
+		if (_process is not null) throw new InvalidOperationException("A process is already being debugged, you must terminate/detach first.");
+	}
+
 	internal ICorDebugILFrame GetIlFrameForThreadIdAndStackDepth(ThreadId threadId, FrameStackDepth stackDepth)
 	{
 		var frame = GetFrameForThreadIdAndStackDepth(threadId, stackDepth);

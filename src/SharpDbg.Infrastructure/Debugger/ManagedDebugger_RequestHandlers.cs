@@ -561,7 +561,7 @@ public partial class ManagedDebugger
 					// get the public members of the debugger proxy instance instead
 					var objectValue = variablesReference.DebuggerProxyInstance.UnwrapDebugValueToObject();
 					await AddMembersAndStaticPseudoVariable(variablesReference.DebuggerProxyInstance, objectValue.ExactType, variablesReference.ThreadId, variablesReference.FrameStackDepth, result, false);
-					var rawValueVariablesReference = _variableManager.CreateReference(new VariablesReference(StoredReferenceKind.StackVariable, variablesReference.ObjectValue, variablesReference.ThreadId, variablesReference.FrameStackDepth, null));
+					var rawValueVariablesReference = _variableManager.CreateReference(new VariablesReference(StoredReferenceKind.RawView, variablesReference.ObjectValue, variablesReference.ThreadId, variablesReference.FrameStackDepth, null));
 					var rawValuePseudoVariable = new VariableInfo
 					{
 						Name = "Raw View",
@@ -600,7 +600,7 @@ public partial class ManagedDebugger
 				var objectValue = variablesReference.ObjectValue!.UnwrapDebugValueToObject();
 				await AddStaticMembers(variablesReference.ObjectValue!, objectValue.ExactType, variablesReference.ThreadId, variablesReference.FrameStackDepth, result);
 			}
-			else if (variablesReference.ReferenceKind is StoredReferenceKind.EnumerableRawView)
+			else if (variablesReference.ReferenceKind is StoredReferenceKind.RawView)
 			{
 				var objectValue = variablesReference.ObjectValue!.UnwrapDebugValueToObject();
 				await AddMembersAndStaticPseudoVariable(variablesReference.ObjectValue!, objectValue.ExactType, variablesReference.ThreadId, variablesReference.FrameStackDepth, result);

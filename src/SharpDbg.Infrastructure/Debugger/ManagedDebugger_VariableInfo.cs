@@ -236,7 +236,7 @@ public partial class ManagedDebugger
 			Value = "",
 			Type = "",
 			PresentationHint = new VariablePresentationHint { Kind = PresentationHintKind.Class },
-			VariablesReference = _variableManager.CreateReference(variablesReference with { ReferenceKind = StoredReferenceKind.EnumerableRawView })
+			VariablesReference = _variableManager.CreateReference(variablesReference with { ReferenceKind = StoredReferenceKind.RawView })
 		});
 		result.Add(new VariableInfo
 		{

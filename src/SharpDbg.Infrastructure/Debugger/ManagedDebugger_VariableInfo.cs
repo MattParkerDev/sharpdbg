@@ -409,7 +409,7 @@ public partial class ManagedDebugger
 					var unwrappedDebugValue = fieldCorDebugValue.UnwrapDebugValue();
 					if (unwrappedDebugValue is ICorDebugArrayValue arrayValue)
 					{
-						await AddArrayElements(arrayValue, threadId, stackDepth, result);
+						await AddArrayElements(arrayValue, threadId, stackDepth, result, referenceValue: fieldCorDebugValue);
 						return;
 					}
 				}
@@ -494,7 +494,7 @@ public partial class ManagedDebugger
 						var unwrappedDebugValue = returnValue.UnwrapDebugValue();
 						if (unwrappedDebugValue is ICorDebugArrayValue arrayValue)
 						{
-							await AddArrayElements(arrayValue, threadId, stackDepth, result);
+							retainReturnValue = await AddArrayElements(arrayValue, threadId, stackDepth, result, referenceValue: returnValue);
 							return;
 						}
 					}
@@ -520,7 +520,7 @@ public partial class ManagedDebugger
 		}
 	}
 
-	private async Task AddArrayElements(ICorDebugArrayValue arrayValue, ThreadId threadId, FrameStackDepth stackDepth, List<VariableInfo> result, uint[]? indexPrefix = null, uint? startOffset = null, uint? count = null)
+	private async Task<bool> AddArrayElements(ICorDebugArrayValue arrayValue, ThreadId threadId, FrameStackDepth stackDepth, List<VariableInfo> result, uint[]? indexPrefix = null, uint? startOffset = null, uint? count = null, ICorDebugValue? referenceValue = null)
 	{
 		var rank = arrayValue.Rank;
 		indexPrefix ??= [];
@@ -542,10 +542,10 @@ public partial class ManagedDebugger
 					Value = "",
 					Type = "",
 					PresentationHint = new VariablePresentationHint { Kind = PresentationHintKind.Class },
-					VariablesReference = _variableManager.CreateReference(new VariablesReference(StoredReferenceKind.ArrayRange, arrayValue, threadId, stackDepth, null, indices))
+					VariablesReference = _variableManager.CreateReference(new VariablesReference(StoredReferenceKind.ArrayRange, referenceValue ?? arrayValue, threadId, stackDepth, null, indices))
 				});
 			}
-			return;
+			return true;
 		}
 		if (count is null && currentDimensionLength > 100)
 		{
@@ -563,10 +563,10 @@ public partial class ManagedDebugger
 					Value = "",
 					Type = "",
 					PresentationHint = new VariablePresentationHint { Kind = PresentationHintKind.Class },
-					VariablesReference = _variableManager.CreateReference(new VariablesReference(StoredReferenceKind.ArrayRange, arrayValue, threadId, stackDepth, null, indexPrefix, rangeStart, rangeCount))
+					VariablesReference = _variableManager.CreateReference(new VariablesReference(StoredReferenceKind.ArrayRange, referenceValue ?? arrayValue, threadId, stackDepth, null, indexPrefix, rangeStart, rangeCount))
 				});
 			}
-			return;
+			return true;
 		}
 
 		// Get the elements first, as the CorDebugArrayValue arrayValue may get neutered during 'await GetValueForCorDebugValueAsync' below, if any evals are required
@@ -597,6 +597,7 @@ public partial class ManagedDebugger
 				result.Add(variableInfo);
 			});
 		}
+		return false;
 	}
 
 	private static async Task WithFailureHandling(List<VariableInfo> result, string fieldName, Func<Task> func)

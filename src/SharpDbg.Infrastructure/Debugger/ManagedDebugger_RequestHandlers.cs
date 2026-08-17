@@ -577,7 +577,7 @@ public partial class ManagedDebugger
 
 				if (unwrappedDebugValue is ICorDebugArrayValue arrayValue)
 				{
-					await AddArrayElements(arrayValue, variablesReference.ThreadId, variablesReference.FrameStackDepth, result);
+					await AddArrayElements(arrayValue, variablesReference.ThreadId, variablesReference.FrameStackDepth, result, referenceValue: variablesReference.ObjectValue);
 				}
 				else if (unwrappedDebugValue is ICorDebugObjectValue objectValue)
 				{
@@ -612,7 +612,7 @@ public partial class ManagedDebugger
 			else if (variablesReference.ReferenceKind is StoredReferenceKind.ArrayRange)
 			{
 				var arrayValue = (ICorDebugArrayValue)variablesReference.ObjectValue!.UnwrapDebugValue();
-				await AddArrayElements(arrayValue, variablesReference.ThreadId, variablesReference.FrameStackDepth, result, variablesReference.ArrayIndices, variablesReference.ArrayStartOffset, variablesReference.ArrayCount);
+				await AddArrayElements(arrayValue, variablesReference.ThreadId, variablesReference.FrameStackDepth, result, variablesReference.ArrayIndices, variablesReference.ArrayStartOffset, variablesReference.ArrayCount, variablesReference.ObjectValue);
 			}
 		}
 		catch (Exception ex)

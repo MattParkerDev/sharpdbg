@@ -535,4 +535,34 @@ public class EvalTests(ITestOutputHelper testOutputHelper)
 		debugProtocolHost.WithEvaluateRequest(stackFrameId, "typeof(T)", out var evaluateResponse4);
 		evaluateResponse4.Result.Should().Be("System.Int32");
 	}
+
+	[Fact]
+	public async Task SharpDbgCli_EvaluationRequest_StaticClassMethod_EvaluatesCorrectFieldValue()
+	{
+		var startSuspended = true;
+
+		var (debugProtocolHost, initializedEventTcs, debugEventTcs, adapter, p2) = TestHelper.GetRunningDebugProtocolHostInProc(testOutputHelper, startSuspended);
+		using var _ = adapter;
+		using var __ = new ProcessKiller(p2);
+		using var ___ = debugProtocolHost;
+
+		await debugProtocolHost
+			.WithInitializeRequest()
+			.WithAttachRequest(p2.Id)
+			.WaitForInitializedEvent(initializedEventTcs);
+		debugProtocolHost
+			.WithBreakpointsRequest([9], Path.JoinFromGitRoot("tests", "DebuggableConsoleApp", "MyStaticClass.cs"))
+			.WithConfigurationDoneRequest()
+			.WithOptionalResumeRuntime(p2.Id, startSuspended);
+
+		var stoppedEvent = await debugProtocolHost.WaitForStoppedEvent(debugEventTcs);
+		debugProtocolHost
+			.WithStackTraceRequest(stoppedEvent.ThreadId!.Value, out var stackTraceResponse)
+			.WithScopesRequest(stackTraceResponse.StackFrames!.First().Id, out var scopesResponse);
+
+		var stackFrameId = stackTraceResponse.StackFrames!.First().Id;
+
+		debugProtocolHost.WithEvaluateRequest(stackFrameId, "_testInt", out var evaluateResponse);
+		evaluateResponse.Result.Should().Be("4");
+	}
 }

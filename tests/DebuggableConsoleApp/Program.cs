@@ -36,6 +36,7 @@ public static class Program
 			SameNamedClass.Test();
 			Namespace3.SameNamedClass.Test();
 			OverloadedMethodsClass.CallAllMethods();
+			MyStaticClass.Test();
 			myLambdaClass.VariableShadowingMethod();
 			myClassWithGenericMethod.Test(4);
 			Thread.Sleep(100);

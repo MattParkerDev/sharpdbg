@@ -12,8 +12,8 @@ jobs:
       publish-necessary: ${{ steps.determine-if-publish-necessary.outputs.publish-necessary }}
       tool-publish-necessary: ${{ steps.determine-if-publish-necessary.outputs.tool-publish-necessary }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
       - name: dotnet run DetermineIfPublishNecessary
         id: determine-if-publish-necessary
         shell: bash
@@ -29,8 +29,8 @@ jobs:
     needs: determine-if-publish-necessary
     if: needs.determine-if-publish-necessary.outputs.publish-necessary == 'true' || needs.determine-if-publish-necessary.outputs.tool-publish-necessary == 'true'
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
       - name: Publish to NuGet
         if: needs.determine-if-publish-necessary.outputs.publish-necessary == 'true'
         shell: bash

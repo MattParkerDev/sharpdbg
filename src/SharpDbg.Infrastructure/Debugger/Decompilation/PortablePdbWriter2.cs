@@ -299,10 +299,14 @@ public class PortablePdbWriter2
 
 		if (pdbId == null)
 		{
-			var debugDir = file.Reader.ReadDebugDirectory().LastOrDefault(dir => dir.Type == DebugDirectoryEntryType.CodeView);
-			var portable = file.Reader.ReadCodeViewDebugDirectoryData(debugDir);
-			Debug.Assert(!portable.Path.EndsWith(".ni.pdb"));
-			pdbId = new BlobContentId(portable.Guid, debugDir.Stamp);
+			var debugDir = file.Reader.ReadDebugDirectory().Cast<DebugDirectoryEntry?>().LastOrDefault(dir => dir!.Value.Type == DebugDirectoryEntryType.CodeView);
+			if (debugDir is not null)
+			{
+				var portable = file.Reader.ReadCodeViewDebugDirectoryData(debugDir.Value);
+				Debug.Assert(!portable.Path.EndsWith(".ni.pdb"));
+				pdbId = new BlobContentId(portable.Guid, debugDir.Value.Stamp);
+			}
+			else throw new InvalidOperationException("Dll did not contain a CodeView entry, unable to determine PdbId. Are you trying to decompile a Publicized assembly?");
 		}
 
 		PortablePdbBuilder serializer = new PortablePdbBuilder(metadata, GetRowCounts(reader), entrypointHandle, blobs => pdbId.Value);

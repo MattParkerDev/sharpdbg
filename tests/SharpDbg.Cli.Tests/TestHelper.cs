@@ -6,6 +6,7 @@ using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
 using SharpDbg.Cli.Tests.Helpers;
 using SharpDbg.Infrastructure.Debugger;
 using SharpDbg.InMemory;
+using StackFrame = Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages.StackFrame;
 
 namespace SharpDbg.Cli.Tests;
 
@@ -132,6 +133,14 @@ public static partial class TestHelper
 		// DiagnosticsClient.ResumeRuntime seems to have a different implementation on MacOS - it will throw if the runtime is not paused...
 		if (startSuspended) new DiagnosticsClient(processId).ResumeRuntime();
 		return debugProtocolHost;
+	}
+
+	public static StackFrame GetTopStackFrame(this DebugProtocolHost debugProtocolHost, int threadId)
+	{
+		var stackTraceRequest = new StackTraceRequest { ThreadId = threadId, StartFrame = 0, Levels = 1 };
+		var stackTraceResponse = debugProtocolHost.SendRequestSync(stackTraceRequest);
+		var topFrame = stackTraceResponse.StackFrames.Single();
+		return topFrame;
 	}
 
 	public static DebugProtocolHost WithStackTraceRequest(this DebugProtocolHost debugProtocolHost, int threadId, out StackTraceResponse stackTraceResponse, int? levels = 1)

@@ -138,9 +138,10 @@ public class ExceptionTests(ITestOutputHelper testOutputHelper)
 		scopesResponse2.Scopes.Should().HaveCount(1);
 		var scope = scopesResponse2.Scopes.Single();
 
+		var expectedStackTrace = $"   at System.Number.ThrowFormatException[TChar](ReadOnlySpan`1 value){Environment.NewLine}   at System.Int32.Parse(String s){Environment.NewLine}   at DebuggableConsoleApp.Exceptions.Test(ExceptionToThrow exceptionToThrow) in {breakpointedFilePath}:line 18";
 		List<Variable> expectedVariables =
 		[
-			new() { Name = "$exception",  EvaluateName = "$exception",  Value = $"System.FormatException: The input string 'x' was not in a correct format.{Environment.NewLine}   at System.Number.ThrowFormatException[TChar](ReadOnlySpan`1 value)", Type = "System.FormatException", VariablesReference = 2 }
+			new() { Name = "$exception",  EvaluateName = "$exception",  Value = $"System.FormatException: The input string 'x' was not in a correct format.{Environment.NewLine}{expectedStackTrace}", Type = "System.FormatException", VariablesReference = 2 }
 		];
 		debugProtocolHost.WithVariablesRequest(scope.VariablesReference, out var variables);
 
@@ -162,7 +163,7 @@ public class ExceptionTests(ITestOutputHelper testOutputHelper)
 				TypeName = "FormatException",
 				FullTypeName = "System.FormatException",
 				EvaluateName = "$exception",
-				StackTrace = $"   at System.Number.ThrowFormatException[TChar](ReadOnlySpan`1 value)",
+				StackTrace = expectedStackTrace,
 				InnerException = [],
 				FormattedDescription = "**System.FormatException:** 'The input string 'x' was not in a correct format.'",
 				HResult = -2146233033,

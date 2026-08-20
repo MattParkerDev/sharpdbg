@@ -283,6 +283,7 @@ public class DebugAdapter : DebugAdapterBase
 			SupportsRestartFrame = false,
 			SupportsTerminateRequest = true,
 			SupportsExceptionInfoRequest = true,
+			SupportsExceptionFilterOptions = true,
 			SupportsStepInTargetsRequest = false,
 			SupportsGotoTargetsRequest = false,
 			ExceptionBreakpointFilters =
@@ -486,7 +487,18 @@ public class DebugAdapter : DebugAdapterBase
 	{
 		try
 		{
-			_logger?.Invoke($"Exception breakpoints: {string.Join(", ", responder.Arguments?.Filters ?? [])}");
+			var arguments = responder.Arguments;
+			var breakpointRequests = new List<SharpDbgExceptionBreakpointRequest>();
+			foreach (var filter in arguments.Filters ?? [])
+			{
+				breakpointRequests.Add(new SharpDbgExceptionBreakpointRequest(ParseExceptionFilter(filter)));
+			}
+			foreach (var option in arguments.FilterOptions ?? [])
+			{
+				breakpointRequests.Add(new SharpDbgExceptionBreakpointRequest(ParseExceptionFilter(option.FilterId), option.Condition));
+			}
+			_logger?.Invoke($"Exception breakpoints: {string.Join(", ", breakpointRequests)}");
+			await ExecuteWithDebuggerProcessingLockAsync(() => _debugger.SetExceptionBreakpoints(breakpointRequests));
 
 			responder.SetResponse(new SetExceptionBreakpointsResponse());
 		}
@@ -495,6 +507,13 @@ public class DebugAdapter : DebugAdapterBase
 			_logger?.Invoke($"HandleSetExceptionBreakpointsRequestAsync failed: {ex.Message} , {ex}");
 			responder.SetError(new ProtocolException($"Failed to set exception breakpoints: {ex.Message}", ex));
 		}
+
+		static SharpDbgExceptionBreakpointFilter ParseExceptionFilter(string filter) => filter switch
+		{
+			"all" => SharpDbgExceptionBreakpointFilter.All,
+			"user-unhandled" => SharpDbgExceptionBreakpointFilter.UserUnhandled,
+			_ => throw new ProtocolException($"Unknown exception breakpoint filter: '{filter}'")
+		};
 	}
 
 	protected override async void HandleThreadsRequestAsync(IRequestResponder<ThreadsArguments, ThreadsResponse> responder)

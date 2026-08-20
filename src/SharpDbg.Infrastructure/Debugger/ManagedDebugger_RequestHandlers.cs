@@ -16,6 +16,8 @@ namespace SharpDbg.Infrastructure.Debugger;
 
 public record SharpDbgBreakpointRequest(int Line, string? Condition = null, string? HitCondition = null, int? Column = null);
 public record SharpDbgFunctionBreakpointRequest(string Name, string? Condition = null, string? HitCondition = null);
+public record SharpDbgExceptionBreakpointRequest(SharpDbgExceptionBreakpointFilter Filter, string? Condition = null);
+public enum SharpDbgExceptionBreakpointFilter { All, UserUnhandled }
 
 public partial class ManagedDebugger
 {
@@ -94,6 +96,7 @@ public partial class ManagedDebugger
 
 		_process = _corDebug.DebugActiveProcess(processId, false);
 		_isAttached = true;
+		ConfigureExceptionCallbacks();
 
 		_logger?.Invoke($"Successfully attached to process: {processId}");
 		OnProcessStarted?.Invoke(processId, launchInfo.Program);
@@ -745,7 +748,7 @@ public partial class ManagedDebugger
 		{
 			ExceptionId = $"CLR/{friendlyTypeName}",
 			Description = $"Exception thrown: '{friendlyTypeName}' in {source}.dll: '{message}'",
-			BreakMode = SharpDbgExceptionBreakMode.Always,
+			BreakMode = _exceptionBreakModes.GetValueOrDefault(threadId, SharpDbgExceptionBreakMode.Unknown),
 			Code = 0,
 			Details = new ExceptionInfo.ExceptionDetails
 			{
@@ -776,5 +779,10 @@ public partial class ManagedDebugger
 				if (propertyValue is ICorDebugHandleValue handle) handle.TryDispose();
 			}
 		}
+	}
+
+	public void SetExceptionBreakpoints(IReadOnlyList<SharpDbgExceptionBreakpointRequest> breakpoints)
+	{
+		_exceptionBreakpoints = breakpoints.ToArray();
 	}
 }

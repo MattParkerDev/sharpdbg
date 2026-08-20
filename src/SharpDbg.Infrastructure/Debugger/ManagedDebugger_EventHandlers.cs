@@ -2,6 +2,7 @@ using System.Diagnostics;
 using ICorDebugSharp;
 using SharpDbg.Infrastructure.Debugger.ExpressionEvaluator;
 using SharpDbg.Infrastructure.Debugger.ExpressionEvaluator.Cil;
+using SharpDbg.Infrastructure.Debugger.Models.Response;
 
 namespace SharpDbg.Infrastructure.Debugger;
 
@@ -14,6 +15,7 @@ public partial class ManagedDebugger
 		{
 			_process = createProcessCorDebugManagedCallbackEventArgs.Process;
 			_isAttached = true;
+			ConfigureExceptionCallbacks();
 			_logger?.Invoke($"Remote debuggee established connection to debugger, PID: {_process.Id}");
 		}
 		Continue();
@@ -39,6 +41,7 @@ public partial class ManagedDebugger
 	{
 		var corThread = exitThreadCorDebugManagedCallbackEventArgs.Thread;
 		_threads.Remove(corThread.Id);
+		_exceptionBreakModes.Remove(new ThreadId(corThread.Id));
 		OnThreadExited?.Invoke(corThread.Id);
 		Continue();
 	}
@@ -298,30 +301,130 @@ public partial class ManagedDebugger
 
 	private void HandleException(object? sender, ExceptionCorDebugManagedCallbackEventArgs exceptionEventArgs)
 	{
+		// ICorDebugManagedCallback2 supplies the exception stage needed for filtering.
+		Continue();
+	}
+
+	private void HandleException2(object? sender, Exception2CorDebugManagedCallbackEventArgs exceptionEventArgs)
+	{
 		if (EvalStatus.IsRunning)
 		{
 			Continue();
 			return;
 		}
 		var corThread = exceptionEventArgs.Thread;
+
+		var threadId = new ThreadId(corThread.Id);
+		var exceptionType = GetCurrentExceptionType(corThread);
+		var shouldStop = false;
+		var breakMode = SharpDbgExceptionBreakMode.Unknown;
+
+		switch (exceptionEventArgs.DwEventType)
+		{
+			case CorDebugExceptionCallbackType.DEBUG_EXCEPTION_FIRST_CHANCE:
+			{
+				var state = new ExceptionPropagationState
+				{
+					HasReachedUserCode = IsUserCodeFrame(exceptionEventArgs.Frame),
+					AlwaysStopReported = false
+				};
+				_exceptionStates[threadId] = state;
+				shouldStop = MatchesExceptionBreakpoint(SharpDbgExceptionBreakpointFilter.All, exceptionType);
+				state.AlwaysStopReported = shouldStop;
+				breakMode = SharpDbgExceptionBreakMode.Always;
+				break;
+			}
+			case CorDebugExceptionCallbackType.DEBUG_EXCEPTION_USER_FIRST_CHANCE:
+			{
+				if (_exceptionStates.TryGetValue(threadId, out var state) is false)
+				{
+					state = new ExceptionPropagationState
+					{
+						HasReachedUserCode = false,
+						AlwaysStopReported = false
+					};
+					_exceptionStates[threadId] = state;
+				}
+				state.HasReachedUserCode = true;
+				shouldStop = state.AlwaysStopReported is false && MatchesExceptionBreakpoint(SharpDbgExceptionBreakpointFilter.All, exceptionType);
+				state.AlwaysStopReported |= shouldStop;
+				breakMode = SharpDbgExceptionBreakMode.Always;
+				break;
+			}
+			case CorDebugExceptionCallbackType.DEBUG_EXCEPTION_CATCH_HANDLER_FOUND:
+			{
+				var handlerIsUserCode = IsUserCodeFrame(exceptionEventArgs.Frame);
+				shouldStop = _justMyCode && handlerIsUserCode is false && _exceptionStates.TryGetValue(threadId, out var state) && state.HasReachedUserCode && MatchesExceptionBreakpoint(SharpDbgExceptionBreakpointFilter.UserUnhandled, exceptionType);
+				_exceptionStates.Remove(threadId);
+				breakMode = SharpDbgExceptionBreakMode.UserUnhandled;
+				break;
+			}
+			case CorDebugExceptionCallbackType.DEBUG_EXCEPTION_UNHANDLED:
+				_exceptionStates.Remove(threadId);
+				shouldStop = true;
+				breakMode = SharpDbgExceptionBreakMode.Unhandled;
+				break;
+		}
+
+		if (shouldStop is false)
+		{
+			ContinueWithVariableClear();
+			return;
+		}
 		_asyncStepper?.Disable();
 		if (_stepper is not null)
 		{
 			_stepper.Deactivate();
 			_stepper = null;
 		}
-
-		// TODO: Get from BreakpointFilters, determine if user caught the exception, and conditionally continue
-		var breakOnAllExceptions = true; // Does not break if JMC is enabled and the exception is thrown and caught in library code
-		var breakOnUserUnhandledExceptions = true; // configures the debugger to stop when an exception is caught in non-user code after having been thrown in user code or traveled through user code
-		var exceptionIsCaughtByUser = false;
-
-		var shouldContinue = false;
-		if (shouldContinue)
-		{
-			ContinueWithVariableClear();
-			return;
-		}
+		_exceptionBreakModes[threadId] = breakMode;
 		OnStopped?.Invoke(corThread.Id, "exception");
+	}
+
+	private static string GetCurrentExceptionType(ICorDebugThread thread)
+	{
+		return thread.TryGetCurrentException(out var exception) is Cor.S_OK
+			? GetCorDebugTypeFriendlyName(exception.ExactType)
+			: "<unknown exception>";
+	}
+
+	private bool IsUserCodeFrame(ICorDebugFrame? frame)
+	{
+		if (_justMyCode is false) return false;
+		try
+		{
+			return frame is not null && _modules.TryGetValue(frame.Function.Module.BaseAddress, out var module) && module.IsUserCode;
+		}
+		catch
+		{
+			return false;
+		}
+	}
+
+	private bool MatchesExceptionBreakpoint(SharpDbgExceptionBreakpointFilter filter, string exceptionType)
+	{
+		return _exceptionBreakpoints.Any(breakpoint => breakpoint.Filter == filter && MatchesCondition(breakpoint.Condition, exceptionType));
+
+		static bool MatchesCondition(string? condition, string type)
+		{
+			if (string.IsNullOrWhiteSpace(condition)) return true;
+			var typeAsSpan = type.AsSpan();
+			var trimmed = condition.AsSpan().Trim();
+			var exclude = trimmed.StartsWith('!');
+			if (exclude) trimmed = trimmed[1..];
+			var contains = false;
+			foreach (var range in trimmed.SplitAny([',', ' ', '\t', '\r', '\n']))
+			{
+				var entry = trimmed[range].Trim();
+				if (entry.IsEmpty) continue;
+
+				if (entry.Equals(typeAsSpan, StringComparison.Ordinal))
+				{
+					contains = true;
+					break;
+				}
+			}
+			return exclude ? !contains : contains;
+		}
 	}
 }

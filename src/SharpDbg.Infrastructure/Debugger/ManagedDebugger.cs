@@ -5,6 +5,7 @@ using ICorDebugSharp;
 using NeoSmart.AsyncLock;
 using SharpDbg.Infrastructure.Debugger.ExpressionEvaluator.Cil;
 using SharpDbg.Infrastructure.Debugger.Models;
+using SharpDbg.Infrastructure.Debugger.Models.Response;
 
 namespace SharpDbg.Infrastructure.Debugger;
 
@@ -32,6 +33,12 @@ public partial class ManagedDebugger
 	private bool _isRemoteAttach;
 	private int? _pendingAttachProcessId;
 	private bool _justMyCode;
+	// The active exception filters and optional type conditions supplied by the DAP client.
+	private IReadOnlyList<SharpDbgExceptionBreakpointRequest> _exceptionBreakpoints = [];
+	// Per-thread state retained between callbacks for the same exception propagation sequence.
+	private readonly Dictionary<ThreadId, ExceptionPropagationState> _exceptionStates = [];
+	// The mode that caused each thread's latest exception stop, used by the exceptionInfo response.
+	private readonly Dictionary<ThreadId, SharpDbgExceptionBreakMode> _exceptionBreakModes = [];
 	private AsyncStepper? _asyncStepper;
 	private CilExpressionEvaluator _expressionEvaluator = null!;
 
@@ -149,6 +156,7 @@ public partial class ManagedDebugger
 				case StepCompleteCorDebugManagedCallbackEventArgs a: HandleStepComplete(sender, a); break;
 				case BreakCorDebugManagedCallbackEventArgs a: HandleBreak(sender, a); break;
 				case ExceptionCorDebugManagedCallbackEventArgs a: HandleException(sender, a); break;
+				case Exception2CorDebugManagedCallbackEventArgs a: HandleException2(sender, a); break;
 				case EvalCompleteCorDebugManagedCallbackEventArgs or EvalExceptionCorDebugManagedCallbackEventArgs: break; // don't continue on these, as they are being used for expression evaluation
 				default: _process?.Continue(false); break;
 			}
@@ -186,6 +194,7 @@ public partial class ManagedDebugger
 			// Attach to the process
 			_process = _corDebug.DebugActiveProcess(processId, false);
 			_isAttached = true;
+			ConfigureExceptionCallbacks();
 
 			_logger?.Invoke($"Attached to process: {processId}");
 			SendAllBreakpointEvents();
@@ -222,6 +231,13 @@ public partial class ManagedDebugger
 	{
 		Guard.Against.Null(_process);
 		_process.Continue(false);
+	}
+
+	private void ConfigureExceptionCallbacks()
+	{
+		if (_process is not ICorDebugProcess8 process8) return;
+		var result = process8.TryEnableExceptionCallbacksOutsideOfMyCode(!_justMyCode);
+		if (result is not Cor.S_OK) _logger?.Invoke($"Unable to configure exception callbacks outside user code: {result}");
 	}
 
 	private ICorDebugStepper? _stepper;
@@ -483,6 +499,8 @@ public partial class ManagedDebugger
 		_asyncStepper = null;
 		_stepper = null!;
 		_threads.Clear();
+		_exceptionStates.Clear();
+		_exceptionBreakModes.Clear();
 		_initializedStaticTypes.Clear();
 		_suppressFinalizeFunction = null;
 		_variableManager.ClearAndTryDisposeHandleValues();
@@ -505,6 +523,17 @@ public partial class ManagedDebugger
 
 		_debuggeeProcess?.Dispose();
 		_debuggeeProcess = null;
+	}
+
+	private sealed class ExceptionPropagationState
+	{
+		// True once exception propagation has entered a JMC-marked frame. If the runtime later finds a
+		// handler outside JMC code, the exception is user-unhandled.
+		public required bool HasReachedUserCode { get; set; }
+
+		// Prevents the first-chance and user-first-chance callbacks for the same exception from producing
+		// duplicate "all exceptions" stops.
+		public required bool AlwaysStopReported { get; set; }
 	}
 }
 

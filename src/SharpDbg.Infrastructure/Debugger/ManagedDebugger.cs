@@ -25,7 +25,7 @@ public partial class ManagedDebugger
 	private ICorDebugFunction? _suppressFinalizeFunction;
 	/// <summary>
 	/// Monotonically increasing version of the set of loaded debuggee modules. Incremented whenever a module
-	/// is loaded, so anything derived from <see cref="AllModules"/> (the expression compile cache and the
+	/// is loaded or unloaded, so anything derived from <see cref="AllModules"/> (the expression compile cache and the
 	/// metadata-blocks cache) can detect staleness and rebuild.
 	/// </summary>
 	internal int ModuleSet_Version { get; private set; }
@@ -53,6 +53,7 @@ public partial class ManagedDebugger
 	public event Action<int>? OnThreadStarted;
 	public event Action<int>? OnThreadExited;
 	public event Action<string, string, string>? OnModuleLoaded;
+	public event Action<string, string, string>? OnModuleUnloaded;
 	// Output text, isError (true for stderr, false for stdout)
 	public event Action<string, bool>? OnOutput;
 	public event Action<int, string>? OnProcessStarted;
@@ -152,6 +153,7 @@ public partial class ManagedDebugger
 				case CreateThreadCorDebugManagedCallbackEventArgs a: HandleThreadCreated(sender, a); break;
 				case ExitThreadCorDebugManagedCallbackEventArgs a: HandleThreadExited(sender, a); break;
 				case LoadModuleCorDebugManagedCallbackEventArgs a: HandleModuleLoaded(sender, a); break;
+				case UnloadModuleCorDebugManagedCallbackEventArgs a: HandleModuleUnloaded(sender, a); break;
 				case BreakpointCorDebugManagedCallbackEventArgs a: await HandleBreakpoint(sender, a).ConfigureAwait(false); break;
 				case StepCompleteCorDebugManagedCallbackEventArgs a: HandleStepComplete(sender, a); break;
 				case BreakCorDebugManagedCallbackEventArgs a: HandleBreak(sender, a); break;

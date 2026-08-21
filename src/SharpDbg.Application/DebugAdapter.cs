@@ -216,6 +216,19 @@ public class DebugAdapter : DebugAdapterBase
 				}
 			});
 		};
+		_debugger.OnModuleUnloaded += (id, name, path) =>
+		{
+			Protocol.SendEvent(new ModuleEvent
+			{
+				Reason = ModuleEvent.ReasonValue.Removed,
+				Module = new Module
+				{
+					Id = id,
+					Name = name,
+					Path = path
+				}
+			});
+		};
 
 		_debugger.OnProcessStarted += (processId, name) =>
 		{

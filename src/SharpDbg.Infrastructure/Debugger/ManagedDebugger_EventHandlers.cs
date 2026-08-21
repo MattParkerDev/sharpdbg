@@ -129,6 +129,47 @@ public partial class ManagedDebugger
 		Continue();
 	}
 
+	private void HandleModuleUnloaded(object? sender, UnloadModuleCorDebugManagedCallbackEventArgs unloadModuleEvent)
+	{
+		var corModule = unloadModuleEvent.Module;
+		var baseAddress = corModule.BaseAddress;
+		if (_modules.Remove(baseAddress, out var moduleInfo) is false)
+		{
+			Continue();
+			return;
+		}
+
+		_logger?.Invoke($"Module unloaded: {moduleInfo.ModulePath} from 0x{(long)baseAddress:X}");
+		moduleInfo.Dispose();
+		ModuleSet_Version++;
+
+		foreach (var breakpoint in _breakpointManager.GetAllBreakpoints())
+		{
+			if (breakpoint.IsFunctionBreakpoint)
+			{
+				var removedBindingCount = breakpoint.FunctionBindings.RemoveAll(binding => binding.ModuleBaseAddress == baseAddress);
+				if (removedBindingCount is 0 || breakpoint.FunctionBindings.Count > 0) continue;
+
+				breakpoint.Verified = false;
+				breakpoint.Message = "The breakpoint will not currently be hit. No matching function has been loaded.";
+				OnBreakpointChanged?.Invoke(breakpoint);
+				continue;
+			}
+
+			if (breakpoint.ModuleBaseAddress != baseAddress) continue;
+			breakpoint.CorBreakpoint = null;
+			breakpoint.ResolvedBreakpointFromPdb = null;
+			breakpoint.ModuleBaseAddress = null;
+			breakpoint.Verified = false;
+			breakpoint.Message = "The breakpoint will not currently be hit. No symbols have been loaded for this document.";
+			TryBindBreakpoint(breakpoint);
+			OnBreakpointChanged?.Invoke(breakpoint);
+		}
+
+		OnModuleUnloaded?.Invoke(moduleInfo.ModulePath, moduleInfo.ModuleName, moduleInfo.ModulePath);
+		Continue();
+	}
+
 	private async Task HandleBreakpoint(object? sender, BreakpointCorDebugManagedCallbackEventArgs breakpointCorDebugManagedCallbackEventArgs)
 	{
 		var breakpoint = breakpointCorDebugManagedCallbackEventArgs.Breakpoint;

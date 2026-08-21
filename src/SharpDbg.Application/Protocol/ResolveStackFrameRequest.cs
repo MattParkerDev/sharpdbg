@@ -1,6 +1,7 @@
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using SharpDbg.Infrastructure.Debugger;
 
 namespace SharpDbg.Application.Protocol;
 
@@ -43,6 +44,12 @@ public static class StackFrameExtensions
 		{
 			get => stackFrame.AdditionalProperties["isResolved"]?.Value<bool>();
 			set => stackFrame.AdditionalProperties["isResolved"] = value;
+		}
+
+		public DecompiledSourceInfo? DecompiledSourceInfo
+		{
+			get => stackFrame.AdditionalProperties["decompiledSourceInfo"]?.ToObject<DecompiledSourceInfo>();
+			set => stackFrame.AdditionalProperties["decompiledSourceInfo"] = value is null ? null : JToken.FromObject(value);
 		}
 	}
 }

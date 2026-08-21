@@ -51,7 +51,7 @@ public class StackTraceTests(ITestOutputHelper testOutputHelper)
 		stackTraceResponse.StackFrames.Should().BeEquivalentTo(expectedStackFrames, options => options.WithStrictOrdering().Excluding(s => s.Source.Checksums).Excluding(s => s.Source.VsSourceLinkInfo).Excluding(s => s.InstructionPointerReference).Excluding(s => s.AdditionalProperties));
 		stackTraceResponse.StackFrames.Select(f => f.IsResolved).Should().Equal(true, false, false, true, true);
 		// Since JMC is enabled, we never decompile, as well as to resolve a frame, we need to send a ResolveStackFrameRequest, so all frames should have null decompiledSourceInfo
-		stackTraceResponse.StackFrames.Should().AllSatisfy(frame => frame.AdditionalProperties["decompiledSourceInfo"].Type.Should().Be(JTokenType.Null));
+		stackTraceResponse.StackFrames.Should().AllSatisfy(frame => frame.DecompiledSourceInfo.Should().BeNull());
 	}
 
 	[Fact]
@@ -77,7 +77,7 @@ public class StackTraceTests(ITestOutputHelper testOutputHelper)
 		debugProtocolHost.WithStackTraceRequest(stoppedEvent.ThreadId!.Value, out var stackTraceResponse, null);
 		var unresolvedFrame = stackTraceResponse.StackFrames.First(frame => frame.Name.StartsWith("System.Linq.dll!"));
 		unresolvedFrame.IsResolved.Should().BeFalse();
-		unresolvedFrame.AdditionalProperties["decompiledSourceInfo"].Type.Should().Be(JTokenType.Null);
+		unresolvedFrame.DecompiledSourceInfo.Should().BeNull();
 
 		var response = debugProtocolHost.SendRequestSync(new ResolveStackFrameRequest(unresolvedFrame.Id));
 
@@ -85,10 +85,10 @@ public class StackTraceTests(ITestOutputHelper testOutputHelper)
 		response.StackFrame.IsResolved.Should().BeTrue();
 		response.StackFrame.Source.Path.Should().EndWith(".cs");
 		response.StackFrame.Line.Should().BeGreaterThan(0);
-		var decompiledSourceInfo = response.StackFrame.AdditionalProperties["decompiledSourceInfo"];
+		var decompiledSourceInfo = response.StackFrame.DecompiledSourceInfo;
 		decompiledSourceInfo.Should().NotBeNull();
-		decompiledSourceInfo!["TypeFullName"]!.Value<string>().Should().Be("System.Linq.Enumerable+RangeSelectIterator`2");
-		decompiledSourceInfo["Assembly"]!["AssemblyPath"]!.Value<string>().Should().EndWith("System.Linq.dll");
-		decompiledSourceInfo["CallingUserCodeAssemblyPath"]!.Value<string>().Should().EndWith("DebuggableConsoleApp.dll");
+		decompiledSourceInfo.TypeFullName.Should().Be("System.Linq.Enumerable+RangeSelectIterator`2");
+		decompiledSourceInfo.Assembly.AssemblyPath.Should().EndWith("System.Linq.dll");
+		decompiledSourceInfo.CallingUserCodeAssemblyPath.Should().EndWith("DebuggableConsoleApp.dll");
 	}
 }

@@ -602,7 +602,7 @@ public class DebugAdapter : DebugAdapterBase
 			Source = frame.Source is not null ? new Source { Path = frame.Source, Name = Path.GetFileName(frame.Source), SourceReference = 0 } : null
 		};
 		protocolFrame.IsResolved = frame.IsResolved;
-		protocolFrame.AdditionalProperties["decompiledSourceInfo"] = frame.DecompiledSourceInfo is null ? null : JToken.FromObject(frame.DecompiledSourceInfo);
+		protocolFrame.DecompiledSourceInfo = frame.DecompiledSourceInfo;
 		return protocolFrame;
 	}
 

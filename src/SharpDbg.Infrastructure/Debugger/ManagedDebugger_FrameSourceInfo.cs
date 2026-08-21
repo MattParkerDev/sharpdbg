@@ -49,8 +49,7 @@ public partial class ManagedDebugger
 					var metadataImport = module.Module.GetMetaDataInterface<IMetaDataImport>();
 					var mvid = metadataImport.ScopeProps.pmvid;
 					var containingTypeDef = metadataImport.GetMethodProps(methodToken).pClass;
-					var typeProps = metadataImport.GetTypeDefProps(containingTypeDef);
-					var typeName = typeProps.szTypeDef;
+					var typeName = GetFullMetadataTypeName(metadataImport, containingTypeDef);
 
 					string? callingUserCodeAssemblyPath = null;
 					var caller = frame.Caller;
@@ -85,6 +84,15 @@ public partial class ManagedDebugger
 		}
 
 		return null;
+	}
+
+	private static string GetFullMetadataTypeName(IMetaDataImport metadataImport, mdTypeDef typeDef)
+	{
+		var typeProps = metadataImport.GetTypeDefProps(typeDef);
+		if (typeProps.pdwTypeDefFlags.IsTdNested() is false) return typeProps.szTypeDef;
+
+		var declaringType = metadataImport.GetNestedClassProps(typeDef);
+		return $"{GetFullMetadataTypeName(metadataImport, declaringType)}+{typeProps.szTypeDef}";
 	}
 
 	private bool GetCachedOrGeneratePdb(ModuleInfo moduleInfo)

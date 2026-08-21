@@ -87,7 +87,7 @@ public class StackTraceTests(ITestOutputHelper testOutputHelper)
 		response.StackFrame.Line.Should().BeGreaterThan(0);
 		var decompiledSourceInfo = response.StackFrame.AdditionalProperties["decompiledSourceInfo"];
 		decompiledSourceInfo.Should().NotBeNull();
-		decompiledSourceInfo!["TypeFullName"]!.Value<string>().Should().NotBeNullOrWhiteSpace();
+		decompiledSourceInfo!["TypeFullName"]!.Value<string>().Should().Be("System.Linq.Enumerable+RangeSelectIterator`2");
 		decompiledSourceInfo["Assembly"]!["AssemblyPath"]!.Value<string>().Should().EndWith("System.Linq.dll");
 		decompiledSourceInfo["CallingUserCodeAssemblyPath"]!.Value<string>().Should().EndWith("DebuggableConsoleApp.dll");
 	}

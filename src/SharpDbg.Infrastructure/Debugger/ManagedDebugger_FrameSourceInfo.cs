@@ -10,7 +10,7 @@ using SharpDbg.Infrastructure.Debugger.Decompilation;
 
 namespace SharpDbg.Infrastructure.Debugger;
 
-public readonly record struct SourceInfo(string FilePath, int StartLine, int StartColumn, DecompiledSourceInfo? DecompiledSourceInfo);
+public readonly record struct SourceInfo(string FilePath, int StartLine, int EndLine, int StartColumn, int EndColumn, DecompiledSourceInfo? DecompiledSourceInfo);
 public class DecompiledSourceInfo
 {
 	public required string TypeFullName { get; init; }
@@ -21,15 +21,14 @@ public record struct AssemblyPathAndMvid(string AssemblyPath, Guid Mvid);
 public partial class ManagedDebugger
 {
 	/// This appears to be 1 based, ie requires no adjustment when returned to the user
-	private SourceInfo? GetSourceInfoAtFrame(ICorDebugFrame frame)
+	private SourceInfo? GetSourceInfoAtFrame(ICorDebugFrame frame, bool decompileIfNeeded)
 	{
 		if (frame is not ICorDebugILFrame ilFrame)
 			throw new InvalidOperationException("Active frame is not an IL frame");
 		var function = ilFrame.Function;
 		var module = _modules[function.Module.BaseAddress];
-		if (module.MetadataReader.HasSymbols is false && _justMyCode is false)
+		if (module.MetadataReader.HasSymbols is false && decompileIfNeeded)
 		{
-			if (module.IsUserCode) throw new InvalidOperationException("The module we are decompiling is user code - this should never happen, we should only be decompiling non user code modules");
 			// No PDB on disk — generate one via decompilation and update the module entry
 			if (GetCachedOrGeneratePdb(module))
 			{
@@ -73,15 +72,15 @@ public partial class ManagedDebugger
 						caller = caller.Caller;
 					}
 
-					decompiledSourceInfo = new DecompiledSourceInfo
+					if (callingUserCodeAssemblyPath is not null) decompiledSourceInfo = new DecompiledSourceInfo
 					{
 						TypeFullName = typeName,
 						Assembly = new AssemblyPathAndMvid(module.ModulePath, mvid),
-						CallingUserCodeAssemblyPath = callingUserCodeAssemblyPath ?? throw new InvalidOperationException("Could not find a user code caller in the call stack")
+						CallingUserCodeAssemblyPath = callingUserCodeAssemblyPath
 					};
 				}
 
-				return new SourceInfo(sourceInfo.Value.sourceFilePath, sourceInfo.Value.startLine, sourceInfo.Value.startColumn, decompiledSourceInfo);
+				return new SourceInfo(sourceInfo.Value.sourceFilePath, sourceInfo.Value.startLine, sourceInfo.Value.endLine, sourceInfo.Value.startColumn, sourceInfo.Value.endColumn, decompiledSourceInfo);
 			}
 		}
 

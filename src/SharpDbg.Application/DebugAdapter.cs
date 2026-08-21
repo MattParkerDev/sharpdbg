@@ -7,6 +7,7 @@ using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
 using Newtonsoft.Json.Linq;
 using SharpDbg.Infrastructure.Debugger.Models;
 using SharpDbg.Infrastructure.Debugger.Models.Response;
+using SharpDbg.Application.Protocol;
 using MSBreakpoint = Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages.Breakpoint;
 using MSThread = Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages.Thread;
 using MSStackFrame = Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages.StackFrame;
@@ -40,6 +41,7 @@ public class DebugAdapter : DebugAdapterBase
 		{
 			responder.SetResponse(new VsCustomMessageResponse());
 		});
+		Protocol.RegisterRequestType<ResolveStackFrameRequest, ResolveStackFrameArguments, ResolveStackFrameResponse>(HandleResolveStackFrameRequestAsync);
 	}
 
 	private async Task<T> ExecuteWithExceptionHandling<T>(Func<T> func)
@@ -559,16 +561,7 @@ public class DebugAdapter : DebugAdapterBase
 			var arguments = responder.Arguments;
 			var frames = await ExecuteWithDebuggerProcessingLockAsync(() => _debugger.GetStackTrace(arguments.ThreadId, arguments.StartFrame ?? 0, arguments.Levels));
 
-			var responseFrames = frames.Select(f => new MSStackFrame
-			{
-				Id = f.Id,
-				Name = f.Name,
-				Line = ConvertDebuggerLineToClient(f.Line),
-				EndLine = ConvertDebuggerLineToClient(f.EndLine),
-				Column = ConvertDebuggerColumnToClient(f.Column),
-				EndColumn = ConvertDebuggerColumnToClient(f.EndColumn),
-				Source = f.Source is not null ? new Source { Path = f.Source, Name = Path.GetFileName(f.Source), SourceReference = 0 } : null
-			}).ToList();
+			var responseFrames = frames.Select(ToProtocolStackFrame).ToList();
 
 			responder.SetResponse(new StackTraceResponse
 			{
@@ -580,6 +573,37 @@ public class DebugAdapter : DebugAdapterBase
 			_logger?.Invoke($"HandleStackTraceRequestAsync failed: {ex.Message} , {ex}");
 			responder.SetError(new ProtocolException($"Failed to get stack trace: {ex.Message}", ex));
 		}
+	}
+
+	private async void HandleResolveStackFrameRequestAsync(IRequestResponder<ResolveStackFrameArguments, ResolveStackFrameResponse> responder)
+	{
+		try
+		{
+			var frame = await ExecuteWithDebuggerProcessingLockAsync(() => _debugger.ResolveStackFrame(responder.Arguments.StackFrameId));
+			responder.SetResponse(new ResolveStackFrameResponse { StackFrame = ToProtocolStackFrame(frame) });
+		}
+		catch (Exception ex)
+		{
+			_logger?.Invoke($"HandleResolveStackFrameRequestAsync failed: {ex.Message} , {ex}");
+			responder.SetError(new ProtocolException($"Failed to resolve stack frame: {ex.Message}", ex));
+		}
+	}
+
+	private MSStackFrame ToProtocolStackFrame(StackFrameInfo frame)
+	{
+		var protocolFrame = new MSStackFrame
+		{
+			Id = frame.Id,
+			Name = frame.Name,
+			Line = ConvertDebuggerLineToClient(frame.Line),
+			EndLine = ConvertDebuggerLineToClient(frame.EndLine),
+			Column = ConvertDebuggerColumnToClient(frame.Column),
+			EndColumn = ConvertDebuggerColumnToClient(frame.EndColumn),
+			Source = frame.Source is not null ? new Source { Path = frame.Source, Name = Path.GetFileName(frame.Source), SourceReference = 0 } : null
+		};
+		protocolFrame.IsResolved = frame.IsResolved;
+		protocolFrame.AdditionalProperties["decompiledSourceInfo"] = frame.DecompiledSourceInfo is null ? null : JToken.FromObject(frame.DecompiledSourceInfo);
+		return protocolFrame;
 	}
 
 	protected override async void HandleScopesRequestAsync(IRequestResponder<ScopesArguments, ScopesResponse> responder)

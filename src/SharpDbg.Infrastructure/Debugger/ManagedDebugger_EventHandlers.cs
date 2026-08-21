@@ -226,7 +226,7 @@ public partial class ManagedDebugger
 					_stepper = null;
 				}
 
-				var sourceInfo = GetSourceInfoAtFrame(corThread.ActiveFrame);
+				var sourceInfo = GetSourceInfoAtFrame(corThread.ActiveFrame, _justMyCode is false);
 				if (sourceInfo is null)
 				{
 					SetupStepper(corThread, AsyncStepper.StepType.StepOut);
@@ -262,7 +262,7 @@ public partial class ManagedDebugger
 
 		if (managedBreakpoint.IsFunctionBreakpoint)
 		{
-			var sourceInfo = GetSourceInfoAtFrame(corThread.ActiveFrame);
+			var sourceInfo = GetSourceInfoAtFrame(corThread.ActiveFrame, _justMyCode is false);
 			// There exists a 'function breakpoint' type, but netcoredbg et al do not use it, so lets just use 'breakpoint'
 			if (sourceInfo is null) OnStopped?.Invoke(corThread.Id, "breakpoint");
 			else OnStopped2?.Invoke(corThread.Id, sourceInfo.Value.FilePath, sourceInfo.Value.StartLine, sourceInfo.Value.StartColumn, "breakpoint", [managedBreakpoint.Id]);
@@ -285,7 +285,7 @@ public partial class ManagedDebugger
 		stepper.Deactivate(); // I really don't know if its necessary to deactivate the steppers once done
 		_stepper = null;
 		var module = _modules[ilFrame.Function.Module.BaseAddress];
-		var sourceInfo = GetSourceInfoAtFrame(ilFrame);
+		var sourceInfo = GetSourceInfoAtFrame(ilFrame, _justMyCode is false);
 		if (sourceInfo is null)
 		{
 			// sourceInfo will be null if we could not find a PDB for the module
@@ -322,7 +322,9 @@ public partial class ManagedDebugger
 			}
 		}
 
-		var (sourceFilePath, line, column, decompiledSourceInfo) = sourceInfo.Value;
+		var sourceFilePath = sourceInfo.Value.FilePath;
+		var line = sourceInfo.Value.StartLine;
+		var column = sourceInfo.Value.StartColumn;
 		//_logger?.Invoke($"StepComplete: method 0x{ilFrame.Function.Token} IL offset {ilFrame.IP.pnOffset}, reason: {stepCompleteEventArgs.Reason}");
 		OnStopped2?.Invoke(corThread.Id, sourceFilePath, line, column, "step", null);
 	}

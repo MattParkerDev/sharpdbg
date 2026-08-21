@@ -1,5 +1,7 @@
 using AwesomeAssertions;
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
+using Newtonsoft.Json.Linq;
+using SharpDbg.Application.Protocol;
 using SharpDbg.Cli.Tests.Helpers;
 
 namespace SharpDbg.Cli.Tests;
@@ -46,6 +48,47 @@ public class StackTraceTests(ITestOutputHelper testOutputHelper)
 
 		debugProtocolHost.WithStackTraceRequest(stoppedEvent.ThreadId!.Value, out var stackTraceResponse, null);
 		stackTraceResponse.StackFrames.Count.Should().Be(expectedStackFrames.Count);
-		stackTraceResponse.StackFrames.Should().BeEquivalentTo(expectedStackFrames, options => options.WithStrictOrdering().Excluding(s => s.Source.Checksums).Excluding(s => s.Source.VsSourceLinkInfo).Excluding(s => s.InstructionPointerReference));
+		stackTraceResponse.StackFrames.Should().BeEquivalentTo(expectedStackFrames, options => options.WithStrictOrdering().Excluding(s => s.Source.Checksums).Excluding(s => s.Source.VsSourceLinkInfo).Excluding(s => s.InstructionPointerReference).Excluding(s => s.AdditionalProperties));
+		stackTraceResponse.StackFrames.Select(f => f.IsResolved).Should().Equal(true, false, false, true, true);
+		// Since JMC is enabled, we never decompile, as well as to resolve a frame, we need to send a ResolveStackFrameRequest, so all frames should have null decompiledSourceInfo
+		stackTraceResponse.StackFrames.Should().AllSatisfy(frame => frame.AdditionalProperties["decompiledSourceInfo"].Type.Should().Be(JTokenType.Null));
+	}
+
+	[Fact]
+	public async Task ResolveStackFrameRequest_DecompilesUnresolvedFrame()
+	{
+		var startSuspended = true;
+		var (debugProtocolHost, initializedEventTcs, debugEventTcs, adapter, process) = TestHelper.GetRunningDebugProtocolHostInProc(testOutputHelper, startSuspended);
+		using var _ = adapter;
+		using var __ = new ProcessKiller(process);
+		using var ___ = debugProtocolHost;
+
+		await debugProtocolHost
+			.WithInitializeRequest()
+			.WithAttachRequest(process.Id, justMyCode: false)
+			.WaitForInitializedEvent(initializedEventTcs);
+		var breakpointedFilePath = Path.JoinFromGitRoot("tests", "DebuggableConsoleApp", "ClassWithBclCall.cs");
+		debugProtocolHost
+			.WithBreakpointsRequest([12], breakpointedFilePath)
+			.WithConfigurationDoneRequest()
+			.WithOptionalResumeRuntime(process.Id, startSuspended);
+
+		var stoppedEvent = await debugProtocolHost.WaitForStoppedEvent(debugEventTcs);
+		debugProtocolHost.WithStackTraceRequest(stoppedEvent.ThreadId!.Value, out var stackTraceResponse, null);
+		var unresolvedFrame = stackTraceResponse.StackFrames.First(frame => frame.Name.StartsWith("System.Linq.dll!"));
+		unresolvedFrame.IsResolved.Should().BeFalse();
+		unresolvedFrame.AdditionalProperties["decompiledSourceInfo"].Type.Should().Be(JTokenType.Null);
+
+		var response = debugProtocolHost.SendRequestSync(new ResolveStackFrameRequest(unresolvedFrame.Id));
+
+		response.StackFrame.Id.Should().Be(unresolvedFrame.Id);
+		response.StackFrame.IsResolved.Should().BeTrue();
+		response.StackFrame.Source.Path.Should().EndWith(".cs");
+		response.StackFrame.Line.Should().BeGreaterThan(0);
+		var decompiledSourceInfo = response.StackFrame.AdditionalProperties["decompiledSourceInfo"];
+		decompiledSourceInfo.Should().NotBeNull();
+		decompiledSourceInfo!["TypeFullName"]!.Value<string>().Should().NotBeNullOrWhiteSpace();
+		decompiledSourceInfo["Assembly"]!["AssemblyPath"]!.Value<string>().Should().EndWith("System.Linq.dll");
+		decompiledSourceInfo["CallingUserCodeAssemblyPath"]!.Value<string>().Should().EndWith("DebuggableConsoleApp.dll");
 	}
 }

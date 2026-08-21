@@ -458,46 +458,8 @@ public partial class ManagedDebugger
 
 			foreach (var (index, frame) in filterFrames.Index())
 			{
-				var stackFrameInfo = new StackFrameInfo
-				{
-					Id = _frameReferenceManager.GetOrCreateFrameId(new ThreadId(threadId), new FrameStackDepth(startFrame + index)),
-					Name = null!,
-					Line = 0,
-					EndLine = 0,
-					Column = 0,
-					EndColumn = 0,
-					Source = null
-				};
-				if (frame is ICorDebugILFrame ilFrame)
-				{
-					var function = ilFrame.Function;
-					stackFrameInfo.Name = GetFunctionFormattedName(function);
-					var module = _modules[function.Module.BaseAddress];
-					if (module.MetadataReader.HasSymbols)
-					{
-						var ilOffset = ilFrame.IP.pnOffset;
-						var methodToken = function.Token;
-						var sourceInfo = module.MetadataReader.GetSourceLocationForOffset(methodToken, ilOffset);
-						if (sourceInfo is not null)
-						{
-							stackFrameInfo.Line = sourceInfo.Value.startLine;
-							stackFrameInfo.EndLine = sourceInfo.Value.endLine;
-							stackFrameInfo.Column = sourceInfo.Value.startColumn;
-							stackFrameInfo.EndColumn = sourceInfo.Value.endColumn;
-							stackFrameInfo.Source = sourceInfo.Value.sourceFilePath;
-						}
-					}
-				}
-				else if (frame is ICorDebugInternalFrame internalFrame)
-				{
-					stackFrameInfo.Name = internalFrame.FrameType.ToDisplayName();
-				}
-				else if (frame is ICorDebugNativeFrame nativeFrame)
-				{
-					stackFrameInfo.Name = "[Native Frame]";
-				}
-				else throw new ArgumentOutOfRangeException(nameof(frame), "Unknown frame type");
-				result.Add(stackFrameInfo);
+				var frameId = _frameReferenceManager.GetOrCreateFrameId(new ThreadId(threadId), new FrameStackDepth(startFrame + index));
+				result.Add(CreateStackFrameInfo(frameId, frame, false));
 			}
 		}
 		catch (Exception ex)
@@ -506,6 +468,60 @@ public partial class ManagedDebugger
 		}
 
 		return result;
+	}
+
+	public StackFrameInfo ResolveStackFrame(int frameId)
+	{
+		var frameInfo = _frameReferenceManager.GetFrameInfoById(frameId) ?? throw new ArgumentException($"Unknown stack frame ID '{frameId}'.", nameof(frameId));
+		var frame = GetFrameForThreadIdAndStackDepth(frameInfo.threadId, frameInfo.frameStackDepth);
+		if (frame is not ICorDebugILFrame) throw new InvalidOperationException($"Stack frame '{frameId}' cannot be resolved because it is not an IL frame.");
+
+		return CreateStackFrameInfo(frameId, frame, true);
+	}
+
+	private StackFrameInfo CreateStackFrameInfo(int frameId, ICorDebugFrame frame, bool decompileIfNeeded)
+	{
+		var stackFrameInfo = new StackFrameInfo
+		{
+			Id = frameId,
+			Name = null!,
+			Line = 0,
+			EndLine = 0,
+			Column = 0,
+			EndColumn = 0,
+			Source = null,
+			IsResolved = true,
+			DecompiledSourceInfo = null
+		};
+
+		if (frame is ICorDebugILFrame ilFrame)
+		{
+			var function = ilFrame.Function;
+			stackFrameInfo.Name = GetFunctionFormattedName(function);
+			var module = _modules[function.Module.BaseAddress];
+			var sourceInfo = GetSourceInfoAtFrame(ilFrame, decompileIfNeeded);
+			stackFrameInfo.IsResolved = module.MetadataReader.HasSymbols;
+			if (sourceInfo is not null)
+			{
+				stackFrameInfo.Line = sourceInfo.Value.StartLine;
+				stackFrameInfo.EndLine = sourceInfo.Value.EndLine;
+				stackFrameInfo.Column = sourceInfo.Value.StartColumn;
+				stackFrameInfo.EndColumn = sourceInfo.Value.EndColumn;
+				stackFrameInfo.Source = sourceInfo.Value.FilePath;
+				stackFrameInfo.DecompiledSourceInfo = sourceInfo.Value.DecompiledSourceInfo;
+			}
+		}
+		else if (frame is ICorDebugInternalFrame internalFrame)
+		{
+			stackFrameInfo.Name = internalFrame.FrameType.ToDisplayName();
+		}
+		else if (frame is ICorDebugNativeFrame)
+		{
+			stackFrameInfo.Name = "[Native Frame]";
+		}
+		else throw new ArgumentOutOfRangeException(nameof(frame), "Unknown frame type");
+
+		return stackFrameInfo;
 	}
 
 	/// <summary>

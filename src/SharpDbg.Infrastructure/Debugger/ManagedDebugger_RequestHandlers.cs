@@ -497,7 +497,7 @@ public partial class ManagedDebugger
 		if (frame is ICorDebugILFrame ilFrame)
 		{
 			var function = ilFrame.Function;
-			stackFrameInfo.Name = GetFunctionFormattedName(function);
+			stackFrameInfo.Name = GetFunctionFormattedName(ilFrame);
 			var module = _modules[function.Module.BaseAddress];
 			var sourceInfo = GetSourceInfoAtFrame(ilFrame, decompileIfNeeded);
 			stackFrameInfo.IsResolved = module.MetadataReader.HasSymbols;

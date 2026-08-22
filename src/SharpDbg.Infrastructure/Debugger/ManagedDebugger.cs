@@ -451,27 +451,6 @@ public partial class ManagedDebugger
 		return currentException;
 	}
 
-	private static string GetFunctionFormattedName(ICorDebugFunction function)
-	{
-		try
-		{
-			var token = function.Token;
-			var module = function.Module;
-			var metadataImport = module.GetMetaDataInterface<IMetaDataImport>();
-			var methodName = metadataImport.GetMethodProps(token).szMethod;
-
-			var @class = function.Class;
-			var classToken = @class.Token;
-			var className = metadataImport.GetTypeDefProps(classToken).szTypeDef;
-
-			return $"{Path.GetFileName(module.Name)}!{className}.{methodName}()";
-		}
-		catch
-		{
-			return "Unknown";
-		}
-	}
-
 	// Not intended to implement IDisposable - it is intended that this is called via Disconnect()
 	private void Dispose()
 	{

@@ -37,11 +37,11 @@ public class StackTraceTests(ITestOutputHelper testOutputHelper)
 		// TODO: Handle formatting generic methods (and fully qualifying them), e.g. System.Linq.dll!System.Linq.Enumerable.RangeSelectIterator<int, int>.Fill() instead of System.Linq.dll!RangeSelectIterator`2.Fill()
 		List<StackFrame> expectedStackFrames =
 		[
-			new() { Id = 1, Column = 3, EndColumn = 16,	Line = 12, EndLine = 12, Name = "DebuggableConsoleApp.dll!DebuggableConsoleApp.ClassWithBclCall.Selector()",      Source = new Source { Name = "ClassWithBclCall.cs", SourceReference = 0, Path = breakpointedFilePath } },
-			new() { Id = 2, Column = 0, EndColumn =  0, Line =  0, EndLine =  0, Name = "System.Linq.dll!RangeSelectIterator`2.Fill()",    Source = null },
-			new() { Id = 3, Column = 0, EndColumn =  0, Line =  0, EndLine =  0, Name = "System.Linq.dll!RangeSelectIterator`2.ToArray()", Source = null },
-			new() { Id = 4, Column = 3, EndColumn = 65, Line =  7, EndLine =  7, Name = "DebuggableConsoleApp.dll!DebuggableConsoleApp.ClassWithBclCall.Test()",          Source = new Source { Name = "ClassWithBclCall.cs", SourceReference = 0, Path = breakpointedFilePath } },
-			new() { Id = 5, Column = 4, EndColumn = 28, Line = 31, EndLine = 31, Name = "DebuggableConsoleApp.dll!DebuggableConsoleApp.Program.Main()",                   Source = new Source { Name = "Program.cs",          SourceReference = 0, Path = Path.JoinFromGitRoot("tests", "DebuggableConsoleApp", "Program.cs") } },
+			new() { Id = 1, Column = 3, EndColumn = 16,	Line = 12, EndLine = 12, Name = "DebuggableConsoleApp.dll!DebuggableConsoleApp.ClassWithBclCall.Selector(int x)",      Source = new Source { Name = "ClassWithBclCall.cs", SourceReference = 0, Path = breakpointedFilePath } },
+			new() { Id = 2, Column = 0, EndColumn =  0, Line =  0, EndLine =  0, Name = "System.Linq.dll!System.Linq.Enumerable.RangeSelectIterator<int, int>.Fill(System.Span<int> results, int start, System.Func<int, int> func)",    Source = null },
+			new() { Id = 3, Column = 0, EndColumn =  0, Line =  0, EndLine =  0, Name = "System.Linq.dll!System.Linq.Enumerable.RangeSelectIterator<int, int>.ToArray()", Source = null },
+			new() { Id = 4, Column = 3, EndColumn = 65, Line =  7, EndLine =  7, Name = "DebuggableConsoleApp.dll!DebuggableConsoleApp.ClassWithBclCall.Test(int myParam)",          Source = new Source { Name = "ClassWithBclCall.cs", SourceReference = 0, Path = breakpointedFilePath } },
+			new() { Id = 5, Column = 4, EndColumn = 29, Line = 31, EndLine = 31, Name = "DebuggableConsoleApp.dll!DebuggableConsoleApp.Program.Main(string[] args)",                   Source = new Source { Name = "Program.cs",          SourceReference = 0, Path = Path.JoinFromGitRoot("tests", "DebuggableConsoleApp", "Program.cs") } },
 			// TODO: Return internal frames (thread.ActiveInternalFrames)
 			//new() { Id = 1005, Column = 0, EndColumn = null,  Line =  0, EndLine = null, Name = "[Native to Managed Transition]", Source = null, PresentationHint = StackFrame.PresentationHintValue.Subtle }
 		];
@@ -52,6 +52,27 @@ public class StackTraceTests(ITestOutputHelper testOutputHelper)
 		stackTraceResponse.StackFrames.Select(f => f.IsResolved).Should().Equal(true, false, false, true, true);
 		// Since JMC is enabled, we never decompile, as well as to resolve a frame, we need to send a ResolveStackFrameRequest, so all frames should have null decompiledSourceInfo
 		stackTraceResponse.StackFrames.Should().AllSatisfy(frame => frame.DecompiledSourceInfo.Should().BeNull());
+
+		var breakpointedFilePath2 = Path.JoinFromGitRoot("tests", "DebuggableConsoleApp", "MyClassContainingAnotherClass.cs");
+		var stoppedEvent2 = await debugProtocolHost
+			.WithBreakpointsRequest([], breakpointedFilePath)
+			.WithBreakpointsRequest([19], breakpointedFilePath2)
+			.WithContinueRequest()
+			.WaitForStoppedEvent(debugEventTcs);
+
+		var stopInfo2 = stoppedEvent2.ReadStopInfo();
+		stopInfo2.filePath.Should().EndWith("MyClassContainingAnotherClass.cs");
+		stopInfo2.line.Should().Be(19);
+
+		List<StackFrame> expectedStackFrames2 =
+		[
+			new() { Id = 1, Column = 4, EndColumn =   5, Line = 19, EndLine = 19, Name = "DebuggableConsoleApp.dll!DebuggableConsoleApp.MyGenericClassContainingAnotherGenericClass<int, string>.MyNestedGenericClass<double, bool>.Test()", Source = new Source { Name = "MyClassContainingAnotherClass.cs", SourceReference = 0, Path = breakpointedFilePath2 } },
+			new() { Id = 2, Column = 4, EndColumn = 103, Line = 35, EndLine = 35, Name = "DebuggableConsoleApp.dll!DebuggableConsoleApp.Program.Main(string[] args)", Source = new Source { Name = "Program.cs", SourceReference = 0, Path = Path.JoinFromGitRoot("tests", "DebuggableConsoleApp", "Program.cs") } },
+		];
+
+		debugProtocolHost.WithStackTraceRequest(stoppedEvent2.ThreadId!.Value, out var stackTraceResponse2, null);
+		stackTraceResponse2.StackFrames.Count.Should().Be(expectedStackFrames2.Count);
+		stackTraceResponse2.StackFrames.Should().BeEquivalentTo(expectedStackFrames2, options => options.WithStrictOrdering().Excluding(s => s.Source.Checksums).Excluding(s => s.Source.VsSourceLinkInfo).Excluding(s => s.InstructionPointerReference).Excluding(s => s.AdditionalProperties));
 	}
 
 	[Fact]

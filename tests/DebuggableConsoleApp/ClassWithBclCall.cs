@@ -2,7 +2,7 @@
 
 public static class ClassWithBclCall
 {
-	public static void Test()
+	public static void Test(int myParam)
 	{
 		var array = Enumerable.Range(1, 5).Select(Selector).ToArray();
 	}

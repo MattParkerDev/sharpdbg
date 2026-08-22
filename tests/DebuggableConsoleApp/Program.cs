@@ -28,7 +28,7 @@ public static class Program
 			variablesClass.Test();
 			columnBreakpointClass.Test();
 			MultilineSwitchInMethodCall.Test();
-			ClassWithBclCall.Test();
+			ClassWithBclCall.Test(4);
 			var asyncResult = myAsyncClass.MyMethodAsync(4).GetAwaiter().GetResult();
 			myAsyncMethodEvalClass.Test().GetAwaiter().GetResult();
 			Exceptions.Test(exceptionToThrow);

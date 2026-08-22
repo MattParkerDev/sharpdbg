@@ -42,13 +42,13 @@ public static class StackFrameExtensions
 	{
 		public bool? IsResolved
 		{
-			get => stackFrame.AdditionalProperties["isResolved"]?.Value<bool>();
+			get => stackFrame.AdditionalProperties.GetValueOrDefault("isResolved")?.Value<bool>();
 			set => stackFrame.AdditionalProperties["isResolved"] = value;
 		}
 
 		public DecompiledSourceInfo? DecompiledSourceInfo
 		{
-			get => stackFrame.AdditionalProperties["decompiledSourceInfo"]?.ToObject<DecompiledSourceInfo>();
+			get => stackFrame.AdditionalProperties.GetValueOrDefault("decompiledSourceInfo")?.ToObject<DecompiledSourceInfo>();
 			set => stackFrame.AdditionalProperties["decompiledSourceInfo"] = value is null ? null : JToken.FromObject(value);
 		}
 	}

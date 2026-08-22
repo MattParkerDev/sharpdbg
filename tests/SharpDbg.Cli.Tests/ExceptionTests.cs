@@ -128,10 +128,10 @@ public class ExceptionTests(ITestOutputHelper testOutputHelper)
 
 		List<StackFrame> expectedStackFrames =
 		[
-			new() { Id = 2, Column = 0, EndColumn =  0, Line =  0, EndLine =  0, Name = "System.Private.CoreLib.dll!System.Number.ThrowFormatException<char>(System.ReadOnlySpan<char> value)", Source = null },
-			new() { Id = 3, Column = 0, EndColumn =  0, Line =  0, EndLine =  0, Name = "System.Private.CoreLib.dll!System.Int32.Parse(string s)",                 Source = null },
-			new() { Id = 4, Column = 5, EndColumn = 32, Line = 18, EndLine = 18, Name = "DebuggableConsoleApp.dll!DebuggableConsoleApp.Exceptions.Test(DebuggableConsoleApp.ExceptionToThrow exceptionToThrow)", Source = new Source { Name = "Exceptions.cs", SourceReference = 0, Path = breakpointedFilePath } },
-			new() { Id = 5, Column = 4, EndColumn = 38, Line = 34, EndLine = 34, Name = "DebuggableConsoleApp.dll!DebuggableConsoleApp.Program.Main(string[] args)",    Source = new Source { Name = "Program.cs",    SourceReference = 0, Path = Path.JoinFromGitRoot("tests", "DebuggableConsoleApp", "Program.cs") } },
+			new() { Id = 1, Column = 0, EndColumn =  0, Line =  0, EndLine =  0, Name = "System.Private.CoreLib.dll!System.Number.ThrowFormatException<char>(System.ReadOnlySpan<char> value)", Source = null },
+			new() { Id = 2, Column = 0, EndColumn =  0, Line =  0, EndLine =  0, Name = "System.Private.CoreLib.dll!System.Int32.Parse(string s)",                 Source = null },
+			new() { Id = 3, Column = 5, EndColumn = 32, Line = 18, EndLine = 18, Name = "DebuggableConsoleApp.dll!DebuggableConsoleApp.Exceptions.Test(DebuggableConsoleApp.ExceptionToThrow exceptionToThrow)", Source = new Source { Name = "Exceptions.cs", SourceReference = 0, Path = breakpointedFilePath } },
+			new() { Id = 4, Column = 4, EndColumn = 38, Line = 34, EndLine = 34, Name = "DebuggableConsoleApp.dll!DebuggableConsoleApp.Program.Main(string[] args)",    Source = new Source { Name = "Program.cs",    SourceReference = 0, Path = Path.JoinFromGitRoot("tests", "DebuggableConsoleApp", "Program.cs") } },
 		];
 
 		stackTraceResponse2.StackFrames.Should().BeEquivalentTo(expectedStackFrames);

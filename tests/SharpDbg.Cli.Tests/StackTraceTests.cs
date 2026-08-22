@@ -73,6 +73,27 @@ public class StackTraceTests(ITestOutputHelper testOutputHelper)
 		debugProtocolHost.WithStackTraceRequest(stoppedEvent2.ThreadId!.Value, out var stackTraceResponse2, null);
 		stackTraceResponse2.StackFrames.Count.Should().Be(expectedStackFrames2.Count);
 		stackTraceResponse2.StackFrames.Should().BeEquivalentTo(expectedStackFrames2, options => options.WithStrictOrdering().Excluding(s => s.Source.Checksums).Excluding(s => s.Source.VsSourceLinkInfo).Excluding(s => s.InstructionPointerReference).Excluding(s => s.AdditionalProperties));
+
+		var breakpointedFilePath3 = Path.JoinFromGitRoot("tests", "DebuggableConsoleApp", "Namespace1", "AnotherClass.cs");
+		var stoppedEvent3 = await debugProtocolHost
+			.WithBreakpointsRequest([], breakpointedFilePath2)
+			.WithBreakpointsRequest([20], breakpointedFilePath3)
+			.WithContinueRequest()
+			.WaitForStoppedEvent(debugEventTcs);
+
+		var stopInfo3 = stoppedEvent3.ReadStopInfo();
+		stopInfo3.filePath.Should().EndWith("AnotherClass.cs");
+		stopInfo3.line.Should().Be(20);
+
+		debugProtocolHost.WithStackTraceRequest(stoppedEvent3.ThreadId!.Value, out var stackTraceResponse3, null);
+		var userFrameNames = stackTraceResponse3.StackFrames
+			.Select(frame => frame.Name)
+			.Where(name => name.StartsWith("DebuggableConsoleApp.dll!"))
+			.ToList();
+		userFrameNames.Should().Contain("DebuggableConsoleApp.dll!DebuggableConsoleApp.Namespace1.AnotherClass.AnotherMethodAsync()");
+		userFrameNames.Should().Contain("DebuggableConsoleApp.dll!DebuggableConsoleApp.MyAsyncClass.MyMethodAsync(int myParam)");
+		userFrameNames.Should().NotContain(name => name.Contains("MoveNext"));
+
 	}
 
 	[Fact]

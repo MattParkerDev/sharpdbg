@@ -16,6 +16,7 @@ public class FrameReferenceManager
 			{
 				frameId = _nextFrameId++;
 				_references[frameId.Value] = (threadId, frameStackDepth);
+				_referencesByThreadAndFrameStackDepth[(threadId, frameStackDepth)] = frameId;
 			}
 			return frameId.Value;
 		}

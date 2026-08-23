@@ -23,6 +23,13 @@ public class DebugAdapter : DebugAdapterBase
 	private readonly Action<string>? _logger;
 	private bool _clientLinesStartAt1 = true;
 	private bool _clientColumnsStartAt1 = true;
+	private int _shutdownRequested;
+
+	/// <summary>
+	/// Raised once the debug session has ended (a disconnect request has been fully handled).
+	/// Hosts which own the process lifetime (e.g. SharpDbg.Cli) should subscribe and exit when it fires.
+	/// </summary>
+	public event Action? ShutdownRequested;
 
 	public DebugAdapter(Action<string>? logger = null)
 	{
@@ -31,6 +38,33 @@ public class DebugAdapter : DebugAdapterBase
 
 		// Subscribe to debugger events
 		SubscribeToDebuggerEvents();
+	}
+
+	/// <summary>
+	/// Signals the end of the debug session and raises <see cref="ShutdownRequested"/> so the hosting
+	/// process can shut down. Idempotent.
+	/// Only called once a 'disconnect' request has been fully handled - 'terminate' must keep the adapter alive.
+	/// </summary>
+	private void RequestDebuggerProcessShutdown()
+	{
+		if (Interlocked.Exchange(ref _shutdownRequested, 1) is not 0) return;
+
+		_logger?.Invoke("RequestDebuggerProcessShutdown");
+		ShutdownRequested?.Invoke();
+	}
+
+	/// <summary>
+	/// Releases debugger resources when the session ends without a disconnect request having been received
+	/// (e.g. the client crashed or closed its stream)
+	/// </summary>
+	public void DapAborted_ShutdownDebugger()
+	{
+		try
+		{
+			// No-op if a disconnect request was already handled - Disconnect only disposes once
+			_debugger.Disconnect(true);
+		}
+		catch { /* */ }
 	}
 
 	public void Initialize(Stream input, Stream output)
@@ -762,6 +796,7 @@ public class DebugAdapter : DebugAdapterBase
 		{
 			await ExecuteWithDebuggerProcessingLockAsync(() => _debugger.Disconnect(responder.Arguments?.TerminateDebuggee ?? false));
 			responder.SetResponse(new DisconnectResponse());
+			RequestDebuggerProcessShutdown();
 		}
 		catch (Exception ex)
 		{

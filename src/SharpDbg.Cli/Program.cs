@@ -82,12 +82,35 @@ internal static class Program
 
 			// Run() starts the protocol client's message loop in a background thread
 			adapter.Protocol.Run();
-			// WaitForReader() blocks until the input stream is closed (client disconnects)
-			adapter.Protocol.WaitForReader();
-			Log("Protocol server stopped");
 
-			if (dispatcherError is not null) return 1;
-			return 0;
+			// Shutdown happens either when a DAP 'disconnect' request has been handled
+			// (while stdin is still open), or when the client closes stdin / crashes (reader loop exits).
+			var shutdownTcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+			adapter.ShutdownRequested += () => shutdownTcs.TrySetResult();
+			_ = Task.Run(() =>
+			{
+				// WaitForReader() blocks until the input stream is closed and must not be called from the dispatcher thread
+				adapter.Protocol.WaitForReader();
+				Log("Input stream closed");
+				shutdownTcs.TrySetResult();
+			});
+
+			shutdownTcs.Task.Wait();
+
+			// If the client closed its stream without sending a 'disconnect' request the debugger was never
+			// disposed - clean it up now. No-op when a disconnect request was handled.
+			adapter.DapAborted_ShutdownDebugger();
+
+			var exitCode = dispatcherError is not null ? 1 : 0;
+			Log($"Exiting with code {exitCode}");
+			_logWriter?.Flush();
+			_logWriter?.Dispose();
+			_logWriter = null;
+
+			// The protocol reader thread is a foreground thread blocked reading stdin - returning from Main
+			// would leave the process alive for as long as the client keeps its stream open. Exit explicitly.
+			Environment.Exit(exitCode);
+			return exitCode; // unreachable - keeps the compiler happy
 		}
 		catch (Exception ex)
 		{

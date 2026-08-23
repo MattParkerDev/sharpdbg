@@ -7,28 +7,25 @@ namespace SharpDbg.Infrastructure.Debugger;
 public partial class ManagedDebugger
 {
 	/// <summary>'Module.dll!Namespace.Type.Method&lt;T&gt;(ParamType paramName, ...)'.</summary>
-	private string GetFunctionFormattedName(ICorDebugILFrame frame, int? asyncKickoffMethodToken = null)
+	private static string GetMethodFormattedName(ModuleInfo moduleInfo, int methodToken, IReadOnlyList<ICorDebugType> typeAndMethodTypeArguments)
 	{
 		try
 		{
-			var function = frame.Function;
-			var token = asyncKickoffMethodToken ?? function.Token;
-			var module = function.Module;
-			var reader = _modules[module.BaseAddress].MetadataReader.PeMetadataReader;
-			var methodDefinition = reader.GetMethodDefinition((MethodDefinitionHandle)MetadataTokens.Handle(token));
+			var module = moduleInfo.Module;
+			var reader = moduleInfo.MetadataReader.PeMetadataReader;
+			var methodDefinition = reader.GetMethodDefinition((MethodDefinitionHandle)MetadataTokens.Handle(methodToken));
 			var declaringTypeHandle = methodDefinition.GetDeclaringType();
 			var typeArgumentCount = reader.GetTypeDefinition(declaringTypeHandle).GetGenericParameters().Count;
 			var methodArgumentCount = methodDefinition.GetGenericParameters().Count;
-			var runtimeArguments = frame.TypeParameters;
-			if (runtimeArguments.Length < typeArgumentCount + methodArgumentCount)
+			if (typeAndMethodTypeArguments.Count < typeArgumentCount + methodArgumentCount)
 			{
 				throw new InvalidOperationException("The frame did not provide all generic type arguments.");
 			}
-			var typeArgumentNames = runtimeArguments
+			var typeArgumentNames = typeAndMethodTypeArguments
 				.Take(typeArgumentCount)
 				.Select(GetCorDebugTypeFriendlyName)
 				.ToList();
-			var methodArgumentNames = runtimeArguments
+			var methodArgumentNames = typeAndMethodTypeArguments
 				.Skip(typeArgumentCount)
 				.Take(methodArgumentCount)
 				.Select(GetCorDebugTypeFriendlyName)

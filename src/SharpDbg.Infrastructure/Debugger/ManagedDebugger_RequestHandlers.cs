@@ -442,24 +442,53 @@ public partial class ManagedDebugger
 	/// <summary>
 	/// Get stack trace for a thread
 	/// </summary>
-	public List<StackFrameInfo> GetStackTrace(int threadId, int startFrame = 0, int? levels = null)
+	public List<StackFrameInfo> GetStackTrace(int threadIdInt, int startFrame = 0, int? levels = null)
 	{
 		var result = new List<StackFrameInfo>();
 
-		if (!_threads.TryGetValue(threadId, out var thread))
+		if (!_threads.TryGetValue(threadIdInt, out var thread))
 		{
 			return result;
 		}
 
 		try
 		{
-			var frames = EnumerateFramesForThread(thread);
-			var filterFrames = frames.AsValueEnumerable().Skip(startFrame).Take(levels ?? int.MaxValue);
+			var endFrame = levels is null ? long.MaxValue : (long)startFrame + levels.Value;
+			var index = 0;
 
-			foreach (var (index, frame) in filterFrames.Index())
+			// Physical frames come first and are enumerated lazily, so a request for the topmost frames does not
+			// have to walk the entire stack. We store the IL frames so their synthetic async caller frames can be
+			// appended after all physical frames, once enumeration reaches past them.
+			var ilFramesForSyntheticAsyncFrames = new List<(int physicalDepth, ICorDebugILFrame frame)>();
+			var threadId = new ThreadId(threadIdInt);
+			foreach (var (physicalDepth, frame) in EnumerateFramesForThread(thread).AsValueEnumerable().Index())
 			{
-				var frameId = _frameReferenceManager.GetOrCreateFrameId(new ThreadId(threadId), new FrameStackDepth(startFrame + index));
-				result.Add(CreateStackFrameInfo(frameId, frame, false));
+				if (index >= endFrame) return result;
+				if (index >= startFrame)
+				{
+					var frameId = _frameReferenceManager.GetOrCreateFrameId(threadId, new FrameStackDepth(physicalDepth));
+					result.Add(CreateStackFrameInfo(frameId, frame, false));
+				}
+				if (frame is ICorDebugILFrame ilFrame) ilFramesForSyntheticAsyncFrames.Add((physicalDepth, ilFrame));
+				index++;
+			}
+
+			foreach (var (physicalDepth, ilFrame) in ilFramesForSyntheticAsyncFrames)
+			{
+				var physicalFrameStackDepth = new FrameStackDepth(physicalDepth);
+				foreach (var (syntheticFrameIndex, syntheticFrame) in GetSyntheticAsyncCallerFrames(ilFrame).AsValueEnumerable().Index())
+				{
+					if (index >= endFrame) return result;
+					if (index < startFrame)
+					{
+						index++;
+						continue;
+					}
+					index++;
+
+					var syntheticFrameId = _frameReferenceManager.GetOrCreateSyntheticAsyncFrameId(threadId, physicalFrameStackDepth, syntheticFrameIndex, syntheticFrame);
+					result.Add(CreateSyntheticAsyncStackFrameInfo(syntheticFrameId, threadId, physicalFrameStackDepth, syntheticFrame, decompileIfNeeded: false));
+				}
 			}
 		}
 		catch (Exception ex)
@@ -472,6 +501,8 @@ public partial class ManagedDebugger
 
 	public StackFrameInfo ResolveStackFrame(int frameId)
 	{
+		var syntheticFrame = _frameReferenceManager.GetSyntheticAsyncFrameById(frameId);
+		if (syntheticFrame is not null) return CreateSyntheticAsyncStackFrameInfo(frameId, syntheticFrame.Value.threadId, syntheticFrame.Value.physicalFrameStackDepth, syntheticFrame.Value.frame, decompileIfNeeded: true);
 		var frameInfo = _frameReferenceManager.GetFrameInfoById(frameId) ?? throw new ArgumentException($"Unknown stack frame ID '{frameId}'.", nameof(frameId));
 		var frame = GetFrameForThreadIdAndStackDepth(frameInfo.threadId, frameInfo.frameStackDepth);
 		if (frame is not ICorDebugILFrame) throw new InvalidOperationException($"Stack frame '{frameId}' cannot be resolved because it is not an IL frame.");
@@ -500,7 +531,7 @@ public partial class ManagedDebugger
 			var module = _modules[function.Module.BaseAddress];
 			// returns null if the function is not a state machine method
 			var kickoffMethodToken = module.MetadataReader.GetStateMachineKickoffMethodToken(function.Token);
-			stackFrameInfo.Name = GetFunctionFormattedName(ilFrame, kickoffMethodToken);
+			stackFrameInfo.Name = GetMethodFormattedName(module, kickoffMethodToken ?? function.Token, ilFrame.TypeParameters);
 			var sourceInfo = GetSourceInfoAtFrame(ilFrame, decompileIfNeeded);
 			stackFrameInfo.IsResolved = module.MetadataReader.HasSymbols;
 			if (sourceInfo is not null)
@@ -526,6 +557,23 @@ public partial class ManagedDebugger
 		return stackFrameInfo;
 	}
 
+	private StackFrameInfo CreateSyntheticAsyncStackFrameInfo(int frameId, ThreadId threadId, FrameStackDepth physicalFrameStackDepth, SyntheticAsyncCallerFrame frame, bool decompileIfNeeded)
+	{
+		var source = GetSyntheticAsyncFrameSourceInfo(frame, threadId, physicalFrameStackDepth, decompileIfNeeded);
+		return new StackFrameInfo
+		{
+			Id = frameId,
+			Name = frame.Name,
+			Line = source?.StartLine ?? 0,
+			EndLine = source?.EndLine ?? 0,
+			Column = source?.StartColumn ?? 0,
+			EndColumn = source?.EndColumn ?? 0,
+			Source = source?.FilePath,
+			IsResolved = frame.Module.MetadataReader.HasSymbols,
+			DecompiledSourceInfo = source?.DecompiledSourceInfo
+		};
+	}
+
 	/// <summary>
 	/// Get scopes for a stack frame
 	/// </summary>
@@ -533,6 +581,14 @@ public partial class ManagedDebugger
 	{
 		var result = new List<ScopeInfo>();
 
+		var syntheticFrame = _frameReferenceManager.GetSyntheticAsyncFrameById(frameId);
+		if (syntheticFrame is not null)
+		{
+			var syntheticLocalsReference = _variableManager.CreateReference(new VariablesReference(StoredReferenceKind.SyntheticAsyncScope,
+				syntheticFrame.Value.frame.StateMachine, syntheticFrame.Value.threadId, syntheticFrame.Value.physicalFrameStackDepth, null));
+			result.Add(new ScopeInfo { Name = "Locals", VariablesReference = syntheticLocalsReference, Expensive = false });
+			return result;
+		}
 		var frameInfo = _frameReferenceManager.GetFrameInfoById(frameId);
 		if (frameInfo is not var (threadId, frameStackDepth)) return result;
 		var frame = GetFrameForThreadIdAndStackDepth(threadId, frameStackDepth);
@@ -575,6 +631,11 @@ public partial class ManagedDebugger
 				await AddCurrentException(result, variablesReference.ThreadId, variablesReference.FrameStackDepth);
 				var classContainingHoistedLocalsValue = await AddArguments(module, corDebugFunction, result, variablesReference.ThreadId, variablesReference.FrameStackDepth);
 				await AddLocalVariables(module, corDebugFunction, result, variablesReference.ThreadId, variablesReference.FrameStackDepth, classContainingHoistedLocalsValue);
+			}
+			else if (variablesReference.ReferenceKind is StoredReferenceKind.SyntheticAsyncScope)
+			{
+				var stateMachine = variablesReference.ObjectValue!;
+				await AddMembers(stateMachine, stateMachine.ExactType, variablesReference.ThreadId, variablesReference.FrameStackDepth, result);
 			}
 			else if (variablesReference.ReferenceKind is StoredReferenceKind.StackVariable)
 			{
@@ -653,6 +714,8 @@ public partial class ManagedDebugger
 	{
 		_logger?.Invoke($"Evaluate: {expression}");
 		if (frameId is null or 0) throw new InvalidOperationException("Frame ID is required for evaluation");
+		if (_frameReferenceManager.GetSyntheticAsyncFrameById(frameId.Value) is not null)
+			throw new InvalidOperationException("Expression evaluation is not supported for synthetic async caller frames");
 
 		var frameInfo = _frameReferenceManager.GetFrameInfoById(frameId.Value);
 		if (frameInfo is not var (threadId, frameStackDepth)) throw new InvalidOperationException("Frame ID does not exist");

@@ -97,6 +97,39 @@ public class StackTraceTests(ITestOutputHelper testOutputHelper)
 	}
 
 	[Fact]
+	public async Task StackTraceRequest_AppendsSyntheticAsyncCallerFrames()
+	{
+		var startSuspended = true;
+		var (debugProtocolHost, initializedEventTcs, debugEventTcs, adapter, process) = TestHelper.GetRunningDebugProtocolHostInProc(testOutputHelper, startSuspended);
+		using var _ = adapter;
+		using var __ = new ProcessKiller(process);
+		using var ___ = debugProtocolHost;
+
+		await debugProtocolHost
+			.WithInitializeRequest()
+			.WithAttachRequest(process.Id, justMyCode: true)
+			.WaitForInitializedEvent(initializedEventTcs);
+		var filePath = Path.JoinFromGitRoot("tests", "DebuggableConsoleApp", "AsyncStackTraceClass.cs");
+		debugProtocolHost
+			.WithBreakpointsRequest([20], filePath)
+			.WithConfigurationDoneRequest()
+			.WithOptionalResumeRuntime(process.Id, startSuspended);
+
+		var stoppedEvent = await debugProtocolHost.WaitForStoppedEvent(debugEventTcs);
+		debugProtocolHost.WithStackTraceRequest(stoppedEvent.ThreadId!.Value, out var stackTraceResponse, null);
+
+		stackTraceResponse.StackFrames.TakeLast(2).Select(frame => frame.Name).Should().Equal(
+			"DebuggableConsoleApp.dll!DebuggableConsoleApp.AsyncStackTraceClass.MiddleAsync()",
+			"DebuggableConsoleApp.dll!DebuggableConsoleApp.AsyncStackTraceClass.TestAsync()");
+		stackTraceResponse.StackFrames.TakeLast(2).Select(frame => frame.Line).Should().Equal(13, 7);
+
+		var syntheticMiddleFrame = stackTraceResponse.StackFrames[^2];
+		debugProtocolHost.WithScopesRequest(syntheticMiddleFrame.Id, out var scopesResponse);
+		debugProtocolHost.WithVariablesRequest(scopesResponse.Scopes.Single().VariablesReference, out var variables);
+		variables.Should().Contain(variable => variable.Name == "middleValue" && variable.Value == "17");
+	}
+
+	[Fact]
 	public async Task ResolveStackFrameRequest_DecompilesUnresolvedFrame()
 	{
 		var startSuspended = true;

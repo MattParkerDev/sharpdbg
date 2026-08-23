@@ -15,6 +15,16 @@ public static class CorDebugValueExtensions
 		throw new InvalidOperationException("CorDebugValue is not an CorDebugObjectValue");
 	}
 
+	public static ICorDebugObjectValue? UnwrapDebugValueToObjectOrNull(this ICorDebugValue corDebugValue)
+	{
+		var unwrappedValue = corDebugValue.UnwrapDebugValue();
+		if (unwrappedValue is ICorDebugObjectValue objectValue)
+		{
+			return objectValue;
+		}
+		return null;
+	}
+
 	public static ICorDebugValue UnwrapDebugValue(this ICorDebugValue corDebugValue)
 	{
 		var valueToCheck = corDebugValue;

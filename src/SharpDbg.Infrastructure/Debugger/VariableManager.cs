@@ -5,6 +5,7 @@ namespace SharpDbg.Infrastructure.Debugger;
 public enum StoredReferenceKind
 {
 	Scope,
+	SyntheticAsyncScope,
 	StackVariable,
 	StaticClassVariable, // This reference was stored as a pseudo variable for the static members of a "StackVariable" class
 	RawView,

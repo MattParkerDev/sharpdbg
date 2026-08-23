@@ -46,37 +46,8 @@ public partial class ManagedDebugger
 				DecompiledSourceInfo? decompiledSourceInfo = null;
 				if (module.SymbolsFromDecompiled)
 				{
-					var metadataImport = module.Module.GetMetaDataInterface<IMetaDataImport>();
-					var mvid = metadataImport.ScopeProps.pmvid;
-					var containingTypeDef = metadataImport.GetMethodProps(methodToken).pClass;
-					var typeName = GetFullMetadataTypeName(metadataImport, containingTypeDef);
-
-					string? callingUserCodeAssemblyPath = null;
-					var caller = frame.Caller;
-					while (callingUserCodeAssemblyPath is null)
-					{
-						if (caller is null) break;
-
-						if (caller is ICorDebugILFrame callerIlFrame)
-						{
-							var callerFunction = callerIlFrame.Function;
-							var callerModule = _modules[callerFunction.Module.BaseAddress];
-							if (callerModule.IsUserCode)
-							{
-								callingUserCodeAssemblyPath = callerModule.ModulePath;
-								break;
-							}
-						}
-
-						caller = caller.Caller;
-					}
-
-					if (callingUserCodeAssemblyPath is not null) decompiledSourceInfo = new DecompiledSourceInfo
-					{
-						TypeFullName = typeName,
-						Assembly = new AssemblyPathAndMvid(module.ModulePath, mvid),
-						CallingUserCodeAssemblyPath = callingUserCodeAssemblyPath
-					};
+					var callingUserCodeAssemblyPath = FindCallingUserCodeAssemblyPath(frame.Caller);
+					decompiledSourceInfo = CreateDecompiledSourceInfo(module, methodToken, callingUserCodeAssemblyPath);
 				}
 
 				return new SourceInfo(sourceInfo.Value.sourceFilePath, sourceInfo.Value.startLine, sourceInfo.Value.endLine, sourceInfo.Value.startColumn, sourceInfo.Value.endColumn, decompiledSourceInfo);
@@ -84,6 +55,32 @@ public partial class ManagedDebugger
 		}
 
 		return null;
+	}
+
+	/// Walks the physical caller chain looking for the closest frame from a user code assembly
+	private string? FindCallingUserCodeAssemblyPath(ICorDebugFrame? startFrame)
+	{
+		for (var frame = startFrame; frame is not null; frame = frame.Caller)
+		{
+			if (frame is not ICorDebugILFrame ilFrame) continue;
+			var callerModule = _modules[ilFrame.Function.Module.BaseAddress];
+			if (callerModule.IsUserCode) return callerModule.ModulePath;
+		}
+		return null;
+	}
+
+	private static DecompiledSourceInfo? CreateDecompiledSourceInfo(ModuleInfo module, int methodToken, string? callingUserCodeAssemblyPath)
+	{
+		if (callingUserCodeAssemblyPath is null) return null;
+		var metadataImport = module.Module.GetMetaDataInterface<IMetaDataImport>();
+		var mvid = metadataImport.ScopeProps.pmvid;
+		var containingTypeDef = metadataImport.GetMethodProps(methodToken).pClass;
+		return new DecompiledSourceInfo
+		{
+			TypeFullName = GetFullMetadataTypeName(metadataImport, containingTypeDef),
+			Assembly = new AssemblyPathAndMvid(module.ModulePath, mvid),
+			CallingUserCodeAssemblyPath = callingUserCodeAssemblyPath
+		};
 	}
 
 	private static string GetFullMetadataTypeName(IMetaDataImport metadataImport, mdTypeDef typeDef)

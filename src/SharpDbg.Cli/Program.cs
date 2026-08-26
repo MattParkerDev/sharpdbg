@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Threading;
 using SharpDbg.Application;
+using SharpDbg.Application.Terminal;
 
 namespace SharpDbg.Cli;
 
@@ -10,7 +11,12 @@ internal static class Program
 
 	public static int Main(string[] args)
 	{
-		var (interpreter, serverPort, logPath, requestedHelp) = Arguments.Parse(args);
+		var (interpreter, serverPort, logPath, requestedHelp, terminalHostConnectionPath) = Arguments.Parse(args);
+
+		if (terminalHostConnectionPath is not null)
+		{
+			return TerminalHost.Run(terminalHostConnectionPath);
+		}
 
 		if (interpreter is null || requestedHelp)
 		{

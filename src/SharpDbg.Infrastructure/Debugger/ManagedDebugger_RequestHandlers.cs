@@ -58,7 +58,7 @@ public partial class ManagedDebugger
 			CreateNoWindow = true,
 			RedirectStandardOutput = true,
 			RedirectStandardError = true,
-			RedirectStandardInput = false,
+			RedirectStandardInput = true,
 		};
 		foreach (var arg in launchInfo.Arguments)
 		{

@@ -8,6 +8,7 @@ using Newtonsoft.Json.Linq;
 using SharpDbg.Infrastructure.Debugger.Models;
 using SharpDbg.Infrastructure.Debugger.Models.Response;
 using SharpDbg.Application.Protocol;
+using SharpDbg.Application.Terminal;
 using MSBreakpoint = Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages.Breakpoint;
 using MSThread = Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages.Thread;
 using MSStackFrame = Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages.StackFrame;
@@ -287,25 +288,13 @@ public class DebugAdapter : DebugAdapterBase
 		_debugger.SendRunInTerminalRequest += launchInfo =>
 		{
 			var programForTitle = launchInfo.Program is "dotnet" ? launchInfo.Arguments[0] : launchInfo.Program;
-			var runInTerminalRequest = new RunInTerminalRequest
-			{
-				Kind = launchInfo.LaunchRequestConsoleType switch
-				{
-					LaunchRequestConsoleType.IntegratedTerminal => RunInTerminalArguments.KindValue.Integrated,
-					LaunchRequestConsoleType.ExternalTerminal => RunInTerminalArguments.KindValue.External,
-					_ => throw new ArgumentOutOfRangeException(nameof(launchInfo.LaunchRequestConsoleType), $"Invalid LaunchRequestConsoleType for RunInTerminalRequest: '{launchInfo.LaunchRequestConsoleType}'")
-				},
-				Arguments = [launchInfo.Program, ..launchInfo.Arguments],
-				Cwd = launchInfo.Cwd,
-				Env = launchInfo.Env.ToDictionary(kvp => kvp.Key, kvp => (object)kvp.Value),
-				Title = $"{Path.GetFileName(programForTitle)} [DEBUG]"
-			};
-			runInTerminalRequest.Env["DOTNET_DefaultDiagnosticPortSuspend"] = "1";
-			var resp = Protocol.SendClientRequestSync(runInTerminalRequest);
-			// https://github.com/microsoft/vscode/issues/61640 - ProcessId will not be returned for integratedTerminal or externalTerminal
-			// ShellProcessId will be returned for integratedTerminal but not externalTerminal
-			if (resp.ProcessId is null) throw new InvalidOperationException("RunInTerminalRequest did not return a process ID. VSCode does not return a process ID for integratedTerminal or externalTerminal. Use internalConsole instead, or use a compliant DAP client. See: https://github.com/microsoft/vscode/issues/61640");
-			return resp.ProcessId.Value;
+			// https://github.com/microsoft/vscode/issues/61640 - VSCode does not return the process ID of the program
+			// started by runInTerminal, so the terminal runs a second copy of the debugger (the TerminalHost) which
+			// starts the debuggee itself and reports the real process ID back over a named pipe
+			using var terminalLauncher = new TerminalLauncher();
+			var runInTerminalRequest = terminalLauncher.CreateRunInTerminalRequest(launchInfo.LaunchRequestConsoleType, $"{Path.GetFileName(programForTitle)} [DEBUG]");
+			Protocol.SendClientRequestSync(runInTerminalRequest);
+			return terminalLauncher.LaunchProgram(launchInfo);
 		};
 	}
 

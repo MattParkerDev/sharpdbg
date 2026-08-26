@@ -688,6 +688,20 @@ public class DebugAdapter : DebugAdapterBase
 		try
 		{
 			var arguments = responder.Arguments;
+			// vsdbg routes console input typed into the debug console while the debuggee runs into its standard input
+			if (arguments.Context is EvaluateArguments.ContextValue.Repl && await ExecuteWithDebuggerProcessingLockAsync(() => _debugger.WriteStandardInput(arguments.Expression)))
+			{
+				responder.SetResponse(new EvaluateResponse
+				{
+					Result = string.Empty,
+					PresentationHint = new VariablePresentationHint
+					{
+						Attributes = VariablePresentationHint.AttributesValue.ReadOnly | VariablePresentationHint.AttributesValue.FailedEvaluation
+					}
+				});
+				return;
+			}
+
 			var variableInfo = await ExecuteWithDebuggerProcessingLockAsync(() => _debugger.Evaluate(arguments.Expression, arguments.FrameId));
 
 			var response = new EvaluateResponse

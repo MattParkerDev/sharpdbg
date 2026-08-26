@@ -74,17 +74,10 @@ public partial class ManagedDebugger
 		var process = Process.Start(processStartInfo);
 		if (process is null) throw new InvalidOperationException("Process start failed");
 		_debuggeeProcess = process;
+		_debuggeeStandardInput = process.StandardInput;
 
-		process.OutputDataReceived += (_, e) =>
-		{
-			if (e.Data is not null) InvokeOnOutputWithTryCatch(e.Data + Environment.NewLine, isError: false);
-		};
-		process.ErrorDataReceived += (_, e) =>
-		{
-			if (e.Data is not null) InvokeOnOutputWithTryCatch(e.Data + Environment.NewLine, isError: true);
-		};
-		process.BeginOutputReadLine();
-		process.BeginErrorReadLine();
+		_ = Task.Run(() => PumpOutputAsync(process.StandardOutput, isError: false));
+		_ = Task.Run(() => PumpOutputAsync(process.StandardError, isError: true));
 
 		var processId = process.Id;
 
@@ -101,19 +94,50 @@ public partial class ManagedDebugger
 		_logger?.Invoke($"Successfully attached to process: {processId}");
 		OnProcessStarted?.Invoke(processId, launchInfo.Program);
 		SendAllBreakpointEvents();
-		return;
+	}
 
-		// The DataReceived callbacks run on background threads - a throwing subscriber (e.g. a disposed protocol layer) must not crash the adapter
-		void InvokeOnOutputWithTryCatch(string output, bool isError)
+	/// <summary>
+	/// Forwards debuggee output in raw chunks rather than line by line - line-based reading holds back output that
+	/// does not end with a newline (e.g. an input prompt) until the line completes, and rewrites the line endings
+	/// </summary>
+	private async Task PumpOutputAsync(StreamReader reader, bool isError)
+	{
+		var buffer = new char[4096];
+		try
 		{
-			try
+			while (true)
 			{
-				OnOutput?.Invoke(output, isError);
+				var read = await reader.ReadAsync(buffer, 0, buffer.Length).ConfigureAwait(false);
+				if (read <= 0) return;
+				OnOutput?.Invoke(new string(buffer, 0, read), isError);
 			}
-			catch (Exception ex)
-			{
-				_logger?.Invoke($"Error forwarding debuggee output: {ex.Message}");
-			}
+		}
+		catch (Exception ex)
+		{
+			// This runs on a background task - a throwing subscriber (e.g. a disposed protocol layer) must not crash the adapter
+			_logger?.Invoke($"Stopped reading the debuggee output: {ex.Message}");
+		}
+	}
+
+	/// <summary>
+	/// A line of console input typed into the debug console while the debuggee runs, written to its standard input.
+	/// Returns false when the input cannot be routed to the debuggee (not launched with a redirected stdin, or
+	/// stopped rather than running), in which case the caller should treat the text as an expression to evaluate.
+	/// </summary>
+	public bool WriteStandardInput(string text)
+	{
+		if (_debuggeeStandardInput is null) return false;
+		if (_process is null || _process.TryIsRunning(out var isRunning) is not Cor.S_OK || isRunning is false) return false;
+		try
+		{
+			_debuggeeStandardInput.WriteLine(text);
+			_debuggeeStandardInput.Flush();
+			return true;
+		}
+		catch (Exception ex)
+		{
+			_logger?.Invoke($"Failed to write to the debuggee's standard input: {ex.Message}");
+			return false;
 		}
 	}
 

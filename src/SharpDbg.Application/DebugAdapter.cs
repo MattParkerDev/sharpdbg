@@ -69,13 +69,32 @@ public class DebugAdapter : DebugAdapterBase
 
 	public void Initialize(Stream input, Stream output)
 	{
-		InitializeProtocolClient(input, output);
+		InitializeProtocolClient(input, output, Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Protocol.DebugProtocolOptions.AllowWildcardRegistrations);
 		Protocol.RemoveRequestRegistration("vsCustomMessage");
 		Protocol.RegisterRequestType<VsCustomMessageRequest, VsCustomMessageArguments, VsCustomMessageResponse>(responder =>
 		{
 			responder.SetResponse(new VsCustomMessageResponse());
 		});
 		Protocol.RegisterRequestType<ResolveStackFrameRequest, ResolveStackFrameArguments, ResolveStackFrameResponse>(HandleResolveStackFrameRequestAsync);
+		Protocol.RegisterRequestType<UnsupportedRequest, JObject, UnsupportedResponse>(responder =>
+		{
+			responder.SetError(new ProtocolException($"Request '{responder.Command}' is not supported."));
+		});
+	}
+
+	private sealed class UnsupportedRequest() : DebugRequestWithResponse<JObject, UnsupportedResponse>("*");
+	private sealed class UnsupportedResponse : ResponseBody;
+
+	protected override ResponseBody HandleProtocolRequest(string requestType, object requestArgs)
+	{
+		try
+		{
+			return base.HandleProtocolRequest(requestType, requestArgs);
+		}
+		catch (NotImplementedException ex)
+		{
+			throw new ProtocolException($"Request '{requestType}' is not supported.", ex);
+		}
 	}
 
 	private async Task<T> ExecuteWithExceptionHandling<T>(Func<T> func)

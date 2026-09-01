@@ -34,6 +34,11 @@ public partial class ManagedDebugger
 		{
 			var localVariableName = module.MetadataReader.GetLocalVariableName(corDebugFunction.Token, index, currentIlOffset);
 			if (localVariableName is null) continue; // Compiler generated locals will not be found. E.g. DefaultInterpolatedStringHandler
+			if (IsLambdaDisplayClass(localVariableCorDebugValue))
+			{
+				await AddClosureChainMembers(localVariableCorDebugValue, threadId, stackDepth, result);
+				continue;
+			}
 			await WithFailureHandling(result, localVariableName, async () =>
 			{
 				var (friendlyTypeName, value, debuggerProxyInstance, resultIsError) = await GetValueForCorDebugValueAsync(localVariableCorDebugValue, threadId, stackDepth, true);
@@ -48,6 +53,15 @@ public partial class ManagedDebugger
 				});
 			});
 		}
+	}
+
+	private static bool IsLambdaDisplayClass(ICorDebugValue value)
+	{
+		var type = value.ExactType;
+		if (type.Type is not CorElementType.CLASS) return false;
+		var metadataImport = type.Class.Module.GetMetaDataInterface<IMetaDataImport>();
+		var typeName = metadataImport.GetTypeDefProps(type.Class.Token).szTypeDef;
+		return GeneratedNameParser.GetKind(typeName) is GeneratedNameKind.LambdaDisplayClass;
 	}
 
 	/// Walks the compiler-generated closure chain starting at <paramref name="closureValue"/>,

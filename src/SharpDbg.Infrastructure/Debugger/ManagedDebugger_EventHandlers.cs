@@ -102,6 +102,7 @@ public partial class ManagedDebugger
 		var moduleInfo = new ModuleInfo(corModule, modulePath, metadataReader, isUserCode);
 		_modules[baseAddress] = moduleInfo;
 		ModuleSet_Version++;
+		TryBindEntryBreakpoint(moduleInfo);
 
 		if (moduleName is "System.Private.CoreLib.dll")
 		{
@@ -207,6 +208,17 @@ public partial class ManagedDebugger
 		}
 
 		var corThread = breakpointCorDebugManagedCallbackEventArgs.Thread;
+		if (_entryBreakpoint is { } entryBreakpoint && entryBreakpoint.CorBreakpoint == functionBreakpoint)
+		{
+			// Remove the one-shot breakpoint unless a user breakpoint shares the same CLR breakpoint.
+			if (_breakpointManager.FindByCorBreakpoint(functionBreakpoint) is null) functionBreakpoint.TryActivate(false);
+			_entryBreakpoint = null;
+			_stopAtEntry = false;
+			var sourceInfo = GetSourceInfoAtFrame(corThread.ActiveFrame, _justMyCode is false);
+			if (sourceInfo is null) OnStopped?.Invoke(corThread.Id, "entry");
+			else OnStopped2?.Invoke(corThread.Id, sourceInfo.Value.FilePath, sourceInfo.Value.StartLine, sourceInfo.Value.StartColumn, "entry", null);
+			return;
+		}
 
 		// Check if async stepper handles this breakpoint
 		if (_asyncStepper is not null)
@@ -271,6 +283,24 @@ public partial class ManagedDebugger
 
 		if (managedBreakpoint.ResolvedBreakpointFromPdb is not {} resolvedBreakpoint) throw new UnreachableException("Breakpoint was not resolved from PDB - this should never happen, as source breakpoints are only bound to resolved source locations");
 		OnStopped2?.Invoke(corThread.Id, managedBreakpoint.FilePath, resolvedBreakpoint.StartLine, resolvedBreakpoint.StartColumn, "breakpoint", [managedBreakpoint.Id]);
+	}
+
+	private void TryBindEntryBreakpoint(ModuleInfo moduleInfo)
+	{
+		if (_stopAtEntry is false || _entryBreakpoint is not null) return;
+		try
+		{
+			if (moduleInfo.MetadataReader.ResolveManagedEntryPoint() is not { } entryPoint) return;
+			var function = moduleInfo.Module.GetFunctionFromToken(entryPoint.MethodToken);
+			var corBreakpoint = function.ILCode.CreateBreakpoint(entryPoint.ILOffset);
+			corBreakpoint.Activate(true);
+			_entryBreakpoint = new EntryBreakpoint(corBreakpoint, moduleInfo.BaseAddress, entryPoint.MethodToken, entryPoint.ILOffset);
+			_logger?.Invoke($"Entry breakpoint bound in {moduleInfo.ModuleName} at method 0x{entryPoint.MethodToken:X}, IL offset {entryPoint.ILOffset}");
+		}
+		catch (Exception ex)
+		{
+			_logger?.Invoke($"Error binding entry breakpoint in {moduleInfo.ModuleName}: {ex.Message}");
+		}
 	}
 
 	private void HandleStepComplete(object? sender, StepCompleteCorDebugManagedCallbackEventArgs stepCompleteEventArgs)

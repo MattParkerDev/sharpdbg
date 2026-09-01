@@ -33,6 +33,10 @@ public partial class ManagedDebugger
 	private bool _isRemoteAttach;
 	private int? _pendingAttachProcessId;
 	private bool _justMyCode;
+	private bool _stopAtEntry;
+	private EntryBreakpoint? _entryBreakpoint;
+	private sealed record EntryBreakpoint(ICorDebugFunctionBreakpoint CorBreakpoint, CORDB_ADDRESS ModuleBaseAddress, int MethodToken, int IlOffset);
+
 	// The active exception filters and optional type conditions supplied by the DAP client.
 	private IReadOnlyList<SharpDbgExceptionBreakpointRequest> _exceptionBreakpoints = [];
 	// Per-thread state retained between callbacks for the same exception propagation sequence.
@@ -333,8 +337,9 @@ public partial class ManagedDebugger
 			var ilCode = function.ILCode;
 
 			// Create a breakpoint at the resolved IL offset
-			var corBreakpoint = ilCode.CreateBreakpoint(resolved.ILOffset);
-			corBreakpoint.Activate(true);
+			var corBreakpoint = TryGetEntryBreakpoint(targetModule.BaseAddress, resolved.MethodToken, resolved.ILOffset)
+				?? ilCode.CreateBreakpoint(resolved.ILOffset);
+			if (corBreakpoint != _entryBreakpoint?.CorBreakpoint) corBreakpoint.Activate(true);
 
 			// Update breakpoint info
 			bp.CorBreakpoint = corBreakpoint;
@@ -393,8 +398,9 @@ public partial class ManagedDebugger
 					continue;
 				}
 				var function = module.Module.GetFunctionFromToken(resolved.MethodToken);
-				var corBreakpoint = function.ILCode.CreateBreakpoint(resolved.Source.ILOffset);
-				corBreakpoint.Activate(true);
+				var corBreakpoint = TryGetEntryBreakpoint(module.BaseAddress, resolved.MethodToken, resolved.Source.ILOffset)
+					?? function.ILCode.CreateBreakpoint(resolved.Source.ILOffset);
+				if (corBreakpoint != _entryBreakpoint?.CorBreakpoint) corBreakpoint.Activate(true);
 				bp.FunctionBindings.Add(new BreakpointManager.FunctionBreakpointBinding(corBreakpoint, module.BaseAddress, resolved.MethodToken, resolved.Source));
 				bp.Verified = true;
 				bp.Message = null;
@@ -411,6 +417,14 @@ public partial class ManagedDebugger
 	private void EnsureNoProcessBeingDebugged()
 	{
 		if (_process is not null) throw new InvalidOperationException("A process is already being debugged, you must terminate/detach first.");
+	}
+
+	private ICorDebugFunctionBreakpoint? TryGetEntryBreakpoint(CORDB_ADDRESS moduleBaseAddress, int methodToken, int ilOffset)
+	{
+		return _entryBreakpoint is { } entry && entry.ModuleBaseAddress == moduleBaseAddress &&
+			entry.MethodToken == methodToken && entry.IlOffset == ilOffset
+			? entry.CorBreakpoint
+			: null;
 	}
 
 	internal ICorDebugILFrame GetIlFrameForThreadIdAndStackDepth(ThreadId threadId, FrameStackDepth stackDepth)
@@ -464,6 +478,12 @@ public partial class ManagedDebugger
 		_modules.Clear();
 
 		// Deactivate all breakpoints
+		if (_entryBreakpoint is { } entryBreakpoint)
+		{
+			entryBreakpoint.CorBreakpoint.TryActivate(false);
+			_entryBreakpoint = null;
+		}
+		_stopAtEntry = false;
 		foreach (var bp in _breakpointManager.GetAllBreakpoints().Where(b => (b.CorBreakpoint is not null && b.IsFunctionBreakpoint is false) || b.IsFunctionBreakpoint))
 		{
 			var corBreakpoints = bp.IsFunctionBreakpoint ? bp.FunctionBindings.Select(binding => binding.CorBreakpoint) : [bp.CorBreakpoint!];

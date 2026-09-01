@@ -5,6 +5,25 @@ namespace SharpDbg.Infrastructure.Debugger;
 
 public partial class ModuleMetadataReader
 {
+	private (int MethodToken, int ILOffset)? TryResolveAsyncMainEntryPoint(TypeDefinitionHandle declaringTypeHandle)
+	{
+		foreach (var nestedTypeHandle in _peMetadataReader.GetTypeDefinition(declaringTypeHandle).GetNestedTypes())
+		{
+			var nestedType = _peMetadataReader.GetTypeDefinition(nestedTypeHandle);
+			if (!_peMetadataReader.GetString(nestedType.Name).StartsWith("<Main>d__", StringComparison.Ordinal)) continue;
+
+			foreach (var methodHandle in nestedType.GetMethods())
+			{
+				var method = _peMetadataReader.GetMethodDefinition(methodHandle);
+				if (_peMetadataReader.GetString(method.Name) is not "MoveNext") continue;
+				var methodToken = MetadataTokens.GetToken(methodHandle);
+				return (methodToken, GetNextUserCodeIlOffset(methodToken, 0) ?? 0);
+			}
+		}
+
+		return null;
+	}
+
 	public int? GetStateMachineKickoffMethodToken(int moveNextMethodToken)
 	{
 		var moveNextHandle = MetadataTokens.MethodDefinitionHandle(moveNextMethodToken);

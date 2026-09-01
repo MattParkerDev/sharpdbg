@@ -28,9 +28,9 @@ public static class DebugAdapterProcessHelper
 		return process;
 	}
 
-	public static DisposableDebugProtocolHost GetDebugProtocolHost(Stream inputStream, Stream outputStream, ITestOutputHelper testOutputHelper, TaskCompletionSource? initializedEventTcs = null)
+	public static DisposableDebugProtocolHost GetDebugProtocolHost(Stream inputStream, Stream outputStream, ITestOutputHelper testOutputHelper, TaskCompletionSource? initializedEventTcs = null, bool terminateDebuggeeOnDispose = false)
 	{
-		var debugProtocolHost = new DisposableDebugProtocolHost(inputStream, outputStream, false);
+		var debugProtocolHost = new DisposableDebugProtocolHost(inputStream, outputStream, false, terminateDebuggeeOnDispose);
 		debugProtocolHost.LogMessage += (sender, args) =>
 		{
 			//testOutputHelper.WriteLine($"Log [DAP Host]: {args.Message}");
@@ -81,6 +81,23 @@ public static class DebugAdapterProcessHelper
 				["processId"] = processId,
 				["console"] = "internalConsole", // integratedTerminal, externalTerminal, internalConsole
 				["justMyCode"] = justMyCode
+			}
+		};
+	}
+
+	public static LaunchRequest GetLaunchRequest(string program, bool stopAtEntry, bool justMyCode = true)
+	{
+		return new LaunchRequest
+		{
+			ConfigurationProperties = new Dictionary<string, JToken>
+			{
+				["name"] = "LaunchRequestName",
+				["type"] = "coreclr",
+				["program"] = program,
+				["cwd"] = Path.GetDirectoryName(program),
+				["console"] = "internalConsole",
+				["justMyCode"] = justMyCode,
+				["stopAtEntry"] = stopAtEntry
 			}
 		};
 	}

@@ -33,6 +33,17 @@ public static partial class TestHelper
 		}
 	}
 
+	public static (DisposableDebugProtocolHost Host, TaskCompletionSource InitializedEventTcs, TcsContainer DebugEventTcs, IDisposable Adapter) GetLaunchDebugProtocolHostInProc(ITestOutputHelper testOutputHelper)
+	{
+		var (input, output, adapter) = SharpDbgInMemory.NewDebugAdapterStreams(message => testOutputHelper.WriteLine($"Log [SharpDbg]: {message}"));
+		var initializedEventTcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+		var host = DebugAdapterProcessHelper.GetDebugProtocolHost(input, output, testOutputHelper, initializedEventTcs, terminateDebuggeeOnDispose: true);
+		var debugEventTcs = new TcsContainer { Tcs = new TaskCompletionSource<DebugEvent>(TaskCreationOptions.RunContinuationsAsynchronously) };
+		host.RegisterEventType<StoppedEvent>(@event => debugEventTcs.Tcs.TrySetResult(@event));
+		host.Run();
+		return (host, initializedEventTcs, debugEventTcs, adapter);
+	}
+
 	private static (DisposableDebugProtocolHost, TaskCompletionSource InitializedEventTcs, TcsContainer debugEventTcs, IDisposable DebugAdapterDisposable, Process DebuggableProcess) GetRunningDebugProtocolHostCore(ITestOutputHelper testOutputHelper, bool startSuspended, Stream input, Stream output, IDisposable debugAdapterDisposable)
 	{
 		var debuggableProcess = DebuggableProcessHelper.StartDebuggableProcess(startSuspended);
@@ -56,6 +67,12 @@ public static partial class TestHelper
 	{
 		var attachRequest = DebugAdapterProcessHelper.GetAttachRequest(debuggableProcessId, justMyCode);
 		debugProtocolHost.SendRequestSync(attachRequest);
+		return debugProtocolHost;
+	}
+
+	public static DebugProtocolHost WithLaunchRequest(this DebugProtocolHost debugProtocolHost, string program, bool stopAtEntry, bool justMyCode)
+	{
+		debugProtocolHost.SendRequestSync(DebugAdapterProcessHelper.GetLaunchRequest(program, stopAtEntry, justMyCode));
 		return debugProtocolHost;
 	}
 	public static async Task<DebugProtocolHost> WaitForInitializedEvent(this DebugProtocolHost debugProtocolHost, TaskCompletionSource initializedEventTcs)

@@ -22,6 +22,25 @@ public partial class ModuleMetadataReader : IDisposable
 	internal Guid Mvid => _mvid ??= _peMetadataReader.GetGuid(_peMetadataReader.GetModuleDefinition().Mvid);
 	public bool HasSymbols => _pdbMetadataReader is not null;
 
+	internal (int MethodToken, int ILOffset)? ResolveManagedEntryPoint()
+	{
+		var corHeader = _peReader.PEHeaders.CorHeader;
+		if (corHeader is null || (corHeader.Flags & CorFlags.NativeEntryPoint) != 0) return null;
+
+		var entryPointToken = corHeader.EntryPointTokenOrRelativeVirtualAddress;
+		if (entryPointToken == 0) return null;
+		var entryPointHandle = MetadataTokens.Handle(entryPointToken);
+		if (entryPointHandle.Kind is not HandleKind.MethodDefinition) return null;
+
+		var entryPoint = _peMetadataReader.GetMethodDefinition((MethodDefinitionHandle)entryPointHandle);
+		if (_peMetadataReader.GetString(entryPoint.Name) is "<Main>" && TryResolveAsyncMainEntryPoint(entryPoint.GetDeclaringType()) is { } asyncEntryPoint)
+		{
+			return asyncEntryPoint;
+		}
+
+		return (entryPointToken, ResolveBreakpointAtMethodEntry(entryPointToken)?.ILOffset ?? 0);
+	}
+
 	/// Lines and columns are 1 based
 	public record ResolvedBreakpoint(
 		int MethodToken,
@@ -260,12 +279,20 @@ public partial class ModuleMetadataReader : IDisposable
 		if (reader is null) return null;
 		var methodHandle = MetadataTokens.MethodDefinitionHandle(methodToken);
 		var methodDebugInfo = reader.GetMethodDebugInformation(methodHandle);
-		var sequencePoint = methodDebugInfo.GetSequencePoints().FirstOrDefault(sp => !sp.IsHidden);
-		if (sequencePoint.Document.IsNil && methodDebugInfo.Document.IsNil) return null;
-		var documentHandle = sequencePoint.Document.IsNil ? methodDebugInfo.Document : sequencePoint.Document;
+		if (methodDebugInfo.SequencePointsBlob.IsNil) return null;
+		SequencePoint? sequencePoint = null;
+		foreach (var candidate in methodDebugInfo.GetSequencePoints())
+		{
+			if (candidate.IsHidden) continue;
+			sequencePoint = candidate;
+			break;
+		}
+		if (sequencePoint is null) return null;
+		var documentHandle = sequencePoint.Value.Document.IsNil ? methodDebugInfo.Document : sequencePoint.Value.Document;
+		if (documentHandle.IsNil) return null;
 		var document = reader.GetDocument(documentHandle);
-		return new ResolvedBreakpoint(methodToken, sequencePoint.Offset, sequencePoint.StartLine, sequencePoint.EndLine,
-			sequencePoint.StartColumn, sequencePoint.EndColumn, reader.GetString(document.Name));
+		return new ResolvedBreakpoint(methodToken, sequencePoint.Value.Offset, sequencePoint.Value.StartLine, sequencePoint.Value.EndLine,
+			sequencePoint.Value.StartColumn, sequencePoint.Value.EndColumn, reader.GetString(document.Name));
 	}
 
 	public ImmutableArray<string> GetImportedNamespaces(int methodToken)

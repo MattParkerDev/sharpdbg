@@ -25,5 +25,6 @@
   <Folder Name="/tests/">
     <Project Path="tests/DebuggableConsoleApp/DebuggableConsoleApp.csproj" />
     <Project Path="tests/SharpDbg.Cli.Tests/SharpDbg.Cli.Tests.csproj" />
+    <Project Path="tests/TopLevelStatementsConsoleApp/TopLevelStatementsConsoleApp.csproj" />
   </Folder>
 </Solution>

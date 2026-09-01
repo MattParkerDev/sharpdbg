@@ -163,7 +163,7 @@ public partial class ManagedDebugger
 
 	private async Task AddCurrentException(List<VariableInfo> result, ThreadId threadId, FrameStackDepth stackDepth)
 	{
-		var thread = _threads.GetValueOrDefault(threadId.Value);
+		var thread = _threads.GetValueOrDefault(threadId.Value)?.Thread;
 		Guard.Against.Null(thread);
 		thread.TryGetCurrentException(out var currentException);
 		if (currentException is not null)

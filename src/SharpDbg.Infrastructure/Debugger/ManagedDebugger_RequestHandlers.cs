@@ -237,8 +237,9 @@ public partial class ManagedDebugger
 	public async Task StepNext(int threadId)
 	{
 		_logger?.Invoke($"StepNext on thread {threadId}");
-		if (_threads.TryGetValue(threadId, out var thread))
+		if (_threads.TryGetValue(threadId, out var threadInfo))
 		{
+			var thread = threadInfo.Thread;
 			var frame = thread.ActiveFrame;
 			if (frame is not ICorDebugILFrame ilFrame) throw new InvalidOperationException("Active frame is not an IL frame");
 			if (_stepper is not null) throw new InvalidOperationException("A step operation is already in progress");
@@ -268,8 +269,9 @@ public partial class ManagedDebugger
 	public async Task StepIn(int threadId)
 	{
 		_logger?.Invoke($"StepIn on thread {threadId}");
-		if (_threads.TryGetValue(threadId, out var thread))
+		if (_threads.TryGetValue(threadId, out var threadInfo))
 		{
+			var thread = threadInfo.Thread;
 			var frame = thread.ActiveFrame;
 			if (frame is not null)
 			{
@@ -299,8 +301,9 @@ public partial class ManagedDebugger
 	public async Task StepOut(int threadId)
 	{
 		_logger?.Invoke($"StepOut on thread {threadId}");
-		if (_threads.TryGetValue(threadId, out var thread))
+		if (_threads.TryGetValue(threadId, out var threadInfo))
 		{
+			var thread = threadInfo.Thread;
 			var frame = thread.ActiveFrame;
 			if (frame is not null)
 			{
@@ -428,9 +431,10 @@ public partial class ManagedDebugger
 
 		try
 		{
-			foreach (var (id, thread) in _threads)
+			foreach (var (id, threadInfo) in _threads)
 			{
-				result.Add((id, thread.GetThreadName()));
+				threadInfo.Name ??= threadInfo.Thread.GetThreadNameOrNull();
+				result.Add((id, threadInfo.Name ?? "<No Name>"));
 			}
 		}
 		catch (Exception ex)
@@ -448,10 +452,11 @@ public partial class ManagedDebugger
 	{
 		var result = new List<StackFrameInfo>();
 
-		if (!_threads.TryGetValue(threadIdInt, out var thread))
+		if (!_threads.TryGetValue(threadIdInt, out var threadInfo))
 		{
 			return result;
 		}
+		var thread = threadInfo.Thread;
 
 		try
 		{
@@ -598,7 +603,7 @@ public partial class ManagedDebugger
 
 		var localVariables = ilFrame.LocalVariables;
 		var arguments = ilFrame.Arguments;
-		var thread = _threads.GetValueOrDefault(threadId.Value);
+		var thread = _threads.GetValueOrDefault(threadId.Value)?.Thread;
 		Guard.Against.Null(thread);
 		var hasCurrentException = thread.TryGetCurrentException(out _) is Cor.S_OK;
 		if (localVariables.Length is 0 && arguments.Length is 0 && !hasCurrentException) return result;
@@ -721,7 +726,7 @@ public partial class ManagedDebugger
 
 		var frameInfo = _frameReferenceManager.GetFrameInfoById(frameId.Value);
 		if (frameInfo is not var (threadId, frameStackDepth)) throw new InvalidOperationException("Frame ID does not exist");
-		var thread = _threads.GetValueOrDefault(threadId.Value);
+		var thread = _threads.GetValueOrDefault(threadId.Value)?.Thread;
 		Guard.Against.Null(thread);
 
 		var evalContext = new CompiledExpressionEvaluationContext(thread, threadId, frameStackDepth);

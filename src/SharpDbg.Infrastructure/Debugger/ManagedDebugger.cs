@@ -19,7 +19,13 @@ public partial class ManagedDebugger
 	private readonly VariableManager _variableManager;
 	private readonly FrameReferenceManager _frameReferenceManager;
 	private readonly Action<string>? _logger;
-	private readonly Dictionary<int, ICorDebugThread> _threads = new();
+	private sealed class ThreadInfo(ICorDebugThread thread)
+	{
+		public ICorDebugThread Thread { get; } = thread;
+		public string? Name { get; set; }
+	}
+
+	private readonly Dictionary<int, ThreadInfo> _threads = new();
 	private readonly Dictionary<CORDB_ADDRESS, ModuleInfo> _modules = new();
 	private readonly HashSet<COR_TYPEID> _initializedStaticTypes = [];
 	private ICorDebugFunction? _suppressFinalizeFunction;

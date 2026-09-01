@@ -32,7 +32,7 @@ public partial class ManagedDebugger
 	private void HandleThreadCreated(object? sender, CreateThreadCorDebugManagedCallbackEventArgs createThreadCorDebugManagedCallbackEventArgs)
 	{
 		var corThread = createThreadCorDebugManagedCallbackEventArgs.Thread;
-		_threads[corThread.Id] = corThread;
+		_threads[corThread.Id] = new ThreadInfo(corThread);
 		OnThreadStarted?.Invoke(corThread.Id);
 		Continue();
 	}

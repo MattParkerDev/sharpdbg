@@ -23,6 +23,8 @@
     <Project Path="src/SharpDbg.InMemory/SharpDbg.InMemory.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/AsyncEntryConsoleApp/AsyncEntryConsoleApp.csproj" />
+    <Project Path="tests/AsyncTopLevelStatementsConsoleApp/AsyncTopLevelStatementsConsoleApp.csproj" />
     <Project Path="tests/DebuggableConsoleApp/DebuggableConsoleApp.csproj" />
     <Project Path="tests/SharpDbg.Cli.Tests/SharpDbg.Cli.Tests.csproj" />
     <Project Path="tests/TopLevelStatementsConsoleApp/TopLevelStatementsConsoleApp.csproj" />

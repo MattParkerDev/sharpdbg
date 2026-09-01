@@ -42,6 +42,8 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\SharpDbg.Cli\SharpDbg.Cli.csproj" />
     <ProjectReference Include="..\..\src\SharpDbg.InMemory\SharpDbg.InMemory.csproj" />
+    <ProjectReference Include="..\AsyncEntryConsoleApp\AsyncEntryConsoleApp.csproj" ReferenceOutputAssembly="false" />
+    <ProjectReference Include="..\AsyncTopLevelStatementsConsoleApp\AsyncTopLevelStatementsConsoleApp.csproj" ReferenceOutputAssembly="false" />
 	  <!-- ensure the project we are debugging is up to date -->
     <ProjectReference Include="..\DebuggableConsoleApp\DebuggableConsoleApp.csproj" ReferenceOutputAssembly="false" />
     <ProjectReference Include="..\TopLevelStatementsConsoleApp\TopLevelStatementsConsoleApp.csproj" ReferenceOutputAssembly="false" />

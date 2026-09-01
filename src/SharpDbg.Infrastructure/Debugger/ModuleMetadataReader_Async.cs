@@ -7,17 +7,23 @@ public partial class ModuleMetadataReader
 {
 	private (int MethodToken, int ILOffset)? TryResolveAsyncMainEntryPoint(TypeDefinitionHandle declaringTypeHandle)
 	{
-		foreach (var nestedTypeHandle in _peMetadataReader.GetTypeDefinition(declaringTypeHandle).GetNestedTypes())
+		var declaringType = _peMetadataReader.GetTypeDefinition(declaringTypeHandle);
+		foreach (var kickoffMethodHandle in declaringType.GetMethods())
 		{
-			var nestedType = _peMetadataReader.GetTypeDefinition(nestedTypeHandle);
-			if (!_peMetadataReader.GetString(nestedType.Name).StartsWith("<Main>d__", StringComparison.Ordinal)) continue;
+			var kickoffMethod = _peMetadataReader.GetMethodDefinition(kickoffMethodHandle);
+			if (_peMetadataReader.GetString(kickoffMethod.Name) is not ("Main" or "<Main>$")) continue;
 
-			foreach (var methodHandle in nestedType.GetMethods())
+			foreach (var stateMachineHandle in declaringType.GetNestedTypes())
 			{
-				var method = _peMetadataReader.GetMethodDefinition(methodHandle);
-				if (_peMetadataReader.GetString(method.Name) is not "MoveNext") continue;
-				var methodToken = MetadataTokens.GetToken(methodHandle);
-				return (methodToken, GetNextUserCodeIlOffset(methodToken, 0) ?? 0);
+				if (!kickoffMethod.GetCustomAttributes().Any(attribute => StateMachineAttributeMatches(attribute, stateMachineHandle))) continue;
+				var stateMachine = _peMetadataReader.GetTypeDefinition(stateMachineHandle);
+				foreach (var methodHandle in stateMachine.GetMethods())
+				{
+					var method = _peMetadataReader.GetMethodDefinition(methodHandle);
+					if (_peMetadataReader.GetString(method.Name) is not "MoveNext") continue;
+					var methodToken = MetadataTokens.GetToken(methodHandle);
+					return (methodToken, GetNextUserCodeIlOffset(methodToken, 0) ?? 0);
+				}
 			}
 		}
 

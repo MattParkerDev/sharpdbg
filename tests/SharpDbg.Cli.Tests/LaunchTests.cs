@@ -54,4 +54,31 @@ public class LaunchTests(ITestOutputHelper testOutputHelper)
 			.WithVariablesRequest(scopesResponse.Scopes.Single().VariablesReference, out var variables);
 		variables.Should().Contain(variable => variable.Name == "test");
 	}
+
+	[Fact]
+	public async Task StopAtEntry_AsyncEntrypointStopsInMainWithEntryReason()
+	{
+		var (host, initializedEventTcs, debugEventTcs, adapter) = TestHelper.GetLaunchDebugProtocolHostInProc(testOutputHelper);
+		using var _ = adapter;
+		using var __ = host;
+		var program = Path.JoinFromGitRoot("artifacts", "bin", "AsyncEntryConsoleApp", "debug", "AsyncEntryConsoleApp.dll");
+
+		await host
+			.WithInitializeRequest()
+			.WithLaunchRequest(program, stopAtEntry: true, justMyCode: true)
+			.WaitForInitializedEvent(initializedEventTcs);
+		host.WithConfigurationDoneRequest();
+
+		var stoppedEvent = await host.WaitForStoppedEvent(debugEventTcs);
+		stoppedEvent.Reason.Should().Be(StoppedEvent.ReasonValue.Entry);
+		stoppedEvent.ThreadId.Should().NotBeNull();
+		var topFrame = host.GetTopStackFrame(stoppedEvent.ThreadId!.Value);
+		topFrame.Name.Should().Contain("Main");
+		topFrame.Source?.Path.Should().EndWith("Program.cs");
+		topFrame.Line.Should().Be(5);
+		host
+			.WithScopesRequest(topFrame.Id, out var scopesResponse)
+			.WithVariablesRequest(scopesResponse.Scopes.Single().VariablesReference, out var variables);
+		variables.Should().Contain(variable => variable.Name == "test");
+	}
 }

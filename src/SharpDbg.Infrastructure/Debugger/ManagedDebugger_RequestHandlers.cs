@@ -528,6 +528,7 @@ public partial class ManagedDebugger
 			Column = 0,
 			EndColumn = null,
 			Source = null,
+			IsUserCode = false,
 			IsResolved = true,
 			DecompiledSourceInfo = null
 		};
@@ -540,6 +541,7 @@ public partial class ManagedDebugger
 			var kickoffMethodToken = module.MetadataReader.GetStateMachineKickoffMethodToken(function.Token);
 			stackFrameInfo.Name = GetMethodFormattedName(module, kickoffMethodToken ?? function.Token, ilFrame.TypeParameters);
 			var sourceInfo = GetSourceInfoAtFrame(ilFrame, decompileIfNeeded);
+			stackFrameInfo.IsUserCode = module.IsUserCode;
 			stackFrameInfo.IsResolved = module.MetadataReader.HasSymbols;
 			if (sourceInfo is not null)
 			{
@@ -576,6 +578,7 @@ public partial class ManagedDebugger
 			Column = source?.StartColumn ?? 0,
 			EndColumn = source?.EndColumn,
 			Source = source?.FilePath,
+			IsUserCode = frame.Module.IsUserCode,
 			IsResolved = frame.Module.MetadataReader.HasSymbols,
 			DecompiledSourceInfo = source?.DecompiledSourceInfo
 		};

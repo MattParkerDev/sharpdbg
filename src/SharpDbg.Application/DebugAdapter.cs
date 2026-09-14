@@ -652,7 +652,8 @@ public class DebugAdapter : DebugAdapterBase
 			EndLine = frame.EndLine is int endLine ? ConvertDebuggerLineToClient(endLine) : null,
 			Column = ConvertDebuggerColumnToClient(frame.Column),
 			EndColumn = frame.EndColumn is int endColumn ? ConvertDebuggerColumnToClient(endColumn) : null,
-			Source = frame.Source is not null ? new Source { Path = frame.Source, Name = Path.GetFileName(frame.Source), SourceReference = 0 } : null
+			Source = frame.Source is not null ? new Source { Path = frame.Source, Name = Path.GetFileName(frame.Source), SourceReference = 0 } : null,
+			PresentationHint = frame.IsUserCode ? null : MSStackFrame.PresentationHintValue.Subtle
 		};
 		protocolFrame.IsResolved = frame.IsResolved;
 		protocolFrame.DecompiledSourceInfo = frame.DecompiledSourceInfo;

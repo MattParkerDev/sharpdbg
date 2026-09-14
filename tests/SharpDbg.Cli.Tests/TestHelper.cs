@@ -23,6 +23,7 @@ public enum DebugAdapterMode
 
 public static partial class TestHelper
 {
+	public const VariableReferenceComparison ReferenceComparison = VariableReferenceComparison.Exact;
 	public static (DisposableDebugProtocolHost, TaskCompletionSource InitializedEventTcs, TcsContainer debugEventTcs, IDisposable DebugAdapterDisposable, Process DebuggableProcess) GetRunningDebugProtocolHost(ITestOutputHelper testOutputHelper, bool startSuspended)
 	{
 		var debugAdapterMode = DebugAdapterMode.InProc;

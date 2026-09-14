@@ -82,7 +82,7 @@ public class Variables2Tests(ITestOutputHelper testOutputHelper)
 		debugProtocolHost.WithVariablesRequest(scope.VariablesReference, out var variables);
 
 		variables.Should().HaveCount(38);
-		variables.Should().BeEquivalentTo(expectedVariables, options => options.Excluding(s => s.MemoryReference).Excluding(s => s.PresentationHint));
+		variables.ShouldBeEquivalentToDebuggerVariables(expectedVariables);
 		debugProtocolHost.AssertInstanceThisInstanceVariables(variables.Single(s => s.Name == "this").VariablesReference, breakpointedFilePath);
 	}
 }
@@ -161,7 +161,7 @@ file static class TestExtensions
 		];
 		debugProtocolHost.WithVariablesRequest(variablesReference, out var thisInstanceVariables);
 		thisInstanceVariables.Should().HaveCount(expectedVariables.Count);
-		thisInstanceVariables.Should().BeEquivalentTo(expectedVariables, options => options.Excluding(s => s.MemoryReference).Excluding(s => s.PresentationHint));
+		thisInstanceVariables.ShouldBeEquivalentToDebuggerVariables(expectedVariables);
 		debugProtocolHost.AssertStaticFieldsOnGenericType(thisInstanceVariables.Single(s => s.Name == "_genericTypeWithStaticField").VariablesReference);
 		debugProtocolHost.AssertInstanceThisStaticVariables(thisInstanceVariables.Single(s => s.Name == "Static members").VariablesReference);
 		debugProtocolHost.AssertMultiDimArrayVariables(thisInstanceVariables.Single(s => s.Name == "MultiDimArrayField").VariablesReference);
@@ -176,7 +176,7 @@ file static class TestExtensions
 		];
 		debugProtocolHost.WithVariablesRequest(variablesReference, out var multiDimArrayVariables);
 		multiDimArrayVariables.Should().HaveCount(expectedVariables.Count);
-		multiDimArrayVariables.Should().BeEquivalentTo(expectedVariables, options => options.Excluding(s => s.MemoryReference).Excluding(s => s.PresentationHint));
+		multiDimArrayVariables.ShouldBeEquivalentToDebuggerVariables(expectedVariables);
 
 		List<Variable> expectedVariables2 =
 		[
@@ -189,7 +189,7 @@ file static class TestExtensions
 
 		debugProtocolHost.WithVariablesRequest(multiDimArrayVariables[0].VariablesReference, out var multiDimArrayRankVariables);
 		multiDimArrayRankVariables.Should().HaveCount(expectedVariables2.Count);
-		multiDimArrayRankVariables.Should().BeEquivalentTo(expectedVariables2, options => options.Excluding(s => s.MemoryReference).Excluding(s => s.PresentationHint));
+		multiDimArrayRankVariables.ShouldBeEquivalentToDebuggerVariables(expectedVariables2);
 	}
 
 	private static void AssertStaticFieldsOnGenericType(this DebugProtocolHost debugProtocolHost, int variablesReference)
@@ -204,7 +204,7 @@ file static class TestExtensions
 		];
 		debugProtocolHost.WithVariablesRequest(staticMembersVariablesReference, out var staticFieldsOnGenericType);
 		staticFieldsOnGenericType.Should().HaveCount(expectedVariables.Count);
-		staticFieldsOnGenericType.Should().BeEquivalentTo(expectedVariables, options => options.Excluding(s => s.MemoryReference).Excluding(s => s.PresentationHint));
+		staticFieldsOnGenericType.ShouldBeEquivalentToDebuggerVariables(expectedVariables);
 	}
 
 	private static void AssertInstanceThisStaticVariables(this DebugProtocolHost debugProtocolHost, int variablesReference)
@@ -224,7 +224,7 @@ file static class TestExtensions
 			new() { VariablesReference = 49, Name = "ConstFieldByteArraySpan",  EvaluateName = "ConstFieldByteArraySpan",  Value = "System.ReadOnlySpan<Byte>[4]", Type = "System.ReadOnlySpan<byte>" },
 		];
 		staticMemberVariables.Should().HaveCount(expectedVariables.Count);
-		staticMemberVariables.Should().BeEquivalentTo(expectedVariables, options => options.Excluding(s => s.MemoryReference).Excluding(s => s.PresentationHint));
+		staticMemberVariables.ShouldBeEquivalentToDebuggerVariables(expectedVariables);
 		debugProtocolHost.AssertIEnumerableMembers(staticMemberVariables.Single(s => s.Name == "StaticEnumerableField").VariablesReference);
 	}
 
@@ -237,7 +237,7 @@ file static class TestExtensions
 			new() { VariablesReference = 51, Name = "Results", EvaluateName = "Results", Value = "Expanding will force enumeration of the object", Type = "" },
 		];
 		enumerableMembers.Should().HaveCount(expectedVariables.Count);
-		enumerableMembers.Should().BeEquivalentTo(expectedVariables, options => options.Excluding(s => s.MemoryReference).Excluding(s => s.PresentationHint));
+		enumerableMembers.ShouldBeEquivalentToDebuggerVariables(expectedVariables);
 
 		List<Variable> expectedVariables2 =
 		[
@@ -249,6 +249,6 @@ file static class TestExtensions
 
 		debugProtocolHost.WithVariablesRequest(enumerableMembers.Single(s => s.Name == "Results").VariablesReference, out var enumerableResultsMembers);
 		enumerableResultsMembers.Should().HaveCount(expectedVariables2.Count);
-		enumerableResultsMembers.Should().BeEquivalentTo(expectedVariables2, options => options.Excluding(s => s.MemoryReference).Excluding(s => s.PresentationHint));
+		enumerableResultsMembers.ShouldBeEquivalentToDebuggerVariables(expectedVariables2);
 	}
 }

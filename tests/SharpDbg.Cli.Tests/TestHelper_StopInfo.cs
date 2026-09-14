@@ -19,6 +19,7 @@ public static partial class TestHelper
 			var filePath = topFrame.Source.Path;
 			var line = topFrame.Line;
 			var column = topFrame.Column;
+			filePath = filePath.Replace('/', Path.DirectorySeparatorChar);
 			var source = new Source { Path = filePath };
 			additionalProperties["source"] = JToken.FromObject(source);
 			additionalProperties["line"] = JToken.FromObject(line);

@@ -48,7 +48,7 @@ public class AsyncVariablesTests(ITestOutputHelper testOutputHelper)
 		debugProtocolHost.WithVariablesRequest(scope.VariablesReference, out var variables);
 
 		variables.Should().HaveCount(6);
-		variables.Should().BeEquivalentTo(expectedVariables);
+		variables.ShouldBeEquivalentToDebuggerVariables(expectedVariables);
 
 		var stoppedEvent2 = await debugProtocolHost.WithStepInRequest(stoppedEvent.ThreadId!.Value).WaitForStoppedEvent(debugEventTcs);
 		var stopInfo = stoppedEvent2.ReadStopInfo();
@@ -65,7 +65,7 @@ public class AsyncVariablesTests(ITestOutputHelper testOutputHelper)
 			new() {Name = "test", Value = "0", Type = "int", EvaluateName = "test" },
 		];
 
-		variables2.Should().BeEquivalentTo(staticAsyncMethodExpectedVariables);
+		variables2.ShouldBeEquivalentToDebuggerVariables(staticAsyncMethodExpectedVariables);
 
 		var stoppedEvent3 = await debugProtocolHost
 			.WithContinueRequest()
@@ -75,7 +75,7 @@ public class AsyncVariablesTests(ITestOutputHelper testOutputHelper)
 			.WithScopesRequest(stackTraceResponse3.StackFrames!.First().Id, out var scopesResponse3)
 			.WithVariablesRequest(scopesResponse3.Scopes.Single().VariablesReference, out var variables3);
 		// Assert the variables reference count resets on continue, by asserting the variables are the same as the first time (code is in a while loop)
-		variables3.Should().BeEquivalentTo(expectedVariables);
+		variables3.ShouldBeEquivalentToDebuggerVariables(expectedVariables);
 	}
 }
 

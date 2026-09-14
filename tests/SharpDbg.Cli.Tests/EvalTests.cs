@@ -50,7 +50,7 @@ public class EvalTests(ITestOutputHelper testOutputHelper)
 		debugProtocolHost.WithVariablesRequest(scope.VariablesReference, out var variables);
 
 		variables.Should().HaveCount(11);
-		//variables.Should().BeEquivalentTo(expectedVariables);
+		//variables.ShouldBeEquivalentToDebuggerVariables(expectedVariables);
 
 		var stackFrameId = stackTraceResponse.StackFrames!.First().Id;
 		debugProtocolHost.WithEvaluateRequest(stackFrameId, "myInt + 10", out var evaluateResponse);

@@ -56,6 +56,6 @@ public class LambdaVariablesTests(ITestOutputHelper testOutputHelper)
 		debugProtocolHost.WithVariablesRequest(scope.VariablesReference, out var variables);
 
 		variables.Should().HaveCount(11);
-		variables.Should().BeEquivalentTo(expectedVariables);
+		variables.ShouldBeEquivalentToDebuggerVariables(expectedVariables);
 	}
 }

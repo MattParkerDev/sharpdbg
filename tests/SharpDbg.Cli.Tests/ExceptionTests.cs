@@ -58,7 +58,7 @@ public class ExceptionTests(ITestOutputHelper testOutputHelper)
 		debugProtocolHost.WithVariablesRequest(scope.VariablesReference, out var variables);
 
 		variables.Should().HaveCount(expectedVariables.Count);
-		variables.Should().BeEquivalentTo(expectedVariables, options => options.Excluding(s => s.MemoryReference).Excluding(s => s.PresentationHint));
+		variables.ShouldBeEquivalentToDebuggerVariables(expectedVariables);
 
 		debugProtocolHost.WithEvaluateRequest(stackTraceResponse.StackFrames.First().Id, "$exception", out var evaluateResponse2);
 		evaluateResponse2.Result.Should().Be(expectedVariables[0].Value);
@@ -146,7 +146,7 @@ public class ExceptionTests(ITestOutputHelper testOutputHelper)
 		debugProtocolHost.WithVariablesRequest(scope.VariablesReference, out var variables);
 
 		variables.Should().HaveCount(expectedVariables.Count);
-		variables.Should().BeEquivalentTo(expectedVariables, options => options.Excluding(s => s.MemoryReference).Excluding(s => s.PresentationHint));
+		variables.ShouldBeEquivalentToDebuggerVariables(expectedVariables);
 
 		debugProtocolHost.WithEvaluateRequest(stackTraceResponse.StackFrames.First().Id, "$exception", out var evaluateResponse2);
 		evaluateResponse2.Result.Should().Be(expectedVariables[0].Value);

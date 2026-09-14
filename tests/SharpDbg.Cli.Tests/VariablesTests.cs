@@ -52,7 +52,7 @@ public class VariablesTests(ITestOutputHelper testOutputHelper)
 		debugProtocolHost.WithVariablesRequest(scope.VariablesReference, out var variables);
 
 		variables.Should().HaveCount(11);
-		variables.Should().BeEquivalentTo(expectedVariables);
+		variables.ShouldBeEquivalentToDebuggerVariables(expectedVariables);
 		debugProtocolHost.AssertStructMemberVariables(variables.Single(s => s.Name == "structVar").VariablesReference);
 		debugProtocolHost.AssertInstanceThisInstanceVariables(variables.Single(s => s.Name == "this").VariablesReference);
 
@@ -63,7 +63,7 @@ public class VariablesTests(ITestOutputHelper testOutputHelper)
 		];
 
 		debugProtocolHost.WithVariablesRequest(variables.Single(s => s.Name == "enumVar").VariablesReference, out var enumNestedVariables);
-		enumNestedVariables.Should().BeEquivalentTo(expectedEnumVariables);
+		enumNestedVariables.ShouldBeEquivalentToDebuggerVariables(expectedEnumVariables);
 
 		List<Variable> expectedEnumStaticMemberVariables =
 		[
@@ -73,7 +73,7 @@ public class VariablesTests(ITestOutputHelper testOutputHelper)
 		];
 
 		debugProtocolHost.WithVariablesRequest(enumNestedVariables.Single(s => s.Name == "Static members").VariablesReference, out var enumStaticVariables);
-		enumStaticVariables.Should().BeEquivalentTo(expectedEnumStaticMemberVariables);
+		enumStaticVariables.ShouldBeEquivalentToDebuggerVariables(expectedEnumStaticMemberVariables);
 		// TODO: Assert that none of the variable references are the same (other than 0)
 
 		var stoppedEvent2 = await debugProtocolHost
@@ -84,7 +84,7 @@ public class VariablesTests(ITestOutputHelper testOutputHelper)
 			.WithScopesRequest(stackTraceResponse2.StackFrames!.First().Id, out var scopesResponse2)
 			.WithVariablesRequest(scopesResponse2.Scopes.Single().VariablesReference, out var variables2);
 		// Assert the variables reference count resets on continue, by asserting the variables are the same as the first time (code is in a while loop)
-		variables2.Should().BeEquivalentTo(expectedVariables);
+		variables2.ShouldBeEquivalentToDebuggerVariables(expectedVariables);
 	}
 }
 
@@ -98,7 +98,7 @@ file static class TestExtensions
 			new() { Name = "Name", EvaluateName = "Name", Value = "\"StructName\"", Type = "string" },
 		];
 		debugProtocolHost.WithVariablesRequest(variablesReference, out var structMemberVariables);
-		structMemberVariables.Should().BeEquivalentTo(expectedVariables);
+		structMemberVariables.ShouldBeEquivalentToDebuggerVariables(expectedVariables);
 	}
 	public static void AssertInstanceThisInstanceVariables(this DebugProtocolHost debugProtocolHost, int variablesReference)
 	{
@@ -125,7 +125,7 @@ file static class TestExtensions
 			new() { Name = "Static members", Value = "", Type = "", EvaluateName = "Static members", VariablesReference = 19, PresentationHint = new VariablePresentationHint { Kind = VariablePresentationHint.KindValue.Class }},
 		];
 		debugProtocolHost.WithVariablesRequest(variablesReference, out var thisInstanceVariables);
-		thisInstanceVariables.Should().BeEquivalentTo(expectedVariables);
+		thisInstanceVariables.ShouldBeEquivalentToDebuggerVariables(expectedVariables);
 		debugProtocolHost.AssertIntArrayVariables(thisInstanceVariables.Single(s => s.Name == "_intArray").VariablesReference);
 		debugProtocolHost.AssertInstanceThisStaticVariables(thisInstanceVariables.Single(s => s.Name == "Static members").VariablesReference);
 		debugProtocolHost.AssertClassWithDebuggerTypeProxyVariables(thisInstanceVariables.Single(s => s.Name == "_classWithDebugDisplay").VariablesReference);
@@ -154,7 +154,7 @@ file static class TestExtensions
 			new() { Name = "StaticFieldFromBase", EvaluateName = "StaticFieldFromBase", Value = "168", Type = "int" },
 		];
 		debugProtocolHost.WithVariablesRequest(variablesReference, out var instanceThisStaticVariables);
-		instanceThisStaticVariables.Should().BeEquivalentTo(expectedVariables);
+		instanceThisStaticVariables.ShouldBeEquivalentToDebuggerVariables(expectedVariables);
 	}
 
 	private static readonly VariablePresentationHint _arrayElementPresentationHint = new() { Kind = VariablePresentationHint.KindValue.Data };
@@ -168,7 +168,7 @@ file static class TestExtensions
 			new() { Name = "[3]", EvaluateName = "[3]", Value = "7", Type = "int", PresentationHint = _arrayElementPresentationHint },
 		];
 		debugProtocolHost.WithVariablesRequest(variablesReference, out var intArrayVariables);
-		intArrayVariables.Should().BeEquivalentTo(expectedVariables);
+		intArrayVariables.ShouldBeEquivalentToDebuggerVariables(expectedVariables);
 	}
 
 	public static void AssertGenericClassVariables(this DebugProtocolHost debugProtocolHost, int variablesReference)
@@ -179,7 +179,7 @@ file static class TestExtensions
 			new() { Name = "GenericItems", EvaluateName = "GenericItems", Value = "int[1]", Type = "int[]", VariablesReference = 28 },
 		];
 		debugProtocolHost.WithVariablesRequest(variablesReference, out var genericClassVariables);
-		genericClassVariables.Should().BeEquivalentTo(expectedVariables);
+		genericClassVariables.ShouldBeEquivalentToDebuggerVariables(expectedVariables);
 	}
 
 	public static void AssertIntListVariables(this DebugProtocolHost debugProtocolHost, int variablesReference)
@@ -193,7 +193,7 @@ file static class TestExtensions
 			new() { Name = "Raw View", EvaluateName = "Raw View", Value = "", Type = "", VariablesReference = 29, PresentationHint = new VariablePresentationHint { Kind = VariablePresentationHint.KindValue.Class } },
 		];
 		debugProtocolHost.WithVariablesRequest(variablesReference, out var intListVariables);
-		intListVariables.Should().BeEquivalentTo(expectedVariables);
+		intListVariables.ShouldBeEquivalentToDebuggerVariables(expectedVariables);
 	}
 
 	public static void AssertDictionaryVariables(this DebugProtocolHost debugProtocolHost, int variablesReference)
@@ -206,7 +206,7 @@ file static class TestExtensions
 			new() { Name = "Raw View", EvaluateName = "Raw View", Value = "", Type = "", VariablesReference = 33, PresentationHint = new VariablePresentationHint { Kind = VariablePresentationHint.KindValue.Class } },
 		];
 		debugProtocolHost.WithVariablesRequest(variablesReference, out var dictionaryVariables);
-		dictionaryVariables.Should().BeEquivalentTo(expectedVariables);
+		dictionaryVariables.ShouldBeEquivalentToDebuggerVariables(expectedVariables);
 	}
 
 	public static void AssertClassWithFieldOfNestedClassType_Variables(this DebugProtocolHost debugProtocolHost, int variablesReference)
@@ -220,7 +220,7 @@ file static class TestExtensions
 			new() { Name = "NestedGenericClassProperty", EvaluateName = "NestedGenericClassProperty", Value = "{DebuggableConsoleApp.MyGenericClassContainingAnotherGenericClass<string, int>.MyNestedGenericClass<long, float>}", Type = "DebuggableConsoleApp.MyGenericClassContainingAnotherGenericClass<string, int>.MyNestedGenericClass<long, float>", VariablesReference = 35 },
 		];
 		debugProtocolHost.WithVariablesRequest(variablesReference, out var classWithNestedClassFieldVariables);
-		classWithNestedClassFieldVariables.Should().BeEquivalentTo(expectedVariables);
+		classWithNestedClassFieldVariables.ShouldBeEquivalentToDebuggerVariables(expectedVariables);
 	}
 
 	public static void AssertPropertyStoredClass_Variables(this DebugProtocolHost debugProtocolHost, int variablesReference)
@@ -232,7 +232,7 @@ file static class TestExtensions
 			new() { Name = "MyProperty", EvaluateName = "MyProperty", Value = "\"Hello\"", Type = "string" },
 		];
 		debugProtocolHost.WithVariablesRequest(variablesReference, out var classWithNestedClassFieldVariables);
-		classWithNestedClassFieldVariables.Should().BeEquivalentTo(expectedVariables);
+		classWithNestedClassFieldVariables.ShouldBeEquivalentToDebuggerVariables(expectedVariables);
 	}
 
 	public static void AssertClassWithDebuggerTypeProxyVariables(this DebugProtocolHost debugProtocolHost, int variablesReference)
@@ -247,7 +247,7 @@ file static class TestExtensions
 			new() { Name = "Raw View", EvaluateName = "Raw View", Value = "", Type = "", VariablesReference = 26, PresentationHint = new VariablePresentationHint { Kind = VariablePresentationHint.KindValue.Class } },
 		];
 		debugProtocolHost.WithVariablesRequest(variablesReference, out var classWithDebuggerTypeProxyVariables);
-		classWithDebuggerTypeProxyVariables.Should().BeEquivalentTo(expectedVariables);
+		classWithDebuggerTypeProxyVariables.ShouldBeEquivalentToDebuggerVariables(expectedVariables);
 	}
 
 	private static void AssertRecord_Variables(this DebugProtocolHost debugProtocolHost, int variablesReference)
@@ -259,7 +259,7 @@ file static class TestExtensions
 			new() { Name = "Y", EvaluateName = "Y", Value = "2", Type = "int" },
 		];
 		debugProtocolHost.WithVariablesRequest(variablesReference, out var recordVariables);
-		recordVariables.Should().BeEquivalentTo(expectedVariables);
+		recordVariables.ShouldBeEquivalentToDebuggerVariables(expectedVariables);
 
 		debugProtocolHost.WithVariablesRequest(recordVariables.Single(s => s.Name == "EqualityContract").VariablesReference, out var recordEqualityContractVariables);
 	}

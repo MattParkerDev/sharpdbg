@@ -10,7 +10,7 @@ public class ConditionalBreakpointTests(ITestOutputHelper testOutputHelper)
 	public async Task ConditionalBreakpoint_WithLambda_IsRejected()
 	{
 		var startSuspended = true;
-		var (debugProtocolHost, initializedEventTcs, _, adapter, p2) = TestHelper.GetRunningDebugProtocolHostInProc(testOutputHelper, startSuspended);
+		var (debugProtocolHost, initializedEventTcs, _, adapter, p2) = TestHelper.GetRunningDebugProtocolHost(testOutputHelper, startSuspended);
 		using var _ = adapter;
 		using var __ = new ProcessKiller(p2);
 		using var ___ = debugProtocolHost;
@@ -35,7 +35,7 @@ public class ConditionalBreakpointTests(ITestOutputHelper testOutputHelper)
 	{
 		var startSuspended = true;
 
-		var (debugProtocolHost, initializedEventTcs, debugEventTcs, adapter, p2) = TestHelper.GetRunningDebugProtocolHostInProc(testOutputHelper, startSuspended);
+		var (debugProtocolHost, initializedEventTcs, debugEventTcs, adapter, p2) = TestHelper.GetRunningDebugProtocolHost(testOutputHelper, startSuspended);
 		using var _ = adapter;
 		using var __ = new ProcessKiller(p2);
 		using var ___ = debugProtocolHost;
@@ -61,7 +61,7 @@ public class ConditionalBreakpointTests(ITestOutputHelper testOutputHelper)
 	{
 		var startSuspended = true;
 
-		var (debugProtocolHost, initializedEventTcs, debugEventTcs, adapter, p2) = TestHelper.GetRunningDebugProtocolHostInProc(testOutputHelper, startSuspended);
+		var (debugProtocolHost, initializedEventTcs, debugEventTcs, adapter, p2) = TestHelper.GetRunningDebugProtocolHost(testOutputHelper, startSuspended);
 		using var _ = adapter;
 		using var __ = new ProcessKiller(p2);
 		using var ___ = debugProtocolHost;
@@ -93,7 +93,7 @@ public class ConditionalBreakpointTests(ITestOutputHelper testOutputHelper)
 		var startSuspended = true;
 		var hitConditionFilePath = Path.JoinFromGitRoot("tests", "DebuggableConsoleApp", "HitConditionClass.cs");
 
-		var (debugProtocolHost, initializedEventTcs, debugEventTcs, adapter, p2) = TestHelper.GetRunningDebugProtocolHostInProc(testOutputHelper, startSuspended);
+		var (debugProtocolHost, initializedEventTcs, debugEventTcs, adapter, p2) = TestHelper.GetRunningDebugProtocolHost(testOutputHelper, startSuspended);
 		using var _ = adapter;
 		using var __ = new ProcessKiller(p2);
 		using var ___ = debugProtocolHost;
@@ -126,7 +126,7 @@ public class ConditionalBreakpointTests(ITestOutputHelper testOutputHelper)
 		var startSuspended = true;
 		var hitConditionFilePath = Path.JoinFromGitRoot("tests", "DebuggableConsoleApp", "HitConditionClass.cs");
 
-		var (debugProtocolHost, initializedEventTcs, debugEventTcs, adapter, p2) = TestHelper.GetRunningDebugProtocolHostInProc(testOutputHelper, startSuspended);
+		var (debugProtocolHost, initializedEventTcs, debugEventTcs, adapter, p2) = TestHelper.GetRunningDebugProtocolHost(testOutputHelper, startSuspended);
 		using var _ = adapter;
 		using var __ = new ProcessKiller(p2);
 		using var ___ = debugProtocolHost;
@@ -170,7 +170,7 @@ public class ConditionalBreakpointTests(ITestOutputHelper testOutputHelper)
 		var startSuspended = true;
 		var hitConditionFilePath = Path.JoinFromGitRoot("tests", "DebuggableConsoleApp", "HitConditionClass.cs");
 
-		var (debugProtocolHost, initializedEventTcs, debugEventTcs, adapter, p2) = TestHelper.GetRunningDebugProtocolHostInProc(testOutputHelper, startSuspended);
+		var (debugProtocolHost, initializedEventTcs, debugEventTcs, adapter, p2) = TestHelper.GetRunningDebugProtocolHost(testOutputHelper, startSuspended);
 		using var _ = adapter;
 		using var __ = new ProcessKiller(p2);
 		using var ___ = debugProtocolHost;

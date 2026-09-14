@@ -12,7 +12,7 @@ public class StackTraceTests(ITestOutputHelper testOutputHelper)
 	public async Task StackTraceRequest_ReturnsFrames()
 	{
 		var startSuspended = true;
-		var (debugProtocolHost, initializedEventTcs, debugEventTcs, adapter, p2) = TestHelper.GetRunningDebugProtocolHostInProc(testOutputHelper, startSuspended);
+		var (debugProtocolHost, initializedEventTcs, debugEventTcs, adapter, p2) = TestHelper.GetRunningDebugProtocolHost(testOutputHelper, startSuspended);
 		using var _ = adapter;
 		using var __ = new ProcessKiller(p2);
 		using var ___ = debugProtocolHost;
@@ -100,7 +100,7 @@ public class StackTraceTests(ITestOutputHelper testOutputHelper)
 	public async Task StackTraceRequest_AppendsSyntheticAsyncCallerFrames()
 	{
 		var startSuspended = true;
-		var (debugProtocolHost, initializedEventTcs, debugEventTcs, adapter, process) = TestHelper.GetRunningDebugProtocolHostInProc(testOutputHelper, startSuspended);
+		var (debugProtocolHost, initializedEventTcs, debugEventTcs, adapter, process) = TestHelper.GetRunningDebugProtocolHost(testOutputHelper, startSuspended);
 		using var _ = adapter;
 		using var __ = new ProcessKiller(process);
 		using var ___ = debugProtocolHost;
@@ -133,7 +133,7 @@ public class StackTraceTests(ITestOutputHelper testOutputHelper)
 	public async Task ResolveStackFrameRequest_DecompilesUnresolvedFrame()
 	{
 		var startSuspended = true;
-		var (debugProtocolHost, initializedEventTcs, debugEventTcs, adapter, process) = TestHelper.GetRunningDebugProtocolHostInProc(testOutputHelper, startSuspended);
+		var (debugProtocolHost, initializedEventTcs, debugEventTcs, adapter, process) = TestHelper.GetRunningDebugProtocolHost(testOutputHelper, startSuspended);
 		using var _ = adapter;
 		using var __ = new ProcessKiller(process);
 		using var ___ = debugProtocolHost;

@@ -11,7 +11,7 @@ public class FunctionBreakpointTests(ITestOutputHelper testOutputHelper)
 	public async Task SharpDbgCli_SetFunctionBreakpoint_NoFQN_BreaksOnAllMatchingMethods()
 	{
 		var startSuspended = true;
-		var (debugProtocolHost, initializedEventTcs, debugEventTcs, adapter, p2) = TestHelper.GetRunningDebugProtocolHostInProc(testOutputHelper, startSuspended);
+		var (debugProtocolHost, initializedEventTcs, debugEventTcs, adapter, p2) = TestHelper.GetRunningDebugProtocolHost(testOutputHelper, startSuspended);
 		using var _ = adapter;
 		using var __ = new ProcessKiller(p2);
 		using var ___ = debugProtocolHost;
@@ -53,7 +53,7 @@ public class FunctionBreakpointTests(ITestOutputHelper testOutputHelper)
 	public async Task SharpDbgCli_SetFunctionBreakpoint_FQN_BreaksOnMatchingMethod()
 	{
 		var startSuspended = true;
-		var (debugProtocolHost, initializedEventTcs, debugEventTcs, adapter, p2) = TestHelper.GetRunningDebugProtocolHostInProc(testOutputHelper, startSuspended);
+		var (debugProtocolHost, initializedEventTcs, debugEventTcs, adapter, p2) = TestHelper.GetRunningDebugProtocolHost(testOutputHelper, startSuspended);
 		using var _ = adapter;
 		using var __ = new ProcessKiller(p2);
 		using var ___ = debugProtocolHost;
@@ -82,7 +82,7 @@ public class FunctionBreakpointTests(ITestOutputHelper testOutputHelper)
 	public async Task SharpDbgCli_SetFunctionBreakpoint_GenericClass_BreaksOnMatchingMethod()
 	{
 		var startSuspended = true;
-		var (debugProtocolHost, initializedEventTcs, debugEventTcs, adapter, p2) = TestHelper.GetRunningDebugProtocolHostInProc(testOutputHelper, startSuspended);
+		var (debugProtocolHost, initializedEventTcs, debugEventTcs, adapter, p2) = TestHelper.GetRunningDebugProtocolHost(testOutputHelper, startSuspended);
 		using var _ = adapter;
 		using var __ = new ProcessKiller(p2);
 		using var ___ = debugProtocolHost;
@@ -111,7 +111,7 @@ public class FunctionBreakpointTests(ITestOutputHelper testOutputHelper)
 	public async Task SharpDbgCli_SetFunctionBreakpoint_NoParametersSpecified_BreaksOnAllMethodOverloads()
 	{
 		var startSuspended = true;
-		var (debugProtocolHost, initializedEventTcs, debugEventTcs, adapter, p2) = TestHelper.GetRunningDebugProtocolHostInProc(testOutputHelper, startSuspended);
+		var (debugProtocolHost, initializedEventTcs, debugEventTcs, adapter, p2) = TestHelper.GetRunningDebugProtocolHost(testOutputHelper, startSuspended);
 		using var _ = adapter;
 		using var __ = new ProcessKiller(p2);
 		using var ___ = debugProtocolHost;
@@ -173,7 +173,7 @@ public class FunctionBreakpointTests(ITestOutputHelper testOutputHelper)
 	public async Task SharpDbgCli_SetFunctionBreakpoint_MethodParametersSpecified_BreaksOnSingleMatchingOverload()
 	{
 		var startSuspended = true;
-		var (debugProtocolHost, initializedEventTcs, debugEventTcs, adapter, p2) = TestHelper.GetRunningDebugProtocolHostInProc(testOutputHelper, startSuspended);
+		var (debugProtocolHost, initializedEventTcs, debugEventTcs, adapter, p2) = TestHelper.GetRunningDebugProtocolHost(testOutputHelper, startSuspended);
 		using var _ = adapter;
 		using var __ = new ProcessKiller(p2);
 		using var ___ = debugProtocolHost;

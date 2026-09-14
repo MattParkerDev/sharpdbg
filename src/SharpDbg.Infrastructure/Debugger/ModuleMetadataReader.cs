@@ -241,28 +241,7 @@ public partial class ModuleMetadataReader : IDisposable
 		var methodHandle = MetadataTokens.MethodDefinitionHandle(methodToken);
 		var methodDebugInfo = reader.GetMethodDebugInformation(methodHandle);
 
-		if (methodDebugInfo.SequencePointsBlob.IsNil)
-			return null;
-
-		var points = methodDebugInfo.GetSequencePoints()
-			.AsValueEnumerable()
-			.Where(sp => sp.IsHidden is false)
-			.ToList();
-
-		// Ideally we find an exact match
-		var sequencePoint = points
-			.AsValueEnumerable()
-			.Where(sp => sp.Offset == ilOffset)
-			.Cast<SequencePoint?>()
-			.SingleOrDefault();
-
-		// e.g. when stepping at the end of a method, there may be no exact match - find the closest prior sequence point of the il offset
-		sequencePoint ??= points
-			.AsValueEnumerable()
-			.Where(sp => sp.Offset < ilOffset)
-			.OrderByDescending(sp => sp.Offset)
-			.Cast<SequencePoint?>()
-			.FirstOrDefault();
+		var sequencePoint = GetSequencePointForOffset(methodToken, ilOffset, skipHidden: true);
 
 		if (sequencePoint is null) return null;
 		var sp = sequencePoint.Value;
@@ -271,6 +250,33 @@ public partial class ModuleMetadataReader : IDisposable
 		var document = reader.GetDocument(spDocument);
 		var documentFilePath = reader.GetString(document.Name);
 		return (documentFilePath, sp.StartLine, sp.EndLine, sp.StartColumn, sp.EndColumn);
+	}
+
+	/// <summary>
+	/// Returns whether the sequence point containing <paramref name="ilOffset"/> is hidden.
+	/// Unlike source-location lookup, this must retain hidden points so stepping does not
+	/// incorrectly map a compiler-generated async continuation back to prior user code.
+	/// </summary>
+	public bool IsCurrentSequencePointHidden(int methodToken, int ilOffset) => GetSequencePointForOffset(methodToken, ilOffset)?.IsHidden is true;
+
+	private SequencePoint? GetSequencePointForOffset(int methodToken, int ilOffset, bool skipHidden = false)
+	{
+		var reader = _pdbMetadataReader;
+		if (reader is null) return null;
+		var methodHandle = MetadataTokens.MethodDefinitionHandle(methodToken);
+		var methodDebugInfo = reader.GetMethodDebugInformation(methodHandle);
+		if (methodDebugInfo.SequencePointsBlob.IsNil) return null;
+
+		// PDB sequence points are ordered by offset; retain the last eligible point at or before the IP.
+		SequencePoint? currentPoint = null;
+		foreach (var sequencePoint in methodDebugInfo.GetSequencePoints())
+		{
+			if (sequencePoint.Offset > ilOffset) break;
+			if (skipHidden && sequencePoint.IsHidden) continue;
+			currentPoint = sequencePoint;
+		}
+
+		return currentPoint;
 	}
 
 	internal ResolvedBreakpoint? ResolveBreakpointAtMethodEntry(int methodToken)

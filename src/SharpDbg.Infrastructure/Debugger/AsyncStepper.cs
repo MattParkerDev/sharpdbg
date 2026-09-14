@@ -317,11 +317,12 @@ public class AsyncStepper
 			if (_notifyDebuggerBreakpoint is not null &&
 				MatchesBreakpoint(breakpoint, _notifyDebuggerBreakpoint, thread))
 			{
-				// NotifyDebuggerOfWaitCompletion was hit - this is for step-out
+				// The task-completion hook was hit during an async step-out operation.
 				_notifyDebuggerBreakpoint?.Dispose();
 				_notifyDebuggerBreakpoint = null;
 
-				// Continue with normal step-out
+				// Let the breakpoint handler step into the runtime hook to reach
+				// the awaiting continuation's next user-code location.
 				return (true, true);
 			}
 

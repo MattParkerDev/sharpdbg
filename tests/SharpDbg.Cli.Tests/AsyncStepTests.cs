@@ -37,13 +37,13 @@ public class AsyncStepTests(ITestOutputHelper testOutputHelper)
 		stopInfo2.line.Should().Be(10);
 
 		// step over sync, arrives at await line
-		var stoppedEvent3 = await debugProtocolHost.WithStepOverRequest(stoppedEvent.ThreadId!.Value).WaitForStoppedEvent(debugEventTcs);
+		var stoppedEvent3 = await debugProtocolHost.WithStepOverRequest(stoppedEvent2.ThreadId!.Value).WaitForStoppedEvent(debugEventTcs);
 		var stopInfo3 = stoppedEvent3.ReadStopInfo();
 		stopInfo3.filePath.Should().EndWith("MyAsyncClass.cs");
 		stopInfo3.line.Should().Be(11);
 
 		// step over await
-		var stoppedEvent4 = await debugProtocolHost.WithStepOverRequest(stoppedEvent.ThreadId!.Value).WaitForStoppedEvent(debugEventTcs);
+		var stoppedEvent4 = await debugProtocolHost.WithStepOverRequest(stoppedEvent3.ThreadId!.Value).WaitForStoppedEvent(debugEventTcs);
 		var stopInfo4 = stoppedEvent4.ReadStopInfo();
 		stopInfo4.filePath.Should().EndWith("MyAsyncClass.cs");
 		stopInfo4.line.Should().Be(12);
@@ -61,33 +61,25 @@ public class AsyncStepTests(ITestOutputHelper testOutputHelper)
 		stopInfo6.line.Should().Be(18);
 
 		// step over
-		var stoppedEvent7 = await debugProtocolHost.WithStepInRequest(stoppedEvent5.ThreadId!.Value).WaitForStoppedEvent(debugEventTcs);
+		var stoppedEvent7 = await debugProtocolHost.WithStepInRequest(stoppedEvent6.ThreadId!.Value).WaitForStoppedEvent(debugEventTcs);
 		var stopInfo7 = stoppedEvent7.ReadStopInfo();
 		stopInfo7.filePath.Should().EndWith("AnotherClass.cs");
 		stopInfo7.line.Should().Be(19);
 
 		// step out of an async await method
-		// if JMC is enabled, this lands us on the line after the invocation of the async method (ie line 14)
-		// if JMC is disabled, we land on the invocation line (ie line 13)
-		var stoppedEvent8 = await debugProtocolHost.WithStepOutRequest(stoppedEvent5.ThreadId!.Value).WaitForStoppedEvent(debugEventTcs);
+		var stoppedEvent8 = await debugProtocolHost.WithStepOutRequest(stoppedEvent7.ThreadId!.Value).WaitForStoppedEvent(debugEventTcs);
 		var stopInfo8 = stoppedEvent8.ReadStopInfo();
 		stopInfo8.filePath.Should().EndWith("MyAsyncClass.cs");
-		stopInfo8.line.Should().Be(13);
-
-		// step over
-		var stoppedEvent9 = await debugProtocolHost.WithStepOverRequest(stoppedEvent5.ThreadId!.Value).WaitForStoppedEvent(debugEventTcs);
-		var stopInfo9 = stoppedEvent9.ReadStopInfo();
-		stopInfo9.filePath.Should().EndWith("MyAsyncClass.cs");
-		stopInfo9.line.Should().Be(14);
+		stopInfo8.line.Should().Be(14);
 
 		// step into async void method
-		var stoppedEvent10 = await debugProtocolHost.WithStepInRequest(stoppedEvent5.ThreadId!.Value).WaitForStoppedEvent(debugEventTcs);
+		var stoppedEvent10 = await debugProtocolHost.WithStepInRequest(stoppedEvent8.ThreadId!.Value).WaitForStoppedEvent(debugEventTcs);
 		var stopInfo10 = stoppedEvent10.ReadStopInfo();
 		stopInfo10.filePath.Should().EndWith("AnotherClass.cs");
 		stopInfo10.line.Should().Be(25);
 
 		// step out of async void method
-		var stoppedEvent11 = await debugProtocolHost.WithStepOutRequest(stoppedEvent5.ThreadId!.Value).WaitForStoppedEvent(debugEventTcs);
+		var stoppedEvent11 = await debugProtocolHost.WithStepOutRequest(stoppedEvent10.ThreadId!.Value).WaitForStoppedEvent(debugEventTcs);
 		var stopInfo11 = stoppedEvent11.ReadStopInfo();
 		stopInfo11.filePath.Should().EndWith("MyAsyncClass.cs");
 		stopInfo11.line.Should().Be(14);

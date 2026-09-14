@@ -157,7 +157,7 @@ file static class TestExtensions
 			new() { VariablesReference =  0,  Name = "ComputedProperty",       	    EvaluateName = "ComputedProperty",       	  Value = "246",                                                       Type = "int" },
 			// TODO: Type should be int
 			new() { VariablesReference = 45,  Name = "ThrowingProperty",       	    EvaluateName = "ThrowingProperty",       	  Value = expectedThrowingPropertyValue,                               Type = "System.InvalidOperationException" },
-			new() { VariablesReference = 46,  Name = "Static members",			    EvaluateName = "Static members",			  Value = "",												           Type = ""},
+			new() { VariablesReference = 46,  Name = "Static members",			    EvaluateName = "Static members",			  Value = "",												           Type = "", PresentationHint = new VariablePresentationHint { Kind = VariablePresentationHint.KindValue.Class } },
 		];
 		debugProtocolHost.WithVariablesRequest(variablesReference, out var thisInstanceVariables);
 		thisInstanceVariables.Should().HaveCount(expectedVariables.Count);
@@ -167,12 +167,13 @@ file static class TestExtensions
 		debugProtocolHost.AssertMultiDimArrayVariables(thisInstanceVariables.Single(s => s.Name == "MultiDimArrayField").VariablesReference);
 	}
 
+	private static readonly VariablePresentationHint _multiDimArrayRowPresentationHint = new() { Kind = VariablePresentationHint.KindValue.Class };
 	private static void AssertMultiDimArrayVariables(this DebugProtocolHost debugProtocolHost, int variablesReference)
 	{
 		List<Variable> expectedVariables =
 		[
-			new() { VariablesReference =  52, Name = "[0, ...]",    EvaluateName = "[0, ...]",    Value = "",    Type = "" },
-			new() { VariablesReference =  53, Name = "[1, ...]",    EvaluateName = "[1, ...]",    Value = "",    Type = "" },
+			new() { VariablesReference =  52, Name = "[0, ...]",    EvaluateName = "[0, ...]",    Value = "",    Type = "", PresentationHint = _multiDimArrayRowPresentationHint },
+			new() { VariablesReference =  53, Name = "[1, ...]",    EvaluateName = "[1, ...]",    Value = "",    Type = "", PresentationHint = _multiDimArrayRowPresentationHint },
 		];
 		debugProtocolHost.WithVariablesRequest(variablesReference, out var multiDimArrayVariables);
 		multiDimArrayVariables.Should().HaveCount(expectedVariables.Count);
@@ -180,11 +181,11 @@ file static class TestExtensions
 
 		List<Variable> expectedVariables2 =
 		[
-			new() { VariablesReference =  0, Name = "[0, 0]",    EvaluateName = "[0, 0]",    Value = "1",    Type = "int" },
-			new() { VariablesReference =  0, Name = "[0, 1]",    EvaluateName = "[0, 1]",    Value = "2",    Type = "int" },
-			new() { VariablesReference =  0, Name = "[0, 2]",    EvaluateName = "[0, 2]",    Value = "3",    Type = "int" },
-			new() { VariablesReference =  0, Name = "[0, 3]",    EvaluateName = "[0, 3]",    Value = "4",    Type = "int" },
-			new() { VariablesReference =  0, Name = "[0, 4]",    EvaluateName = "[0, 4]",    Value = "5",    Type = "int" },
+			new() { VariablesReference =  0, Name = "[0, 0]",    EvaluateName = "[0, 0]",    Value = "1",    Type = "int", PresentationHint = _arrayElementPresentationHint },
+			new() { VariablesReference =  0, Name = "[0, 1]",    EvaluateName = "[0, 1]",    Value = "2",    Type = "int", PresentationHint = _arrayElementPresentationHint },
+			new() { VariablesReference =  0, Name = "[0, 2]",    EvaluateName = "[0, 2]",    Value = "3",    Type = "int", PresentationHint = _arrayElementPresentationHint },
+			new() { VariablesReference =  0, Name = "[0, 3]",    EvaluateName = "[0, 3]",    Value = "4",    Type = "int", PresentationHint = _arrayElementPresentationHint },
+			new() { VariablesReference =  0, Name = "[0, 4]",    EvaluateName = "[0, 4]",    Value = "5",    Type = "int", PresentationHint = _arrayElementPresentationHint },
 		];
 
 		debugProtocolHost.WithVariablesRequest(multiDimArrayVariables[0].VariablesReference, out var multiDimArrayRankVariables);
@@ -228,23 +229,24 @@ file static class TestExtensions
 		debugProtocolHost.AssertIEnumerableMembers(staticMemberVariables.Single(s => s.Name == "StaticEnumerableField").VariablesReference);
 	}
 
+	private static readonly VariablePresentationHint _arrayElementPresentationHint = new() { Kind = VariablePresentationHint.KindValue.Data };
 	private static void AssertIEnumerableMembers(this DebugProtocolHost debugProtocolHost, int variablesReference)
 	{
 		debugProtocolHost.WithVariablesRequest(variablesReference, out var enumerableMembers);
 		List<Variable> expectedVariables =
 		[
-			new() { VariablesReference = 50, Name = "Raw View", EvaluateName = "Raw View", Value = "", Type = "" },
-			new() { VariablesReference = 51, Name = "Results", EvaluateName = "Results", Value = "Expanding will force enumeration of the object", Type = "" },
+			new() { VariablesReference = 50, Name = "Raw View", EvaluateName = "Raw View", Value = "", Type = "", PresentationHint = new VariablePresentationHint { Kind = VariablePresentationHint.KindValue.Class } },
+			new() { VariablesReference = 51, Name = "Results", EvaluateName = "Results", Value = "Expanding will force enumeration of the object", Type = "", PresentationHint = new VariablePresentationHint { Kind = VariablePresentationHint.KindValue.Class } },
 		];
 		enumerableMembers.Should().HaveCount(expectedVariables.Count);
 		enumerableMembers.ShouldBeEquivalentToDebuggerVariables(expectedVariables);
 
 		List<Variable> expectedVariables2 =
 		[
-			new() { VariablesReference =  0, Name = "[0]", EvaluateName = "[0]", Value = "1", Type = "int" },
-			new() { VariablesReference =  0, Name = "[1]", EvaluateName = "[1]", Value = "2", Type = "int" },
-			new() { VariablesReference =  0, Name = "[2]", EvaluateName = "[2]", Value = "3", Type = "int" },
-			new() { VariablesReference =  0, Name = "[3]", EvaluateName = "[3]", Value = "4", Type = "int" },
+			new() { VariablesReference =  0, Name = "[0]", EvaluateName = "[0]", Value = "1", Type = "int", PresentationHint = _arrayElementPresentationHint },
+			new() { VariablesReference =  0, Name = "[1]", EvaluateName = "[1]", Value = "2", Type = "int", PresentationHint = _arrayElementPresentationHint },
+			new() { VariablesReference =  0, Name = "[2]", EvaluateName = "[2]", Value = "3", Type = "int", PresentationHint = _arrayElementPresentationHint },
+			new() { VariablesReference =  0, Name = "[3]", EvaluateName = "[3]", Value = "4", Type = "int", PresentationHint = _arrayElementPresentationHint },
 		];
 
 		debugProtocolHost.WithVariablesRequest(enumerableMembers.Single(s => s.Name == "Results").VariablesReference, out var enumerableResultsMembers);

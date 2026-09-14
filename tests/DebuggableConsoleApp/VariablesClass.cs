@@ -146,6 +146,7 @@ public class VariablesClass
 
 		DateTime localDateTime = new(2026, 6, 13, 5, 42, 39);
 		Guid localGuid = new Guid("27de5b68-af24-4e59-a785-dde52e2ea7af");
+		var localCompositeValues = new CompositeValueFixtures();
 		;
 	}
 }
@@ -202,4 +203,31 @@ public class GenericTypeWithStaticField<T>
 	// static GenericTypeWithStaticField()
 	// {
 	// }
+}
+
+public class CompositeValueFixtures
+{
+	public Tuple<int, string?, string, string> NullAndEmptyStrings = Tuple.Create(1, (string?)null, "", "null");
+	public (int, string) EscapedString = (1, "a\n\"b\\c");
+	public (int, (int, string)) NestedTuple = (1, (2, "nested"));
+	public (int, int, int, int, int, int, int, string, string) LongValueTuple = (1, 2, 3, 4, 5, 6, 7, "eight", "nine");
+	public Tuple<int, int, int, int, int, int, int, Tuple<string>> LongTuple = Tuple.Create(1, 2, 3, 4, 5, 6, 7, "eight");
+	public ValueTuple EmptyTuple = new();
+	public object Anonymous = new { Text = "a\n\"b\\c", Empty = "", Missing = (string?)null, Nested = (1, "nested") };
+	public Tuple<InvalidDebuggerDisplay, int> FailedMember = Tuple.Create(new InvalidDebuggerDisplay(), 2);
+	public (int, string)? NullableTuple = (4, "nullable");
+	public (int, string)? NullTuple;
+	public NullableDebuggerDisplay? NullableDebuggerDisplay = new(5);
+	public NullableToString? NullableToString = new(6);
+}
+
+[System.Diagnostics.DebuggerDisplay("{DoesNotExist}")]
+public class InvalidDebuggerDisplay;
+
+[System.Diagnostics.DebuggerDisplay("display: {Value}")]
+public readonly record struct NullableDebuggerDisplay(int Value);
+
+public readonly record struct NullableToString(int Value)
+{
+	public override string ToString() => $"to-string: {Value}";
 }

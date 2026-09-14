@@ -194,12 +194,10 @@ public partial class ManagedDebugger
 		}
 		else if (unwrappedDebugValue is ICorDebugObjectValue objectValue)
 		{
-			var isNullableStruct = friendlyTypeName.EndsWith('?');
-			if (isNullableStruct)
+			if (TryGetNullableUnderlyingValue(corDebugValue, out _, out var underlyingValueOrNull))
 			{
-				var underlyingValueOrNull = GetUnderlyingValueOrNullFromNullableStruct(objectValue);
 				if (underlyingValueOrNull is null) return 0;
-				if (underlyingValueOrNull is not ICorDebugObjectValue objValue) return 0; // underlying value is primitive
+				if (underlyingValueOrNull.UnwrapDebugValue() is not ICorDebugObjectValue objValue) return 0; // underlying value is primitive
 				objectValue = objValue;
 			}
 

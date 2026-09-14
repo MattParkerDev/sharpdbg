@@ -10,52 +10,79 @@ using SharpDbg.Infrastructure.Debugger.ExpressionEvaluator.Compiler;
 
 namespace SharpDbg.Infrastructure.Debugger;
 
-public readonly record struct CorDebugValueValueResult(string FriendlyTypeName, string Value, bool ValueRequiresDebuggerDisplayEval, string? DebuggerProxyTypeName);
+public enum CorDebugValueFormatKind
+{
+	None,
+	DebuggerDisplay,
+	ToString,
+	Tuple,
+	AnonymousType
+}
+
+public readonly record struct CorDebugValueValueResult(string FriendlyTypeName, string Value, CorDebugValueFormatKind FormatKind, string? DebuggerProxyTypeName);
 public partial class ManagedDebugger
 {
 	public async Task<(string friendlyTypeName, string value, ICorDebugValue? debuggerProxyInstance, bool resultIsError)> GetValueForCorDebugValueAsync(ICorDebugValue corDebugValue, ThreadId threadId, FrameStackDepth frameStackDepth, bool escapeStringValue)
 	{
 		Guard.Against.Null(corDebugValue);
-		var (friendlyTypeName, value, valueRequiresDebuggerDisplayEval, debuggerProxyTypeName) = GetValueForCorDebugValue(corDebugValue, escapeStringValue);
-		if (valueRequiresDebuggerDisplayEval)
+		var resolvedValue = ResolveCorDebugValue(corDebugValue);
+		var (friendlyTypeName, value, debuggerProxyTypeName, resultIsError) = await FormatCorDebugValueAsync(resolvedValue, threadId, frameStackDepth, escapeStringValue);
+		ICorDebugValue? proxyInstance = null;
+		if (resolvedValue.Value is { } valueToProxy && debuggerProxyTypeName is not null)
 		{
-			if (value is "{ToString()}") // Fast path to avoid EE, which is far slower
+			var module = valueToProxy.ExactType.Class.Module;
+			proxyInstance = await CreateDebuggerProxyInstance(valueToProxy, threadId, module, debuggerProxyTypeName, valueToProxy.ExactType.TypeParameters);
+		}
+		return (friendlyTypeName, value, proxyInstance, resultIsError);
+	}
+
+	private async Task<(string FriendlyTypeName, string Value, string? DebuggerProxyTypeName, bool ResultIsError)> FormatCorDebugValueAsync(ResolvedCorDebugValue resolvedValue, ThreadId threadId, FrameStackDepth frameStackDepth, bool escapeStringValue)
+	{
+		if (resolvedValue.Value is not { } valueToFormat) return (resolvedValue.FriendlyTypeNameOverride!, "null", null, false);
+		var (friendlyTypeName, value, formatKind, debuggerProxyTypeName) = GetValueForCorDebugValue(valueToFormat, escapeStringValue);
+		friendlyTypeName = resolvedValue.FriendlyTypeNameOverride ?? friendlyTypeName;
+		var resultIsError = false;
+		if (formatKind is CorDebugValueFormatKind.Tuple or CorDebugValueFormatKind.AnonymousType)
+		{
+			var objectValue = valueToFormat.UnwrapDebugValue() as ICorDebugObjectValue
+				?? throw new InvalidOperationException($"Cannot format non-object value as {formatKind}");
+			(value, resultIsError) = await FormatCompositeValueAsync(objectValue, threadId, frameStackDepth, formatKind);
+		}
+		else if (formatKind is CorDebugValueFormatKind.ToString)
+		{
+			// Fast path to avoid EE, which is far slower
+			var toStringFunction = FindMethodOnType(valueToFormat.ExactType, "ToString", [], false, false) ?? throw new InvalidOperationException($"Could not find ToString on {friendlyTypeName}");
+			var thread = _process!.GetThread(threadId.Value);
+			var typeParameters = valueToFormat.ExactType.TypeParameters;
+			var result = await thread.CreateEval().CallParameterizedFunctionAsync(ProcessRuntimeEventsUntilEvalEvent, EvalStatus, toStringFunction, typeParameters.Length, typeParameters, 1, [valueToFormat], throwOnException: true) ?? throw new InvalidOperationException($"ToString returned no value for {friendlyTypeName}");
+			try
 			{
-				var toStringFunction = FindMethodOnType(corDebugValue.ExactType, "ToString", [], false, false) ?? throw new InvalidOperationException($"Could not find ToString on {friendlyTypeName}");
-				var thread = _process!.GetThread(threadId.Value);
-				var typeParameters = corDebugValue.ExactType.TypeParameters;
-				var result = await thread.CreateEval().CallParameterizedFunctionAsync(ProcessRuntimeEventsUntilEvalEvent, EvalStatus, toStringFunction, typeParameters.Length, typeParameters, 1, [corDebugValue], throwOnException: true) ?? throw new InvalidOperationException($"ToString returned no value for {friendlyTypeName}");
-				try
-				{
-					value = (result.UnwrapDebugValue() as ICorDebugStringValue)?.String ?? throw new InvalidOperationException($"ToString returned a non-string value for {friendlyTypeName}");
-				}
-				finally
-				{
-					if (result is ICorDebugHandleValue handle) handle.TryDispose();
-				}
+				value = (result.UnwrapDebugValue() as ICorDebugStringValue)?.String ?? throw new InvalidOperationException($"ToString returned a non-string value for {friendlyTypeName}");
+			}
+			finally
+			{
+				if (result is ICorDebugHandleValue handle) handle.TryDispose();
+			}
+		}
+		else if (formatKind is CorDebugValueFormatKind.DebuggerDisplay)
+		{
+			// Since the move to proper roslyn EE, eval is much slower. Consider a more primitive 'evaluator' similar to the old implementation, for DebuggerDisplay evaluation
+			var expressionString = $"$\"{value}\"";
+			var thread = _process!.GetThread(threadId.Value);
+			var evalContext = new CompiledExpressionEvaluationContext(thread, threadId, frameStackDepth, valueToFormat);
+			using var result = await _expressionEvaluator!.Evaluate(expressionString, evalContext);
+			if (result.Error is not null)
+			{
+				_logger?.Invoke($"Evaluation error: {result.Error}");
+				value = result.Error;
+				resultIsError = true;
 			}
 			else
 			{
-				// Since the move to proper roslyn EE, eval is much slower. Consider a more primitive 'evaluator' similar to the old implementation, for DebuggerDisplay evaluation
-				var expressionString = $"$\"{value}\"";
-				var thread = _process!.GetThread(threadId.Value);
-				var evalContext = new CompiledExpressionEvaluationContext(thread, threadId, frameStackDepth, corDebugValue);
-				using var result = await _expressionEvaluator!.Evaluate(expressionString, evalContext);
-				if (result.Error is not null)
-				{
-					_logger?.Invoke($"Evaluation error: {result.Error}");
-					return (friendlyTypeName, result.Error, null, true);
-				}
 				(_, value, _, _) = GetValueForCorDebugValue(result.Value!, false);
 			}
 		}
-		ICorDebugValue? proxyInstance = null;
-		if (debuggerProxyTypeName is not null)
-		{
-			var module = corDebugValue.ExactType.Class.Module;
-			proxyInstance = await CreateDebuggerProxyInstance(corDebugValue, threadId, module, debuggerProxyTypeName, corDebugValue.ExactType.TypeParameters);
-		}
-		return (friendlyTypeName, value, proxyInstance, false);
+		return (friendlyTypeName, value, debuggerProxyTypeName, resultIsError);
 	}
 
 	private async Task<ICorDebugValue> CreateDebuggerProxyInstance(ICorDebugValue value, ThreadId threadId, ICorDebugModule module, string proxyTypeName, ICorDebugType[] typeArguments)
@@ -75,7 +102,7 @@ public partial class ManagedDebugger
 
 	private static CorDebugValueValueResult GetValueForCorDebugValue(ICorDebugValue corDebugValue, bool escapeStringValue)
 	{
-		var (friendlyTypeName, value, valueRequiresDebuggerDisplayEval, debuggerTypeProxy) = corDebugValue switch
+		return corDebugValue switch
 		{
 			ICorDebugBoxValue corDebugBoxValue => GetCorDebugBoxValue_Value_AsString(corDebugBoxValue, escapeStringValue),
 			ICorDebugArrayValue corDebugArrayValue => Get_CorDebugArrayValue_AsString(corDebugArrayValue),
@@ -90,14 +117,13 @@ public partial class ManagedDebugger
 			ICorDebugGenericValue corDebugGenericValue => GetCorDebugGenericValue_Value_AsString(corDebugGenericValue),  // This should be already handled by the above classes, so we should never get here
 			_ => throw new ArgumentOutOfRangeException(nameof(corDebugValue))
 		};
-		return new(friendlyTypeName, value, valueRequiresDebuggerDisplayEval, debuggerTypeProxy);
 	}
 
 	private static CorDebugValueValueResult Get_CorDebugStringValue_AsString(ICorDebugStringValue corDebugStringValue, bool escapeStringValue)
 	{
 		var text = corDebugStringValue.String;
 		if (escapeStringValue) text = SymbolDisplay.FormatLiteral(text, quote: true);
-		return new("string", text, false, null);
+		return new("string", text, CorDebugValueFormatKind.None, null);
 	}
 
 	public static CorDebugValueValueResult Get_CorDebugArrayValue_AsString(ICorDebugArrayValue corDebugArrayValue)
@@ -107,7 +133,7 @@ public partial class ManagedDebugger
 		var elementTypeName = typeNameSpan[..typeNameSpan.LastIndexOf('[')];
 		var dimensions = corDebugArrayValue.GetDimensions(corDebugArrayValue.Rank);
 		var value = $"{elementTypeName}[{string.Join(", ", dimensions)}]";
-		return new(typeName, value, false, null);
+		return new(typeName, value, CorDebugValueFormatKind.None, null);
 	}
 
 	public static CorDebugValueValueResult GetCorDebugBoxValue_Value_AsString(ICorDebugBoxValue corDebugBoxValue, bool escapeStringValue)
@@ -129,51 +155,44 @@ public partial class ManagedDebugger
 			var value = GetValueForCorDebugValue(valueField, escapeStringValue);
 
 			var enumDisplayValue = GetEnumDisplayValue(metaDataImport, corDebugObjectValue.Class.Token, value.Value);
-			return new(GetCorDebugTypeFriendlyName(corDebugObjectValue.ExactType), enumDisplayValue, false, null);
+			return new(GetCorDebugTypeFriendlyName(corDebugObjectValue.ExactType), enumDisplayValue, CorDebugValueFormatKind.None, null);
 		}
 		var typeName = GetCorDebugTypeFriendlyName(corDebugObjectValue.ExactType);
-		if (typeName.EndsWith('?'))
-		{
-			var underlyingValueOrNull = GetUnderlyingValueOrNullFromNullableStruct(corDebugObjectValue);
-			if (underlyingValueOrNull is null) return new(typeName, "null", false, null);
-			var value = GetValueForCorDebugValue(underlyingValueOrNull, escapeStringValue);
-			return value with { FriendlyTypeName = typeName };
-		}
 		var hasDebuggerTypeProxyAttribute = metaDataImport.TryGetCustomAttributeByName(corDebugObjectValue.Class.Token, "System.Diagnostics.DebuggerTypeProxyAttribute", out var debuggerTypeProxyAttributePointer, out var debuggerTypeProxyAttributeSize) is Cor.S_OK;
 		var hasDebuggerDisplayAttribute = metaDataImport.TryGetCustomAttributeByName(corDebugObjectValue.Class.Token, "System.Diagnostics.DebuggerDisplayAttribute", out var debuggerDisplayAttributePointer, out var debuggerDisplayAttributeSize) is Cor.S_OK;
 
 		var debugProxyTypeName = hasDebuggerTypeProxyAttribute ? GetCustomAttributeResultString(debuggerTypeProxyAttributePointer, debuggerTypeProxyAttributeSize) : null;
+		if (IsTupleType(typeName))
+		{
+			return new(typeName, "", CorDebugValueFormatKind.Tuple, debugProxyTypeName);
+		}
+		if (typeName.StartsWith("<>f__AnonymousType", StringComparison.Ordinal))
+		{
+			return new(typeName, "", CorDebugValueFormatKind.AnonymousType, debugProxyTypeName);
+		}
 		if (hasDebuggerDisplayAttribute)
 		{
 			var (debuggerDisplayValue, debuggerDisplayName) = GetCustomAttributeCtorStringArgAndNamedArg(debuggerDisplayAttributePointer, debuggerDisplayAttributeSize, "Name");
-			if (typeName.StartsWith("<>f__AnonymousType"))
-			{
-				// DebuggerDisplay Name for an anonymous type is e.g. `\{ Id = {Id}, Name = {Name} }`
-				// '\' denotes escaping a bracket for presumably VS's DebuggerDisplay interpreter
-				// Since we are leaning on the similarity of DebuggerDisplay strings to interpolated strings, we need to fix the invalid C# syntax before returning it
-				// e.g. fixed - `{{ Id = {Id}, Name = {Name} }}`
-				debuggerDisplayValue = $$$"""{{{{{debuggerDisplayValue[2..^1]}}}}}"""; // range indexing removes the leading '\{' and trailing '}', which we replace
-			}
 			// I prefer how Rider handles this - instead of overriding the actual name of the variable, just prefix the value with the name
 			if (debuggerDisplayName is not null) debuggerDisplayValue = $"{debuggerDisplayName} = {debuggerDisplayValue}";
-			return new(typeName, debuggerDisplayValue, true, debugProxyTypeName);
+			return new(typeName, debuggerDisplayValue, CorDebugValueFormatKind.DebuggerDisplay, debugProxyTypeName);
 		}
 		if (corDebugObjectValue.ExactType.IsExceptionType())
 		{
-			return new(typeName, "{ToString()}", true, debugProxyTypeName);
+			return new(typeName, "", CorDebugValueFormatKind.ToString, debugProxyTypeName);
 		}
 		if (typeName == "decimal")
 		{
 			// This technically isn't necessary - System.Decimal overrides ToString, which we call below. This might technically be faster? This is how it is implemented in netcoredbg, but they don't handle overridden ToString's
 			var decimalString = GetDecimalValueString(corDebugObjectValue);
-			return new(typeName, decimalString, false, null);
+			return new(typeName, decimalString, CorDebugValueFormatKind.None, null);
 		}
 		if (TypeOverridesToString(corDebugObjectValue.ExactType))
 		{
-			return new(typeName, "{ToString()}", true, debugProxyTypeName);
+			return new(typeName, "", CorDebugValueFormatKind.ToString, debugProxyTypeName);
 		}
 
-		return new(typeName, $"{{{typeName}}}", false, debugProxyTypeName);
+		return new(typeName, $"{{{typeName}}}", CorDebugValueFormatKind.None, debugProxyTypeName);
 	}
 
 	/// Returns true if <paramref name="corDebugType"/> or any of its base types (up to but not
@@ -215,13 +234,36 @@ public partial class ManagedDebugger
 		return valueValue;
 	}
 
+	private static bool TryGetNullableUnderlyingValue(ICorDebugValue corDebugValue, out string nullableTypeName, out ICorDebugValue? underlyingValue)
+	{
+		nullableTypeName = "";
+		underlyingValue = null;
+		if (corDebugValue.UnwrapDebugValue() is not ICorDebugObjectValue objectValue) return false;
+
+		var metadata = objectValue.Class.Module.GetMetaDataInterface<IMetaDataImport>();
+		if (metadata.GetTypeDefProps(objectValue.Class.Token).szTypeDef is not "System.Nullable`1") return false;
+
+		nullableTypeName = GetCorDebugTypeFriendlyName(objectValue.ExactType);
+		underlyingValue = GetUnderlyingValueOrNullFromNullableStruct(objectValue);
+		return true;
+	}
+
+	private readonly record struct ResolvedCorDebugValue(ICorDebugValue? Value, string? FriendlyTypeNameOverride);
+
+	private static ResolvedCorDebugValue ResolveCorDebugValue(ICorDebugValue corDebugValue)
+	{
+		return TryGetNullableUnderlyingValue(corDebugValue, out var nullableTypeName, out var underlyingValue)
+			? new(underlyingValue, nullableTypeName)
+			: new(corDebugValue, null);
+	}
+
 	public static CorDebugValueValueResult GetCorDebugReferenceValue_Value_AsString(ICorDebugReferenceValue corDebugReferenceValue, bool escapeStringValue)
 	{
 		if (corDebugReferenceValue.IsNull)
 		{
 			// Get the type information even though the reference is null
 			var typeName = GetCorDebugTypeFriendlyName(corDebugReferenceValue.ExactType);
-			return new(typeName, "null", false, null);
+			return new(typeName, "null", CorDebugValueFormatKind.None, null);
 		}
 		var referencedValue = corDebugReferenceValue.Dereference();
 		var value = GetValueForCorDebugValue(referencedValue, escapeStringValue);
@@ -360,7 +402,7 @@ public partial class ManagedDebugger
 				_ => throw new ArgumentOutOfRangeException()
 			};
 			var friendlyTypeName = GetFriendlyTypeName(corDebugGenericValue.Type) ?? throw new ArgumentOutOfRangeException();
-			return new(friendlyTypeName, value, false, null);
+			return new(friendlyTypeName, value, CorDebugValueFormatKind.None, null);
 		}
 		finally
 		{

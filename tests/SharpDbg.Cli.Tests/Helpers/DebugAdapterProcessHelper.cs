@@ -15,6 +15,7 @@ public static class DebugAdapterProcessHelper
 			{
 				//FileName = @"C:\Users\Matthew\Downloads\netcoredbg-win64\netcoredbg\netcoredbg.exe",
 				//FileName = @"C:\Users\Matthew\Documents\Git\sharpdbg\artifacts\bin\SharpDbg.Cli\debug\SharpDbg.Cli.exe",
+				//FileName = @"C:\Users\Matthew\Documents\Git\Misc\xdbg\src\xdbg\bin\Release\net10.0\xdbg.exe",
 				FileName = Path.JoinFromGitRoot("artifacts", "bin", "SharpDbg.Cli", "debug", OperatingSystem.IsWindows() ? "SharpDbg.Cli.exe" : "SharpDbg.Cli"),
 				Arguments = "--interpreter=vscode",
 				RedirectStandardInput = true,

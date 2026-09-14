@@ -15,8 +15,26 @@ public class TcsContainer
 	public required TaskCompletionSource<DebugEvent> Tcs { get; set; }
 }
 
+public enum DebugAdapterMode
+{
+	InProc,
+	OutOfProc
+}
+
 public static partial class TestHelper
 {
+	public static (DisposableDebugProtocolHost, TaskCompletionSource InitializedEventTcs, TcsContainer debugEventTcs, IDisposable DebugAdapterDisposable, Process DebuggableProcess) GetRunningDebugProtocolHost(ITestOutputHelper testOutputHelper, bool startSuspended)
+	{
+		var debugAdapterMode = DebugAdapterMode.InProc;
+		var result = debugAdapterMode switch
+		{
+			DebugAdapterMode.InProc => GetRunningDebugProtocolHostInProc(testOutputHelper, startSuspended),
+			DebugAdapterMode.OutOfProc => GetRunningDebugProtocolHostOop(testOutputHelper, startSuspended),
+			_ => throw new NotImplementedException($"Debug adapter mode {debugAdapterMode} is not implemented.")
+		};
+		return result;
+	}
+
 	public static (DisposableDebugProtocolHost, TaskCompletionSource InitializedEventTcs, TcsContainer debugEventTcs, IDisposable DebugAdapterDisposable, Process DebuggableProcess) GetRunningDebugProtocolHostOop(ITestOutputHelper testOutputHelper, bool startSuspended)
 	{
 		var process = DebugAdapterProcessHelper.GetDebugAdapterProcess();

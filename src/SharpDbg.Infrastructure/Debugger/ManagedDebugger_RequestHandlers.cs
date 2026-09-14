@@ -524,9 +524,9 @@ public partial class ManagedDebugger
 			Id = frameId,
 			Name = null!,
 			Line = 0,
-			EndLine = 0,
+			EndLine = null,
 			Column = 0,
-			EndColumn = 0,
+			EndColumn = null,
 			Source = null,
 			IsResolved = true,
 			DecompiledSourceInfo = null
@@ -572,9 +572,9 @@ public partial class ManagedDebugger
 			Id = frameId,
 			Name = frame.Name,
 			Line = source?.StartLine ?? 0,
-			EndLine = source?.EndLine ?? 0,
+			EndLine = source?.EndLine,
 			Column = source?.StartColumn ?? 0,
-			EndColumn = source?.EndColumn ?? 0,
+			EndColumn = source?.EndColumn,
 			Source = source?.FilePath,
 			IsResolved = frame.Module.MetadataReader.HasSymbols,
 			DecompiledSourceInfo = source?.DecompiledSourceInfo

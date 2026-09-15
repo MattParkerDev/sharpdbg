@@ -53,6 +53,7 @@ public partial class ManagedDebugger
 	private CilExpressionEvaluator _expressionEvaluator = null!;
 
 	private Process? _debuggeeProcess;
+	private StreamWriter? _debuggeeStandardInput;
 
 	public event Action<int, string>? OnStopped;
 	// ThreadId, FilePath, Line, Column, Reason, HitBreakpointIds, DecompiledSourceInfo
@@ -528,6 +529,7 @@ public partial class ManagedDebugger
 		_process = null;
 		_corDebug = null;
 
+		_debuggeeStandardInput = null;
 		_debuggeeProcess?.Dispose();
 		_debuggeeProcess = null;
 	}

@@ -130,9 +130,15 @@ public partial class ManagedDebugger
 	{
 		var typeName = GetCorDebugTypeFriendlyName(corDebugArrayValue.ExactType);
 		var typeNameSpan = typeName.AsSpan();
-		var elementTypeName = typeNameSpan[..typeNameSpan.LastIndexOf('[')];
+		var arraySuffixStart = typeNameSpan.Length;
+		while (arraySuffixStart > 0 && typeNameSpan[arraySuffixStart - 1] == ']')
+		{
+			arraySuffixStart = typeNameSpan[..arraySuffixStart].LastIndexOf('[');
+		}
+		var elementTypeName = typeNameSpan[..arraySuffixStart];
+		var remainingArraySuffix = typeNameSpan[(arraySuffixStart + typeNameSpan[arraySuffixStart..].IndexOf(']') + 1)..];
 		var dimensions = corDebugArrayValue.GetDimensions(corDebugArrayValue.Rank);
-		var value = $"{elementTypeName}[{string.Join(", ", dimensions)}]";
+		var value = $"{elementTypeName}[{string.Join(", ", dimensions)}]{remainingArraySuffix}";
 		return new(typeName, value, CorDebugValueFormatKind.None, null);
 	}
 

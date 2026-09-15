@@ -1,4 +1,5 @@
 using AwesomeAssertions;
+using AwesomeAssertions.Execution;
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol;
 using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
 using SharpDbg.Cli.Tests.Helpers;
@@ -13,6 +14,7 @@ public class Variables2Tests(ITestOutputHelper testOutputHelper)
 		var startSuspended = true;
 
 		var (debugProtocolHost, initializedEventTcs, debugEventTcs, adapter, p2) = TestHelper.GetRunningDebugProtocolHost(testOutputHelper, startSuspended);
+		using var assertionScope = new AssertionScope();
 		using var _ = adapter;
 		using var __ = new ProcessKiller(p2);
 		using var ___ = debugProtocolHost;

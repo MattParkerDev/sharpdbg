@@ -65,35 +65,33 @@ internal static class Program
 			// Create the debug adapter
 			var adapter = new DebugAdapter(Log);
 
-			// Initialize the protocol client and start it
+			// Initialize the protocol connection
 			adapter.Initialize(inputStream, outputStream);
 
 			Log("Protocol server starting...");
 
-			Exception? dispatcherError = null;
-			adapter.Protocol.DispatcherError += (_, e) =>
+			Exception? protocolError = null;
+			adapter.Connection.ProtocolError += exception =>
 			{
-				Interlocked.CompareExchange(ref dispatcherError, e.Exception, null);
+				Interlocked.CompareExchange(ref protocolError, exception, null);
 
-				var message = $"SharpDbg DAP protocol dispatcher error: {e.Exception}";
+				var message = $"SharpDbg DAP protocol error: {exception}";
 				Log(message);
 				Console.Error.WriteLine(message);
 			};
 
-			// Run() starts the protocol client's message loop in a background thread
-			adapter.Protocol.Run();
-
 			// Shutdown happens either when a DAP 'disconnect' request has been handled
-			// (while stdin is still open), or when the client closes stdin / crashes (reader loop exits).
+			// (while stdin is still open), or when the client closes stdin / crashes (the connection completes).
 			var shutdownTcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
 			adapter.ShutdownRequested += () => shutdownTcs.TrySetResult();
-			_ = Task.Run(() =>
+			_ = adapter.Connection.Completion.ContinueWith(_ =>
 			{
-				// WaitForReader() blocks until the input stream is closed and must not be called from the dispatcher thread
-				adapter.Protocol.WaitForReader();
 				Log("Input stream closed");
 				shutdownTcs.TrySetResult();
-			});
+			}, TaskScheduler.Default);
+
+			// Reads messages on a background thread and dispatches requests to the adapter
+			adapter.Connection.Start();
 
 			shutdownTcs.Task.Wait();
 
@@ -101,14 +99,13 @@ internal static class Program
 			// disposed - clean it up now. No-op when a disconnect request was handled.
 			adapter.DapAborted_ShutdownDebugger();
 
-			var exitCode = dispatcherError is not null ? 1 : 0;
+			var exitCode = protocolError is not null ? 1 : 0;
 			Log($"Exiting with code {exitCode}");
 			_logWriter?.Flush();
 			_logWriter?.Dispose();
 			_logWriter = null;
 
-			// The protocol reader thread is a foreground thread blocked reading stdin - returning from Main
-			// would leave the process alive for as long as the client keeps its stream open. Exit explicitly.
+			// The protocol reader thread may be blocked reading stdin - exit explicitly rather than waiting for it.
 			Environment.Exit(exitCode);
 			return exitCode; // unreachable - keeps the compiler happy
 		}

@@ -1,6 +1,5 @@
 using AwesomeAssertions;
-using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
-using Newtonsoft.Json.Linq;
+using SharpDbg.DapProtocol;
 using SharpDbg.Application.Protocol;
 using SharpDbg.Cli.Tests.Helpers;
 
@@ -22,7 +21,7 @@ public class StackTraceTests(ITestOutputHelper testOutputHelper)
 			.WithInitializeRequest()
 			.WithAttachRequest(p2.Id, justMyCode: true)
 			.WaitForInitializedEvent(initializedEventTcs);
-		debugProtocolHost.SendRequestSync(new SetExceptionBreakpointsRequest { Filters = [], FilterOptions = [new("all"), new("user-unhandled")] });
+		debugProtocolHost.SendRequestSync(new SetExceptionBreakpointsArguments { Filters = [], FilterOptions = [new() { FilterId = "all" }, new() { FilterId = "user-unhandled" }] });
 		var breakpointedFilePath = Path.JoinFromGitRoot("tests", "DebuggableConsoleApp", "ClassWithBclCall.cs");
 		debugProtocolHost
 			.WithBreakpointsRequest([12], breakpointedFilePath)
@@ -48,7 +47,7 @@ public class StackTraceTests(ITestOutputHelper testOutputHelper)
 
 		debugProtocolHost.WithStackTraceRequest(stoppedEvent.ThreadId!.Value, out var stackTraceResponse, null);
 		stackTraceResponse.StackFrames.Count.Should().Be(expectedStackFrames.Count);
-		stackTraceResponse.StackFrames.Should().BeEquivalentTo(expectedStackFrames, options => options.WithStrictOrdering().Excluding(s => s.Source.Checksums).Excluding(s => s.Source.VsSourceLinkInfo).Excluding(s => s.InstructionPointerReference).Excluding(s => s.AdditionalProperties));
+		stackTraceResponse.StackFrames.Should().BeEquivalentTo(expectedStackFrames, options => options.WithStrictOrdering().Excluding(s => s.Source!.Checksums).Excluding(s => s.InstructionPointerReference).Excluding(s => s.AdditionalProperties));
 		stackTraceResponse.StackFrames.Select(f => f.IsResolved).Should().Equal(true, false, false, true, true);
 		// Since JMC is enabled, we never decompile, as well as to resolve a frame, we need to send a ResolveStackFrameRequest, so all frames should have null decompiledSourceInfo
 		stackTraceResponse.StackFrames.Should().AllSatisfy(frame => frame.DecompiledSourceInfo.Should().BeNull());
@@ -72,7 +71,7 @@ public class StackTraceTests(ITestOutputHelper testOutputHelper)
 
 		debugProtocolHost.WithStackTraceRequest(stoppedEvent2.ThreadId!.Value, out var stackTraceResponse2, null);
 		stackTraceResponse2.StackFrames.Count.Should().Be(expectedStackFrames2.Count);
-		stackTraceResponse2.StackFrames.Should().BeEquivalentTo(expectedStackFrames2, options => options.WithStrictOrdering().Excluding(s => s.Source.Checksums).Excluding(s => s.Source.VsSourceLinkInfo).Excluding(s => s.InstructionPointerReference).Excluding(s => s.AdditionalProperties));
+		stackTraceResponse2.StackFrames.Should().BeEquivalentTo(expectedStackFrames2, options => options.WithStrictOrdering().Excluding(s => s.Source!.Checksums).Excluding(s => s.InstructionPointerReference).Excluding(s => s.AdditionalProperties));
 
 		var breakpointedFilePath3 = Path.JoinFromGitRoot("tests", "DebuggableConsoleApp", "Namespace1", "AnotherClass.cs");
 		var stoppedEvent3 = await debugProtocolHost
@@ -154,12 +153,12 @@ public class StackTraceTests(ITestOutputHelper testOutputHelper)
 		unresolvedFrame.IsResolved.Should().BeFalse();
 		unresolvedFrame.DecompiledSourceInfo.Should().BeNull();
 
-		var response = debugProtocolHost.SendRequestSync(new ResolveStackFrameRequest(unresolvedFrame.Id));
+		var response = debugProtocolHost.SendRequestSync(new ResolveStackFrameArguments { StackFrameId = unresolvedFrame.Id });
 
 		response.StackFrame.Id.Should().Be(unresolvedFrame.Id);
 		response.StackFrame.IsResolved.Should().BeTrue();
 		response.StackFrame.PresentationHint.Should().Be(StackFrame.PresentationHintValue.Subtle);
-		response.StackFrame.Source.Path.Should().EndWith(".cs");
+		response.StackFrame.Source!.Path.Should().EndWith(".cs");
 		response.StackFrame.Line.Should().BeGreaterThan(0);
 		var decompiledSourceInfo = response.StackFrame.DecompiledSourceInfo;
 		decompiledSourceInfo.Should().NotBeNull();

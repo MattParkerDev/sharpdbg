@@ -1,5 +1,5 @@
 using AwesomeAssertions;
-using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
+using SharpDbg.DapProtocol;
 using SharpDbg.Cli.Tests.Helpers;
 using SharpDbg.Infrastructure.Debugger;
 
@@ -21,7 +21,7 @@ public class FunctionBreakpointTests(ITestOutputHelper testOutputHelper)
 			.WithAttachRequest(p2.Id)
 			.WaitForInitializedEvent(initializedEventTcs);
 
-		var result = debugProtocolHost.SendRequestSync(new SetFunctionBreakpointsRequest([new FunctionBreakpoint("SameNamedClass.Test")]));
+		var result = debugProtocolHost.SendRequestSync(new SetFunctionBreakpointsArguments { Breakpoints = [new FunctionBreakpoint { Name = "SameNamedClass.Test" }] });
 		var breakpointId = result.Breakpoints.Single().Id!.Value;
 
 		debugProtocolHost
@@ -34,7 +34,7 @@ public class FunctionBreakpointTests(ITestOutputHelper testOutputHelper)
 		debugProtocolHost.WithStackTraceRequest(stoppedEvent.ThreadId!.Value, out var stackTraceResponse);
 		var topFrame = stackTraceResponse.StackFrames.Single();
 
-		topFrame.Source.Path.Should().EndWith("SameNamedClass.cs");
+		topFrame.Source!.Path.Should().EndWith("SameNamedClass.cs");
 		topFrame.Line.Should().Be(6);
 		topFrame.Column.Should().Be(3);
 		topFrame.EndColumn.Should().Be(4);
@@ -43,7 +43,7 @@ public class FunctionBreakpointTests(ITestOutputHelper testOutputHelper)
 		debugProtocolHost.WithStackTraceRequest(stoppedEvent2.ThreadId!.Value, out var stackTraceResponse2);
 		var topFrame2 = stackTraceResponse2.StackFrames.Single();
 
-		topFrame2.Source.Path.Should().EndWith("SameNamedClass2.cs");
+		topFrame2.Source!.Path.Should().EndWith("SameNamedClass2.cs");
 		topFrame2.Line.Should().Be(6);
 		topFrame2.Column.Should().Be(3);
 		topFrame2.EndColumn.Should().Be(4);
@@ -63,7 +63,7 @@ public class FunctionBreakpointTests(ITestOutputHelper testOutputHelper)
 			.WithAttachRequest(p2.Id)
 			.WaitForInitializedEvent(initializedEventTcs);
 
-		var result = debugProtocolHost.SendRequestSync(new SetFunctionBreakpointsRequest([new FunctionBreakpoint("DebuggableConsoleApp.MyClass.MyMethod")]));
+		var result = debugProtocolHost.SendRequestSync(new SetFunctionBreakpointsArguments { Breakpoints = [new FunctionBreakpoint { Name = "DebuggableConsoleApp.MyClass.MyMethod" }] });
 		var breakpointId = result.Breakpoints.Single().Id!.Value;
 
 		debugProtocolHost
@@ -92,7 +92,7 @@ public class FunctionBreakpointTests(ITestOutputHelper testOutputHelper)
 			.WithAttachRequest(p2.Id)
 			.WaitForInitializedEvent(initializedEventTcs);
 
-		var result = debugProtocolHost.SendRequestSync(new SetFunctionBreakpointsRequest([new FunctionBreakpoint("DebuggableConsoleApp.MyGenericClassContainingAnotherGenericClass<T, U>.MyNestedGenericClass<T, U>.Test")]));
+		var result = debugProtocolHost.SendRequestSync(new SetFunctionBreakpointsArguments { Breakpoints = [new FunctionBreakpoint { Name = "DebuggableConsoleApp.MyGenericClassContainingAnotherGenericClass<T, U>.MyNestedGenericClass<T, U>.Test" }] });
 		var breakpointId = result.Breakpoints.Single().Id!.Value;
 
 		debugProtocolHost
@@ -121,7 +121,7 @@ public class FunctionBreakpointTests(ITestOutputHelper testOutputHelper)
 			.WithAttachRequest(p2.Id)
 			.WaitForInitializedEvent(initializedEventTcs);
 
-		var result = debugProtocolHost.SendRequestSync(new SetFunctionBreakpointsRequest([new FunctionBreakpoint("DebuggableConsoleApp.OverloadedMethodsClass.OverloadedMethod")]));
+		var result = debugProtocolHost.SendRequestSync(new SetFunctionBreakpointsArguments { Breakpoints = [new FunctionBreakpoint { Name = "DebuggableConsoleApp.OverloadedMethodsClass.OverloadedMethod" }] });
 		var breakpointId = result.Breakpoints.Single().Id!.Value;
 
 		debugProtocolHost
@@ -133,7 +133,7 @@ public class FunctionBreakpointTests(ITestOutputHelper testOutputHelper)
 		await AssertBreakpointsHit();
 
 		// Also test that classless method resolution works
-		var result2 = debugProtocolHost.SendRequestSync(new SetFunctionBreakpointsRequest([new FunctionBreakpoint("OverloadedMethod")]));
+		var result2 = debugProtocolHost.SendRequestSync(new SetFunctionBreakpointsArguments { Breakpoints = [new FunctionBreakpoint { Name = "OverloadedMethod" }] });
 		debugProtocolHost.WithContinueRequest();
 
 		await AssertBreakpointsHit();
@@ -183,7 +183,7 @@ public class FunctionBreakpointTests(ITestOutputHelper testOutputHelper)
 			.WithAttachRequest(p2.Id)
 			.WaitForInitializedEvent(initializedEventTcs);
 
-		var result = debugProtocolHost.SendRequestSync(new SetFunctionBreakpointsRequest([new FunctionBreakpoint("DebuggableConsoleApp.OverloadedMethodsClass.OverloadedMethod(int, MyClass)")]));
+		var result = debugProtocolHost.SendRequestSync(new SetFunctionBreakpointsArguments { Breakpoints = [new FunctionBreakpoint { Name = "DebuggableConsoleApp.OverloadedMethodsClass.OverloadedMethod(int, MyClass)" }] });
 		var breakpointId = result.Breakpoints.Single().Id!.Value;
 
 		debugProtocolHost
@@ -211,7 +211,7 @@ file static class Extensions
 	{
 		public void ShouldBeAtSourceLocation(string fileName, int line, int endLine, int column, int endColumn)
 		{
-			frame.Source.Path.Should().EndWith(fileName);
+			frame.Source!.Path.Should().EndWith(fileName);
 			frame.Line.Should().Be(line);
 			frame.EndLine.Should().Be(endLine);
 			frame.Column.Should().Be(column);

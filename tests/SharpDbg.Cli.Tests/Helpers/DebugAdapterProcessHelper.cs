@@ -1,7 +1,7 @@
 using System.Diagnostics;
-using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
-using Newtonsoft.Json.Linq;
+using System.Text.Json.Nodes;
 using SharpDbg.Infrastructure.Debugger;
+using SharpDbg.DapProtocol;
 
 namespace SharpDbg.Cli.Tests.Helpers;
 
@@ -29,33 +29,22 @@ public static class DebugAdapterProcessHelper
 		return process;
 	}
 
-	public static DisposableDebugProtocolHost GetDebugProtocolHost(Stream inputStream, Stream outputStream, ITestOutputHelper testOutputHelper, TaskCompletionSource? initializedEventTcs = null, bool terminateDebuggeeOnDispose = false)
+	public static DebugProtocolHost GetDebugProtocolHost(Stream inputStream, Stream outputStream, ITestOutputHelper testOutputHelper, TaskCompletionSource? initializedEventTcs = null, bool terminateDebuggeeOnDispose = false)
 	{
-		var debugProtocolHost = new DisposableDebugProtocolHost(inputStream, outputStream, false, terminateDebuggeeOnDispose);
-		debugProtocolHost.LogMessage += (sender, args) =>
+		var debugProtocolHost = new DebugProtocolHost(inputStream, outputStream, terminateDebuggeeOnDispose, log: message =>
 		{
-			//testOutputHelper.WriteLine($"Log [DAP Host]: {args.Message}");
-		};
-		debugProtocolHost.RegisterClientRequestType<HandshakeRequest, HandshakeArguments, HandshakeResponse>(async void (responder) =>
-		{
-			var signatureResponse = await DebuggerHandshakeSigner.Sign(responder.Arguments.Value);
-			responder.SetResponse(new HandshakeResponse(signatureResponse));
+			//testOutputHelper.WriteLine($"Log [DAP Host]: {message}");
 		});
 		debugProtocolHost.RegisterEventType<InitializedEvent>(@event =>
 		{
 			initializedEventTcs?.SetResult();
 		});
-		// debugProtocolHost.RegisterEventType<StoppedEvent>(async void (@event) =>
-		// {
-		// 	testOutputHelper.WriteLine("Stopped Event");
-		// });
-		debugProtocolHost.VerifySynchronousOperationAllowed();
 		return debugProtocolHost;
 	}
 
-	public static InitializeRequest GetInitializeRequest()
+	public static InitializeArguments GetInitializeRequest()
 	{
-		return new InitializeRequest
+		return new InitializeArguments
 		{
 			ClientID = "vscode",
 			ClientName = "Visual Studio Code",
@@ -66,16 +55,15 @@ public static class DebugAdapterProcessHelper
 			PathFormat = InitializeArguments.PathFormatValue.Path,
 			SupportsVariableType = true,
 			SupportsVariablePaging = true,
-			SupportsRunInTerminalRequest = true,
-			SupportsHandshakeRequest = true
+			SupportsRunInTerminalRequest = true
 		};
 	}
 
-	public static AttachRequest GetAttachRequest(int processId, bool justMyCode = true)
+	public static AttachArguments GetAttachRequest(int processId, bool justMyCode = true)
 	{
-		return new AttachRequest
+		return new AttachArguments
 		{
-			ConfigurationProperties = new Dictionary<string, JToken>
+			AdditionalProperties = new JsonObject
 			{
 				["name"] = "AttachRequestName",
 				["type"] = "coreclr",
@@ -86,11 +74,11 @@ public static class DebugAdapterProcessHelper
 		};
 	}
 
-	public static LaunchRequest GetLaunchRequest(string program, bool stopAtEntry, bool justMyCode = true)
+	public static LaunchArguments GetLaunchRequest(string program, bool stopAtEntry, bool justMyCode = true)
 	{
-		return new LaunchRequest
+		return new LaunchArguments
 		{
-			ConfigurationProperties = new Dictionary<string, JToken>
+			AdditionalProperties = new JsonObject
 			{
 				["name"] = "LaunchRequestName",
 				["type"] = "coreclr",
@@ -103,14 +91,14 @@ public static class DebugAdapterProcessHelper
 		};
 	}
 
-	public static SetBreakpointsRequest GetSetBreakpointsRequest(int? line = null, string? filePath = null)
+	public static SetBreakpointsArguments GetSetBreakpointsRequest(int? line = null, string? filePath = null)
 	{
 		line ??= 22;
 		filePath ??= Path.JoinFromGitRoot("tests", "DebuggableConsoleApp", "MyClass.cs");
 		var debugFilePath = filePath;
 		var debugFileBreakpointLine = line.Value;
 
-		var setBreakpointsRequest = new SetBreakpointsRequest
+		var setBreakpointsRequest = new SetBreakpointsArguments
 		{
 			Source = new Source { Path = debugFilePath },
 			Breakpoints = [new SourceBreakpoint { Line = debugFileBreakpointLine }]
@@ -118,9 +106,9 @@ public static class DebugAdapterProcessHelper
 		return setBreakpointsRequest;
 	}
 
-	public static SetBreakpointsRequest GetSetBreakpointsRequest(int[] lines, string filePath)
+	public static SetBreakpointsArguments GetSetBreakpointsRequest(int[] lines, string filePath)
 	{
-		var setBreakpointsRequest = new SetBreakpointsRequest
+		var setBreakpointsRequest = new SetBreakpointsArguments
 		{
 			Source = new Source { Path = filePath },
 			Breakpoints = lines.Select(line => new SourceBreakpoint { Line = line }).ToList()
@@ -128,9 +116,9 @@ public static class DebugAdapterProcessHelper
 		return setBreakpointsRequest;
 	}
 
-	public static SetBreakpointsRequest GetSetBreakpointsRequest(List<SharpDbgBreakpointRequest> breakpointRequests, string filePath)
+	public static SetBreakpointsArguments GetSetBreakpointsRequest(List<SharpDbgBreakpointRequest> breakpointRequests, string filePath)
 	{
-		var setBreakpointsRequest = new SetBreakpointsRequest
+		var setBreakpointsRequest = new SetBreakpointsArguments
 		{
 			Source = new Source { Path = filePath },
 			Breakpoints = breakpointRequests.Select(s => new SourceBreakpoint

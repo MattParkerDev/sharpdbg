@@ -1,5 +1,5 @@
 using AwesomeAssertions;
-using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
+using SharpDbg.DapProtocol;
 
 namespace SharpDbg.Cli.Tests.Helpers;
 

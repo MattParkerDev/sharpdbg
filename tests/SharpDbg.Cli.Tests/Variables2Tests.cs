@@ -1,7 +1,6 @@
 using AwesomeAssertions;
 using AwesomeAssertions.Execution;
-using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol;
-using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
+using SharpDbg.DapProtocol;
 using SharpDbg.Cli.Tests.Helpers;
 
 namespace SharpDbg.Cli.Tests;
@@ -269,7 +268,7 @@ file static class TestExtensions
 			new() { VariablesReference = 59, Name = "LongTuple",           EvaluateName = "LongTuple",           Value = "(1, 2, 3, 4, 5, 6, 7, \"eight\")", Type = "System.Tuple<int, int, int, int, int, int, int, System.Tuple<string>>" },
 			new() { VariablesReference = 60, Name = "EmptyTuple",          EvaluateName = "EmptyTuple",          Value = "()", Type = "System.ValueTuple" },
 			new() { VariablesReference = 61, Name = "Anonymous",           EvaluateName = "Anonymous",           Value = "{ Text = \"a\\n\\\"b\\\\c\", Empty = \"\", Missing = null, Nested = (1, \"nested\") }", Type = "<>f__AnonymousType1<string, string, string, System.ValueTuple<int, string>>" },
-			new() { VariablesReference = 62, Name = "FailedMember",        EvaluateName = "FailedMember",        Value = "(error: The name 'DoesNotExist' does not exist in the current context, 2)", Type = "System.Tuple<DebuggableConsoleApp.InvalidDebuggerDisplay, int>", PresentationHint = new VariablePresentationHint { Attributes = VariablePresentationHint.AttributesValue.FailedEvaluation } },
+			new() { VariablesReference = 62, Name = "FailedMember",        EvaluateName = "FailedMember",        Value = "(error: The name 'DoesNotExist' does not exist in the current context, 2)", Type = "System.Tuple<DebuggableConsoleApp.InvalidDebuggerDisplay, int>", PresentationHint = new VariablePresentationHint { Attributes = [new("failedEvaluation")] } },
 			new() { VariablesReference = 63, Name = "NullableTuple",       EvaluateName = "NullableTuple",       Value = "(4, \"nullable\")", Type = "System.ValueTuple<int, string>?" },
 			new() { VariablesReference = 0,  Name = "NullTuple",           EvaluateName = "NullTuple",           Value = "null", Type = "System.ValueTuple<int, string>?" },
 			new() { VariablesReference = 64, Name = "NullableDebuggerDisplay", EvaluateName = "NullableDebuggerDisplay", Value = "display: 5", Type = "DebuggableConsoleApp.NullableDebuggerDisplay?" },

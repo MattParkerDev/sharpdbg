@@ -1,11 +1,14 @@
 using SharpDbg.Infrastructure.Debugger.PresentationHintModels;
 using Debugger_VariablePresentationHint = SharpDbg.Infrastructure.Debugger.PresentationHintModels.VariablePresentationHint;
-using VariablePresentationHint = Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages.VariablePresentationHint;
+using VariablePresentationHint = SharpDbg.DapProtocol.VariablePresentationHint;
 
 namespace SharpDbg.Application;
 
 public static class VariablePresentationHintMapper
 {
+	// Not part of the DAP specification - a Visual Studio extension to the 'attributes' values
+	private static readonly VariablePresentationHint.AttributesValue FailedEvaluation = new("failedEvaluation");
+
 	public static VariablePresentationHint ToDto(this Debugger_VariablePresentationHint hint)
 	{
 		return new VariablePresentationHint
@@ -29,11 +32,11 @@ public static class VariablePresentationHintMapper
 		};
 	}
 
-	private static VariablePresentationHint.AttributesValue ToDto(this AttributesValue kind)
+	private static IReadOnlyList<VariablePresentationHint.AttributesValue> ToDto(this AttributesValue kind)
 	{
 		return kind switch
 		{
-			AttributesValue.FailedEvaluation => VariablePresentationHint.AttributesValue.FailedEvaluation,
+			AttributesValue.FailedEvaluation => [FailedEvaluation],
 			_ => throw new ArgumentOutOfRangeException(nameof(kind), kind, null)
 		};
 	}

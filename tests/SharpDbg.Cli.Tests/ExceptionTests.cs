@@ -1,5 +1,5 @@
 using AwesomeAssertions;
-using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
+using SharpDbg.DapProtocol;
 using SharpDbg.Cli.Tests.Helpers;
 
 namespace SharpDbg.Cli.Tests;
@@ -19,7 +19,7 @@ public class ExceptionTests(ITestOutputHelper testOutputHelper)
 			.WithInitializeRequest()
 			.WithAttachRequest(p2.Id)
 			.WaitForInitializedEvent(initializedEventTcs);
-		debugProtocolHost.SendRequestSync(new SetExceptionBreakpointsRequest { Filters = [], FilterOptions = [new("all"), new("user-unhandled")] });
+		debugProtocolHost.SendRequestSync(new SetExceptionBreakpointsArguments { Filters = [], FilterOptions = [new() { FilterId = "all" }, new() { FilterId = "user-unhandled" }] });
 		var breakpointedFilePath = Path.JoinFromGitRoot("tests", "DebuggableConsoleApp", "Exceptions.cs");
 		debugProtocolHost
 			.WithBreakpointsRequest([24], Path.JoinFromGitRoot("tests", "DebuggableConsoleApp", "Program.cs"))
@@ -68,7 +68,6 @@ public class ExceptionTests(ITestOutputHelper testOutputHelper)
 			ExceptionId = "CLR/System.InvalidOperationException",
 			Description = "Exception thrown: 'System.InvalidOperationException' in DebuggableConsoleApp.dll: 'Test exception'",
 			BreakMode = ExceptionBreakMode.Always,
-			Code = 0,
 			Details = new ExceptionDetails
 			{
 				Message = "Test exception",
@@ -76,15 +75,14 @@ public class ExceptionTests(ITestOutputHelper testOutputHelper)
 				FullTypeName = "System.InvalidOperationException",
 				EvaluateName = "$exception",
 				StackTrace = $"   at DebuggableConsoleApp.Exceptions.Test(ExceptionToThrow exceptionToThrow) in {breakpointedFilePath}:line 14",
-				InnerException = [],
-				FormattedDescription = "**System.InvalidOperationException:** 'Test exception'",
-				HResult = -2146233079,
-				Source = "DebuggableConsoleApp"
+				InnerException = []
 			}
 		};
 
-		var exceptionInfoResponse = debugProtocolHost.SendRequestSync(new ExceptionInfoRequest(stoppedEvent2.ThreadId.Value));
-		exceptionInfoResponse.Should().BeEquivalentTo(expectedExceptionInfoResponse);
+		var exceptionInfoResponse = debugProtocolHost.SendRequestSync(new ExceptionInfoArguments { ThreadId = stoppedEvent2.ThreadId.Value });
+		exceptionInfoResponse.Should().BeEquivalentTo(expectedExceptionInfoResponse, options => options.Excluding(r => r.Details!.AdditionalProperties));
+		exceptionInfoResponse.AdditionalProperties.Should().BeNull(); // 'code' is omitted when 0
+		exceptionInfoResponse.Details.ShouldHaveVisualStudioExceptionDetails("**System.InvalidOperationException:** 'Test exception'", -2146233079, "DebuggableConsoleApp");
 	}
 
 	[Fact]
@@ -100,7 +98,7 @@ public class ExceptionTests(ITestOutputHelper testOutputHelper)
 			.WithInitializeRequest()
 			.WithAttachRequest(p2.Id, true)
 			.WaitForInitializedEvent(initializedEventTcs);
-		debugProtocolHost.SendRequestSync(new SetExceptionBreakpointsRequest { Filters = [], FilterOptions = [new("all"), new("user-unhandled")] });
+		debugProtocolHost.SendRequestSync(new SetExceptionBreakpointsArguments { Filters = [], FilterOptions = [new() { FilterId = "all" }, new() { FilterId = "user-unhandled" }] });
 		var breakpointedFilePath = Path.JoinFromGitRoot("tests", "DebuggableConsoleApp", "Exceptions.cs");
 		debugProtocolHost
 			.WithBreakpointsRequest([24], Path.JoinFromGitRoot("tests", "DebuggableConsoleApp", "Program.cs"))
@@ -120,7 +118,7 @@ public class ExceptionTests(ITestOutputHelper testOutputHelper)
 		debugProtocolHost.WithContinueRequest();
 
 		var stoppedEvent2 = await debugProtocolHost.WaitForStoppedEvent(debugEventTcs);
-		stoppedEvent2.AdditionalProperties.Should().BeEmpty();
+		stoppedEvent2.AdditionalProperties.Should().BeNull();
 
 		debugProtocolHost
 			.WithStackTraceRequest(stoppedEvent2.ThreadId!.Value, out var stackTraceResponse2, null)
@@ -134,7 +132,7 @@ public class ExceptionTests(ITestOutputHelper testOutputHelper)
 			new() { Id = 4, Column = 4, EndColumn = 38,    Line = 34, EndLine = 34,    Name = "DebuggableConsoleApp.dll!DebuggableConsoleApp.Program.Main(string[] args)",    Source = new Source { Name = "Program.cs",    SourceReference = 0, Path = Path.JoinFromGitRoot("tests", "DebuggableConsoleApp", "Program.cs") } },
 		];
 
-		stackTraceResponse2.StackFrames.Should().BeEquivalentTo(expectedStackFrames, options => options.Excluding(s => s.InstructionPointerReference).Excluding(s => s.Source.VsSourceLinkInfo).Excluding(s => s.Source.Checksums));
+		stackTraceResponse2.StackFrames.Should().BeEquivalentTo(expectedStackFrames, options => options.Excluding(s => s.InstructionPointerReference).Excluding(s => s.Source!.Checksums).Excluding(s => s.AdditionalProperties));
 		scopesResponse2.Scopes.Should().HaveCount(1);
 		var scope = scopesResponse2.Scopes.Single();
 
@@ -156,7 +154,6 @@ public class ExceptionTests(ITestOutputHelper testOutputHelper)
 			ExceptionId = "CLR/System.FormatException",
 			Description = "Exception thrown: 'System.FormatException' in System.Private.CoreLib.dll: 'The input string 'x' was not in a correct format.'",
 			BreakMode = ExceptionBreakMode.Always,
-			Code = 0,
 			Details = new ExceptionDetails
 			{
 				Message = "The input string 'x' was not in a correct format.",
@@ -164,15 +161,14 @@ public class ExceptionTests(ITestOutputHelper testOutputHelper)
 				FullTypeName = "System.FormatException",
 				EvaluateName = "$exception",
 				StackTrace = expectedStackTrace,
-				InnerException = [],
-				FormattedDescription = "**System.FormatException:** 'The input string 'x' was not in a correct format.'",
-				HResult = -2146233033,
-				Source = "System.Private.CoreLib"
+				InnerException = []
 			}
 		};
 
-		var exceptionInfoResponse = debugProtocolHost.SendRequestSync(new ExceptionInfoRequest(stoppedEvent2.ThreadId.Value));
-		exceptionInfoResponse.Should().BeEquivalentTo(expectedExceptionInfoResponse);
+		var exceptionInfoResponse = debugProtocolHost.SendRequestSync(new ExceptionInfoArguments { ThreadId = stoppedEvent2.ThreadId.Value });
+		exceptionInfoResponse.Should().BeEquivalentTo(expectedExceptionInfoResponse, options => options.Excluding(r => r.Details!.AdditionalProperties));
+		exceptionInfoResponse.AdditionalProperties.Should().BeNull(); // 'code' is omitted when 0
+		exceptionInfoResponse.Details.ShouldHaveVisualStudioExceptionDetails("**System.FormatException:** 'The input string 'x' was not in a correct format.'", -2146233033, "System.Private.CoreLib");
 
 		// Now we should land on the catch block
 		var stoppedEvent3 = await debugProtocolHost.WithStepOverRequest(stoppedEvent2.ThreadId!.Value).WaitForStoppedEvent(debugEventTcs);
@@ -184,7 +180,7 @@ public class ExceptionTests(ITestOutputHelper testOutputHelper)
 	public Task ExceptionFilters_BreakOnAllExceptions()
 	{
 		return AssertBreaksOnException(
-			new SetExceptionBreakpointsRequest { Filters = ["all"], FilterOptions = [] },
+			new SetExceptionBreakpointsArguments { Filters = ["all"], FilterOptions = [] },
 			exceptionToThrow: "Normal",
 			justMyCode: true,
 			expectedExceptionType: "System.InvalidOperationException",
@@ -195,7 +191,7 @@ public class ExceptionTests(ITestOutputHelper testOutputHelper)
 	public Task ExceptionFilters_AllExceptionsWithJmcEnabled_DoesNotBreakWhenHandledInExternalCode()
 	{
 		return AssertContinuesWithoutExceptionStop(
-			new SetExceptionBreakpointsRequest { Filters = ["all"], FilterOptions = [] },
+			new SetExceptionBreakpointsArguments { Filters = ["all"], FilterOptions = [] },
 			exceptionToThrow: "HandledWithinExternalCode",
 			justMyCode: true);
 	}
@@ -204,7 +200,7 @@ public class ExceptionTests(ITestOutputHelper testOutputHelper)
 	public Task ExceptionFilters_AllExceptionsWithJmcDisabled_BreaksWhenHandledInExternalCode()
 	{
 		return AssertBreaksOnException(
-			new SetExceptionBreakpointsRequest { Filters = ["all"], FilterOptions = [] },
+			new SetExceptionBreakpointsArguments { Filters = ["all"], FilterOptions = [] },
 			exceptionToThrow: "HandledWithinExternalCode",
 			justMyCode: false,
 			expectedExceptionType: "System.ArgumentException",
@@ -215,7 +211,7 @@ public class ExceptionTests(ITestOutputHelper testOutputHelper)
 	public Task ExceptionFilters_AllExceptionsWithJmcEnabled_BreaksWhenReturnedToUserCode()
 	{
 		return AssertBreaksOnException(
-			new SetExceptionBreakpointsRequest { Filters = ["all"], FilterOptions = [] },
+			new SetExceptionBreakpointsArguments { Filters = ["all"], FilterOptions = [] },
 			exceptionToThrow: "ExternalCode",
 			justMyCode: true,
 			expectedExceptionType: "System.FormatException",
@@ -226,7 +222,7 @@ public class ExceptionTests(ITestOutputHelper testOutputHelper)
 	public Task ExceptionFilters_BreakOnUserUnhandledExceptions()
 	{
 		return AssertBreaksOnException(
-			new SetExceptionBreakpointsRequest { Filters = ["user-unhandled"], FilterOptions = [] },
+			new SetExceptionBreakpointsArguments { Filters = ["user-unhandled"], FilterOptions = [] },
 			exceptionToThrow: "UserUnhandled",
 			justMyCode: true,
 			expectedExceptionType: "System.InvalidOperationException",
@@ -237,7 +233,7 @@ public class ExceptionTests(ITestOutputHelper testOutputHelper)
 	public Task ExceptionFilters_UserUnhandledDoesNotBreakOnExceptionHandledInUserCode()
 	{
 		return AssertContinuesWithoutExceptionStop(
-			new SetExceptionBreakpointsRequest { Filters = ["user-unhandled"], FilterOptions = [] },
+			new SetExceptionBreakpointsArguments { Filters = ["user-unhandled"], FilterOptions = [] },
 			exceptionToThrow: "Normal",
 			justMyCode: true);
 	}
@@ -247,10 +243,10 @@ public class ExceptionTests(ITestOutputHelper testOutputHelper)
 	[InlineData("System.FormatException", false)]
 	public Task ExceptionFilters_UserUnhandledConditionFiltersExceptionTypes(string condition, bool expectExceptionStop)
 	{
-		var request = new SetExceptionBreakpointsRequest
+		var request = new SetExceptionBreakpointsArguments
 		{
 			Filters = [],
-			FilterOptions = [new ExceptionFilterOptions("user-unhandled") { Condition = condition }]
+			FilterOptions = [new ExceptionFilterOptions { FilterId = "user-unhandled", Condition = condition }]
 		};
 
 		return expectExceptionStop
@@ -262,7 +258,7 @@ public class ExceptionTests(ITestOutputHelper testOutputHelper)
 	public Task ExceptionFilters_NoFiltersDoesNotBreakOnHandledException()
 	{
 		return AssertContinuesWithoutExceptionStop(
-			new SetExceptionBreakpointsRequest { Filters = [], FilterOptions = [] },
+			new SetExceptionBreakpointsArguments { Filters = [], FilterOptions = [] },
 			exceptionToThrow: "Normal",
 			justMyCode: true);
 	}
@@ -294,10 +290,10 @@ public class ExceptionTests(ITestOutputHelper testOutputHelper)
 
 	private Task AssertAllExceptionsCondition(string condition, bool expectExceptionStop)
 	{
-		var request = new SetExceptionBreakpointsRequest
+		var request = new SetExceptionBreakpointsArguments
 		{
 			Filters = [],
-			FilterOptions = [new ExceptionFilterOptions("all") { Condition = condition }]
+			FilterOptions = [new ExceptionFilterOptions { FilterId = "all", Condition = condition }]
 		};
 
 		return expectExceptionStop
@@ -306,7 +302,7 @@ public class ExceptionTests(ITestOutputHelper testOutputHelper)
 	}
 
 	private async Task AssertBreaksOnException(
-		SetExceptionBreakpointsRequest exceptionBreakpointsRequest,
+		SetExceptionBreakpointsArguments exceptionBreakpointsRequest,
 		string exceptionToThrow,
 		bool justMyCode,
 		string expectedExceptionType,
@@ -349,13 +345,13 @@ public class ExceptionTests(ITestOutputHelper testOutputHelper)
 		var exceptionStop = await debugProtocolHost.WaitForStoppedEvent(debugEventTcs);
 		exceptionStop.Reason.Should().Be(StoppedEvent.ReasonValue.Exception);
 
-		var exceptionInfo = debugProtocolHost.SendRequestSync(new ExceptionInfoRequest(exceptionStop.ThreadId!.Value));
+		var exceptionInfo = debugProtocolHost.SendRequestSync(new ExceptionInfoArguments { ThreadId = exceptionStop.ThreadId!.Value });
 		exceptionInfo.Details!.FullTypeName.Should().Be(expectedExceptionType);
 		exceptionInfo.BreakMode.Should().Be(expectedBreakMode);
 	}
 
 	private async Task AssertContinuesWithoutExceptionStop(
-		SetExceptionBreakpointsRequest exceptionBreakpointsRequest,
+		SetExceptionBreakpointsArguments exceptionBreakpointsRequest,
 		string exceptionToThrow,
 		bool justMyCode)
 	{
@@ -395,8 +391,20 @@ public class ExceptionTests(ITestOutputHelper testOutputHelper)
 
 		var completionStop = await debugProtocolHost.WaitForStoppedEvent(debugEventTcs);
 		var completionStackFrame = debugProtocolHost.GetTopStackFrame(completionStop.ThreadId!.Value);
-		completionStackFrame.Source.Path.Should().Be(programPath);
+		completionStackFrame.Source!.Path.Should().Be(programPath);
 		completionStackFrame.Line.Should().Be(completionMarkerLine);
 		completionStop.Reason.Should().Be(StoppedEvent.ReasonValue.Breakpoint);
+	}
+}
+
+file static class ExceptionDetailsAssertions
+{
+	/// <summary>Asserts the Visual Studio extensions to <see cref="ExceptionDetails"/>, which are sent as additional properties.</summary>
+	public static void ShouldHaveVisualStudioExceptionDetails(this ExceptionDetails? details, string formattedDescription, int hResult, string source)
+	{
+		var additionalProperties = details!.AdditionalProperties!;
+		additionalProperties["formattedDescription"]!.GetValue<string>().Should().Be(formattedDescription);
+		additionalProperties["hresult"]!.GetValue<int>().Should().Be(hResult);
+		additionalProperties["source"]!.GetValue<string>().Should().Be(source);
 	}
 }

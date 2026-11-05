@@ -1,0 +1,43 @@
+SharpDbg includes material from the following third-party projects.
+
+================================================================================
+Debug Adapter Protocol
+https://github.com/microsoft/debug-adapter-protocol
+================================================================================
+
+The message types in SharpDbg.DapProtocol (src/SharpDbg.DapProtocol/Generated) are generated from the
+Debug Adapter Protocol JSON schema (src/SharpDbg.DapProtocol/debugAdapterProtocol.json), and include
+documentation comments taken from the descriptions in that schema. The generated code was produced
+by SharpDbg's own generator (tools/generate-dap-protocol.cs); the schema itself is unmodified.
+
+Copyright (c) Microsoft Corporation.
+
+All rights reserved.
+
+Distributed under the following terms:
+
+1. Documentation is licensed under the Creative Commons Attribution 3.0 United States License.
+   Code is licensed under the MIT License.
+2. This license does not grant you rights to use any trademarks or logos of Microsoft.
+   For Microsoft's general trademark guidelines, go to http://go.microsoft.com/fwlink/?LinkID=254653
+
+The full license text, including the Creative Commons Attribution 4.0 International Public License
+under which the documentation is published, is available at:
+https://github.com/microsoft/debug-adapter-protocol/blob/main/License.txt
+
+MIT License
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and
+associated documentation files (the "Software"), to deal in the Software without restriction,
+including without limitation the rights to use, copy, modify, merge, publish, distribute,
+sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or
+substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT
+NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
+DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT
+OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.

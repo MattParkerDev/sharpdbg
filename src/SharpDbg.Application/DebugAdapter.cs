@@ -1,23 +1,22 @@
+using System.Text.Json;
+using System.Text.Json.Nodes;
 using Ardalis.GuardClauses;
+using SharpDbg.Application.Protocol;
 using SharpDbg.Infrastructure.Debugger;
-using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol;
-using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
-// Newtonsoft.Json.Linq is required for accessing ConfigurationProperties from LaunchArguments/AttachArguments
-// The Microsoft DAP library uses JToken for dynamic configuration properties
-using Newtonsoft.Json.Linq;
 using SharpDbg.Infrastructure.Debugger.Models;
 using SharpDbg.Infrastructure.Debugger.Models.Response;
-using SharpDbg.Application.Protocol;
-using MSBreakpoint = Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages.Breakpoint;
-using MSThread = Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages.Thread;
-using MSStackFrame = Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages.StackFrame;
+using SharpDbg.DapProtocol;
+using static SharpDbg.DapProtocol.DapResponse;
+using DapBreakpoint = SharpDbg.DapProtocol.Breakpoint;
+using DapStackFrame = SharpDbg.DapProtocol.StackFrame;
+using DapThread = SharpDbg.DapProtocol.Thread;
 
 namespace SharpDbg.Application;
 
 /// <summary>
 /// Main debug adapter that coordinates DAP protocol and debugger engine
 /// </summary>
-public class DebugAdapter : DebugAdapterBase
+public class DebugAdapter : IDapRequestHandler
 {
 	private readonly ManagedDebugger _debugger;
 	private readonly Action<string>? _logger;
@@ -30,6 +29,8 @@ public class DebugAdapter : DebugAdapterBase
 	/// Hosts which own the process lifetime (e.g. SharpDbg.Cli) should subscribe and exit when it fires.
 	/// </summary>
 	public event Action? ShutdownRequested;
+
+	public DapConnection Connection { get; private set; } = null!;
 
 	public DebugAdapter(Action<string>? logger = null)
 	{
@@ -67,107 +68,90 @@ public class DebugAdapter : DebugAdapterBase
 		catch { /* */ }
 	}
 
+	/// <summary>
+	/// Creates the protocol connection over the given streams. Call <see cref="DapConnection.Start"/> to begin processing messages.
+	/// </summary>
 	public void Initialize(Stream input, Stream output)
 	{
-		InitializeProtocolClient(input, output, Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Protocol.DebugProtocolOptions.AllowWildcardRegistrations);
-		Protocol.RemoveRequestRegistration("vsCustomMessage");
-		Protocol.RegisterRequestType<VsCustomMessageRequest, VsCustomMessageArguments, VsCustomMessageResponse>(responder =>
-		{
-			responder.SetResponse(new VsCustomMessageResponse());
-		});
-		Protocol.RegisterRequestType<ResolveStackFrameRequest, ResolveStackFrameArguments, ResolveStackFrameResponse>(HandleResolveStackFrameRequestAsync);
-		Protocol.RegisterRequestType<UnsupportedRequest, JObject, UnsupportedResponse>(responder =>
-		{
-			responder.SetError(new ProtocolException($"Request '{responder.Command}' is not supported."));
-		});
+		Connection = new DapConnection(input, output, this, new DapConnectionOptions { Log = _logger });
+		Connection.RegisterRequest<ResolveStackFrameArguments>();
+		Connection.RegisterRequest<VsCustomMessageArguments>();
 	}
 
-	private sealed class UnsupportedRequest() : DebugRequestWithResponse<JObject, UnsupportedResponse>("*");
-	private sealed class UnsupportedResponse : ResponseBody;
-
-	protected override ResponseBody HandleProtocolRequest(string requestType, object requestArgs)
+	public ValueTask<DapResponse> HandleRequestAsync(IDapRequest request, DapRequestContext context) => request switch
 	{
-		try
-		{
-			return base.HandleProtocolRequest(requestType, requestArgs);
-		}
-		catch (NotImplementedException ex)
-		{
-			throw new ProtocolException($"Request '{requestType}' is not supported.", ex);
-		}
+		InitializeArguments args => Respond(args, a => HandleInitialize(a, context)),
+		LaunchArguments args => Respond(args, HandleLaunchAsync),
+		AttachArguments args => Respond(args, HandleAttachAsync),
+		ConfigurationDoneArguments args => Respond(args, HandleConfigurationDoneAsync),
+		SetBreakpointsArguments args => Respond(args, HandleSetBreakpointsAsync),
+		SetFunctionBreakpointsArguments args => Respond(args, HandleSetFunctionBreakpointsAsync),
+		SetExceptionBreakpointsArguments args => Respond(args, HandleSetExceptionBreakpointsAsync),
+		ThreadsArguments args => Respond(args, HandleThreadsAsync),
+		StackTraceArguments args => Respond(args, HandleStackTraceAsync),
+		ResolveStackFrameArguments args => Respond(args, HandleResolveStackFrameAsync),
+		ScopesArguments args => Respond(args, HandleScopesAsync),
+		VariablesArguments args => Respond(args, HandleVariablesAsync),
+		EvaluateArguments args => Respond(args, HandleEvaluateAsync),
+		ContinueArguments args => Respond(args, HandleContinueAsync),
+		NextArguments args => Respond(args, HandleNextAsync),
+		StepInArguments args => Respond(args, HandleStepInAsync),
+		StepOutArguments args => Respond(args, HandleStepOutAsync),
+		PauseArguments args => Respond(args, HandlePauseAsync),
+		DisconnectArguments args => Respond(args, a => HandleDisconnectAsync(a, context)),
+		TerminateArguments args => Respond(args, HandleTerminateAsync),
+		ExceptionInfoArguments args => Respond(args, HandleExceptionInfoAsync),
+		VsCustomMessageArguments args => Respond(args, HandleVsCustomMessage),
+		_ => NotSupported(request),
+	};
+
+	/// <summary>
+	/// Runs <paramref name="func"/> while holding the debugger's request/runtime-event lock, converting any exception
+	/// thrown by the debugger engine into an error response.
+	/// </summary>
+	private ValueTask<DapResult<T>> RunLocked<T>(string failureMessage, Func<DapResult<T>> func)
+	{
+		return RunLocked(failureMessage, () => ValueTask.FromResult(func()));
 	}
 
-	private async Task<T> ExecuteWithExceptionHandling<T>(Func<T> func)
+	private async ValueTask<DapResult<T>> RunLocked<T>(string failureMessage, Func<ValueTask<DapResult<T>>> func)
 	{
 		try
 		{
 			using (await _debugger.DapRequestAndRuntimeEventLock.LockAsync())
 			{
 				await _debugger.DrainRuntimeEventQueue();
-				return func();
+				return await func().ConfigureAwait(false);
 			}
-		}
-		catch (ProtocolException)
-		{
-			throw;
 		}
 		catch (Exception ex)
 		{
-			throw new ProtocolException(ex.Message, ex);
+			_logger?.Invoke($"{failureMessage}: {ex.Message} , {ex}");
+			return new DapError($"{failureMessage}: {ex.Message}");
 		}
 	}
 
-	private async Task<T> ExecuteWithDebuggerProcessingLockAsync<T>(Func<Task<T>> func)
+	private static T? GetConfigValue<T>(JsonObject? config, string key)
 	{
-		using (await _debugger.DapRequestAndRuntimeEventLock.LockAsync())
+		if (config?.TryGetPropertyValue(key, out var node) is true && node is not null)
 		{
-			await _debugger.DrainRuntimeEventQueue();
-			return await func().ConfigureAwait(false);
-		}
-	}
-
-	private async Task ExecuteWithDebuggerProcessingLockAsync(Func<Task> func)
-	{
-		using (await _debugger.DapRequestAndRuntimeEventLock.LockAsync())
-		{
-			await _debugger.DrainRuntimeEventQueue();
-			await func().ConfigureAwait(false);
-		}
-	}
-
-	private async Task<T> ExecuteWithDebuggerProcessingLockAsync<T>(Func<T> func)
-	{
-		using (await _debugger.DapRequestAndRuntimeEventLock.LockAsync())
-		{
-			await _debugger.DrainRuntimeEventQueue();
-			return func();
-		}
-	}
-
-	private async Task ExecuteWithDebuggerProcessingLockAsync(Action func)
-	{
-		using (await _debugger.DapRequestAndRuntimeEventLock.LockAsync())
-		{
-			await _debugger.DrainRuntimeEventQueue();
-			func();
-		}
-	}
-
-	// Helper method to extract configuration properties from LaunchArguments/AttachArguments
-	private static T? GetConfigValue<T>(Dictionary<string, JToken>? config, string key)
-	{
-		if (config?.TryGetValue(key, out var token) is true)
-		{
-			return token.ToObject<T>();
+			return node.Deserialize<T>(ConfigurationJsonOptions);
 		}
 		return default;
 	}
+
+	// Matches the leniency of the previous implementation, e.g. VS Code's process picker sends processId as a string
+	private static readonly JsonSerializerOptions ConfigurationJsonOptions = new()
+	{
+		PropertyNameCaseInsensitive = true,
+		NumberHandling = System.Text.Json.Serialization.JsonNumberHandling.AllowReadingFromString
+	};
 
 	private void SubscribeToDebuggerEvents()
 	{
 		_debugger.OnStopped += (threadId, reason) =>
 		{
-			Protocol.SendEvent(new StoppedEvent
+			Connection.SendEvent(new StoppedEvent
 			{
 				Reason = ConvertStopReason(reason),
 				ThreadId = threadId,
@@ -177,26 +161,28 @@ public class DebugAdapter : DebugAdapterBase
 
 		_debugger.OnStopped2 += (threadId, filePath, line, column, reason, hitBreakpointIds) =>
 		{
-			var source = new Source { Path = filePath };
-			var stoppedEvent = new StoppedEvent
+			Connection.SendEvent(new StoppedEvent
 			{
 				Reason = ConvertStopReason(reason),
 				ThreadId = threadId,
 				AllThreadsStopped = true,
-				HitBreakpointIds = hitBreakpointIds
-			};
-			stoppedEvent.AdditionalProperties["source"] = JToken.FromObject(source);
-			stoppedEvent.AdditionalProperties["line"] = JToken.FromObject(line);
-			stoppedEvent.AdditionalProperties["column"] = JToken.FromObject(column);
-			Protocol.SendEvent(stoppedEvent);
+				HitBreakpointIds = hitBreakpointIds,
+				// Not part of the DAP specification - lets clients show the stop location without a stackTrace request
+				AdditionalProperties = new JsonObject
+				{
+					["source"] = new JsonObject { ["path"] = filePath },
+					["line"] = line,
+					["column"] = column
+				}
+			});
 		};
 
 		_debugger.OnBreakpointChanged += breakpoint =>
 		{
-			Protocol.SendEvent(new BreakpointEvent
+			Connection.SendEvent(new BreakpointEvent
 			{
 				Reason = BreakpointEvent.ReasonValue.Changed,
-				Breakpoint = new MSBreakpoint
+				Breakpoint = new DapBreakpoint
 				{
 					Id = breakpoint.Id,
 					Verified = breakpoint.Verified,
@@ -218,7 +204,7 @@ public class DebugAdapter : DebugAdapterBase
 
 		_debugger.OnContinued += (threadId) =>
 		{
-			Protocol.SendEvent(new ContinuedEvent
+			Connection.SendEvent(new ContinuedEvent
 			{
 				ThreadId = threadId,
 				AllThreadsContinued = true
@@ -228,7 +214,7 @@ public class DebugAdapter : DebugAdapterBase
 		_debugger.OnExited += exitCode =>
 		{
 			// exitCode will be null in the attach scenario, as we cannot obtain the exit code of the process we attached to
-			Protocol.SendEvent(new ExitedEvent
+			Connection.SendEvent(new ExitedEvent
 			{
 				ExitCode = exitCode ?? 0
 			});
@@ -236,12 +222,12 @@ public class DebugAdapter : DebugAdapterBase
 
 		_debugger.OnTerminated += () =>
 		{
-			Protocol.SendEvent(new TerminatedEvent());
+			Connection.SendEvent(new TerminatedEvent());
 		};
 
 		_debugger.OnThreadStarted += threadId =>
 		{
-			Protocol.SendEvent(new ThreadEvent
+			Connection.SendEvent(new ThreadEvent
 			{
 				Reason = ThreadEvent.ReasonValue.Started,
 				ThreadId = threadId
@@ -250,7 +236,7 @@ public class DebugAdapter : DebugAdapterBase
 
 		_debugger.OnThreadExited += threadId =>
 		{
-			Protocol.SendEvent(new ThreadEvent
+			Connection.SendEvent(new ThreadEvent
 			{
 				Reason = ThreadEvent.ReasonValue.Exited,
 				ThreadId = threadId
@@ -259,7 +245,7 @@ public class DebugAdapter : DebugAdapterBase
 
 		_debugger.OnModuleLoaded += (id, name, path) =>
 		{
-			Protocol.SendEvent(new ModuleEvent
+			Connection.SendEvent(new ModuleEvent
 			{
 				Reason = ModuleEvent.ReasonValue.New,
 				Module = new Module
@@ -272,7 +258,7 @@ public class DebugAdapter : DebugAdapterBase
 		};
 		_debugger.OnModuleUnloaded += (id, name, path) =>
 		{
-			Protocol.SendEvent(new ModuleEvent
+			Connection.SendEvent(new ModuleEvent
 			{
 				Reason = ModuleEvent.ReasonValue.Removed,
 				Module = new Module
@@ -286,7 +272,7 @@ public class DebugAdapter : DebugAdapterBase
 
 		_debugger.OnProcessStarted += (processId, name) =>
 		{
-			Protocol.SendEvent(new ProcessEvent
+			Connection.SendEvent(new ProcessEvent
 			{
 				Name = name,
 				SystemProcessId = processId,
@@ -297,7 +283,7 @@ public class DebugAdapter : DebugAdapterBase
 
 		_debugger.OnOutput += (output, isStdError) =>
 		{
-			Protocol.SendEvent(new OutputEvent
+			Connection.SendEvent(new OutputEvent
 			{
 				Category = isStdError ? OutputEvent.CategoryValue.Stderr : OutputEvent.CategoryValue.Stdout,
 				Output = output
@@ -306,7 +292,7 @@ public class DebugAdapter : DebugAdapterBase
 		_debugger.SendRunInTerminalRequest += launchInfo =>
 		{
 			var programForTitle = launchInfo.Program is "dotnet" ? launchInfo.Arguments[0] : launchInfo.Program;
-			var runInTerminalRequest = new RunInTerminalRequest
+			var runInTerminalArguments = new RunInTerminalArguments
 			{
 				Kind = launchInfo.LaunchRequestConsoleType switch
 				{
@@ -314,31 +300,40 @@ public class DebugAdapter : DebugAdapterBase
 					LaunchRequestConsoleType.ExternalTerminal => RunInTerminalArguments.KindValue.External,
 					_ => throw new ArgumentOutOfRangeException(nameof(launchInfo.LaunchRequestConsoleType), $"Invalid LaunchRequestConsoleType for RunInTerminalRequest: '{launchInfo.LaunchRequestConsoleType}'")
 				},
-				Arguments = [launchInfo.Program, ..launchInfo.Arguments],
-				Cwd = launchInfo.Cwd,
-				Env = launchInfo.Env.ToDictionary(kvp => kvp.Key, kvp => (object)kvp.Value),
+				Args = [launchInfo.Program, ..launchInfo.Arguments],
+				Cwd = launchInfo.Cwd ?? Environment.CurrentDirectory,
+				Env = new Dictionary<string, string?>(launchInfo.Env.Select(kvp => KeyValuePair.Create(kvp.Key, (string?)kvp.Value)))
+				{
+					["DOTNET_DefaultDiagnosticPortSuspend"] = "1"
+				},
 				Title = $"{Path.GetFileName(programForTitle)} [DEBUG]"
 			};
-			runInTerminalRequest.Env["DOTNET_DefaultDiagnosticPortSuspend"] = "1";
-			var resp = Protocol.SendClientRequestSync(runInTerminalRequest);
-			// https://github.com/microsoft/vscode/issues/61640 - ProcessId will not be returned for integratedTerminal or externalTerminal
-			// ShellProcessId will be returned for integratedTerminal but not externalTerminal
-			if (resp.ProcessId is null) throw new InvalidOperationException("RunInTerminalRequest did not return a process ID. VSCode does not return a process ID for integratedTerminal or externalTerminal. Use internalConsole instead, or use a compliant DAP client. See: https://github.com/microsoft/vscode/issues/61640");
-			return resp.ProcessId.Value;
+			// Called synchronously from within a request handler (launch), which is safe as responses are read independently of request dispatch
+			var result = Connection.SendRequest(runInTerminalArguments);
+			return result switch
+			{
+				DapError error => throw new InvalidOperationException($"RunInTerminalRequest failed: {error.Message}"),
+				// https://github.com/microsoft/vscode/issues/61640 - ProcessId will not be returned for integratedTerminal or externalTerminal
+				// ShellProcessId will be returned for integratedTerminal but not externalTerminal
+				RunInTerminalResponse { ProcessId: null } => throw new InvalidOperationException("RunInTerminalRequest did not return a process ID. VSCode does not return a process ID for integratedTerminal or externalTerminal. Use internalConsole instead, or use a compliant DAP client. See: https://github.com/microsoft/vscode/issues/61640"),
+				RunInTerminalResponse response => response.ProcessId.Value,
+				null => throw new InvalidOperationException("RunInTerminalRequest returned no result")
+			};
 		};
 	}
 
 	// Command handlers
-	protected override InitializeResponse HandleInitializeRequest(InitializeArguments arguments)
+	private static DapResult<VsCustomMessageResponse> HandleVsCustomMessage(VsCustomMessageArguments arguments) => new VsCustomMessageResponse();
+
+	private DapResult<Capabilities> HandleInitialize(InitializeArguments arguments, DapRequestContext context)
 	{
 		_clientLinesStartAt1 = arguments.LinesStartAt1 ?? true;
 		_clientColumnsStartAt1 = arguments.ColumnsStartAt1 ?? true;
 
-		// Send initialized event
-		// This event MUST be sent after the InitializeResponse. We achieve that currently because DebugAdapter queues events for synchronous handlers such as this one.
-		Protocol.SendEvent(new InitializedEvent());
+		// The initialized event must be sent after the initialize response
+		context.OnResponseSent(() => Connection.SendEvent(new InitializedEvent()));
 
-		return new InitializeResponse
+		return new Capabilities
 		{
 			SupportsConfigurationDoneRequest = true,
 			SupportsFunctionBreakpoints = true,
@@ -361,31 +356,32 @@ public class DebugAdapter : DebugAdapterBase
 		};
 	}
 
-	protected override async void HandleLaunchRequestAsync(IRequestResponder<LaunchArguments> responder)
+	private ValueTask<DapResult<LaunchResponse>> HandleLaunchAsync(LaunchArguments arguments)
 	{
-		try
+		return RunLocked<LaunchResponse>("Failed to launch", () =>
 		{
-			var arguments = responder.Arguments;
-			var program = GetConfigValue<string>(arguments.ConfigurationProperties, "program");
+			var config = arguments.AdditionalProperties;
+			var program = GetConfigValue<string>(config, "program");
 			if (string.IsNullOrEmpty(program))
 			{
-				throw new ProtocolException("Missing program path");
+				return new DapError("Failed to launch: Missing program path");
 			}
 
-			var args = GetConfigValue<List<string>>(arguments.ConfigurationProperties, "args") ?? [];
-			var cwd = GetConfigValue<string>(arguments.ConfigurationProperties, "cwd");
-			var env = GetConfigValue<Dictionary<string, string>>(arguments.ConfigurationProperties, "env") ?? [];
-			var stopAtEntry = GetConfigValue<bool?>(arguments.ConfigurationProperties, "stopAtEntry") ?? false;
-			var justMyCode = GetConfigValue<bool?>(arguments.ConfigurationProperties, "justMyCode") ?? true;
-			var console = GetConfigValue<string>(arguments.ConfigurationProperties, "console");
-			var launchRequestConsoleType = console switch
+			var args = GetConfigValue<List<string>>(config, "args") ?? [];
+			var cwd = GetConfigValue<string>(config, "cwd");
+			var env = GetConfigValue<Dictionary<string, string>>(config, "env") ?? [];
+			var stopAtEntry = GetConfigValue<bool?>(config, "stopAtEntry") ?? false;
+			var justMyCode = GetConfigValue<bool?>(config, "justMyCode") ?? true;
+			var console = GetConfigValue<string>(config, "console");
+			LaunchRequestConsoleType? launchRequestConsoleType = console switch
 			{
 				"integratedTerminal" => LaunchRequestConsoleType.IntegratedTerminal,
 				"externalTerminal" => LaunchRequestConsoleType.ExternalTerminal,
 				"internalConsole" => LaunchRequestConsoleType.InternalConsole,
 				null => LaunchRequestConsoleType.InternalConsole, // Default to internalConsole if not specified
-				_ => throw new ArgumentOutOfRangeException(nameof(console), $"Invalid console type: '{console}'")
+				_ => null
 			};
+			if (launchRequestConsoleType is null) return new DapError($"Failed to launch: Invalid console type: '{console}'");
 
 			(program, args) = Path.GetExtension(program).Equals(".dll", StringComparison.OrdinalIgnoreCase)
 				? ("dotnet", [program, ..args])
@@ -398,31 +394,26 @@ public class DebugAdapter : DebugAdapterBase
 				Cwd = cwd,
 				Env = env,
 				StopAtEntry = stopAtEntry,
-				LaunchRequestConsoleType = launchRequestConsoleType
+				LaunchRequestConsoleType = launchRequestConsoleType.Value
 			};
 
-			await ExecuteWithDebuggerProcessingLockAsync(async () => _debugger.Launch(launchInfo, justMyCode));
-			responder.SetResponse(new LaunchResponse());
-		}
-		catch (Exception ex)
-		{
-			_logger?.Invoke($"HandleLaunchRequestAsync failed: {ex.Message} , {ex}");
-			responder.SetError(new ProtocolException($"Failed to launch: {ex.Message}", ex));
-		}
+			_debugger.Launch(launchInfo, justMyCode);
+			return new LaunchResponse();
+		});
 	}
 
-	protected override async void HandleAttachRequestAsync(IRequestResponder<AttachArguments> responder)
+	private ValueTask<DapResult<AttachResponse>> HandleAttachAsync(AttachArguments arguments)
 	{
-		try
+		return RunLocked<AttachResponse>("Failed to attach", () =>
 		{
-			var arguments = responder.Arguments;
+			var config = arguments.AdditionalProperties;
 			RemoteAttachInfo? remoteAttachInfo = null;
-			var processId = GetConfigValue<int?>(arguments.ConfigurationProperties, "processId");
+			var processId = GetConfigValue<int?>(config, "processId");
 			if (processId is null)
 			{
-				throw new ProtocolException("Missing process ID");
+				return new DapError("Failed to attach: Missing process ID");
 			}
-			var coreClrMobileDebuggerOptions = GetConfigValue<CoreClrMobileDebuggerOptions>(arguments.ConfigurationProperties, "coreClrMobileDebuggerOptions");
+			var coreClrMobileDebuggerOptions = GetConfigValue<CoreClrMobileDebuggerOptions>(config, "coreClrMobileDebuggerOptions");
 			if (coreClrMobileDebuggerOptions is not null)
 			{
 				Guard.Against.NullOrWhiteSpace(coreClrMobileDebuggerOptions.Address);
@@ -431,8 +422,8 @@ public class DebugAdapter : DebugAdapterBase
 				Guard.Against.Null(coreClrMobileDebuggerOptions.IsServer);
 				Guard.Against.NullOrWhiteSpace(coreClrMobileDebuggerOptions.MscordbiPath);
 				Guard.Against.NullOrWhiteSpace(coreClrMobileDebuggerOptions.AssembliesPath);
-				if (File.Exists(coreClrMobileDebuggerOptions.MscordbiPath) is false) throw new ProtocolException($"coreClrMobileDebuggerOptions.mscordbiPath does not exist: {coreClrMobileDebuggerOptions.MscordbiPath}");
-				if (Directory.Exists(coreClrMobileDebuggerOptions.AssembliesPath) is false) throw new ProtocolException($"coreClrMobileDebuggerOptions.assembliesPath does not exist: {coreClrMobileDebuggerOptions.AssembliesPath}");
+				if (File.Exists(coreClrMobileDebuggerOptions.MscordbiPath) is false) return new DapError($"Failed to attach: coreClrMobileDebuggerOptions.mscordbiPath does not exist: {coreClrMobileDebuggerOptions.MscordbiPath}");
+				if (Directory.Exists(coreClrMobileDebuggerOptions.AssembliesPath) is false) return new DapError($"Failed to attach: coreClrMobileDebuggerOptions.assembliesPath does not exist: {coreClrMobileDebuggerOptions.AssembliesPath}");
 				remoteAttachInfo = new RemoteAttachInfo
 				{
 					Address = coreClrMobileDebuggerOptions.Address,
@@ -443,208 +434,147 @@ public class DebugAdapter : DebugAdapterBase
 					AssembliesPath = coreClrMobileDebuggerOptions.AssembliesPath
 				};
 			}
-			var justMyCode = GetConfigValue<bool?>(arguments.ConfigurationProperties, "justMyCode") ?? true;
-			await ExecuteWithDebuggerProcessingLockAsync(async () =>
-			{
-				if (remoteAttachInfo is null) _debugger.Attach(processId.Value, justMyCode);
-				else _debugger.AttachRemote(remoteAttachInfo, justMyCode);
-			});
-			responder.SetResponse(new AttachResponse());
-		}
-		catch (Exception ex)
-		{
-			_logger?.Invoke($"HandleAttachRequestAsync failed: {ex.Message} , {ex}");
-			responder.SetError(new ProtocolException($"Failed to attach: {ex.Message}", ex));
-		}
+			var justMyCode = GetConfigValue<bool?>(config, "justMyCode") ?? true;
+			if (remoteAttachInfo is null) _debugger.Attach(processId.Value, justMyCode);
+			else _debugger.AttachRemote(remoteAttachInfo, justMyCode);
+			return new AttachResponse();
+		});
 	}
 
-	protected override async void HandleConfigurationDoneRequestAsync(IRequestResponder<ConfigurationDoneArguments> responder)
+	private ValueTask<DapResult<ConfigurationDoneResponse>> HandleConfigurationDoneAsync(ConfigurationDoneArguments arguments)
 	{
-		try
+		_logger?.Invoke("Configuration done");
+		return RunLocked<ConfigurationDoneResponse>("ConfigurationDone failed", async () =>
 		{
-			_logger?.Invoke("Configuration done");
-			await ExecuteWithDebuggerProcessingLockAsync(() => _debugger.ConfigurationDone());
-			responder.SetResponse(new ConfigurationDoneResponse());
-		}
-		catch (Exception ex)
-		{
-			_logger?.Invoke($"HandleConfigurationDoneRequestAsync failed: {ex.Message} , {ex}");
-			responder.SetError(new ProtocolException($"ConfigurationDone failed: {ex.Message}", ex));
-		}
+			await _debugger.ConfigurationDone();
+			return new ConfigurationDoneResponse();
+		});
 	}
 
-	protected override async void HandleSetBreakpointsRequestAsync(IRequestResponder<SetBreakpointsArguments, SetBreakpointsResponse> responder)
+	private ValueTask<DapResult<SetBreakpointsResponse>> HandleSetBreakpointsAsync(SetBreakpointsArguments arguments)
 	{
-		try
+		if (arguments.Source.Path is not { } sourcePath)
 		{
-			var arguments = responder.Arguments;
-			if (arguments.Source?.Path is null)
-			{
-				throw new ProtocolException("Missing source path");
-			}
-
-			var breakpointRequests = arguments.Breakpoints?
-				.Select(bp => new SharpDbgBreakpointRequest(
-					ConvertClientLineToDebugger(bp.Line),
-					bp.Condition,
-					bp.HitCondition,
-					bp.Column is null ? null : ConvertClientColumnToDebugger(bp.Column.Value)))
-				.ToArray() ?? [];
-
-			var breakpoints = await ExecuteWithDebuggerProcessingLockAsync(async () => _debugger.SetBreakpoints(arguments.Source.Path, breakpointRequests));
-
-			var responseBreakpoints = breakpoints.Select(bp => new MSBreakpoint
-			{
-				Id = bp.Id,
-				Verified = bp.Verified,
-				Line = ConvertDebuggerLineToClient(bp.Line),
-				Column = bp is { Verified: true, Column: not null } ? ConvertDebuggerColumnToClient(bp.Column.Value) : null,
-				EndLine = bp.Verified ? ConvertDebuggerLineToClient(bp.EndLine) : null,
-				EndColumn = bp is { Verified: true, EndColumn: not null } ? ConvertDebuggerColumnToClient(bp.EndColumn.Value) : null,
-				Message = bp.Message,
-				Source = new Source
-				{
-					Path = bp.FilePath
-				}
-			}).ToList();
-
-			responder.SetResponse(new SetBreakpointsResponse
-			{
-				Breakpoints = responseBreakpoints
-			});
+			return ValueTask.FromResult<DapResult<SetBreakpointsResponse>>(new DapError("Failed to set breakpoints: Missing source path"));
 		}
-		catch (Exception ex)
-		{
-			_logger?.Invoke($"HandleSetBreakpointsRequestAsync failed: {ex.Message} , {ex}");
-			responder.SetError(new ProtocolException($"Failed to set breakpoints: {ex.Message}", ex));
-		}
-	}
 
-	protected override async void HandleSetFunctionBreakpointsRequestAsync(IRequestResponder<SetFunctionBreakpointsArguments, SetFunctionBreakpointsResponse> responder)
-	{
-		try
+		var breakpointRequests = arguments.Breakpoints?
+			.Select(bp => new SharpDbgBreakpointRequest(
+				ConvertClientLineToDebugger(bp.Line),
+				bp.Condition,
+				bp.HitCondition,
+				bp.Column is null ? null : ConvertClientColumnToDebugger(bp.Column.Value)))
+			.ToArray() ?? [];
+
+		return RunLocked<SetBreakpointsResponse>("Failed to set breakpoints", () =>
 		{
-			var arguments = responder.Arguments;
-			var requests = arguments.Breakpoints?.Select(bp =>
-				new SharpDbgFunctionBreakpointRequest(bp.Name, bp.Condition, bp.HitCondition)).ToArray() ?? [];
-			var breakpoints = await ExecuteWithDebuggerProcessingLockAsync(() => _debugger.SetFunctionBreakpoints(requests));
-			responder.SetResponse(new SetFunctionBreakpointsResponse
+			var breakpoints = _debugger.SetBreakpoints(sourcePath, breakpointRequests);
+			return new SetBreakpointsResponse
 			{
-				Breakpoints = breakpoints.Select(bp => new MSBreakpoint
+				Breakpoints = breakpoints.Select(bp => new DapBreakpoint
 				{
 					Id = bp.Id,
 					Verified = bp.Verified,
+					Line = ConvertDebuggerLineToClient(bp.Line),
+					Column = bp is { Verified: true, Column: not null } ? ConvertDebuggerColumnToClient(bp.Column.Value) : null,
+					EndLine = bp.Verified ? ConvertDebuggerLineToClient(bp.EndLine) : null,
+					EndColumn = bp is { Verified: true, EndColumn: not null } ? ConvertDebuggerColumnToClient(bp.EndColumn.Value) : null,
 					Message = bp.Message,
-					Line = null,
-					Column = null,
-					EndLine = null,
-					EndColumn = null,
-					Source = null
+					Source = new Source
+					{
+						Path = bp.FilePath
+					}
 				}).ToList()
-			});
-		}
-		catch (Exception ex)
-		{
-			_logger?.Invoke($"HandleSetFunctionBreakpointsRequestAsync failed: {ex.Message} , {ex}");
-			responder.SetError(new ProtocolException($"Failed to set function breakpoints: {ex.Message}", ex));
-		}
+			};
+		});
 	}
 
-	protected override async void HandleSetExceptionBreakpointsRequestAsync(IRequestResponder<SetExceptionBreakpointsArguments, SetExceptionBreakpointsResponse> responder)
+	private ValueTask<DapResult<SetFunctionBreakpointsResponse>> HandleSetFunctionBreakpointsAsync(SetFunctionBreakpointsArguments arguments)
 	{
-		try
+		var requests = arguments.Breakpoints.Select(bp => new SharpDbgFunctionBreakpointRequest(bp.Name, bp.Condition, bp.HitCondition)).ToArray();
+		return RunLocked<SetFunctionBreakpointsResponse>("Failed to set function breakpoints", () =>
 		{
-			var arguments = responder.Arguments;
-			var breakpointRequests = new List<SharpDbgExceptionBreakpointRequest>();
-			foreach (var filter in arguments.Filters ?? [])
+			var breakpoints = _debugger.SetFunctionBreakpoints(requests);
+			return new SetFunctionBreakpointsResponse
 			{
-				breakpointRequests.Add(new SharpDbgExceptionBreakpointRequest(ParseExceptionFilter(filter)));
-			}
-			foreach (var option in arguments.FilterOptions ?? [])
-			{
-				breakpointRequests.Add(new SharpDbgExceptionBreakpointRequest(ParseExceptionFilter(option.FilterId), option.Condition));
-			}
-			_logger?.Invoke($"Exception breakpoints: {string.Join(", ", breakpointRequests)}");
-			await ExecuteWithDebuggerProcessingLockAsync(() => _debugger.SetExceptionBreakpoints(breakpointRequests));
+				Breakpoints = breakpoints.Select(bp => new DapBreakpoint
+				{
+					Id = bp.Id,
+					Verified = bp.Verified,
+					Message = bp.Message
+				}).ToList()
+			};
+		});
+	}
 
-			responder.SetResponse(new SetExceptionBreakpointsResponse());
-		}
-		catch (Exception ex)
+	private ValueTask<DapResult<SetExceptionBreakpointsResponse>> HandleSetExceptionBreakpointsAsync(SetExceptionBreakpointsArguments arguments)
+	{
+		var breakpointRequests = new List<SharpDbgExceptionBreakpointRequest>();
+		foreach (var filter in arguments.Filters)
 		{
-			_logger?.Invoke($"HandleSetExceptionBreakpointsRequestAsync failed: {ex.Message} , {ex}");
-			responder.SetError(new ProtocolException($"Failed to set exception breakpoints: {ex.Message}", ex));
+			if (ParseExceptionFilter(filter) is not { } parsedFilter) return UnknownFilter(filter);
+			breakpointRequests.Add(new SharpDbgExceptionBreakpointRequest(parsedFilter));
 		}
+		foreach (var option in arguments.FilterOptions ?? [])
+		{
+			if (ParseExceptionFilter(option.FilterId) is not { } parsedFilter) return UnknownFilter(option.FilterId);
+			breakpointRequests.Add(new SharpDbgExceptionBreakpointRequest(parsedFilter, option.Condition));
+		}
+		_logger?.Invoke($"Exception breakpoints: {string.Join(", ", breakpointRequests)}");
 
-		static SharpDbgExceptionBreakpointFilter ParseExceptionFilter(string filter) => filter switch
+		return RunLocked<SetExceptionBreakpointsResponse>("Failed to set exception breakpoints", () =>
+		{
+			_debugger.SetExceptionBreakpoints(breakpointRequests);
+			return new SetExceptionBreakpointsResponse();
+		});
+
+		static SharpDbgExceptionBreakpointFilter? ParseExceptionFilter(string filter) => filter switch
 		{
 			"all" => SharpDbgExceptionBreakpointFilter.All,
 			"user-unhandled" => SharpDbgExceptionBreakpointFilter.UserUnhandled,
-			_ => throw new ProtocolException($"Unknown exception breakpoint filter: '{filter}'")
+			_ => null
 		};
+
+		static ValueTask<DapResult<SetExceptionBreakpointsResponse>> UnknownFilter(string filter) =>
+			ValueTask.FromResult<DapResult<SetExceptionBreakpointsResponse>>(new DapError($"Failed to set exception breakpoints: Unknown exception breakpoint filter: '{filter}'"));
 	}
 
-	protected override async void HandleThreadsRequestAsync(IRequestResponder<ThreadsArguments, ThreadsResponse> responder)
+	private ValueTask<DapResult<ThreadsResponse>> HandleThreadsAsync(ThreadsArguments arguments)
 	{
-		try
+		return RunLocked<ThreadsResponse>("Failed to get threads", () => new ThreadsResponse
 		{
-			var threads = await ExecuteWithDebuggerProcessingLockAsync(() => _debugger.GetThreads());
-
-			var responseThreads = threads.Select(t => new MSThread
+			Threads = _debugger.GetThreads().Select(t => new DapThread
 			{
 				Id = t.id,
 				Name = t.name
-			}).ToList();
+			}).ToList()
+		});
+	}
 
-			responder.SetResponse(new ThreadsResponse
+	private ValueTask<DapResult<StackTraceResponse>> HandleStackTraceAsync(StackTraceArguments arguments)
+	{
+		return RunLocked<StackTraceResponse>("Failed to get stack trace", () =>
+		{
+			var frames = _debugger.GetStackTrace(arguments.ThreadId, arguments.StartFrame ?? 0, arguments.Levels);
+			return new StackTraceResponse
 			{
-				Threads = responseThreads
-			});
-		}
-		catch (Exception ex)
-		{
-			_logger?.Invoke($"HandleThreadsRequestAsync failed: {ex.Message} , {ex}");
-			responder.SetError(new ProtocolException($"Failed to get threads: {ex.Message}", ex));
-		}
+				StackFrames = frames.Select(ToProtocolStackFrame).ToList()
+			};
+		});
 	}
 
-	protected override async void HandleStackTraceRequestAsync(IRequestResponder<StackTraceArguments, StackTraceResponse> responder)
+	private ValueTask<DapResult<ResolveStackFrameResponse>> HandleResolveStackFrameAsync(ResolveStackFrameArguments arguments)
 	{
-		try
+		return RunLocked<ResolveStackFrameResponse>("Failed to resolve stack frame", () =>
 		{
-			var arguments = responder.Arguments;
-			var frames = await ExecuteWithDebuggerProcessingLockAsync(() => _debugger.GetStackTrace(arguments.ThreadId, arguments.StartFrame ?? 0, arguments.Levels));
-
-			var responseFrames = frames.Select(ToProtocolStackFrame).ToList();
-
-			responder.SetResponse(new StackTraceResponse
-			{
-				StackFrames = responseFrames
-			});
-		}
-		catch (Exception ex)
-		{
-			_logger?.Invoke($"HandleStackTraceRequestAsync failed: {ex.Message} , {ex}");
-			responder.SetError(new ProtocolException($"Failed to get stack trace: {ex.Message}", ex));
-		}
+			var frame = _debugger.ResolveStackFrame(arguments.StackFrameId);
+			return new ResolveStackFrameResponse { StackFrame = ToProtocolStackFrame(frame) };
+		});
 	}
 
-	private async void HandleResolveStackFrameRequestAsync(IRequestResponder<ResolveStackFrameArguments, ResolveStackFrameResponse> responder)
+	private DapStackFrame ToProtocolStackFrame(StackFrameInfo frame)
 	{
-		try
-		{
-			var frame = await ExecuteWithDebuggerProcessingLockAsync(() => _debugger.ResolveStackFrame(responder.Arguments.StackFrameId));
-			responder.SetResponse(new ResolveStackFrameResponse { StackFrame = ToProtocolStackFrame(frame) });
-		}
-		catch (Exception ex)
-		{
-			_logger?.Invoke($"HandleResolveStackFrameRequestAsync failed: {ex.Message} , {ex}");
-			responder.SetError(new ProtocolException($"Failed to resolve stack frame: {ex.Message}", ex));
-		}
-	}
-
-	private MSStackFrame ToProtocolStackFrame(StackFrameInfo frame)
-	{
-		var protocolFrame = new MSStackFrame
+		var protocolFrame = new DapStackFrame
 		{
 			Id = frame.Id,
 			Name = frame.Name,
@@ -653,239 +583,176 @@ public class DebugAdapter : DebugAdapterBase
 			Column = ConvertDebuggerColumnToClient(frame.Column),
 			EndColumn = frame.EndColumn is int endColumn ? ConvertDebuggerColumnToClient(endColumn) : null,
 			Source = frame.Source is not null ? new Source { Path = frame.Source, Name = Path.GetFileName(frame.Source), SourceReference = 0 } : null,
-			PresentationHint = frame.IsUserCode ? null : MSStackFrame.PresentationHintValue.Subtle
+			PresentationHint = frame.IsUserCode ? null : (DapStackFrame.PresentationHintValue?)DapStackFrame.PresentationHintValue.Subtle
 		};
 		protocolFrame.IsResolved = frame.IsResolved;
 		protocolFrame.DecompiledSourceInfo = frame.DecompiledSourceInfo;
 		return protocolFrame;
 	}
 
-	protected override async void HandleScopesRequestAsync(IRequestResponder<ScopesArguments, ScopesResponse> responder)
+	private ValueTask<DapResult<ScopesResponse>> HandleScopesAsync(ScopesArguments arguments)
 	{
-		try
+		return RunLocked<ScopesResponse>("Failed to get scopes", () => new ScopesResponse
 		{
-			var scopes = await ExecuteWithDebuggerProcessingLockAsync(() => _debugger.GetScopes(responder.Arguments.FrameId));
-
-			var responseScopes = scopes.Select(s => new Scope
+			Scopes = _debugger.GetScopes(arguments.FrameId).Select(s => new Scope
 			{
 				Name = s.Name,
 				VariablesReference = s.VariablesReference,
 				Expensive = s.Expensive
-			}).ToList();
-
-			responder.SetResponse(new ScopesResponse
-			{
-				Scopes = responseScopes
-			});
-		}
-		catch (Exception ex)
-		{
-			_logger?.Invoke($"HandleScopesRequestAsync failed: {ex.Message} , {ex}");
-			responder.SetError(new ProtocolException($"Failed to get scopes: {ex.Message}", ex));
-		}
+			}).ToList()
+		});
 	}
 
-	protected override async void HandleVariablesRequestAsync(IRequestResponder<VariablesArguments, VariablesResponse> responder)
+	private ValueTask<DapResult<VariablesResponse>> HandleVariablesAsync(VariablesArguments arguments)
 	{
-		try
+		return RunLocked<VariablesResponse>("Failed to get variables", async () =>
 		{
-			var variables = await ExecuteWithDebuggerProcessingLockAsync(() => _debugger.GetVariables(responder.Arguments.VariablesReference));
-
-			var responseVariables = variables.Select(v => new Variable
+			var variables = await _debugger.GetVariables(arguments.VariablesReference);
+			return new VariablesResponse
 			{
-				Name = v.Name,
-				EvaluateName = v.Name,
-				Value = v.Value,
-				Type = v.Type,
-				PresentationHint = v.PresentationHint?.ToDto(),
-				VariablesReference = v.VariablesReference
-			}).ToList();
-
-			var response = new VariablesResponse
-			{
-				Variables = responseVariables
+				Variables = variables.Select(v => new Variable
+				{
+					Name = v.Name,
+					EvaluateName = v.Name,
+					Value = v.Value,
+					Type = v.Type,
+					PresentationHint = v.PresentationHint?.ToDto(),
+					VariablesReference = v.VariablesReference
+				}).ToList()
 			};
-			responder.SetResponse(response);
-		}
-		catch (Exception ex)
-		{
-			_logger?.Invoke($"HandleVariablesRequestAsync failed: {ex.Message} , {ex}");
-			responder.SetError(new ProtocolException($"Failed to get variables: {ex.Message}", ex));
-		}
+		});
 	}
 
-	protected override async void HandleEvaluateRequestAsync(IRequestResponder<EvaluateArguments, EvaluateResponse> responder)
+	private ValueTask<DapResult<EvaluateResponse>> HandleEvaluateAsync(EvaluateArguments arguments)
 	{
-		try
+		return RunLocked<EvaluateResponse>("Failed to evaluate expression", async () =>
 		{
-			var arguments = responder.Arguments;
-			var variableInfo = await ExecuteWithDebuggerProcessingLockAsync(() => _debugger.Evaluate(arguments.Expression, arguments.FrameId));
-
-			var response = new EvaluateResponse
+			var variableInfo = await _debugger.Evaluate(arguments.Expression, arguments.FrameId);
+			return new EvaluateResponse
 			{
 				Result = variableInfo.Value,
 				Type = variableInfo.Type,
 				VariablesReference = variableInfo.VariablesReference,
 				PresentationHint = variableInfo.PresentationHint?.ToDto()
 			};
-			responder.SetResponse(response);
-		}
-		catch (Exception ex)
-		{
-			_logger?.Invoke($"HandleEvaluateRequestAsync failed: {ex.Message} , {ex}");
-			responder.SetError(new ProtocolException($"Failed to evaluate expression: {ex.Message}", ex));
-		}
+		});
 	}
 
-	protected override async void HandleContinueRequestAsync(IRequestResponder<ContinueArguments, ContinueResponse> responder)
+	private ValueTask<DapResult<ContinueResponse>> HandleContinueAsync(ContinueArguments arguments)
 	{
-		try
+		return RunLocked<ContinueResponse>("Failed to continue", () =>
 		{
-			await ExecuteWithDebuggerProcessingLockAsync(() => _debugger.HandleContinueRequest());
-			responder.SetResponse(new ContinueResponse
-			{
-				AllThreadsContinued = true
-			});
-		}
-		catch (Exception ex)
-		{
-			_logger?.Invoke($"HandleContinueRequestAsync failed: {ex.Message} , {ex}");
-			responder.SetError(new ProtocolException($"Failed to continue: {ex.Message}", ex));
-		}
+			_debugger.HandleContinueRequest();
+			return new ContinueResponse { AllThreadsContinued = true };
+		});
 	}
 
-	protected override async void HandleNextRequestAsync(IRequestResponder<NextArguments> responder)
+	private ValueTask<DapResult<NextResponse>> HandleNextAsync(NextArguments arguments)
 	{
-		try
+		return RunLocked<NextResponse>("Failed to step", async () =>
 		{
-			await ExecuteWithDebuggerProcessingLockAsync(() => _debugger.StepNext(responder.Arguments.ThreadId));
-			responder.SetResponse(new NextResponse());
-		}
-		catch (Exception ex)
-		{
-			_logger?.Invoke($"HandleNextRequestAsync failed: {ex.Message} , {ex}");
-			responder.SetError(new ProtocolException($"Failed to step: {ex.Message}", ex));
-		}
+			await _debugger.StepNext(arguments.ThreadId);
+			return new NextResponse();
+		});
 	}
 
-	protected override async void HandleStepInRequestAsync(IRequestResponder<StepInArguments> responder)
+	private ValueTask<DapResult<StepInResponse>> HandleStepInAsync(StepInArguments arguments)
 	{
-		try
+		return RunLocked<StepInResponse>("Failed to step in", async () =>
 		{
-			await ExecuteWithDebuggerProcessingLockAsync(() => _debugger.StepIn(responder.Arguments.ThreadId));
-			responder.SetResponse(new StepInResponse());
-		}
-		catch (Exception ex)
-		{
-			_logger?.Invoke($"HandleStepInRequestAsync failed: {ex.Message} , {ex}");
-			responder.SetError(new ProtocolException($"Failed to step in: {ex.Message}", ex));
-		}
+			await _debugger.StepIn(arguments.ThreadId);
+			return new StepInResponse();
+		});
 	}
 
-	protected override async void HandleStepOutRequestAsync(IRequestResponder<StepOutArguments> responder)
+	private ValueTask<DapResult<StepOutResponse>> HandleStepOutAsync(StepOutArguments arguments)
 	{
-		try
+		return RunLocked<StepOutResponse>("Failed to step out", async () =>
 		{
-			await ExecuteWithDebuggerProcessingLockAsync(() => _debugger.StepOut(responder.Arguments.ThreadId));
-			responder.SetResponse(new StepOutResponse());
-		}
-		catch (Exception ex)
-		{
-			_logger?.Invoke($"HandleStepOutRequestAsync failed: {ex.Message} , {ex}");
-			responder.SetError(new ProtocolException($"Failed to step out: {ex.Message}", ex));
-		}
+			await _debugger.StepOut(arguments.ThreadId);
+			return new StepOutResponse();
+		});
 	}
 
-	protected override async void HandlePauseRequestAsync(IRequestResponder<PauseArguments> responder)
+	private ValueTask<DapResult<PauseResponse>> HandlePauseAsync(PauseArguments arguments)
 	{
-		try
+		return RunLocked<PauseResponse>("Failed to pause", () =>
 		{
-			await ExecuteWithDebuggerProcessingLockAsync(() => _debugger.Pause());
-			responder.SetResponse(new PauseResponse());
-		}
-		catch (Exception ex)
-		{
-			_logger?.Invoke($"HandlePauseRequestAsync failed: {ex.Message} , {ex}");
-			responder.SetError(new ProtocolException($"Failed to pause: {ex.Message}", ex));
-		}
+			_debugger.Pause();
+			return new PauseResponse();
+		});
 	}
 
-	protected override async void HandleDisconnectRequestAsync(IRequestResponder<DisconnectArguments> responder)
+	private async ValueTask<DapResult<DisconnectResponse>> HandleDisconnectAsync(DisconnectArguments arguments, DapRequestContext context)
 	{
-		try
+		var result = await RunLocked<DisconnectResponse>("Failed to disconnect", () =>
 		{
-			await ExecuteWithDebuggerProcessingLockAsync(() => _debugger.Disconnect(responder.Arguments?.TerminateDebuggee ?? false));
-			responder.SetResponse(new DisconnectResponse());
-			RequestDebuggerProcessShutdown();
-		}
-		catch (Exception ex)
-		{
-			_logger?.Invoke($"HandleDisconnectRequestAsync failed: {ex.Message} , {ex}");
-			responder.SetError(new ProtocolException($"Failed to disconnect: {ex.Message}", ex));
-		}
+			_debugger.Disconnect(arguments.TerminateDebuggee ?? false);
+			return new DisconnectResponse();
+		});
+		if (result is DisconnectResponse) context.OnResponseSent(RequestDebuggerProcessShutdown);
+		return result;
 	}
 
-	protected override async void HandleTerminateRequestAsync(IRequestResponder<TerminateArguments> responder)
+	private ValueTask<DapResult<TerminateResponse>> HandleTerminateAsync(TerminateArguments arguments)
 	{
-		try
+		return RunLocked<TerminateResponse>("Failed to terminate", () =>
 		{
-			await ExecuteWithDebuggerProcessingLockAsync(() => _debugger.Terminate());
-			responder.SetResponse(new TerminateResponse());
-		}
-		catch (Exception ex)
-		{
-			_logger?.Invoke($"HandleTerminateRequestAsync failed: {ex.Message} , {ex}");
-			responder.SetError(new ProtocolException($"Failed to terminate: {ex.Message}", ex));
-		}
+			_debugger.Terminate();
+			return new TerminateResponse();
+		});
 	}
 
-	protected override async void HandleExceptionInfoRequestAsync(IRequestResponder<ExceptionInfoArguments, ExceptionInfoResponse> responder)
+	private ValueTask<DapResult<ExceptionInfoResponse>> HandleExceptionInfoAsync(ExceptionInfoArguments arguments)
 	{
-		try
+		return RunLocked<ExceptionInfoResponse>("Failed to get exception info", async () =>
 		{
-			var threadId = responder.Arguments.ThreadId;
-			var exceptionInfo = await ExecuteWithDebuggerProcessingLockAsync(() => _debugger.ExceptionInfo(new ThreadId(threadId)));
-
-			var response = new ExceptionInfoResponse
+			var exceptionInfo = await _debugger.ExceptionInfo(new ThreadId(arguments.ThreadId));
+			return new ExceptionInfoResponse
 			{
 				ExceptionId = exceptionInfo.ExceptionId,
 				Description = exceptionInfo.Description,
 				BreakMode = exceptionInfo.BreakMode switch
 				{
+					SharpDbgExceptionBreakMode.Never => ExceptionBreakMode.Never,
 					SharpDbgExceptionBreakMode.Always => ExceptionBreakMode.Always,
 					SharpDbgExceptionBreakMode.Unhandled => ExceptionBreakMode.Unhandled,
 					SharpDbgExceptionBreakMode.UserUnhandled => ExceptionBreakMode.UserUnhandled,
-					_ => ExceptionBreakMode.Unknown
+					_ => new ExceptionBreakMode("unknown")
 				},
-				Code = exceptionInfo.Code,
-				Details = new ExceptionDetails
-				{
-					Message = exceptionInfo.Details.Message,
-					TypeName = exceptionInfo.Details.TypeName,
-					FullTypeName = exceptionInfo.Details.FullTypeName,
-					EvaluateName = exceptionInfo.Details.EvaluateName,
-					StackTrace = exceptionInfo.Details.StackTrace,
-					InnerException = exceptionInfo.Details.InnerException.Select(inner => new ExceptionDetails
-					{
-						Message = inner.Message,
-						TypeName = inner.TypeName,
-						FullTypeName = inner.FullTypeName,
-						EvaluateName = inner.EvaluateName,
-						StackTrace = inner.StackTrace,
-						InnerException = [] // Only support one level of inner exceptions for now
-					}).ToList(),
-					FormattedDescription = exceptionInfo.Details.FormattedDescription,
-					HResult = exceptionInfo.Details.HResult,
-					Source = exceptionInfo.Details.Source
-				}
+				Details = ToProtocolExceptionDetails(exceptionInfo.Details),
+				// 'code' is a Visual Studio extension to the DAP specification
+				AdditionalProperties = exceptionInfo.Code is 0 ? null : new JsonObject { ["code"] = exceptionInfo.Code }
 			};
-			responder.SetResponse(response);
-		}
-		catch (Exception ex)
+		});
+	}
+
+	private static ExceptionDetails ToProtocolExceptionDetails(ExceptionInfo.ExceptionDetails details)
+	{
+		// Visual Studio extensions to the DAP specification
+		var additionalProperties = new JsonObject();
+		if (details.FormattedDescription is not null) additionalProperties["formattedDescription"] = details.FormattedDescription;
+		if (details.HResult is not 0) additionalProperties["hresult"] = details.HResult;
+		if (details.Source is not null) additionalProperties["source"] = details.Source;
+
+		return new ExceptionDetails
 		{
-			_logger?.Invoke($"HandleExceptionInfoRequestAsync failed: {ex.Message} , {ex}");
-			responder.SetError(new ProtocolException($"Failed to get exception info: {ex.Message}", ex));
-		}
+			Message = details.Message,
+			TypeName = details.TypeName,
+			FullTypeName = details.FullTypeName,
+			EvaluateName = details.EvaluateName,
+			StackTrace = details.StackTrace,
+			InnerException = details.InnerException.Select(inner => new ExceptionDetails
+			{
+				Message = inner.Message,
+				TypeName = inner.TypeName,
+				FullTypeName = inner.FullTypeName,
+				EvaluateName = inner.EvaluateName,
+				StackTrace = inner.StackTrace,
+				InnerException = [] // Only support one level of inner exceptions for now
+			}).ToList(),
+			AdditionalProperties = additionalProperties
+		};
 	}
 
 	// Coordinate conversion helpers
@@ -909,20 +776,5 @@ public class DebugAdapter : DebugAdapterBase
 		return _clientColumnsStartAt1 ? column : column - 1;
 	}
 
-	private static StoppedEvent.ReasonValue ConvertStopReason(string reason)
-	{
-		return reason.ToLowerInvariant() switch
-		{
-			"step" => StoppedEvent.ReasonValue.Step,
-			"breakpoint" => StoppedEvent.ReasonValue.Breakpoint,
-			"exception" => StoppedEvent.ReasonValue.Exception,
-			"pause" => StoppedEvent.ReasonValue.Pause,
-			"entry" => StoppedEvent.ReasonValue.Entry,
-			"goto" => StoppedEvent.ReasonValue.Goto,
-			"function breakpoint" => StoppedEvent.ReasonValue.FunctionBreakpoint,
-			"data breakpoint" => StoppedEvent.ReasonValue.DataBreakpoint,
-			"instruction breakpoint" => StoppedEvent.ReasonValue.InstructionBreakpoint,
-			_ => StoppedEvent.ReasonValue.Unknown
-		};
-	}
+	private static StoppedEvent.ReasonValue ConvertStopReason(string reason) => new(reason.ToLowerInvariant());
 }

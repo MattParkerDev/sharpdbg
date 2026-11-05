@@ -24,8 +24,7 @@ internal static class InMemoryDebugAdapterHelper
 
 		var adapter = new DebugAdapter(logAction ?? Log);
 		adapter.Initialize(stdInClient, stdOutServer);
-		adapter.Protocol.VerifySynchronousOperationAllowed();
-		adapter.Protocol.Run();
+		adapter.Connection.Start();
 
 		var disposable = new InMemoryDebugAdapterDisposable(stdInServer, stdOutServer, stdInClient, stdOutClient, adapter);
 		return (stdInServer, stdOutClient, disposable);
@@ -55,8 +54,8 @@ public class InMemoryDebugAdapterDisposable(
 	public void Dispose()
 	{
 		GC.SuppressFinalize(this);
-		_debugAdapter.Protocol.Stop();
-		_debugAdapter.Protocol.WaitForReader();
+		_debugAdapter.Connection.Stop();
+		// Closing the write end of the adapter's input ends its reader thread
 		_stdInServer.Dispose();
 		_stdOutServer.Dispose();
 		_stdInClient.Dispose();

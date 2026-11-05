@@ -1,6 +1,5 @@
 using AwesomeAssertions;
-using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol;
-using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
+using SharpDbg.DapProtocol;
 using SharpDbg.Cli.Tests.Helpers;
 using SharpDbg.Infrastructure.Debugger;
 
@@ -58,7 +57,7 @@ public class BreakpointTests(ITestOutputHelper testOutputHelper)
 		};
 
 		var breakpointEvent2 = await debugProtocolHost.WaitForEvent<BreakpointEvent>(debugEventTcs);
-		breakpointEvent2.Should().BeEquivalentTo(expectedBreakpointEvent2, options => options.Excluding(s => s.Breakpoint.Source.Checksums).Excluding(s => s.Breakpoint.Source.VsSourceLinkInfo));
+		breakpointEvent2.Should().BeEquivalentTo(expectedBreakpointEvent2, options => options.Excluding(s => s.Breakpoint.Source!.Checksums));
 
 		var stoppedEvent = await debugProtocolHost.WaitForStoppedEvent(debugEventTcs);
 		var stopInfo = stoppedEvent.ReadStopInfo();
@@ -99,7 +98,7 @@ public class BreakpointTests(ITestOutputHelper testOutputHelper)
 		debugProtocolHost.WithStackTraceRequest(stoppedEvent.ThreadId!.Value, out var stackTraceResponse);
 		var topFrame = stackTraceResponse.StackFrames.Single();
 
-		topFrame.Source.Path.Should().EndWith("ColumnBreakpointClass.cs");
+		topFrame.Source!.Path.Should().EndWith("ColumnBreakpointClass.cs");
 		topFrame.Line.Should().Be(line);
 		topFrame.Column.Should().Be(column);
 		topFrame.EndColumn.Should().Be(endColumn);
@@ -132,7 +131,7 @@ public class BreakpointTests(ITestOutputHelper testOutputHelper)
 		debugProtocolHost.WithStackTraceRequest(stoppedEvent.ThreadId!.Value, out var stackTraceResponse);
 		var topFrame = stackTraceResponse.StackFrames.Single();
 
-		topFrame.Source.Path.Should().EndWith("ColumnBreakpointClass.cs");
+		topFrame.Source!.Path.Should().EndWith("ColumnBreakpointClass.cs");
 		topFrame.Line.Should().Be(line);
 		topFrame.Column.Should().Be(expectedColumn);
 	}
@@ -170,7 +169,7 @@ public class BreakpointTests(ITestOutputHelper testOutputHelper)
 		debugProtocolHost.WithStackTraceRequest(stoppedEvent.ThreadId!.Value, out var stackTraceResponse);
 		var topFrame = stackTraceResponse.StackFrames.Single();
 
-		topFrame.Source.Path.Should().EndWith("ColumnBreakpointClass.cs");
+		topFrame.Source!.Path.Should().EndWith("ColumnBreakpointClass.cs");
 		topFrame.Line.Should().Be(statementStartLine);
 		topFrame.Column.Should().Be(expectedColumn);
 	}

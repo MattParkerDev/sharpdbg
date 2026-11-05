@@ -1,6 +1,5 @@
 using AwesomeAssertions;
-using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol;
-using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
+using SharpDbg.DapProtocol;
 using SharpDbg.Cli.Tests.Helpers;
 using SharpDbg.InMemory;
 
@@ -16,19 +15,19 @@ public class ProtocolTests(ITestOutputHelper testOutputHelper)
 		using var host = DebugAdapterProcessHelper.GetDebugProtocolHost(input, output, testOutputHelper);
 		host.Run();
 
-		var unimplementedError = Assert.Throws<ProtocolException>(() =>
-			host.SendRequestSync(new SetVariableRequest(0, "value", "1")));
-		unimplementedError.Message.Should().Be("Request 'setVariable' is not supported.");
+		var unimplementedResult = host.SendRequest(new SetVariableArguments { VariablesReference = 0, Name = "value", Value = "1" });
+		unimplementedResult.Value.Should().BeOfType<DapError>().Which.Message.Should().Be("Request 'setVariable' is not supported.");
 
-		var unknownError = Assert.Throws<ProtocolException>(() =>
-			host.SendRequestSync(new UnknownRequest()));
-		unknownError.Message.Should().Be("Request 'unknownRequest' is not supported.");
+		var unknownResult = host.SendRequest(new UnknownArguments());
+		unknownResult.Value.Should().BeOfType<DapError>().Which.Message.Should().Be("Request 'unknownRequest' is not supported.");
 
 		var initializeResponse = host.SendRequestSync(DebugAdapterProcessHelper.GetInitializeRequest());
 		initializeResponse.Should().NotBeNull();
 	}
 
-	private sealed class UnknownRequest() : DebugRequestWithResponse<UnknownArguments, UnknownResponse>("unknownRequest");
-	private sealed class UnknownArguments;
-	private sealed class UnknownResponse : ResponseBody;
+	private sealed record UnknownArguments : IDapRequest<UnknownResponse>
+	{
+		public string Command => "unknownRequest";
+	}
+	private sealed record UnknownResponse;
 }

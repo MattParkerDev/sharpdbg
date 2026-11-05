@@ -1,5 +1,5 @@
 using AwesomeAssertions;
-using Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.Messages;
+using SharpDbg.DapProtocol;
 
 namespace SharpDbg.Cli.Tests.Helpers;
 
@@ -16,8 +16,8 @@ public class VariableAssertionsTests
 	[InlineData(VariableReferenceComparison.Permissive, 0, -1, false)]
 	public void ComparesReferences(VariableReferenceComparison comparison, int expectedReference, int actualReference, bool shouldPass)
 	{
-		List<Variable> expected = [new() { Name = "value", VariablesReference = expectedReference }];
-		List<Variable> actual = [new() { Name = "value", VariablesReference = actualReference }];
+		List<Variable> expected = [new() { Name = "value", Value = "", VariablesReference = expectedReference }];
+		List<Variable> actual = [new() { Name = "value", Value = "", VariablesReference = actualReference }];
 
 		Action assert = () => actual.ShouldBeEquivalentToDebuggerVariables(expected, comparison);
 		if (shouldPass)
@@ -42,7 +42,7 @@ public class VariableAssertionsTests
 
 		actual.ShouldBeEquivalentToDebuggerVariables(expected, VariableReferenceComparison.Permissive);
 
-		actual[0].Value = "wrong";
+		actual[0] = actual[0] with { Value = "wrong" };
 		Action assert = () => actual.ShouldBeEquivalentToDebuggerVariables(expected, VariableReferenceComparison.Permissive);
 		assert.Should().Throw<Xunit.Sdk.XunitException>();
 	}

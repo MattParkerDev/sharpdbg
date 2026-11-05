@@ -8,6 +8,9 @@
     <Project Path="iac/DetermineIfPublishNecessary/DetermineIfPublishNecessary.csproj" />
     <Project Path="iac/PublishToNuget/PublishToNuget.csproj" />
   </Folder>
+  <Folder Name="/tools/">
+    <File Path="tools/generate-dap-protocol.cs" />
+  </Folder>
   <Folder Name="/Solution Items/">
     <File Path=".editorconfig" />
     <File Path=".gitignore" />
@@ -15,12 +18,14 @@
     <File Path="global.json" />
     <File Path="nuget.config" />
     <File Path="README.md" />
+    <File Path="THIRD-PARTY-NOTICES.txt" />
   </Folder>
   <Folder Name="/src/">
     <Project Path="src/SharpDbg.Application/SharpDbg.Application.csproj" />
     <Project Path="src/SharpDbg.Cli/SharpDbg.Cli.csproj" />
     <Project Path="src/SharpDbg.Infrastructure/SharpDbg.Infrastructure.csproj" />
     <Project Path="src/SharpDbg.InMemory/SharpDbg.InMemory.csproj" />
+    <Project Path="src/SharpDbg.DapProtocol/SharpDbg.DapProtocol.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/AsyncEntryConsoleApp/AsyncEntryConsoleApp.csproj" />

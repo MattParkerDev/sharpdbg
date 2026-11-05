@@ -1,11 +1,11 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
+    <TargetFramework>net11.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>
-	
+
 	<ItemGroup>
 		<Publicize IncludeCompilerGeneratedMembers="false" Include="Microsoft.VisualStudio.Shared.VSCodeDebugProtocol" />
 		<DoNotPublicize Include="Microsoft.VisualStudio.Shared.VSCodeDebugProtocol:Microsoft.VisualStudio.Shared.VSCodeDebugProtocol.DebugAdapterBase" />

@@ -192,39 +192,32 @@ public static class Extensions
 
 		startEval();
 
-		evalStatus.IsRunning = true;
-		try
+		using var _ = evalStatus.BeginEvaluation();
+		eval.Thread.Process.Continue(false);
+		var evalEvent = await WaitForEvalEventOrAbortAsync(eval, processEventsUntilEvalEventFunc());
+		if (evalEvent is EvalCompleteCorDebugManagedCallbackEventArgs completeEvent)
 		{
-			eval.Thread.Process.Continue(false);
-			var evalEvent = await WaitForEvalEventOrAbortAsync(eval, processEventsUntilEvalEventFunc());
-			if (evalEvent is EvalCompleteCorDebugManagedCallbackEventArgs completeEvent)
+			if (completeEvent.Eval != eval) throw new ManagedDebugger.EvalException("EvalComplete callback error - Eval does not match");
+			returnValue = onComplete(completeEvent);
+		}
+		else if (evalEvent is EvalExceptionCorDebugManagedCallbackEventArgs exceptionEvent)
+		{
+			if (exceptionEvent.Eval != eval) throw new ManagedDebugger.EvalException("EvalException callback error - Eval does not match");
+			var exceptionValue = exceptionEvent.Eval.Result ?? throw new ManagedDebugger.EvalException("EvalException callback error - Result is null");
+			if (throwOnException)
 			{
-				if (completeEvent.Eval != eval) throw new ManagedDebugger.EvalException("EvalComplete callback error - Eval does not match");
-				returnValue = onComplete(completeEvent);
-			}
-			else if (evalEvent is EvalExceptionCorDebugManagedCallbackEventArgs exceptionEvent)
-			{
-				if (exceptionEvent.Eval != eval) throw new ManagedDebugger.EvalException("EvalException callback error - Eval does not match");
-				var exceptionValue = exceptionEvent.Eval.Result ?? throw new ManagedDebugger.EvalException("EvalException callback error - Result is null");
-				if (throwOnException)
+				try
 				{
-					try
-					{
-						throw new ManagedDebugger.EvalException($"Evaluation threw {ManagedDebugger.GetCorDebugTypeFriendlyName(exceptionValue.ExactType)}");
-					}
-					finally
-					{
-						if (exceptionValue is ICorDebugHandleValue handle) handle.TryDispose();
-					}
+					throw new ManagedDebugger.EvalException($"Evaluation threw {ManagedDebugger.GetCorDebugTypeFriendlyName(exceptionValue.ExactType)}");
 				}
-				returnValue = exceptionValue;
+				finally
+				{
+					if (exceptionValue is ICorDebugHandleValue handle) handle.TryDispose();
+				}
 			}
-			return returnValue;
+			returnValue = exceptionValue;
 		}
-		finally
-		{
-			evalStatus.IsRunning = false;
-		}
+		return returnValue;
 	}
 
 	public static TimeSpan EvalTimeout { get; set; } = TimeSpan.FromSeconds(5);

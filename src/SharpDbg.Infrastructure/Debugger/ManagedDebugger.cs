@@ -18,7 +18,7 @@ public partial class ManagedDebugger
 	private SessionState _session = SessionState.NotStarted.Instance;
 	// Null unless a process is being debugged
 	private ICorDebugProcess? CorProcess => _session is SessionState.Debugging debugging ? debugging.Process : null;
-	private RunState _run = RunState.Running.Instance;
+	internal RunState _run = RunState.Running.Instance;
 	private readonly CorDebugManagedCallback _callbacks;
 	private readonly BreakpointManager _breakpointManager;
 	private readonly VariableManager _variableManager;
@@ -89,7 +89,7 @@ public partial class ManagedDebugger
 		_variableManager = new VariableManager();
 		_frameReferenceManager = new FrameReferenceManager();
 		_callbacks = new CorDebugManagedCallback();
-		EvalStatus = new EvalStatus();
+		EvalStatus = new EvalStatus(this);
 		_asyncStepper = new AsyncStepper(_modules, this);
 		_runtimeEventChannel = Channel.CreateUnbounded<CorDebugManagedCallbackEventArgs>(new UnboundedChannelOptions
 		{
@@ -582,7 +582,30 @@ public partial class ManagedDebugger
 	}
 }
 
-public class EvalStatus
+/// <summary>
+/// Lets code that runs an evaluation, which only has this and not the debugger, mark the debuggee as <see cref="RunState.Evaluating"/>
+/// </summary>
+public sealed class EvalStatus
 {
-	public bool IsRunning { get; set; }
+	private readonly ManagedDebugger _debugger;
+	internal EvalStatus(ManagedDebugger debugger) => _debugger = debugger;
+
+	/// <summary>
+	/// Mark the debuggee as <see cref="RunState.Evaluating"/>, nested in any evaluation already running, until the returned scope is disposed
+	/// </summary>
+	internal EvaluationScope BeginEvaluation()
+	{
+		_debugger._run = new RunState.Evaluating(_debugger._run);
+		return new EvaluationScope(_debugger);
+	}
+
+	internal readonly struct EvaluationScope(ManagedDebugger debugger) : IDisposable
+	{
+		public void Dispose()
+		{
+			// Events raised by an evaluation continue rather than stop, and nested evaluations end before the one they are nested in
+			if (debugger._run is not RunState.Evaluating evaluating) throw new UnreachableException($"Expected an evaluation to be running, but was {debugger._run}");
+			debugger._run = evaluating.Interrupted;
+		}
+	}
 }

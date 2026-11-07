@@ -210,7 +210,7 @@ public partial class ManagedDebugger
 		var breakpoint = breakpointCorDebugManagedCallbackEventArgs.Breakpoint;
 		ArgumentNullException.ThrowIfNull(breakpoint);
 
-		if (EvalStatus.IsRunning)
+		if (_run is RunState.Evaluating)
 		{
 			Continue();
 			return;
@@ -413,7 +413,7 @@ public partial class ManagedDebugger
 	private void HandleBreak(object? sender, BreakCorDebugManagedCallbackEventArgs breakEventArgs)
 	{
 		// A Debugger.Break in code run by an evaluation, e.g. a property getter, does not stop: the evaluation carries on
-		if (EvalStatus.IsRunning)
+		if (_run is RunState.Evaluating)
 		{
 			Continue();
 			return;
@@ -431,7 +431,7 @@ public partial class ManagedDebugger
 
 	private void HandleException2(object? sender, Exception2CorDebugManagedCallbackEventArgs exceptionEventArgs)
 	{
-		if (EvalStatus.IsRunning)
+		if (_run is RunState.Evaluating)
 		{
 			Continue();
 			return;

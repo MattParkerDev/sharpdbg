@@ -281,41 +281,55 @@ public partial class ManagedDebugger
 			}
 		}
 
-		var managedBreakpoint = _breakpointManager.FindByCorBreakpoint(functionBreakpoint);
-		if (managedBreakpoint is null)
+		// Breakpoints at the same location share the runtime breakpoint: each keeps its own hit count and conditions, and the
+		// stop names every one that is hit
+		var managedBreakpoints = _breakpointManager.FindAllByCorBreakpoint(functionBreakpoint);
+		if (managedBreakpoints.Count is 0)
 		{
 			_logger?.Invoke("Hit a breakpoint that has since been replaced - continuing");
 			ContinueWithVariableClear();
 			return;
 		}
 
-		managedBreakpoint.HitCount++;
-
-		if (managedBreakpoint.HitCondition is not null && EvaluateHitCondition(managedBreakpoint.HitCount, managedBreakpoint.HitCondition) is false)
+		var hitBreakpoints = new List<BreakpointManager.BreakpointInfo>();
+		foreach (var managedBreakpoint in managedBreakpoints)
 		{
-			_logger?.Invoke($"Hit count condition not met: count={managedBreakpoint.HitCount}, condition={managedBreakpoint.HitCondition}");
+			managedBreakpoint.HitCount++;
+
+			if (managedBreakpoint.HitCondition is not null && EvaluateHitCondition(managedBreakpoint.HitCount, managedBreakpoint.HitCondition) is false)
+			{
+				_logger?.Invoke($"Hit count condition not met: count={managedBreakpoint.HitCount}, condition={managedBreakpoint.HitCondition}");
+				continue;
+			}
+
+			if (managedBreakpoint.Condition is not null && await EvaluateBreakpointCondition(corThread, managedBreakpoint.Condition) is false)
+			{
+				_logger?.Invoke($"Conditional breakpoint condition not met: {managedBreakpoint.Condition}");
+				continue;
+			}
+
+			hitBreakpoints.Add(managedBreakpoint);
+		}
+
+		if (hitBreakpoints.Count is 0)
+		{
 			ContinueWithVariableClear();
 			return;
 		}
 
-		if (managedBreakpoint.Condition is not null && await EvaluateBreakpointCondition(corThread, managedBreakpoint.Condition) is false)
-		{
-			_logger?.Invoke($"Conditional breakpoint condition not met: {managedBreakpoint.Condition}");
-			ContinueWithVariableClear();
-			return;
-		}
-
-		if (managedBreakpoint.IsFunctionBreakpoint)
+		var hitBreakpointIds = hitBreakpoints.Select(bp => bp.Id).ToList();
+		var firstHitBreakpoint = hitBreakpoints[0];
+		if (firstHitBreakpoint.IsFunctionBreakpoint)
 		{
 			var sourceInfo = GetSourceInfoAtFrame(corThread.ActiveFrame, _justMyCode is false);
 			// There exists a 'function breakpoint' type, but netcoredbg et al do not use it, so lets just use 'breakpoint'
 			if (sourceInfo is null) OnStopped?.Invoke(corThread.Id, "breakpoint");
-			else OnStopped2?.Invoke(corThread.Id, sourceInfo.Value.FilePath, sourceInfo.Value.StartLine, sourceInfo.Value.StartColumn, "breakpoint", [managedBreakpoint.Id]);
+			else OnStopped2?.Invoke(corThread.Id, sourceInfo.Value.FilePath, sourceInfo.Value.StartLine, sourceInfo.Value.StartColumn, "breakpoint", hitBreakpointIds);
 			return;
 		}
 
-		if (managedBreakpoint.ResolvedBreakpointFromPdb is not {} resolvedBreakpoint) throw new UnreachableException("Breakpoint was not resolved from PDB - this should never happen, as source breakpoints are only bound to resolved source locations");
-		OnStopped2?.Invoke(corThread.Id, managedBreakpoint.FilePath, resolvedBreakpoint.StartLine, resolvedBreakpoint.StartColumn, "breakpoint", [managedBreakpoint.Id]);
+		if (firstHitBreakpoint.ResolvedBreakpointFromPdb is not {} resolvedBreakpoint) throw new UnreachableException("Breakpoint was not resolved from PDB - this should never happen, as source breakpoints are only bound to resolved source locations");
+		OnStopped2?.Invoke(corThread.Id, firstHitBreakpoint.FilePath, resolvedBreakpoint.StartLine, resolvedBreakpoint.StartColumn, "breakpoint", hitBreakpointIds);
 	}
 
 	private void TryBindEntryBreakpoint(ModuleInfo moduleInfo)

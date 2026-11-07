@@ -314,16 +314,21 @@ public partial class ManagedDebugger
 		{
 			if (_process is null) return false;
 
-			// Find a module that contains the source file
+			// Find the module whose symbols hold the document the path names. Only the best matches are tried, so that a breakpoint
+			// is never bound to a same-named file elsewhere because the file it names has no code at the line
 			ModuleInfo? targetModule = null;
 			ModuleMetadataReader.ResolvedBreakpoint? resolved = null;
 
-			foreach (var moduleInfo in _modules.Values)
+			var documentMatches = _modules.Values
+				.Where(moduleInfo => moduleInfo.MetadataReader.HasSymbols)
+				.Select(moduleInfo => (Module: moduleInfo, Document: moduleInfo.MetadataReader.FindDocument(bp.FilePath)))
+				.Where(match => match.Document is not null)
+				.Select(match => (match.Module, Document: match.Document!.Value))
+				.ToList();
+			var bestDocument = documentMatches.Count is 0 ? default : documentMatches.Select(match => match.Document).Aggregate((best, next) => next.IsBetterThan(best) ? next : best);
+			foreach (var (moduleInfo, document) in documentMatches.Where(match => bestDocument.IsBetterThan(match.Document) is false))
 			{
-				if (moduleInfo.MetadataReader.HasSymbols is false)
-					continue;
-
-				resolved = moduleInfo.MetadataReader.ResolveBreakpoint(bp.FilePath, bp.Line, bp.Column);
+				resolved = moduleInfo.MetadataReader.ResolveBreakpoint(document, bp.Line, bp.Column);
 				if (resolved is not null)
 				{
 					targetModule = moduleInfo;
@@ -344,8 +349,10 @@ public partial class ManagedDebugger
 			var function = targetModule.Module.GetFunctionFromToken(resolved.MethodToken);
 			var ilCode = function.ILCode;
 
-			// Create a breakpoint at the resolved IL offset
+			// Create a breakpoint at the resolved IL offset. Breakpoints at the same location share one runtime breakpoint, so that
+			// they are handled together and stop once
 			var corBreakpoint = TryGetEntryBreakpoint(targetModule.BaseAddress, resolved.MethodToken, resolved.ILOffset)
+				?? _breakpointManager.FindSourceCorBreakpointAt(targetModule.BaseAddress, resolved.MethodToken, resolved.ILOffset)
 				?? ilCode.CreateBreakpoint(resolved.ILOffset);
 			if (corBreakpoint != _entryBreakpoint?.CorBreakpoint) corBreakpoint.Activate(true);
 

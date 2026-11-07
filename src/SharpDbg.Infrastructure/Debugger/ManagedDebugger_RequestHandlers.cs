@@ -123,18 +123,24 @@ public partial class ManagedDebugger
 		_logger?.Invoke($"RemoveBreakpoint: {id}");
 		var bp = _breakpointManager.GetBreakpoint(id);
 		if (bp is null) return false;
-		if (bp.CorBreakpoint is not null)
+		var removed = _breakpointManager.RemoveBreakpoint(id);
+		if (bp.CorBreakpoint is not null) DeactivateIfUnused(bp.CorBreakpoint);
+		return removed;
+	}
+
+	// Breakpoints at the same location share a runtime breakpoint (as can the entry breakpoint), so it is only deactivated
+	// once nothing uses it
+	private void DeactivateIfUnused(ICorDebugFunctionBreakpoint corBreakpoint)
+	{
+		if (corBreakpoint == _entryBreakpoint?.CorBreakpoint || _breakpointManager.FindByCorBreakpoint(corBreakpoint) is not null) return;
+		try
 		{
-			try
-			{
-				bp.CorBreakpoint.Activate(false);
-			}
-			catch (Exception ex)
-			{
-				_logger?.Invoke($"Error deactivating breakpoint: {ex.Message}");
-			}
+			corBreakpoint.Activate(false);
 		}
-		return _breakpointManager.RemoveBreakpoint(id);
+		catch (Exception ex)
+		{
+			_logger?.Invoke($"Error deactivating breakpoint: {ex.Message}");
+		}
 	}
 
 	/// <summary>
@@ -338,23 +344,13 @@ public partial class ManagedDebugger
 		//System.Diagnostics.Debugger.Launch();
 		_logger?.Invoke($"SetBreakpoints: {filePath}, breakpoints: {string.Join(",", breakpoints.Select(b => $"L{b.Line} {(b.Column is not null ? $"C{b.Column}" : null)} {(b.Condition is not null ? $"[{b.Condition}]" : null)}"))}");
 
-		// Deactivate and clear existing breakpoints for this file
-		var existingBreakpoints = _breakpointManager.GetBreakpointsForFile(filePath);
-		foreach (var bp in existingBreakpoints)
-		{
-			if (bp.CorBreakpoint is not null)
-			{
-				try
-				{
-					bp.CorBreakpoint.Activate(false);
-				}
-				catch (Exception ex)
-				{
-					_logger?.Invoke($"Error deactivating breakpoint: {ex.Message}");
-				}
-			}
-		}
+		// Clear and deactivate existing breakpoints for this file
+		var existingCorBreakpoints = _breakpointManager.GetBreakpointsForFile(filePath).Select(bp => bp.CorBreakpoint).OfType<ICorDebugFunctionBreakpoint>().Distinct().ToList();
 		_breakpointManager.ClearBreakpointsForFile(filePath);
+		foreach (var corBreakpoint in existingCorBreakpoints)
+		{
+			DeactivateIfUnused(corBreakpoint);
+		}
 
 		// Create new breakpoints
 		var result = new List<BreakpointManager.BreakpointInfo>();

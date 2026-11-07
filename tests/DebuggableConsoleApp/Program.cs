@@ -40,6 +40,8 @@ public static class Program
 			myLambdaClass.VariableShadowingMethod();
 			MyLambdaClass.CapturedParameterMethod(5);
 			MyLambdaClass.NestedCapturedParameterMethod(3);
+			SomeFolder.SameFileName.Test();
+			SameFileName.Test();
 			myClassWithGenericMethod.Test(4);
 			AsyncStackTraceClass.TestAsync().GetAwaiter().GetResult();
 			Thread.Sleep(100);

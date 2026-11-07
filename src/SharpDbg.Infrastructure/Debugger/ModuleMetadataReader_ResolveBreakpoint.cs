@@ -16,15 +16,37 @@ public partial class ModuleMetadataReader
 		public bool CoversLine => CoveringSp.HasValue;
 	}
 
-	public ResolvedBreakpoint? ResolveBreakpoint(string sourceFilePath, int line, int? column = null)
+	/// The document a breakpoint path names, see <see cref="SourceDocumentMatch"/>. Null when no document has the file's name,
+	/// or a relative path's folders do not all match
+	public SourceDocumentMatch? FindDocument(string sourceFilePath)
 	{
 		var reader = _pdbMetadataReader;
 		if (reader is null) return null;
-		var normalizedPath = NormalizePath(sourceFilePath);
+		var requestedComponents = SourceDocumentMatch.GetPathComponents(sourceFilePath);
+		if (requestedComponents.Count is 0) return null;
+		var isRelative = SourceDocumentMatch.IsRelativePath(sourceFilePath);
 
-		var documentHandle = reader.Documents.FirstOrDefault(h => PathsMatch(normalizedPath, reader.GetString(reader.GetDocument(h).Name)));
+		SourceDocumentMatch? best = null;
+		foreach (var handle in reader.Documents)
+		{
+			var documentPath = reader.GetString(reader.GetDocument(handle).Name);
+			var documentComponents = SourceDocumentMatch.GetPathComponents(documentPath);
+			var matchingComponents = SourceDocumentMatch.CountMatchingTrailingComponents(requestedComponents, documentComponents);
+			if (matchingComponents is 0) continue; // not even the file name
+			var isExact = isRelative is false && matchingComponents == requestedComponents.Count && matchingComponents == documentComponents.Count;
+			// A relative path names its folders, all of which must match: '../wrong_folder/Program.cs' is not 'folder/Program.cs'
+			if (isRelative && matchingComponents < requestedComponents.Count) continue;
+			var match = new SourceDocumentMatch(handle, isExact, matchingComponents, documentPath.Length);
+			if (best is null || match.IsBetterThan(best.Value)) best = match;
+		}
+		return best;
+	}
 
-		if (documentHandle.IsNil) return null;
+	public ResolvedBreakpoint? ResolveBreakpoint(SourceDocumentMatch document, int line, int? column = null)
+	{
+		var reader = _pdbMetadataReader;
+		if (reader is null) return null;
+		var documentHandle = document.Handle;
 
 		var candidates = reader.MethodDebugInformation
 			.Select(h => CollectCandidate(h, documentHandle, line, column))
@@ -103,6 +125,54 @@ public partial class ModuleMetadataReader
 	}
 	private static ResolvedBreakpoint NewResolvedBreakpoint(int token, SequencePoint sp, string docPath) =>
 		new(token, sp.Offset, sp.StartLine, sp.EndLine, sp.StartColumn, sp.EndColumn, docPath);
+}
+
+/// How well a PDB document matches the path a breakpoint was set with. The exact path wins; otherwise the document whose
+/// path ends in the most of the requested path's components, e.g. a PDB built elsewhere ('/_/src/Program.cs') still matches
+/// 'C:/repo/src/Program.cs', and over '/_/src/folder/Program.cs'. Equally good matches go to the shortest path.
+public readonly record struct SourceDocumentMatch(DocumentHandle Handle, bool IsExact, int MatchingComponents, int PathLength)
+{
+	private static readonly StringComparison PathComparison = OperatingSystem.IsLinux() ? StringComparison.Ordinal : StringComparison.OrdinalIgnoreCase;
+
+	public bool IsBetterThan(SourceDocumentMatch other)
+	{
+		if (IsExact != other.IsExact) return IsExact;
+		if (MatchingComponents != other.MatchingComponents) return MatchingComponents > other.MatchingComponents;
+		return PathLength < other.PathLength;
+	}
+
+	/// The path's folder and file names, with '.' and '..' applied. A leading '..' has no folder to remove and is dropped.
+	internal static List<string> GetPathComponents(string path)
+	{
+		var result = new List<string>();
+		foreach (var component in path.Split('/', '\\'))
+		{
+			if (component is "" or ".") continue;
+			if (component is "..")
+			{
+				if (result.Count > 0) result.RemoveAt(result.Count - 1);
+				continue;
+			}
+			result.Add(component);
+		}
+		return result;
+	}
+
+	internal static bool IsRelativePath(string path)
+	{
+		if (path.StartsWith('/') || path.StartsWith('\\')) return false;
+		return path is not [_, ':', ..]; // e.g. 'C:'
+	}
+
+	internal static int CountMatchingTrailingComponents(List<string> left, List<string> right)
+	{
+		var count = 0;
+		while (count < left.Count && count < right.Count && string.Equals(left[^(count + 1)], right[^(count + 1)], PathComparison))
+		{
+			count++;
+		}
+		return count;
+	}
 }
 
 internal readonly record struct LineCol(int Line, int Column) : IComparable<LineCol>

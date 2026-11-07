@@ -544,37 +544,6 @@ public partial class ModuleMetadataReader : IDisposable
 		}
 	}
 
-	private static string NormalizePath(string path)
-	{
-		// Normalize to forward slashes and lowercase for comparison
-		return path.Replace('\\', '/');
-	}
-
-	private static bool PathsMatch(string path1, string path2)
-	{
-		// Normalize both paths
-		var normalized1 = NormalizePath(path1);
-		var normalized2 = NormalizePath(path2);
-
-		// Try exact match first (case-insensitive on Windows)
-		if (string.Equals(normalized1, normalized2, StringComparison.OrdinalIgnoreCase))
-			return true;
-
-		// Try matching by filename only if full paths don't match
-		// This handles cases where the PDB has a different absolute path
-		var fileName1 = Path.GetFileName(normalized1);
-		var fileName2 = Path.GetFileName(normalized2);
-
-		if (string.Equals(fileName1, fileName2, StringComparison.OrdinalIgnoreCase))
-		{
-			// Check if the relative paths match (handle different roots)
-			// For now, just match by filename - could be more sophisticated
-			return true;
-		}
-
-		return false;
-	}
-
 	public void Dispose()
 	{
 		_pdbProvider?.Dispose();

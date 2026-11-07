@@ -172,6 +172,33 @@ public class BreakpointManager
 	}
 
 	/// <summary>
+	/// Find all breakpoints sharing a ClrDebug breakpoint, in the order they were created
+	/// </summary>
+	public List<BreakpointInfo> FindAllByCorBreakpoint(ICorDebugFunctionBreakpoint corBreakpoint)
+	{
+		lock (_lock)
+		{
+			return _breakpoints.Values
+				.Where(bp => bp.CorBreakpoint == corBreakpoint || bp.FunctionBindings.Any(binding => binding.CorBreakpoint == corBreakpoint))
+				.OrderBy(bp => bp.Id)
+				.ToList();
+		}
+	}
+
+	/// <summary>
+	/// The ClrDebug breakpoint of a source breakpoint already bound to this location, if any
+	/// </summary>
+	public ICorDebugFunctionBreakpoint? FindSourceCorBreakpointAt(CORDB_ADDRESS moduleBaseAddress, int methodToken, int ilOffset)
+	{
+		lock (_lock)
+		{
+			return _breakpoints.Values.FirstOrDefault(bp =>
+				bp.CorBreakpoint is not null && bp.ModuleBaseAddress == moduleBaseAddress &&
+				bp.ResolvedBreakpointFromPdb is { } resolved && resolved.MethodToken == methodToken && resolved.ILOffset == ilOffset)?.CorBreakpoint;
+		}
+	}
+
+	/// <summary>
 	/// Get all pending (unverified) breakpoints
 	/// </summary>
 	public List<BreakpointInfo> GetPendingBreakpoints()

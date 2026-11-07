@@ -32,9 +32,40 @@ public partial class ManagedDebugger
 	private void HandleThreadCreated(object? sender, CreateThreadCorDebugManagedCallbackEventArgs createThreadCorDebugManagedCallbackEventArgs)
 	{
 		var corThread = createThreadCorDebugManagedCallbackEventArgs.Thread;
+		if (IsMainThreadCandidate(corThread.Id)) _mainThreadId = corThread.Id;
 		_threads[corThread.Id] = new ThreadInfo(corThread);
 		OnThreadStarted?.Invoke(corThread.Id);
 		Continue();
+	}
+
+	// The managed thread id says nothing about which thread is the main one (on .NET Core id 1 is usually the finalizer),
+	// and the order threads are announced in is not reliable either: we launch with DOTNET_DefaultDiagnosticPortSuspend,
+	// so by the time we attach the runtime has started its own threads, and they are announced in the runtime's own order.
+	// So the main thread is told by its OS id: the process id on Linux, the lowest id on macOS (ids grow with creation),
+	// and on Windows, where ids say nothing, the oldest thread of the process.
+	private bool IsMainThreadCandidate(int threadId)
+	{
+		if (_mainThreadId is null) return true;
+		var processId = _process?.Id;
+		if (processId is null || _mainThreadId == processId) return false;
+		if (threadId == processId) return true;
+		if (_isRemoteAttach is false && OperatingSystem.IsWindows()) return threadId == GetOldestThreadId(processId.Value);
+		return threadId < _mainThreadId;
+	}
+
+	private int? GetOldestThreadId(int processId)
+	{
+		if (_oldestThreadId is not null) return _oldestThreadId;
+		try
+		{
+			using var process = Process.GetProcessById(processId);
+			_oldestThreadId = process.Threads.Cast<ProcessThread>().MinBy(t => t.StartTime)?.Id;
+		}
+		catch (Exception ex)
+		{
+			_logger?.Invoke($"Failed to find the oldest thread of process {processId}: {ex.Message}");
+		}
+		return _oldestThreadId;
 	}
 
 	private void HandleThreadExited(object? sender, ExitThreadCorDebugManagedCallbackEventArgs exitThreadCorDebugManagedCallbackEventArgs)

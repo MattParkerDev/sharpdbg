@@ -186,12 +186,7 @@ public static class CorDebugValueExtensions
 		var metadataImport = corClass.Module.GetMetaDataInterface<IMetaDataImport>();
 
 		var name = GetThreadNameField(threadObject, corClass, metadataImport);
-		if (string.IsNullOrEmpty(name) is false) return name;
-
-		var managedThreadId = GetManagedThreadIdField(threadObject, corClass, metadataImport);
-		if (managedThreadId is 1) return "Main Thread";
-
-		return null;
+		return string.IsNullOrEmpty(name) ? null : name;
 	}
 
 	private static string? GetThreadNameField(ICorDebugObjectValue threadObject, ICorDebugClass corClass, IMetaDataImport metadataImport)
@@ -202,15 +197,5 @@ public static class CorDebugValueExtensions
 		var fieldValue = threadObject.GetFieldValue(corClass, fieldDef);
 		if (fieldValue?.UnwrapDebugValue() is not ICorDebugStringValue stringValue) return null;
 		return stringValue.String;
-	}
-
-	private static int? GetManagedThreadIdField(ICorDebugObjectValue threadObject, ICorDebugClass corClass, IMetaDataImport metadataImport)
-	{
-		var fieldDef = metadataImport.EnumFieldsWithName(corClass.Token, "_managedThreadId").SingleOrDefault();
-		if (fieldDef.IsNil) return null;
-
-		var fieldValue = threadObject.GetFieldValue(corClass, fieldDef);
-		if (fieldValue?.UnwrapDebugValue() is not ICorDebugGenericValue genericValue) return null;
-		return BitConverter.ToInt32(genericValue.GetValueAsBytes(), 0);
 	}
 }

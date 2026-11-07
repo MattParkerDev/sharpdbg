@@ -11,7 +11,7 @@ public class StackTraceTests(ITestOutputHelper testOutputHelper)
 	public async Task StackTraceRequest_ReturnsFrames()
 	{
 		var startSuspended = true;
-		var (debugProtocolHost, initializedEventTcs, debugEventTcs, adapter, p2) = TestHelper.GetRunningDebugProtocolHost(testOutputHelper, startSuspended);
+		var (debugProtocolHost, adapter, p2) = TestHelper.GetRunningDebugProtocolHost(testOutputHelper, startSuspended);
 		using var _ = adapter;
 		using var __ = new ProcessKiller(p2);
 		using var ___ = debugProtocolHost;
@@ -20,7 +20,7 @@ public class StackTraceTests(ITestOutputHelper testOutputHelper)
 		await debugProtocolHost
 			.WithInitializeRequest()
 			.WithAttachRequest(p2.Id, justMyCode: true)
-			.WaitForInitializedEvent(initializedEventTcs);
+			.WaitForInitializedEvent();
 		debugProtocolHost.SendRequestSync(new SetExceptionBreakpointsArguments { Filters = [], FilterOptions = [new() { FilterId = "all" }, new() { FilterId = "user-unhandled" }] });
 		var breakpointedFilePath = Path.JoinFromGitRoot("tests", "DebuggableConsoleApp", "ClassWithBclCall.cs");
 		debugProtocolHost
@@ -28,7 +28,7 @@ public class StackTraceTests(ITestOutputHelper testOutputHelper)
 			.WithConfigurationDoneRequest()
 			.WithOptionalResumeRuntime(p2.Id, startSuspended);
 
-		var stoppedEvent = await debugProtocolHost.WaitForStoppedEvent(debugEventTcs);
+		var stoppedEvent = await debugProtocolHost.WaitForStoppedEvent();
 		var stopInfo = stoppedEvent.ReadStopInfo();
 		stopInfo.filePath.Should().EndWith("ClassWithBclCall.cs");
 		stopInfo.line.Should().Be(12);
@@ -57,7 +57,7 @@ public class StackTraceTests(ITestOutputHelper testOutputHelper)
 			.WithBreakpointsRequest([], breakpointedFilePath)
 			.WithBreakpointsRequest([19], breakpointedFilePath2)
 			.WithContinueRequest()
-			.WaitForStoppedEvent(debugEventTcs);
+			.WaitForStoppedEvent();
 
 		var stopInfo2 = stoppedEvent2.ReadStopInfo();
 		stopInfo2.filePath.Should().EndWith("MyClassContainingAnotherClass.cs");
@@ -78,7 +78,7 @@ public class StackTraceTests(ITestOutputHelper testOutputHelper)
 			.WithBreakpointsRequest([], breakpointedFilePath2)
 			.WithBreakpointsRequest([20], breakpointedFilePath3)
 			.WithContinueRequest()
-			.WaitForStoppedEvent(debugEventTcs);
+			.WaitForStoppedEvent();
 
 		var stopInfo3 = stoppedEvent3.ReadStopInfo();
 		stopInfo3.filePath.Should().EndWith("AnotherClass.cs");
@@ -99,7 +99,7 @@ public class StackTraceTests(ITestOutputHelper testOutputHelper)
 	public async Task StackTraceRequest_AppendsSyntheticAsyncCallerFrames()
 	{
 		var startSuspended = true;
-		var (debugProtocolHost, initializedEventTcs, debugEventTcs, adapter, process) = TestHelper.GetRunningDebugProtocolHost(testOutputHelper, startSuspended);
+		var (debugProtocolHost, adapter, process) = TestHelper.GetRunningDebugProtocolHost(testOutputHelper, startSuspended);
 		using var _ = adapter;
 		using var __ = new ProcessKiller(process);
 		using var ___ = debugProtocolHost;
@@ -107,14 +107,14 @@ public class StackTraceTests(ITestOutputHelper testOutputHelper)
 		await debugProtocolHost
 			.WithInitializeRequest()
 			.WithAttachRequest(process.Id, justMyCode: true)
-			.WaitForInitializedEvent(initializedEventTcs);
+			.WaitForInitializedEvent();
 		var filePath = Path.JoinFromGitRoot("tests", "DebuggableConsoleApp", "AsyncStackTraceClass.cs");
 		debugProtocolHost
 			.WithBreakpointsRequest([20], filePath)
 			.WithConfigurationDoneRequest()
 			.WithOptionalResumeRuntime(process.Id, startSuspended);
 
-		var stoppedEvent = await debugProtocolHost.WaitForStoppedEvent(debugEventTcs);
+		var stoppedEvent = await debugProtocolHost.WaitForStoppedEvent();
 		debugProtocolHost.WithStackTraceRequest(stoppedEvent.ThreadId!.Value, out var stackTraceResponse, null);
 
 		stackTraceResponse.StackFrames.TakeLast(2).Select(frame => frame.Name).Should().Equal(
@@ -132,7 +132,7 @@ public class StackTraceTests(ITestOutputHelper testOutputHelper)
 	public async Task ResolveStackFrameRequest_DecompilesUnresolvedFrame()
 	{
 		var startSuspended = true;
-		var (debugProtocolHost, initializedEventTcs, debugEventTcs, adapter, process) = TestHelper.GetRunningDebugProtocolHost(testOutputHelper, startSuspended);
+		var (debugProtocolHost, adapter, process) = TestHelper.GetRunningDebugProtocolHost(testOutputHelper, startSuspended);
 		using var _ = adapter;
 		using var __ = new ProcessKiller(process);
 		using var ___ = debugProtocolHost;
@@ -140,14 +140,14 @@ public class StackTraceTests(ITestOutputHelper testOutputHelper)
 		await debugProtocolHost
 			.WithInitializeRequest()
 			.WithAttachRequest(process.Id, justMyCode: false)
-			.WaitForInitializedEvent(initializedEventTcs);
+			.WaitForInitializedEvent();
 		var breakpointedFilePath = Path.JoinFromGitRoot("tests", "DebuggableConsoleApp", "ClassWithBclCall.cs");
 		debugProtocolHost
 			.WithBreakpointsRequest([12], breakpointedFilePath)
 			.WithConfigurationDoneRequest()
 			.WithOptionalResumeRuntime(process.Id, startSuspended);
 
-		var stoppedEvent = await debugProtocolHost.WaitForStoppedEvent(debugEventTcs);
+		var stoppedEvent = await debugProtocolHost.WaitForStoppedEvent();
 		debugProtocolHost.WithStackTraceRequest(stoppedEvent.ThreadId!.Value, out var stackTraceResponse, null);
 		var unresolvedFrame = stackTraceResponse.StackFrames.First(frame => frame.Name.StartsWith("System.Linq.dll!"));
 		unresolvedFrame.IsResolved.Should().BeFalse();

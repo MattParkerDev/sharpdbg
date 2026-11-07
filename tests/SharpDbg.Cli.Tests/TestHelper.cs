@@ -9,11 +9,6 @@ using StackFrame = SharpDbg.DapProtocol.StackFrame;
 
 namespace SharpDbg.Cli.Tests;
 
-public class TcsContainer
-{
-	public required TaskCompletionSource<IDapEvent> Tcs { get; set; }
-}
-
 public enum DebugAdapterMode
 {
 	InProc,
@@ -23,7 +18,7 @@ public enum DebugAdapterMode
 public static partial class TestHelper
 {
 	public const VariableReferenceComparison ReferenceComparison = VariableReferenceComparison.Exact;
-	public static (DebugProtocolHost, TaskCompletionSource InitializedEventTcs, TcsContainer debugEventTcs, IDisposable DebugAdapterDisposable, Process DebuggableProcess) GetRunningDebugProtocolHost(ITestOutputHelper testOutputHelper, bool startSuspended)
+	public static (DebugProtocolHost, IDisposable DebugAdapterDisposable, Process DebuggableProcess) GetRunningDebugProtocolHost(ITestOutputHelper testOutputHelper, bool startSuspended)
 	{
 		var debugAdapterMode = DebugAdapterMode.InProc;
 		var result = debugAdapterMode switch
@@ -35,13 +30,13 @@ public static partial class TestHelper
 		return result;
 	}
 
-	public static (DebugProtocolHost, TaskCompletionSource InitializedEventTcs, TcsContainer debugEventTcs, IDisposable DebugAdapterDisposable, Process DebuggableProcess) GetRunningDebugProtocolHostOop(ITestOutputHelper testOutputHelper, bool startSuspended)
+	public static (DebugProtocolHost, IDisposable DebugAdapterDisposable, Process DebuggableProcess) GetRunningDebugProtocolHostOop(ITestOutputHelper testOutputHelper, bool startSuspended)
 	{
 		var process = DebugAdapterProcessHelper.GetDebugAdapterProcess();
 		return GetRunningDebugProtocolHostCore(testOutputHelper, startSuspended, process.StandardInput.BaseStream, process.StandardOutput.BaseStream, new ProcessKiller(process));
 	}
 
-	public static (DebugProtocolHost, TaskCompletionSource InitializedEventTcs, TcsContainer debugEventTcs, IDisposable DebugAdapterDisposable, Process DebuggableProcess) GetRunningDebugProtocolHostInProc(ITestOutputHelper testOutputHelper, bool startSuspended)
+	public static (DebugProtocolHost, IDisposable DebugAdapterDisposable, Process DebuggableProcess) GetRunningDebugProtocolHostInProc(ITestOutputHelper testOutputHelper, bool startSuspended)
 	{
 		var (input, output, debugAdapterDisposable) = SharpDbgInMemory.NewDebugAdapterStreams(Log);
 		return GetRunningDebugProtocolHostCore(testOutputHelper, startSuspended, input, output, debugAdapterDisposable);
@@ -51,27 +46,20 @@ public static partial class TestHelper
 		}
 	}
 
-	public static (DebugProtocolHost Host, TaskCompletionSource InitializedEventTcs, TcsContainer DebugEventTcs, IDisposable Adapter) GetLaunchDebugProtocolHostInProc(ITestOutputHelper testOutputHelper)
+	public static (DebugProtocolHost Host, IDisposable Adapter) GetLaunchDebugProtocolHostInProc(ITestOutputHelper testOutputHelper)
 	{
 		var (input, output, adapter) = SharpDbgInMemory.NewDebugAdapterStreams(message => testOutputHelper.WriteLine($"Log [SharpDbg]: {message}"));
-		var initializedEventTcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-		var host = DebugAdapterProcessHelper.GetDebugProtocolHost(input, output, testOutputHelper, initializedEventTcs, terminateDebuggeeOnDispose: true);
-		var debugEventTcs = new TcsContainer { Tcs = new TaskCompletionSource<IDapEvent>(TaskCreationOptions.RunContinuationsAsynchronously) };
-		host.RegisterEventType<StoppedEvent>(@event => debugEventTcs.Tcs.TrySetResult(@event));
+		var host = DebugAdapterProcessHelper.GetDebugProtocolHost(input, output, testOutputHelper, terminateDebuggeeOnDispose: true);
 		host.Run();
-		return (host, initializedEventTcs, debugEventTcs, adapter);
+		return (host, adapter);
 	}
 
-	private static (DebugProtocolHost, TaskCompletionSource InitializedEventTcs, TcsContainer debugEventTcs, IDisposable DebugAdapterDisposable, Process DebuggableProcess) GetRunningDebugProtocolHostCore(ITestOutputHelper testOutputHelper, bool startSuspended, Stream input, Stream output, IDisposable debugAdapterDisposable)
+	private static (DebugProtocolHost, IDisposable DebugAdapterDisposable, Process DebuggableProcess) GetRunningDebugProtocolHostCore(ITestOutputHelper testOutputHelper, bool startSuspended, Stream input, Stream output, IDisposable debugAdapterDisposable)
 	{
 		var debuggableProcess = DebuggableProcessHelper.StartDebuggableProcess(startSuspended);
-		var initializedEventTcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-		var debugProtocolHost = DebugAdapterProcessHelper.GetDebugProtocolHost(input, output, testOutputHelper, initializedEventTcs);
-		var debugEventTcs = new TcsContainer { Tcs = new TaskCompletionSource<IDapEvent>(TaskCreationOptions.RunContinuationsAsynchronously) };
-		debugProtocolHost.RegisterEventType<StoppedEvent>(@event => debugEventTcs.Tcs.TrySetResult(@event));
-		debugProtocolHost.RegisterEventType<BreakpointEvent>(@event => debugEventTcs.Tcs.TrySetResult(@event));
+		var debugProtocolHost = DebugAdapterProcessHelper.GetDebugProtocolHost(input, output, testOutputHelper);
 		debugProtocolHost.Run();
-		return (debugProtocolHost, initializedEventTcs, debugEventTcs, debugAdapterDisposable, debuggableProcess);
+		return (debugProtocolHost, debugAdapterDisposable, debuggableProcess);
 	}
 
 	public static DebugProtocolHost WithInitializeRequest(this DebugProtocolHost debugProtocolHost)
@@ -93,30 +81,16 @@ public static partial class TestHelper
 		debugProtocolHost.SendRequestSync(DebugAdapterProcessHelper.GetLaunchRequest(program, stopAtEntry, justMyCode));
 		return debugProtocolHost;
 	}
-	public static async Task<DebugProtocolHost> WaitForInitializedEvent(this DebugProtocolHost debugProtocolHost, TaskCompletionSource initializedEventTcs)
+	public static async Task<DebugProtocolHost> WaitForInitializedEvent(this DebugProtocolHost debugProtocolHost)
 	{
-		await initializedEventTcs.Task.WaitAsync(TestContext.Current.CancellationToken);
+		await debugProtocolHost.WaitForEvent<InitializedEvent>();
 		return debugProtocolHost;
 	}
-	public static async Task<StoppedEvent> WaitForStoppedEvent(this DebugProtocolHost debugProtocolHost, TcsContainer eventTcsContainer)
+	public static async Task<StoppedEvent> WaitForStoppedEvent(this DebugProtocolHost debugProtocolHost)
 	{
-		var stoppedEvent = await debugProtocolHost.WaitForEvent<StoppedEvent>(eventTcsContainer);
+		var stoppedEvent = await debugProtocolHost.WaitForEvent<StoppedEvent>();
 		FillingMissingNetCoreDbgStopInfo(debugProtocolHost, stoppedEvent);
 		return stoppedEvent;
-	}
-
-	public static async Task<T> WaitForEvent<T>(this DebugProtocolHost host, TcsContainer tcsContainer, Predicate<T>? condition = null) where T : IDapEvent
-	{
-		while (true)
-		{
-			var e = await tcsContainer.Tcs.Task.WaitAsync(TestContext.Current.CancellationToken);
-			tcsContainer.Tcs = new TaskCompletionSource<IDapEvent>(TaskCreationOptions.RunContinuationsAsynchronously);
-			if (e is T correctEventType)
-			{
-				if (condition?.Invoke(correctEventType) is false) continue;
-				return correctEventType;
-			}
-		}
 	}
 
 	public static DebugProtocolHost WithBreakpointsRequest(this DebugProtocolHost debugProtocolHost, string filePath, List<SharpDbgBreakpointRequest> breakpointRequests) => debugProtocolHost.WithBreakpointsRequest(filePath, breakpointRequests, out _);

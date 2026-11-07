@@ -10,7 +10,7 @@ public class ExceptionTests(ITestOutputHelper testOutputHelper)
 	public async Task SharpDbgCli_Exception_VariablesHasExceptionScope()
 	{
 		var startSuspended = true;
-		var (debugProtocolHost, initializedEventTcs, debugEventTcs, adapter, p2) = TestHelper.GetRunningDebugProtocolHost(testOutputHelper, startSuspended);
+		var (debugProtocolHost, adapter, p2) = TestHelper.GetRunningDebugProtocolHost(testOutputHelper, startSuspended);
 		using var _ = adapter;
 		using var __ = new ProcessKiller(p2);
 		using var ___ = debugProtocolHost;
@@ -18,7 +18,7 @@ public class ExceptionTests(ITestOutputHelper testOutputHelper)
 		await debugProtocolHost
 			.WithInitializeRequest()
 			.WithAttachRequest(p2.Id)
-			.WaitForInitializedEvent(initializedEventTcs);
+			.WaitForInitializedEvent();
 		debugProtocolHost.SendRequestSync(new SetExceptionBreakpointsArguments { Filters = [], FilterOptions = [new() { FilterId = "all" }, new() { FilterId = "user-unhandled" }] });
 		var breakpointedFilePath = Path.JoinFromGitRoot("tests", "DebuggableConsoleApp", "Exceptions.cs");
 		debugProtocolHost
@@ -26,7 +26,7 @@ public class ExceptionTests(ITestOutputHelper testOutputHelper)
 			.WithConfigurationDoneRequest()
 			.WithOptionalResumeRuntime(p2.Id, startSuspended);
 
-		var stoppedEvent = await debugProtocolHost.WaitForStoppedEvent(debugEventTcs);
+		var stoppedEvent = await debugProtocolHost.WaitForStoppedEvent();
 		var stopInfo = stoppedEvent.ReadStopInfo();
 		stopInfo.filePath.Should().EndWith("Program.cs");
 		stopInfo.line.Should().Be(24);
@@ -38,7 +38,7 @@ public class ExceptionTests(ITestOutputHelper testOutputHelper)
 
 		debugProtocolHost.WithContinueRequest();
 
-		var stoppedEvent2 = await debugProtocolHost.WaitForStoppedEvent(debugEventTcs);
+		var stoppedEvent2 = await debugProtocolHost.WaitForStoppedEvent();
 		var stopInfo2 = stoppedEvent2.ReadStopInfo();
 		stopInfo2.filePath.Should().EndWith("Exceptions.cs");
 		stopInfo2.line.Should().Be(14); // Where the exception is thrown
@@ -89,7 +89,7 @@ public class ExceptionTests(ITestOutputHelper testOutputHelper)
 	public async Task ExceptionInExternalCode_JustMyCodeEnabled_HasNoSourceInfo()
 	{
 		var startSuspended = true;
-		var (debugProtocolHost, initializedEventTcs, debugEventTcs, adapter, p2) = TestHelper.GetRunningDebugProtocolHost(testOutputHelper, startSuspended);
+		var (debugProtocolHost, adapter, p2) = TestHelper.GetRunningDebugProtocolHost(testOutputHelper, startSuspended);
 		using var _ = adapter;
 		using var __ = new ProcessKiller(p2);
 		using var ___ = debugProtocolHost;
@@ -97,7 +97,7 @@ public class ExceptionTests(ITestOutputHelper testOutputHelper)
 		await debugProtocolHost
 			.WithInitializeRequest()
 			.WithAttachRequest(p2.Id, true)
-			.WaitForInitializedEvent(initializedEventTcs);
+			.WaitForInitializedEvent();
 		debugProtocolHost.SendRequestSync(new SetExceptionBreakpointsArguments { Filters = [], FilterOptions = [new() { FilterId = "all" }, new() { FilterId = "user-unhandled" }] });
 		var breakpointedFilePath = Path.JoinFromGitRoot("tests", "DebuggableConsoleApp", "Exceptions.cs");
 		debugProtocolHost
@@ -105,7 +105,7 @@ public class ExceptionTests(ITestOutputHelper testOutputHelper)
 			.WithConfigurationDoneRequest()
 			.WithOptionalResumeRuntime(p2.Id, startSuspended);
 
-		var stoppedEvent = await debugProtocolHost.WaitForStoppedEvent(debugEventTcs);
+		var stoppedEvent = await debugProtocolHost.WaitForStoppedEvent();
 		var stopInfo = stoppedEvent.ReadStopInfo();
 		stopInfo.filePath.Should().EndWith("Program.cs");
 		stopInfo.line.Should().Be(24);
@@ -117,7 +117,7 @@ public class ExceptionTests(ITestOutputHelper testOutputHelper)
 
 		debugProtocolHost.WithContinueRequest();
 
-		var stoppedEvent2 = await debugProtocolHost.WaitForStoppedEvent(debugEventTcs);
+		var stoppedEvent2 = await debugProtocolHost.WaitForStoppedEvent();
 		stoppedEvent2.AdditionalProperties.Should().BeNull();
 
 		debugProtocolHost
@@ -171,7 +171,7 @@ public class ExceptionTests(ITestOutputHelper testOutputHelper)
 		exceptionInfoResponse.Details.ShouldHaveVisualStudioExceptionDetails("**System.FormatException:** 'The input string 'x' was not in a correct format.'", -2146233033, "System.Private.CoreLib");
 
 		// Now we should land on the catch block
-		var stoppedEvent3 = await debugProtocolHost.WithStepOverRequest(stoppedEvent2.ThreadId!.Value).WaitForStoppedEvent(debugEventTcs);
+		var stoppedEvent3 = await debugProtocolHost.WithStepOverRequest(stoppedEvent2.ThreadId!.Value).WaitForStoppedEvent();
 		var stopInfo3 = stoppedEvent3.ReadStopInfo();
 		stopInfo3.Should().Be((breakpointedFilePath, 32, 3));
 	}
@@ -309,7 +309,7 @@ public class ExceptionTests(ITestOutputHelper testOutputHelper)
 		ExceptionBreakMode expectedBreakMode)
 	{
 		const bool startSuspended = true;
-		var (debugProtocolHost, initializedEventTcs, debugEventTcs, adapter, process) = TestHelper.GetRunningDebugProtocolHost(testOutputHelper, startSuspended);
+		var (debugProtocolHost, adapter, process) = TestHelper.GetRunningDebugProtocolHost(testOutputHelper, startSuspended);
 		using var _ = adapter;
 		using var __ = new ProcessKiller(process);
 		using var ___ = debugProtocolHost;
@@ -317,7 +317,7 @@ public class ExceptionTests(ITestOutputHelper testOutputHelper)
 		await debugProtocolHost
 			.WithInitializeRequest()
 			.WithAttachRequest(process.Id, justMyCode)
-			.WaitForInitializedEvent(initializedEventTcs);
+			.WaitForInitializedEvent();
 		debugProtocolHost.SendRequestSync(exceptionBreakpointsRequest);
 
 		const int setupBreakpointLine = 24;
@@ -328,7 +328,7 @@ public class ExceptionTests(ITestOutputHelper testOutputHelper)
 			.WithConfigurationDoneRequest()
 			.WithOptionalResumeRuntime(process.Id, startSuspended);
 
-		var setupStop = await debugProtocolHost.WaitForStoppedEvent(debugEventTcs);
+		var setupStop = await debugProtocolHost.WaitForStoppedEvent();
 		setupStop.Reason.Should().Be(StoppedEvent.ReasonValue.Breakpoint);
 		var setupStopInfo = setupStop.ReadStopInfo();
 		setupStopInfo.filePath.Should().Be(programPath);
@@ -342,7 +342,7 @@ public class ExceptionTests(ITestOutputHelper testOutputHelper)
 			.WithBreakpointsRequest([completionMarkerLine], programPath)
 			.WithContinueRequest();
 
-		var exceptionStop = await debugProtocolHost.WaitForStoppedEvent(debugEventTcs);
+		var exceptionStop = await debugProtocolHost.WaitForStoppedEvent();
 		exceptionStop.Reason.Should().Be(StoppedEvent.ReasonValue.Exception);
 
 		var exceptionInfo = debugProtocolHost.SendRequestSync(new ExceptionInfoArguments { ThreadId = exceptionStop.ThreadId!.Value });
@@ -356,7 +356,7 @@ public class ExceptionTests(ITestOutputHelper testOutputHelper)
 		bool justMyCode)
 	{
 		const bool startSuspended = true;
-		var (debugProtocolHost, initializedEventTcs, debugEventTcs, adapter, process) = TestHelper.GetRunningDebugProtocolHost(testOutputHelper, startSuspended);
+		var (debugProtocolHost, adapter, process) = TestHelper.GetRunningDebugProtocolHost(testOutputHelper, startSuspended);
 		using var _ = adapter;
 		using var __ = new ProcessKiller(process);
 		using var ___ = debugProtocolHost;
@@ -364,7 +364,7 @@ public class ExceptionTests(ITestOutputHelper testOutputHelper)
 		await debugProtocolHost
 			.WithInitializeRequest()
 			.WithAttachRequest(process.Id, justMyCode)
-			.WaitForInitializedEvent(initializedEventTcs);
+			.WaitForInitializedEvent();
 		debugProtocolHost.SendRequestSync(exceptionBreakpointsRequest);
 
 		const int setupBreakpointLine = 24;
@@ -375,7 +375,7 @@ public class ExceptionTests(ITestOutputHelper testOutputHelper)
 			.WithConfigurationDoneRequest()
 			.WithOptionalResumeRuntime(process.Id, startSuspended);
 
-		var setupStop = await debugProtocolHost.WaitForStoppedEvent(debugEventTcs);
+		var setupStop = await debugProtocolHost.WaitForStoppedEvent();
 		setupStop.Reason.Should().Be(StoppedEvent.ReasonValue.Breakpoint);
 		var setupStopInfo = setupStop.ReadStopInfo();
 		setupStopInfo.filePath.Should().Be(programPath);
@@ -389,7 +389,7 @@ public class ExceptionTests(ITestOutputHelper testOutputHelper)
 			.WithBreakpointsRequest([completionMarkerLine], programPath)
 			.WithContinueRequest();
 
-		var completionStop = await debugProtocolHost.WaitForStoppedEvent(debugEventTcs);
+		var completionStop = await debugProtocolHost.WaitForStoppedEvent();
 		var completionStackFrame = debugProtocolHost.GetTopStackFrame(completionStop.ThreadId!.Value);
 		completionStackFrame.Source!.Path.Should().Be(programPath);
 		completionStackFrame.Line.Should().Be(completionMarkerLine);

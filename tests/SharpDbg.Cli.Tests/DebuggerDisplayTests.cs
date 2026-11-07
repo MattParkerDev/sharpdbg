@@ -9,7 +9,7 @@ public class DebuggerDisplayTests(ITestOutputHelper testOutputHelper)
 	public async Task VariablesRequest_DebuggerDisplay_FormatsEachExpressionAsADebuggerValue()
 	{
 		var startSuspended = true;
-		var (debugProtocolHost, initializedEventTcs, debugEventTcs, adapter, p2) = TestHelper.GetRunningDebugProtocolHost(testOutputHelper, startSuspended);
+		var (debugProtocolHost, adapter, p2) = TestHelper.GetRunningDebugProtocolHost(testOutputHelper, startSuspended);
 		using var _ = adapter;
 		using var __ = new ProcessKiller(p2);
 		using var ___ = debugProtocolHost;
@@ -17,13 +17,13 @@ public class DebuggerDisplayTests(ITestOutputHelper testOutputHelper)
 		await debugProtocolHost
 			.WithInitializeRequest()
 			.WithAttachRequest(p2.Id)
-			.WaitForInitializedEvent(initializedEventTcs);
+			.WaitForInitializedEvent();
 		debugProtocolHost
 			.WithBreakpointsRequest(24, Path.JoinFromGitRoot("tests", "DebuggableConsoleApp", "DebuggerDisplayFormatting.cs"))
 			.WithConfigurationDoneRequest()
 			.WithOptionalResumeRuntime(p2.Id, startSuspended);
 
-		var stoppedEvent = await debugProtocolHost.WaitForStoppedEvent(debugEventTcs);
+		var stoppedEvent = await debugProtocolHost.WaitForStoppedEvent();
 		var topFrame = debugProtocolHost.GetTopStackFrame(stoppedEvent.ThreadId!.Value);
 		debugProtocolHost
 			.WithScopesRequest(topFrame.Id, out var scopesResponse)

@@ -12,7 +12,7 @@ public class VariablesTests(ITestOutputHelper testOutputHelper)
 	{
 		var startSuspended = true;
 
-		var (debugProtocolHost, initializedEventTcs, debugEventTcs, adapter, p2) = TestHelper.GetRunningDebugProtocolHost(testOutputHelper, startSuspended);
+		var (debugProtocolHost, adapter, p2) = TestHelper.GetRunningDebugProtocolHost(testOutputHelper, startSuspended);
 		using var assertionScope = new AssertionScope();
 		using var _ = adapter;
 		using var __ = new ProcessKiller(p2);
@@ -21,13 +21,13 @@ public class VariablesTests(ITestOutputHelper testOutputHelper)
 		await debugProtocolHost
 			.WithInitializeRequest()
 			.WithAttachRequest(p2.Id)
-			.WaitForInitializedEvent(initializedEventTcs);
+			.WaitForInitializedEvent();
 		debugProtocolHost
 			.WithBreakpointsRequest()
 			.WithConfigurationDoneRequest()
 			.WithOptionalResumeRuntime(p2.Id, startSuspended);
 
-		var stoppedEvent = await debugProtocolHost.WaitForStoppedEvent(debugEventTcs);
+		var stoppedEvent = await debugProtocolHost.WaitForStoppedEvent();
 		debugProtocolHost
 			.WithStackTraceRequest(stoppedEvent.ThreadId!.Value, out var stackTraceResponse)
 			.WithScopesRequest(stackTraceResponse.StackFrames!.First().Id, out var scopesResponse);
@@ -79,7 +79,7 @@ public class VariablesTests(ITestOutputHelper testOutputHelper)
 
 		var stoppedEvent2 = await debugProtocolHost
 			.WithContinueRequest()
-			.WaitForStoppedEvent(debugEventTcs);
+			.WaitForStoppedEvent();
 		debugProtocolHost
 			.WithStackTraceRequest(stoppedEvent2.ThreadId!.Value, out var stackTraceResponse2)
 			.WithScopesRequest(stackTraceResponse2.StackFrames!.First().Id, out var scopesResponse2)

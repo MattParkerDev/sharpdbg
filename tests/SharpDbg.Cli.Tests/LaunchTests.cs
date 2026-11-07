@@ -9,7 +9,7 @@ public class LaunchTests(ITestOutputHelper testOutputHelper)
 	[Fact]
 	public async Task StopAtEntry_StopsInMainWithEntryReason()
 	{
-		var (host, initializedEventTcs, debugEventTcs, adapter) = TestHelper.GetLaunchDebugProtocolHostInProc(testOutputHelper);
+		var (host, adapter) = TestHelper.GetLaunchDebugProtocolHostInProc(testOutputHelper);
 		using var _ = adapter;
 		using var __ = host;
 		var program = Path.JoinFromGitRoot("artifacts", "bin", "DebuggableConsoleApp", "debug", "DebuggableConsoleApp.dll");
@@ -17,10 +17,10 @@ public class LaunchTests(ITestOutputHelper testOutputHelper)
 		await host
 			.WithInitializeRequest()
 			.WithLaunchRequest(program, stopAtEntry: true, justMyCode: true)
-			.WaitForInitializedEvent(initializedEventTcs);
+			.WaitForInitializedEvent();
 		host.WithConfigurationDoneRequest();
 
-		var stoppedEvent = await host.WaitForStoppedEvent(debugEventTcs);
+		var stoppedEvent = await host.WaitForStoppedEvent();
 		stoppedEvent.Reason.Should().Be(StoppedEvent.ReasonValue.Entry);
 		stoppedEvent.ThreadId.Should().NotBeNull();
 		var topFrame = host.GetTopStackFrame(stoppedEvent.ThreadId!.Value);
@@ -31,7 +31,7 @@ public class LaunchTests(ITestOutputHelper testOutputHelper)
 	[Fact]
 	public async Task StopAtEntry_TopLevelStatementsEntrypointStopsInMainWithEntryReason()
 	{
-		var (host, initializedEventTcs, debugEventTcs, adapter) = TestHelper.GetLaunchDebugProtocolHostInProc(testOutputHelper);
+		var (host, adapter) = TestHelper.GetLaunchDebugProtocolHostInProc(testOutputHelper);
 		using var _ = adapter;
 		using var __ = host;
 		var program = Path.JoinFromGitRoot("artifacts", "bin", "TopLevelStatementsConsoleApp", "debug", "TopLevelStatementsConsoleApp.dll");
@@ -39,10 +39,10 @@ public class LaunchTests(ITestOutputHelper testOutputHelper)
 		await host
 			.WithInitializeRequest()
 			.WithLaunchRequest(program, stopAtEntry: true, justMyCode: true)
-			.WaitForInitializedEvent(initializedEventTcs);
+			.WaitForInitializedEvent();
 		host.WithConfigurationDoneRequest();
 
-		var stoppedEvent = await host.WaitForStoppedEvent(debugEventTcs);
+		var stoppedEvent = await host.WaitForStoppedEvent();
 		stoppedEvent.Reason.Should().Be(StoppedEvent.ReasonValue.Entry);
 		stoppedEvent.ThreadId.Should().NotBeNull();
 		var topFrame = host.GetTopStackFrame(stoppedEvent.ThreadId!.Value);
@@ -58,7 +58,7 @@ public class LaunchTests(ITestOutputHelper testOutputHelper)
 	[Fact]
 	public async Task StopAtEntry_AsyncEntrypointStopsInMainWithEntryReason()
 	{
-		var (host, initializedEventTcs, debugEventTcs, adapter) = TestHelper.GetLaunchDebugProtocolHostInProc(testOutputHelper);
+		var (host, adapter) = TestHelper.GetLaunchDebugProtocolHostInProc(testOutputHelper);
 		using var _ = adapter;
 		using var __ = host;
 		var program = Path.JoinFromGitRoot("artifacts", "bin", "AsyncEntryConsoleApp", "debug", "AsyncEntryConsoleApp.dll");
@@ -66,10 +66,10 @@ public class LaunchTests(ITestOutputHelper testOutputHelper)
 		await host
 			.WithInitializeRequest()
 			.WithLaunchRequest(program, stopAtEntry: true, justMyCode: true)
-			.WaitForInitializedEvent(initializedEventTcs);
+			.WaitForInitializedEvent();
 		host.WithConfigurationDoneRequest();
 
-		var stoppedEvent = await host.WaitForStoppedEvent(debugEventTcs);
+		var stoppedEvent = await host.WaitForStoppedEvent();
 		stoppedEvent.Reason.Should().Be(StoppedEvent.ReasonValue.Entry);
 		stoppedEvent.ThreadId.Should().NotBeNull();
 		var topFrame = host.GetTopStackFrame(stoppedEvent.ThreadId!.Value);
@@ -85,7 +85,7 @@ public class LaunchTests(ITestOutputHelper testOutputHelper)
 	[Fact]
 	public async Task StopAtEntry_AsyncTopLevelStatementsEntrypointStopsInMainWithEntryReason()
 	{
-		var (host, initializedEventTcs, debugEventTcs, adapter) = TestHelper.GetLaunchDebugProtocolHostInProc(testOutputHelper);
+		var (host, adapter) = TestHelper.GetLaunchDebugProtocolHostInProc(testOutputHelper);
 		using var _ = adapter;
 		using var __ = host;
 		var program = Path.JoinFromGitRoot("artifacts", "bin", "AsyncTopLevelStatementsConsoleApp", "debug", "AsyncTopLevelStatementsConsoleApp.dll");
@@ -93,10 +93,10 @@ public class LaunchTests(ITestOutputHelper testOutputHelper)
 		await host
 			.WithInitializeRequest()
 			.WithLaunchRequest(program, stopAtEntry: true, justMyCode: true)
-			.WaitForInitializedEvent(initializedEventTcs);
+			.WaitForInitializedEvent();
 		host.WithConfigurationDoneRequest();
 
-		var stoppedEvent = await host.WaitForStoppedEvent(debugEventTcs);
+		var stoppedEvent = await host.WaitForStoppedEvent();
 		stoppedEvent.Reason.Should().Be(StoppedEvent.ReasonValue.Entry);
 		stoppedEvent.ThreadId.Should().NotBeNull();
 		var topFrame = host.GetTopStackFrame(stoppedEvent.ThreadId!.Value);

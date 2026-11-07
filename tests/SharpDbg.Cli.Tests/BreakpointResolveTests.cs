@@ -12,7 +12,7 @@ public class BreakpointResolveTests(ITestOutputHelper testOutputHelper)
 	public async Task SetBreakpoints_PathSpellings_BindToTheFileTheyName_AndStopOncePerLocation()
 	{
 		var startSuspended = true;
-		var (debugProtocolHost, initializedEventTcs, debugEventTcs, adapter, p2) = TestHelper.GetRunningDebugProtocolHost(testOutputHelper, startSuspended);
+		var (debugProtocolHost, adapter, p2) = TestHelper.GetRunningDebugProtocolHost(testOutputHelper, startSuspended);
 		using var _ = adapter;
 		using var __ = new ProcessKiller(p2);
 		using var ___ = debugProtocolHost;
@@ -20,7 +20,7 @@ public class BreakpointResolveTests(ITestOutputHelper testOutputHelper)
 		await debugProtocolHost
 			.WithInitializeRequest()
 			.WithAttachRequest(p2.Id)
-			.WaitForInitializedEvent(initializedEventTcs);
+			.WaitForInitializedEvent();
 
 		var filePath = Path.JoinFromGitRoot("tests", "DebuggableConsoleApp", "SameFileName.cs");
 		var otherFilePath = Path.JoinFromGitRoot("tests", "DebuggableConsoleApp", "SomeFolder", "SameFileName.cs");
@@ -53,7 +53,7 @@ public class BreakpointResolveTests(ITestOutputHelper testOutputHelper)
 		foreach (var (index, (expectedFilePath, expectedLine, expectedHitBreakpointIds)) in expectedStops.Index())
 		{
 			if (index > 0) debugProtocolHost.WithContinueRequest();
-			var stoppedEvent = await debugProtocolHost.WaitForStoppedEvent(debugEventTcs);
+			var stoppedEvent = await debugProtocolHost.WaitForStoppedEvent();
 			var topFrame = debugProtocolHost.GetTopStackFrame(stoppedEvent.ThreadId!.Value);
 			topFrame.Source!.Path.Should().Be(expectedFilePath);
 			topFrame.Line.Should().Be(expectedLine);

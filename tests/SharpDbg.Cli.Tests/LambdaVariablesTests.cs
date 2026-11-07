@@ -10,7 +10,7 @@ public class LambdaVariablesTests(ITestOutputHelper testOutputHelper)
 	public async Task SharpDbgCli_InLambda_VariablesRequest_Returns_InScopeVariables()
 	{
 		var startSuspended = true;
-		var (debugProtocolHost, initializedEventTcs, debugEventTcs, adapter, p2) = TestHelper.GetRunningDebugProtocolHost(testOutputHelper, startSuspended);
+		var (debugProtocolHost, adapter, p2) = TestHelper.GetRunningDebugProtocolHost(testOutputHelper, startSuspended);
 		using var _ = adapter;
 		using var __ = new ProcessKiller(p2);
 		using var ___ = debugProtocolHost;
@@ -18,14 +18,14 @@ public class LambdaVariablesTests(ITestOutputHelper testOutputHelper)
 		await debugProtocolHost
 			.WithInitializeRequest()
 			.WithAttachRequest(p2.Id)
-			.WaitForInitializedEvent(initializedEventTcs);
+			.WaitForInitializedEvent();
 		debugProtocolHost
 			.WithBreakpointsRequest([28], Path.JoinFromGitRoot("tests", "DebuggableConsoleApp", "Lambdas", "MyLambdaClass.cs"))
 			.WithConfigurationDoneRequest()
 			.WithOptionalResumeRuntime(p2.Id, startSuspended);
 
 		// stop inside the lambda
-		var stoppedEvent = await debugProtocolHost.WaitForStoppedEvent(debugEventTcs);
+		var stoppedEvent = await debugProtocolHost.WaitForStoppedEvent();
 		var stopInfo = stoppedEvent.ReadStopInfo();
 		stopInfo.filePath.Should().EndWith("MyLambdaClass.cs");
 		stopInfo.line.Should().Be(28);
@@ -64,7 +64,7 @@ public class LambdaVariablesTests(ITestOutputHelper testOutputHelper)
 	public async Task SharpDbgCli_CapturedParameter_VariablesRequest_ListsClosureCopyOnce()
 	{
 		var startSuspended = true;
-		var (debugProtocolHost, initializedEventTcs, debugEventTcs, adapter, p2) = TestHelper.GetRunningDebugProtocolHost(testOutputHelper, startSuspended);
+		var (debugProtocolHost, adapter, p2) = TestHelper.GetRunningDebugProtocolHost(testOutputHelper, startSuspended);
 		using var _ = adapter;
 		using var __ = new ProcessKiller(p2);
 		using var ___ = debugProtocolHost;
@@ -72,7 +72,7 @@ public class LambdaVariablesTests(ITestOutputHelper testOutputHelper)
 		await debugProtocolHost
 			.WithInitializeRequest()
 			.WithAttachRequest(p2.Id)
-			.WaitForInitializedEvent(initializedEventTcs);
+			.WaitForInitializedEvent();
 		var filePath = Path.JoinFromGitRoot("tests", "DebuggableConsoleApp", "Lambdas", "MyLambdaClass.cs");
 		debugProtocolHost
 			.WithBreakpointsRequest([59, 68], filePath)
@@ -80,13 +80,13 @@ public class LambdaVariablesTests(ITestOutputHelper testOutputHelper)
 			.WithOptionalResumeRuntime(p2.Id, startSuspended);
 
 		// In the method that declares the parameter: the parameter's own slot is stale, the closure's copy is the live one
-		var stoppedEvent = await debugProtocolHost.WaitForStoppedEvent(debugEventTcs);
+		var stoppedEvent = await debugProtocolHost.WaitForStoppedEvent();
 		stoppedEvent.ReadStopInfo().line.Should().Be(59);
 		var variables = GetTopFrameVariables(stoppedEvent.ThreadId!.Value);
 		variables.Select(v => (v.Name, v.Value)).Should().BeEquivalentTo([("captured", "7"), ("f", "{System.Func<int>}")]);
 
 		// In a lambda whose own parameter is captured by a nested lambda, which also captures from the enclosing closure
-		var stoppedEvent2 = await debugProtocolHost.WithContinueRequest().WaitForStoppedEvent(debugEventTcs);
+		var stoppedEvent2 = await debugProtocolHost.WithContinueRequest().WaitForStoppedEvent();
 		stoppedEvent2.ReadStopInfo().line.Should().Be(68);
 		var variables2 = GetTopFrameVariables(stoppedEvent2.ThreadId!.Value);
 		variables2.Select(v => (v.Name, v.Value)).Should().BeEquivalentTo([("x", "10"), ("value", "3"), ("outerLocal", "13"), ("innerLambda", "{System.Func<int>}")]);

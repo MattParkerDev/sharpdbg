@@ -11,7 +11,7 @@ public class AsyncEvalTests(ITestOutputHelper testOutputHelper)
 	{
 		var startSuspended = true;
 
-		var (debugProtocolHost, initializedEventTcs, debugEventTcs, adapter, p2) = TestHelper.GetRunningDebugProtocolHost(testOutputHelper, startSuspended);
+		var (debugProtocolHost, adapter, p2) = TestHelper.GetRunningDebugProtocolHost(testOutputHelper, startSuspended);
 		using var _ = adapter;
 		using var __ = new ProcessKiller(p2);
 		using var ___ = debugProtocolHost;
@@ -19,7 +19,7 @@ public class AsyncEvalTests(ITestOutputHelper testOutputHelper)
 		await debugProtocolHost
 			.WithInitializeRequest()
 			.WithAttachRequest(p2.Id)
-			.WaitForInitializedEvent(initializedEventTcs);
+			.WaitForInitializedEvent();
 
 		var breakpointFilePath = Path.JoinFromGitRoot("tests", "DebuggableConsoleApp", "AsyncMethodEvalClass.cs");
 		debugProtocolHost
@@ -27,7 +27,7 @@ public class AsyncEvalTests(ITestOutputHelper testOutputHelper)
 			.WithConfigurationDoneRequest()
 			.WithOptionalResumeRuntime(p2.Id, startSuspended);
 
-		var stoppedEvent = await debugProtocolHost.WaitForStoppedEvent(debugEventTcs);
+		var stoppedEvent = await debugProtocolHost.WaitForStoppedEvent();
 		stoppedEvent.ReadStopInfo().Should().Be((breakpointFilePath, 10, 3));
 		debugProtocolHost
 			.WithStackTraceRequest(stoppedEvent.ThreadId!.Value, out var stackTraceResponse)
@@ -45,7 +45,7 @@ public class AsyncEvalTests(ITestOutputHelper testOutputHelper)
 		// Continue, so we hit the breakpoint after the async suspension point
 		debugProtocolHost.WithContinueRequest();
 
-		var stoppedEvent2 = await debugProtocolHost.WaitForStoppedEvent(debugEventTcs);
+		var stoppedEvent2 = await debugProtocolHost.WaitForStoppedEvent();
 		stoppedEvent2.ReadStopInfo().Should().Be((breakpointFilePath, 12, 3));
 		debugProtocolHost.WithStackTraceRequest(stoppedEvent2.ThreadId!.Value, out var stackTraceResponse2);
 

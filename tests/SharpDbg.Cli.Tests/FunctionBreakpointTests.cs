@@ -11,7 +11,7 @@ public class FunctionBreakpointTests(ITestOutputHelper testOutputHelper)
 	public async Task SharpDbgCli_SetFunctionBreakpoint_NoFQN_BreaksOnAllMatchingMethods()
 	{
 		var startSuspended = true;
-		var (debugProtocolHost, initializedEventTcs, debugEventTcs, adapter, p2) = TestHelper.GetRunningDebugProtocolHost(testOutputHelper, startSuspended);
+		var (debugProtocolHost, adapter, p2) = TestHelper.GetRunningDebugProtocolHost(testOutputHelper, startSuspended);
 		using var _ = adapter;
 		using var __ = new ProcessKiller(p2);
 		using var ___ = debugProtocolHost;
@@ -19,7 +19,7 @@ public class FunctionBreakpointTests(ITestOutputHelper testOutputHelper)
 		await debugProtocolHost
 			.WithInitializeRequest()
 			.WithAttachRequest(p2.Id)
-			.WaitForInitializedEvent(initializedEventTcs);
+			.WaitForInitializedEvent();
 
 		var result = debugProtocolHost.SendRequestSync(new SetFunctionBreakpointsArguments { Breakpoints = [new FunctionBreakpoint { Name = "SameNamedClass.Test" }] });
 		var breakpointId = result.Breakpoints.Single().Id!.Value;
@@ -28,9 +28,9 @@ public class FunctionBreakpointTests(ITestOutputHelper testOutputHelper)
 			.WithConfigurationDoneRequest()
 			.WithOptionalResumeRuntime(p2.Id, startSuspended);
 
-		var breakpointEvent = await debugProtocolHost.WaitForEvent<BreakpointEvent>(debugEventTcs, s => s.Breakpoint.Verified && s.Breakpoint.Id == breakpointId);
+		var breakpointEvent = await debugProtocolHost.WaitForEvent<BreakpointEvent>(s => s.Breakpoint.Verified && s.Breakpoint.Id == breakpointId);
 
-		var stoppedEvent = await debugProtocolHost.WaitForStoppedEvent(debugEventTcs);
+		var stoppedEvent = await debugProtocolHost.WaitForStoppedEvent();
 		debugProtocolHost.WithStackTraceRequest(stoppedEvent.ThreadId!.Value, out var stackTraceResponse);
 		var topFrame = stackTraceResponse.StackFrames.Single();
 
@@ -39,7 +39,7 @@ public class FunctionBreakpointTests(ITestOutputHelper testOutputHelper)
 		topFrame.Column.Should().Be(3);
 		topFrame.EndColumn.Should().Be(4);
 
-		var stoppedEvent2 = await debugProtocolHost.WithContinueRequest().WaitForStoppedEvent(debugEventTcs);
+		var stoppedEvent2 = await debugProtocolHost.WithContinueRequest().WaitForStoppedEvent();
 		debugProtocolHost.WithStackTraceRequest(stoppedEvent2.ThreadId!.Value, out var stackTraceResponse2);
 		var topFrame2 = stackTraceResponse2.StackFrames.Single();
 
@@ -53,7 +53,7 @@ public class FunctionBreakpointTests(ITestOutputHelper testOutputHelper)
 	public async Task SharpDbgCli_SetFunctionBreakpoint_FQN_BreaksOnMatchingMethod()
 	{
 		var startSuspended = true;
-		var (debugProtocolHost, initializedEventTcs, debugEventTcs, adapter, p2) = TestHelper.GetRunningDebugProtocolHost(testOutputHelper, startSuspended);
+		var (debugProtocolHost, adapter, p2) = TestHelper.GetRunningDebugProtocolHost(testOutputHelper, startSuspended);
 		using var _ = adapter;
 		using var __ = new ProcessKiller(p2);
 		using var ___ = debugProtocolHost;
@@ -61,7 +61,7 @@ public class FunctionBreakpointTests(ITestOutputHelper testOutputHelper)
 		await debugProtocolHost
 			.WithInitializeRequest()
 			.WithAttachRequest(p2.Id)
-			.WaitForInitializedEvent(initializedEventTcs);
+			.WaitForInitializedEvent();
 
 		var result = debugProtocolHost.SendRequestSync(new SetFunctionBreakpointsArguments { Breakpoints = [new FunctionBreakpoint { Name = "DebuggableConsoleApp.MyClass.MyMethod" }] });
 		var breakpointId = result.Breakpoints.Single().Id!.Value;
@@ -70,9 +70,9 @@ public class FunctionBreakpointTests(ITestOutputHelper testOutputHelper)
 			.WithConfigurationDoneRequest()
 			.WithOptionalResumeRuntime(p2.Id, startSuspended);
 
-		var breakpointEvent = await debugProtocolHost.WaitForEvent<BreakpointEvent>(debugEventTcs, s => s.Breakpoint.Verified && s.Breakpoint.Id == breakpointId);
+		var breakpointEvent = await debugProtocolHost.WaitForEvent<BreakpointEvent>(s => s.Breakpoint.Verified && s.Breakpoint.Id == breakpointId);
 
-		var stoppedEvent = await debugProtocolHost.WaitForStoppedEvent(debugEventTcs);
+		var stoppedEvent = await debugProtocolHost.WaitForStoppedEvent();
 		debugProtocolHost.WithStackTraceRequest(stoppedEvent.ThreadId!.Value, out var stackTraceResponse);
 		var topFrame = stackTraceResponse.StackFrames.Single();
 		topFrame.ShouldBeAtSourceLocation("MyClass.cs", 10, 10, 2, 3);
@@ -82,7 +82,7 @@ public class FunctionBreakpointTests(ITestOutputHelper testOutputHelper)
 	public async Task SharpDbgCli_SetFunctionBreakpoint_GenericClass_BreaksOnMatchingMethod()
 	{
 		var startSuspended = true;
-		var (debugProtocolHost, initializedEventTcs, debugEventTcs, adapter, p2) = TestHelper.GetRunningDebugProtocolHost(testOutputHelper, startSuspended);
+		var (debugProtocolHost, adapter, p2) = TestHelper.GetRunningDebugProtocolHost(testOutputHelper, startSuspended);
 		using var _ = adapter;
 		using var __ = new ProcessKiller(p2);
 		using var ___ = debugProtocolHost;
@@ -90,7 +90,7 @@ public class FunctionBreakpointTests(ITestOutputHelper testOutputHelper)
 		await debugProtocolHost
 			.WithInitializeRequest()
 			.WithAttachRequest(p2.Id)
-			.WaitForInitializedEvent(initializedEventTcs);
+			.WaitForInitializedEvent();
 
 		var result = debugProtocolHost.SendRequestSync(new SetFunctionBreakpointsArguments { Breakpoints = [new FunctionBreakpoint { Name = "DebuggableConsoleApp.MyGenericClassContainingAnotherGenericClass<T, U>.MyNestedGenericClass<T, U>.Test" }] });
 		var breakpointId = result.Breakpoints.Single().Id!.Value;
@@ -99,9 +99,9 @@ public class FunctionBreakpointTests(ITestOutputHelper testOutputHelper)
 			.WithConfigurationDoneRequest()
 			.WithOptionalResumeRuntime(p2.Id, startSuspended);
 
-		var breakpointEvent = await debugProtocolHost.WaitForEvent<BreakpointEvent>(debugEventTcs, s => s.Breakpoint.Verified && s.Breakpoint.Id == breakpointId);
+		var breakpointEvent = await debugProtocolHost.WaitForEvent<BreakpointEvent>(s => s.Breakpoint.Verified && s.Breakpoint.Id == breakpointId);
 
-		var stoppedEvent = await debugProtocolHost.WaitForStoppedEvent(debugEventTcs);
+		var stoppedEvent = await debugProtocolHost.WaitForStoppedEvent();
 		debugProtocolHost.WithStackTraceRequest(stoppedEvent.ThreadId!.Value, out var stackTraceResponse);
 		var topFrame = stackTraceResponse.StackFrames.Single();
 		topFrame.ShouldBeAtSourceLocation("MyClassContainingAnotherClass.cs", 18, 18, 3, 4);
@@ -111,7 +111,7 @@ public class FunctionBreakpointTests(ITestOutputHelper testOutputHelper)
 	public async Task SharpDbgCli_SetFunctionBreakpoint_NoParametersSpecified_BreaksOnAllMethodOverloads()
 	{
 		var startSuspended = true;
-		var (debugProtocolHost, initializedEventTcs, debugEventTcs, adapter, p2) = TestHelper.GetRunningDebugProtocolHost(testOutputHelper, startSuspended);
+		var (debugProtocolHost, adapter, p2) = TestHelper.GetRunningDebugProtocolHost(testOutputHelper, startSuspended);
 		using var _ = adapter;
 		using var __ = new ProcessKiller(p2);
 		using var ___ = debugProtocolHost;
@@ -119,7 +119,7 @@ public class FunctionBreakpointTests(ITestOutputHelper testOutputHelper)
 		await debugProtocolHost
 			.WithInitializeRequest()
 			.WithAttachRequest(p2.Id)
-			.WaitForInitializedEvent(initializedEventTcs);
+			.WaitForInitializedEvent();
 
 		var result = debugProtocolHost.SendRequestSync(new SetFunctionBreakpointsArguments { Breakpoints = [new FunctionBreakpoint { Name = "DebuggableConsoleApp.OverloadedMethodsClass.OverloadedMethod" }] });
 		var breakpointId = result.Breakpoints.Single().Id!.Value;
@@ -128,7 +128,7 @@ public class FunctionBreakpointTests(ITestOutputHelper testOutputHelper)
 			.WithConfigurationDoneRequest()
 			.WithOptionalResumeRuntime(p2.Id, startSuspended);
 
-		var breakpointEvent = await debugProtocolHost.WaitForEvent<BreakpointEvent>(debugEventTcs, s => s.Breakpoint.Verified && s.Breakpoint.Id == breakpointId);
+		var breakpointEvent = await debugProtocolHost.WaitForEvent<BreakpointEvent>(s => s.Breakpoint.Verified && s.Breakpoint.Id == breakpointId);
 
 		await AssertBreakpointsHit();
 
@@ -142,27 +142,27 @@ public class FunctionBreakpointTests(ITestOutputHelper testOutputHelper)
 
 		async Task AssertBreakpointsHit()
 		{
-			var stoppedEvent = await debugProtocolHost.WaitForStoppedEvent(debugEventTcs);
+			var stoppedEvent = await debugProtocolHost.WaitForStoppedEvent();
 			debugProtocolHost.WithStackTraceRequest(stoppedEvent.ThreadId!.Value, out var stackTraceResponse);
 			var topFrame = stackTraceResponse.StackFrames.Single();
 			topFrame.ShouldBeAtSourceLocation("OverloadedMethodsClass.cs", 14, 14, 2, 3);
 
-			var stoppedEvent2 = await debugProtocolHost.WithContinueRequest().WaitForStoppedEvent(debugEventTcs);
+			var stoppedEvent2 = await debugProtocolHost.WithContinueRequest().WaitForStoppedEvent();
 			debugProtocolHost.WithStackTraceRequest(stoppedEvent2.ThreadId!.Value, out var stackTraceResponse2);
 			var topFrame2 = stackTraceResponse2.StackFrames.Single();
 			topFrame2.ShouldBeAtSourceLocation("OverloadedMethodsClass.cs", 18, 18, 2, 3);
 
-			var stoppedEvent3 = await debugProtocolHost.WithContinueRequest().WaitForStoppedEvent(debugEventTcs);
+			var stoppedEvent3 = await debugProtocolHost.WithContinueRequest().WaitForStoppedEvent();
 			debugProtocolHost.WithStackTraceRequest(stoppedEvent3.ThreadId!.Value, out var stackTraceResponse3);
 			var topFrame3 = stackTraceResponse3.StackFrames.Single();
 			topFrame3.ShouldBeAtSourceLocation("OverloadedMethodsClass.cs", 22, 22, 2, 3);
 
-			var stoppedEvent4 = await debugProtocolHost.WithContinueRequest().WaitForStoppedEvent(debugEventTcs);
+			var stoppedEvent4 = await debugProtocolHost.WithContinueRequest().WaitForStoppedEvent();
 			debugProtocolHost.WithStackTraceRequest(stoppedEvent4.ThreadId!.Value, out var stackTraceResponse4);
 			var topFrame4 = stackTraceResponse4.StackFrames.Single();
 			topFrame4.ShouldBeAtSourceLocation("OverloadedMethodsClass.cs", 26, 26, 2, 3);
 
-			var stoppedEvent5 = await debugProtocolHost.WithContinueRequest().WaitForStoppedEvent(debugEventTcs);
+			var stoppedEvent5 = await debugProtocolHost.WithContinueRequest().WaitForStoppedEvent();
 			debugProtocolHost.WithStackTraceRequest(stoppedEvent5.ThreadId!.Value, out var stackTraceResponse5);
 			var topFrame5 = stackTraceResponse5.StackFrames.Single();
 			topFrame5.ShouldBeAtSourceLocation("OverloadedMethodsClass.cs", 30, 30, 2, 3);
@@ -173,7 +173,7 @@ public class FunctionBreakpointTests(ITestOutputHelper testOutputHelper)
 	public async Task SharpDbgCli_SetFunctionBreakpoint_MethodParametersSpecified_BreaksOnSingleMatchingOverload()
 	{
 		var startSuspended = true;
-		var (debugProtocolHost, initializedEventTcs, debugEventTcs, adapter, p2) = TestHelper.GetRunningDebugProtocolHost(testOutputHelper, startSuspended);
+		var (debugProtocolHost, adapter, p2) = TestHelper.GetRunningDebugProtocolHost(testOutputHelper, startSuspended);
 		using var _ = adapter;
 		using var __ = new ProcessKiller(p2);
 		using var ___ = debugProtocolHost;
@@ -181,7 +181,7 @@ public class FunctionBreakpointTests(ITestOutputHelper testOutputHelper)
 		await debugProtocolHost
 			.WithInitializeRequest()
 			.WithAttachRequest(p2.Id)
-			.WaitForInitializedEvent(initializedEventTcs);
+			.WaitForInitializedEvent();
 
 		var result = debugProtocolHost.SendRequestSync(new SetFunctionBreakpointsArguments { Breakpoints = [new FunctionBreakpoint { Name = "DebuggableConsoleApp.OverloadedMethodsClass.OverloadedMethod(int, MyClass)" }] });
 		var breakpointId = result.Breakpoints.Single().Id!.Value;
@@ -190,15 +190,15 @@ public class FunctionBreakpointTests(ITestOutputHelper testOutputHelper)
 			.WithConfigurationDoneRequest()
 			.WithOptionalResumeRuntime(p2.Id, startSuspended);
 
-		var breakpointEvent = await debugProtocolHost.WaitForEvent<BreakpointEvent>(debugEventTcs, s => s.Breakpoint.Verified && s.Breakpoint.Id == breakpointId);
+		var breakpointEvent = await debugProtocolHost.WaitForEvent<BreakpointEvent>(s => s.Breakpoint.Verified && s.Breakpoint.Id == breakpointId);
 
-		var stoppedEvent = await debugProtocolHost.WaitForStoppedEvent(debugEventTcs);
+		var stoppedEvent = await debugProtocolHost.WaitForStoppedEvent();
 		debugProtocolHost.WithStackTraceRequest(stoppedEvent.ThreadId!.Value, out var stackTraceResponse);
 		var topFrame = stackTraceResponse.StackFrames.Single();
 		topFrame.ShouldBeAtSourceLocation("OverloadedMethodsClass.cs", 30, 30, 2, 3);
 
 		// Continuing lands us at the same breakpoint, since we only break on the single matching overload
-		var stoppedEvent2 = await debugProtocolHost.WithContinueRequest().WaitForStoppedEvent(debugEventTcs);
+		var stoppedEvent2 = await debugProtocolHost.WithContinueRequest().WaitForStoppedEvent();
 		debugProtocolHost.WithStackTraceRequest(stoppedEvent2.ThreadId!.Value, out var stackTraceResponse2);
 		var topFrame2 = stackTraceResponse2.StackFrames.Single();
 		topFrame2.ShouldBeAtSourceLocation("OverloadedMethodsClass.cs", 30, 30, 2, 3);

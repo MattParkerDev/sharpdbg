@@ -29,15 +29,11 @@ public static class DebugAdapterProcessHelper
 		return process;
 	}
 
-	public static DebugProtocolHost GetDebugProtocolHost(Stream inputStream, Stream outputStream, ITestOutputHelper testOutputHelper, TaskCompletionSource? initializedEventTcs = null, bool terminateDebuggeeOnDispose = false)
+	public static DebugProtocolHost GetDebugProtocolHost(Stream inputStream, Stream outputStream, ITestOutputHelper testOutputHelper, bool terminateDebuggeeOnDispose = false)
 	{
 		var debugProtocolHost = new DebugProtocolHost(inputStream, outputStream, terminateDebuggeeOnDispose, log: message =>
 		{
 			//testOutputHelper.WriteLine($"Log [DAP Host]: {message}");
-		});
-		debugProtocolHost.RegisterEventType<InitializedEvent>(@event =>
-		{
-			initializedEventTcs?.SetResult();
 		});
 		return debugProtocolHost;
 	}

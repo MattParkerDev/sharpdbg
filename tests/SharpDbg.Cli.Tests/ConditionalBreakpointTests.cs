@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using AwesomeAssertions;
 using SharpDbg.Cli.Tests.Helpers;
 using SharpDbg.DapProtocol;
@@ -12,7 +11,7 @@ public class ConditionalBreakpointTests(ITestOutputHelper testOutputHelper)
 	public async Task ConditionalBreakpoint_WithLambda_IsRejected()
 	{
 		var startSuspended = true;
-		var (debugProtocolHost, initializedEventTcs, _, adapter, p2) = TestHelper.GetRunningDebugProtocolHost(testOutputHelper, startSuspended);
+		var (debugProtocolHost, adapter, p2) = TestHelper.GetRunningDebugProtocolHost(testOutputHelper, startSuspended);
 		using var _ = adapter;
 		using var __ = new ProcessKiller(p2);
 		using var ___ = debugProtocolHost;
@@ -20,7 +19,7 @@ public class ConditionalBreakpointTests(ITestOutputHelper testOutputHelper)
 		await debugProtocolHost
 			.WithInitializeRequest()
 			.WithAttachRequest(p2.Id)
-			.WaitForInitializedEvent(initializedEventTcs);
+			.WaitForInitializedEvent();
 
 		debugProtocolHost.WithBreakpointsRequest(
 			Path.JoinFromGitRoot("tests", "DebuggableConsoleApp", "MyClass.cs"),
@@ -37,7 +36,7 @@ public class ConditionalBreakpointTests(ITestOutputHelper testOutputHelper)
 	{
 		var startSuspended = true;
 
-		var (debugProtocolHost, initializedEventTcs, debugEventTcs, adapter, p2) = TestHelper.GetRunningDebugProtocolHost(testOutputHelper, startSuspended);
+		var (debugProtocolHost, adapter, p2) = TestHelper.GetRunningDebugProtocolHost(testOutputHelper, startSuspended);
 		using var _ = adapter;
 		using var __ = new ProcessKiller(p2);
 		using var ___ = debugProtocolHost;
@@ -45,14 +44,14 @@ public class ConditionalBreakpointTests(ITestOutputHelper testOutputHelper)
 		await debugProtocolHost
 			.WithInitializeRequest()
 			.WithAttachRequest(p2.Id)
-			.WaitForInitializedEvent(initializedEventTcs);
+			.WaitForInitializedEvent();
 
 		debugProtocolHost
 			.WithBreakpointsRequest(Path.JoinFromGitRoot("tests", "DebuggableConsoleApp", "MyClass.cs"), [new SharpDbgBreakpointRequest(15, "myInt == 4")])
 			.WithConfigurationDoneRequest()
 			.WithOptionalResumeRuntime(p2.Id, startSuspended);
 
-		var stoppedEvent = await debugProtocolHost.WaitForStoppedEvent(debugEventTcs);
+		var stoppedEvent = await debugProtocolHost.WaitForStoppedEvent();
 		var stopInfo = stoppedEvent.ReadStopInfo();
 		stopInfo.filePath.Should().EndWith("MyClass.cs");
 		stopInfo.line.Should().Be(15);
@@ -63,7 +62,7 @@ public class ConditionalBreakpointTests(ITestOutputHelper testOutputHelper)
 	{
 		var startSuspended = true;
 
-		var (debugProtocolHost, initializedEventTcs, debugEventTcs, adapter, p2) = TestHelper.GetRunningDebugProtocolHost(testOutputHelper, startSuspended);
+		var (debugProtocolHost, adapter, p2) = TestHelper.GetRunningDebugProtocolHost(testOutputHelper, startSuspended);
 		using var _ = adapter;
 		using var __ = new ProcessKiller(p2);
 		using var ___ = debugProtocolHost;
@@ -71,7 +70,7 @@ public class ConditionalBreakpointTests(ITestOutputHelper testOutputHelper)
 		await debugProtocolHost
 			.WithInitializeRequest()
 			.WithAttachRequest(p2.Id)
-			.WaitForInitializedEvent(initializedEventTcs);
+			.WaitForInitializedEvent();
 
 		debugProtocolHost
 			.WithBreakpointsRequest(Path.JoinFromGitRoot("tests", "DebuggableConsoleApp", "MyClass.cs"),
@@ -83,7 +82,7 @@ public class ConditionalBreakpointTests(ITestOutputHelper testOutputHelper)
 			.WithOptionalResumeRuntime(p2.Id, startSuspended);
 
 		// Should skip the conditional breakpoint on line 15 (false condition) and hit the unconditional one on line 22
-		var stoppedEvent = await debugProtocolHost.WaitForStoppedEvent(debugEventTcs);
+		var stoppedEvent = await debugProtocolHost.WaitForStoppedEvent();
 		var stopInfo = stoppedEvent.ReadStopInfo();
 		stopInfo.filePath.Should().EndWith("MyClass.cs");
 		stopInfo.line.Should().Be(22);
@@ -98,43 +97,30 @@ public class ConditionalBreakpointTests(ITestOutputHelper testOutputHelper)
 		var startSuspended = true;
 		var filePath = Path.JoinFromGitRoot("tests", "DebuggableConsoleApp", "MyClass.cs");
 
-		var (debugProtocolHost, initializedEventTcs, _, adapter, p2) = TestHelper.GetRunningDebugProtocolHost(testOutputHelper, startSuspended);
+		var (debugProtocolHost, adapter, p2) = TestHelper.GetRunningDebugProtocolHost(testOutputHelper, startSuspended);
 		using var _ = adapter;
 		using var __ = new ProcessKiller(p2);
 		using var ___ = debugProtocolHost;
 
-		// The shared event slot can drop the stop that follows straight after the breakpoint event, so wait on our own
-		var stoppedEventTcs = new TaskCompletionSource<StoppedEvent>(TaskCreationOptions.RunContinuationsAsynchronously);
-		debugProtocolHost.RegisterEventType<StoppedEvent>(@event => stoppedEventTcs.TrySetResult(@event));
-		var importantOutputs = new ConcurrentQueue<string>();
-		var breakpointMessages = new ConcurrentQueue<string>();
-		debugProtocolHost.RegisterEventType<OutputEvent>(@event =>
-		{
-			if (@event.Category == OutputEvent.CategoryValue.Important) importantOutputs.Enqueue(@event.Output);
-		});
-		debugProtocolHost.RegisterEventType<BreakpointEvent>(@event =>
-		{
-			if (@event.Breakpoint.Message is { } message) breakpointMessages.Enqueue(message);
-		});
-
 		await debugProtocolHost
 			.WithInitializeRequest()
 			.WithAttachRequest(p2.Id)
-			.WaitForInitializedEvent(initializedEventTcs);
+			.WaitForInitializedEvent();
 
 		debugProtocolHost
 			.WithBreakpointsRequest(filePath, [new SharpDbgBreakpointRequest(15, condition)])
 			.WithConfigurationDoneRequest()
 			.WithOptionalResumeRuntime(p2.Id, startSuspended);
 
-		var stoppedEvent = await stoppedEventTcs.Task.WaitAsync(TestContext.Current.CancellationToken);
+		var stoppedEvent = await debugProtocolHost.WaitForStoppedEvent();
 		var stopInfo = stoppedEvent.ReadStopInfo();
 		stopInfo.filePath.Should().EndWith("MyClass.cs");
 		stopInfo.line.Should().Be(15);
 
 		var expectedMessage = $"The condition for a breakpoint failed to execute. The condition was '{condition}'. The error returned was '{expectedError}'.";
-		importantOutputs.Should().Equal($"Breakpoint error: {expectedMessage} - {filePath}:15\n");
-		breakpointMessages.Should().Contain(expectedMessage);
+		debugProtocolHost.ReceivedEvents.OfType<OutputEvent>().Where(e => e.Category == OutputEvent.CategoryValue.Important).Select(e => e.Output)
+			.Should().Equal($"Breakpoint error: {expectedMessage} - {filePath}:15\n");
+		debugProtocolHost.ReceivedEvents.OfType<BreakpointEvent>().Select(e => e.Breakpoint.Message).Should().Contain(expectedMessage);
 	}
 
 	[Fact]
@@ -143,7 +129,7 @@ public class ConditionalBreakpointTests(ITestOutputHelper testOutputHelper)
 		var startSuspended = true;
 		var hitConditionFilePath = Path.JoinFromGitRoot("tests", "DebuggableConsoleApp", "HitConditionClass.cs");
 
-		var (debugProtocolHost, initializedEventTcs, debugEventTcs, adapter, p2) = TestHelper.GetRunningDebugProtocolHost(testOutputHelper, startSuspended);
+		var (debugProtocolHost, adapter, p2) = TestHelper.GetRunningDebugProtocolHost(testOutputHelper, startSuspended);
 		using var _ = adapter;
 		using var __ = new ProcessKiller(p2);
 		using var ___ = debugProtocolHost;
@@ -151,7 +137,7 @@ public class ConditionalBreakpointTests(ITestOutputHelper testOutputHelper)
 		await debugProtocolHost
 			.WithInitializeRequest()
 			.WithAttachRequest(p2.Id)
-			.WaitForInitializedEvent(initializedEventTcs);
+			.WaitForInitializedEvent();
 
 		debugProtocolHost
 			.WithBreakpointsRequest(hitConditionFilePath, [new SharpDbgBreakpointRequest(10, HitCondition: "==2")])
@@ -159,7 +145,7 @@ public class ConditionalBreakpointTests(ITestOutputHelper testOutputHelper)
 			.WithOptionalResumeRuntime(p2.Id, startSuspended);
 
 		// Should stop on 2nd hit, not 1st
-		var stoppedEvent = await debugProtocolHost.WaitForStoppedEvent(debugEventTcs);
+		var stoppedEvent = await debugProtocolHost.WaitForStoppedEvent();
 		var stopInfo = stoppedEvent.ReadStopInfo();
 		stopInfo.filePath.Should().EndWith("HitConditionClass.cs");
 		stopInfo.line.Should().Be(10);
@@ -176,7 +162,7 @@ public class ConditionalBreakpointTests(ITestOutputHelper testOutputHelper)
 		var startSuspended = true;
 		var hitConditionFilePath = Path.JoinFromGitRoot("tests", "DebuggableConsoleApp", "HitConditionClass.cs");
 
-		var (debugProtocolHost, initializedEventTcs, debugEventTcs, adapter, p2) = TestHelper.GetRunningDebugProtocolHost(testOutputHelper, startSuspended);
+		var (debugProtocolHost, adapter, p2) = TestHelper.GetRunningDebugProtocolHost(testOutputHelper, startSuspended);
 		using var _ = adapter;
 		using var __ = new ProcessKiller(p2);
 		using var ___ = debugProtocolHost;
@@ -184,7 +170,7 @@ public class ConditionalBreakpointTests(ITestOutputHelper testOutputHelper)
 		await debugProtocolHost
 			.WithInitializeRequest()
 			.WithAttachRequest(p2.Id)
-			.WaitForInitializedEvent(initializedEventTcs);
+			.WaitForInitializedEvent();
 
 		debugProtocolHost
 			.WithBreakpointsRequest(hitConditionFilePath, [new SharpDbgBreakpointRequest(10, HitCondition: ">=2")])
@@ -192,7 +178,7 @@ public class ConditionalBreakpointTests(ITestOutputHelper testOutputHelper)
 			.WithOptionalResumeRuntime(p2.Id, startSuspended);
 
 		// First stop should be on 2nd iteration (hit count >= 2)
-		var stoppedEvent = await debugProtocolHost.WaitForStoppedEvent(debugEventTcs);
+		var stoppedEvent = await debugProtocolHost.WaitForStoppedEvent();
 		var stopInfo = stoppedEvent.ReadStopInfo();
 		stopInfo.filePath.Should().EndWith("HitConditionClass.cs");
 		stopInfo.line.Should().Be(10);
@@ -203,7 +189,7 @@ public class ConditionalBreakpointTests(ITestOutputHelper testOutputHelper)
 		evaluateResponse.Result.Should().Be("2");
 
 		// Continue - should stop again on 3rd iteration
-		var stoppedEvent2 = await debugProtocolHost.WithContinueRequest().WaitForStoppedEvent(debugEventTcs);
+		var stoppedEvent2 = await debugProtocolHost.WithContinueRequest().WaitForStoppedEvent();
 		var stopInfo2 = stoppedEvent2.ReadStopInfo();
 		stopInfo2.filePath.Should().EndWith("HitConditionClass.cs");
 		stopInfo2.line.Should().Be(10);
@@ -220,7 +206,7 @@ public class ConditionalBreakpointTests(ITestOutputHelper testOutputHelper)
 		var startSuspended = true;
 		var hitConditionFilePath = Path.JoinFromGitRoot("tests", "DebuggableConsoleApp", "HitConditionClass.cs");
 
-		var (debugProtocolHost, initializedEventTcs, debugEventTcs, adapter, p2) = TestHelper.GetRunningDebugProtocolHost(testOutputHelper, startSuspended);
+		var (debugProtocolHost, adapter, p2) = TestHelper.GetRunningDebugProtocolHost(testOutputHelper, startSuspended);
 		using var _ = adapter;
 		using var __ = new ProcessKiller(p2);
 		using var ___ = debugProtocolHost;
@@ -228,7 +214,7 @@ public class ConditionalBreakpointTests(ITestOutputHelper testOutputHelper)
 		await debugProtocolHost
 			.WithInitializeRequest()
 			.WithAttachRequest(p2.Id)
-			.WaitForInitializedEvent(initializedEventTcs);
+			.WaitForInitializedEvent();
 
 		debugProtocolHost
 			.WithBreakpointsRequest(hitConditionFilePath, [new SharpDbgBreakpointRequest(10, HitCondition: "%2")])
@@ -236,7 +222,7 @@ public class ConditionalBreakpointTests(ITestOutputHelper testOutputHelper)
 			.WithOptionalResumeRuntime(p2.Id, startSuspended);
 
 		// First stop should be on 2nd iteration (2 % 2 == 0)
-		var stoppedEvent = await debugProtocolHost.WaitForStoppedEvent(debugEventTcs);
+		var stoppedEvent = await debugProtocolHost.WaitForStoppedEvent();
 		var stopInfo = stoppedEvent.ReadStopInfo();
 		stopInfo.filePath.Should().EndWith("HitConditionClass.cs");
 		stopInfo.line.Should().Be(10);
@@ -247,7 +233,7 @@ public class ConditionalBreakpointTests(ITestOutputHelper testOutputHelper)
 		evaluateResponse.Result.Should().Be("2");
 
 		// Continue - should skip 3rd, stop on 4th (4 % 2 == 0)
-		var stoppedEvent2 = await debugProtocolHost.WithContinueRequest().WaitForStoppedEvent(debugEventTcs);
+		var stoppedEvent2 = await debugProtocolHost.WithContinueRequest().WaitForStoppedEvent();
 		var stopInfo2 = stoppedEvent2.ReadStopInfo();
 		stopInfo2.filePath.Should().EndWith("HitConditionClass.cs");
 		stopInfo2.line.Should().Be(10);

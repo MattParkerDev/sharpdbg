@@ -225,7 +225,7 @@ file static class TestExtensions
 			new() { VariablesReference =  0, Name = "ConstFieldChar",  EvaluateName = "ConstFieldChar",  Value = "68 'D'", Type = "char" },
 			new() { VariablesReference =  0, Name = "ConstFieldEnum",  EvaluateName = "ConstFieldEnum",  Value = "SecondValue", Type = "DebuggableConsoleApp.MyEnum" },
 			new() { VariablesReference =  0, Name = "ConstFieldFlagsEnum",  EvaluateName = "ConstFieldFlagsEnum",  Value = "FlagValue1 | FlagValue3", Type = "DebuggableConsoleApp.MyEnumWithFlags" },
-			new() { VariablesReference = 50, Name = "ConstFieldByteArraySpan",  EvaluateName = "ConstFieldByteArraySpan",  Value = "System.ReadOnlySpan<Byte>[4]", Type = "System.ReadOnlySpan<byte>" },
+			new() { VariablesReference = 50, Name = "ConstFieldByteArraySpan",  EvaluateName = "ConstFieldByteArraySpan",  Value = "\"System.ReadOnlySpan<Byte>[4]\"", Type = "System.ReadOnlySpan<byte>" },
 		];
 		staticMemberVariables.Should().HaveCount(expectedVariables.Count);
 		staticMemberVariables.ShouldBeEquivalentToDebuggerVariables(expectedVariables);

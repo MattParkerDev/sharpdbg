@@ -36,7 +36,7 @@ public partial class ManagedDebugger
 		return (friendlyTypeName, value, proxyInstance, resultIsError);
 	}
 
-	private async Task<(string FriendlyTypeName, string Value, string? DebuggerProxyTypeName, bool ResultIsError)> FormatCorDebugValueAsync(ResolvedCorDebugValue resolvedValue, ThreadId threadId, FrameStackDepth frameStackDepth, bool escapeStringValue)
+	private async Task<(string FriendlyTypeName, string Value, string? DebuggerProxyTypeName, bool ResultIsError)> FormatCorDebugValueAsync(ResolvedCorDebugValue resolvedValue, ThreadId threadId, FrameStackDepth frameStackDepth, bool escapeStringValue, int debuggerDisplayDepth = 0)
 	{
 		if (resolvedValue.Value is not { } valueToFormat) return (resolvedValue.FriendlyTypeNameOverride!, "null", null, false);
 		var (friendlyTypeName, value, formatKind, debuggerProxyTypeName) = GetValueForCorDebugValue(valueToFormat, escapeStringValue);
@@ -67,20 +67,7 @@ public partial class ManagedDebugger
 		else if (formatKind is CorDebugValueFormatKind.DebuggerDisplay)
 		{
 			// Since the move to proper roslyn EE, eval is much slower. Consider a more primitive 'evaluator' similar to the old implementation, for DebuggerDisplay evaluation
-			var expressionString = $"$\"{value}\"";
-			var thread = _process!.GetThread(threadId.Value);
-			var evalContext = new CompiledExpressionEvaluationContext(thread, threadId, frameStackDepth, valueToFormat);
-			using var result = await _expressionEvaluator!.Evaluate(expressionString, evalContext);
-			if (result.Error is not null)
-			{
-				_logger?.Invoke($"Evaluation error: {result.Error}");
-				value = result.Error;
-				resultIsError = true;
-			}
-			else
-			{
-				(_, value, _, _) = GetValueForCorDebugValue(result.Value!, false);
-			}
+			(value, resultIsError) = await FormatDebuggerDisplayAsync(value, valueToFormat, threadId, frameStackDepth, debuggerDisplayDepth);
 		}
 		return (friendlyTypeName, value, debuggerProxyTypeName, resultIsError);
 	}

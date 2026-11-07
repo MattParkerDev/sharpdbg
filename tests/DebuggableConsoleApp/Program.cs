@@ -42,6 +42,7 @@ public static class Program
 			MyLambdaClass.NestedCapturedParameterMethod(3);
 			SomeFolder.SameFileName.Test();
 			SameFileName.Test();
+			DebuggerDisplayFormatting.Test();
 			myClassWithGenericMethod.Test(4);
 			AsyncStackTraceClass.TestAsync().GetAwaiter().GetResult();
 			Thread.Sleep(100);

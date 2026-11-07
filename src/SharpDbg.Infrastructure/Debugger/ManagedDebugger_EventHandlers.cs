@@ -4,6 +4,7 @@ using SharpDbg.Infrastructure.Debugger.ExpressionEvaluator;
 using SharpDbg.Infrastructure.Debugger.ExpressionEvaluator.Cil;
 using SharpDbg.Infrastructure.Debugger.Models.Response;
 using SharpDbg.Infrastructure.Debugger.Breakpoints;
+using SharpDbg.Infrastructure.Debugger.Stepping;
 
 namespace SharpDbg.Infrastructure.Debugger;
 
@@ -215,26 +216,13 @@ public partial class ManagedDebugger
 			return;
 		}
 
-		if (_stepper is not null)
+		// A step that has already finished has a StepComplete queued, which arrives on the next Continue: the breakpoint is at the
+		// step's destination, and the step reports the stop. A breakpoint hit before the step finishes ends the step only if it stops,
+		// so a breakpoint whose condition is false leaves the step running, e.g. stepping over a method with a breakpoint inside it
+		if (_step.CorStepper is { IsActive: false })
 		{
-			// We have hit a breakpoint. If _stepper is not null, it means we have hit a breakpoint during an in progress step.
-			// _stepper.IsActive tells us if the step is complete or not, IsActive true: incomplete, false: complete
-			// If it is false, ie the step is complete, remembering that we are handling the breakpoint event currently,
-			// it means a StepComplete event is queued, and will be received on the next Continue.
-			// If we have a StepComplete event queued, we want to suppress this breakpoint event and Continue, as this means the breakpoint and the step destination are at the same location.
-			if (_stepper.IsActive is false)
-			{
-				ContinueWithVariableClear();
-				return;
-			}
-			// Inversely, if the stepper is still Active, ie incomplete, it means the breakpoint occurred before the step destination, and therefore should override/disable/abandon the step, and we should stop at the breakpoint.
-			// Example: stepping over a method, with a breakpoint inside the method.
-			// A user breakpoint only abandons the step once we know we stop: one whose condition is false must leave the step running.
-			if (breakpoint is not ICorDebugFunctionBreakpoint userCandidate || _breakpointManager.FindAllByCorBreakpoint(userCandidate).Count is 0)
-			{
-				_stepper.Deactivate();
-				_stepper = null;
-			}
+			ContinueWithVariableClear();
+			return;
 		}
 
 		if (breakpoint is not ICorDebugFunctionBreakpoint functionBreakpoint)
@@ -245,66 +233,18 @@ public partial class ManagedDebugger
 		}
 
 		var corThread = breakpointCorDebugManagedCallbackEventArgs.Thread;
-		if (_stateMachineStartBreakpoint is var (stateMachineStart, stepThreadId) && stateMachineStart == functionBreakpoint
-			&& _breakpointManager.FindAllByCorBreakpoint(functionBreakpoint).Count is 0)
-		{
-			// Another invocation of the same async method started on another thread first: keep waiting for the stepping thread's
-			if (corThread.Id != stepThreadId)
-			{
-				ContinueWithVariableClear();
-				return;
-			}
-			ClearStateMachineStartBreakpoint();
-			if (TrySetupStepToFirstLine(corThread))
-			{
-				ContinueWithVariableClear();
-				return;
-			}
-			var sourceInfo = GetSourceInfoAtFrame(corThread.ActiveFrame, _justMyCode is false);
-			if (sourceInfo is null) OnStopped?.Invoke(corThread.Id, "step");
-			else OnStopped2?.Invoke(corThread.Id, sourceInfo.Value.FilePath, sourceInfo.Value.StartLine, sourceInfo.Value.StartColumn, "step", null);
-			return;
-		}
+		if (await TryHandleStepBreakpoint(corThread, functionBreakpoint)) return;
 		if (_entryBreakpoint is { } entryBreakpoint && entryBreakpoint.CorBreakpoint == functionBreakpoint)
 		{
 			// Remove the one-shot breakpoint unless a user breakpoint shares the same CLR breakpoint.
 			if (_breakpointManager.FindByCorBreakpoint(functionBreakpoint) is null) functionBreakpoint.TryActivate(false);
 			_entryBreakpoint = null;
 			_stopAtEntry = false;
-			CancelInProgressSteps();
+			EndStep();
 			var sourceInfo = GetSourceInfoAtFrame(corThread.ActiveFrame, _justMyCode is false);
 			if (sourceInfo is null) OnStopped?.Invoke(corThread.Id, "entry");
 			else OnStopped2?.Invoke(corThread.Id, sourceInfo.Value.FilePath, sourceInfo.Value.StartLine, sourceInfo.Value.StartColumn, "entry", null);
 			return;
-		}
-
-		// Check if async stepper handles this breakpoint
-		if (_asyncStepper is not null)
-		{
-			var (asyncHandled, shouldStop) = await _asyncStepper.TryHandleBreakpoint(corThread, functionBreakpoint);
-			if (asyncHandled)
-			{
-				if (shouldStop is false)
-				{
-					ContinueWithVariableClear();
-					return;
-				}
-
-				if (_stepper is not null)
-				{
-					_stepper.Deactivate();
-					_stepper = null;
-				}
-
-				// The task-completion hook runs inside the awaiting caller's GetResult: step out to that caller, then finish its
-				// await statement. Stepping is exact here so it lands in the same place whether or not Just My Code is enabled
-				if (TrySetupStepOutToAwaitingUserFrame(corThread) is false)
-				{
-					SetupStepper(corThread, AsyncStepper.StepType.StepIn);
-				}
-				ContinueWithVariableClear();
-				return;
-			}
 		}
 
 		// Breakpoints at the same location share the runtime breakpoint: each keeps its own hit count and conditions, and the
@@ -348,7 +288,7 @@ public partial class ManagedDebugger
 			return;
 		}
 
-		CancelInProgressSteps();
+		EndStep();
 		var hitBreakpointIds = hitBreakpoints.Select(bp => bp.Id).ToList();
 		var firstHitBreakpoint = hitBreakpoints[0];
 		if (firstHitBreakpoint.IsFunctionBreakpoint)
@@ -362,16 +302,6 @@ public partial class ManagedDebugger
 
 		if (firstHitBreakpoint.Binding is not BreakpointBinding.SourceBound { Resolved: var resolvedBreakpoint }) throw new UnreachableException("A source breakpoint was hit while not bound - this should never happen, as only bound breakpoints are found by their runtime breakpoint");
 		OnStopped2?.Invoke(corThread.Id, firstHitBreakpoint.FilePath, resolvedBreakpoint.StartLine, resolvedBreakpoint.StartColumn, "breakpoint", hitBreakpointIds);
-	}
-
-	// A stop at a breakpoint ends any step in progress, including an async step waiting to resume
-	private void CancelInProgressSteps()
-	{
-		_asyncStepper?.Disable();
-		ClearStateMachineStartBreakpoint();
-		if (_stepper is null) return;
-		_stepper.Deactivate();
-		_stepper = null;
 	}
 
 	private void TryBindEntryBreakpoint(ModuleInfo moduleInfo)
@@ -396,25 +326,20 @@ public partial class ManagedDebugger
 	{
 		var corThread = stepCompleteEventArgs.Thread;
 		var ilFrame = (ICorDebugILFrame)corThread.ActiveFrame;
-		// If we have an active async stepper, it means we would have a breakpoint set up for either yield or resume for the next await statement
-		// We would then have done a regular step over/in/out to get to that breakpoint
-		// Since the step has completed, it means we did not hit the breakpoint, so we can clear the active async step
-		_asyncStepper?.ClearActiveAsyncStep();
-		var stepper = _stepper ?? throw new InvalidOperationException("No stepper found for step complete");
-		stepper.Deactivate(); // I really don't know if its necessary to deactivate the steppers once done
-		_stepper = null;
-		if (stepper == _awaitingUserFrameStepper)
+		var step = _step;
+		if (step.CorStepper is null) throw new InvalidOperationException($"No stepper found for step complete, in step state {step.GetType().Name}");
+		// A step waiting for an await's yield breakpoint did not reach it, so the step over the await ends here too
+		EndStep();
+		if (step is StepState.StepOutToAwaitingUserFrame)
 		{
 			// Back in the awaiting caller, just after the awaiter's GetResult: the step ends on the statement after the await
-			_awaitingUserFrameStepper = null;
-			SetupStepper(corThread, AsyncStepper.StepType.StepOver);
+			SetupStepper(corThread, StepType.StepOver);
 			ContinueWithVariableClear();
 			return;
 		}
-		if (stepper == _stepOutToCallerStepper)
+		if (step is StepState.StepOutToKickoffCaller)
 		{
 			// Returned from an async method's kick-off method, which had not yielded
-			_stepOutToCallerStepper = null;
 			if (await TryFinishAwaitingStatement(corThread))
 			{
 				ContinueWithVariableClear();
@@ -422,7 +347,7 @@ public partial class ManagedDebugger
 			}
 			if (_justMyCode && IsUserCodeFrame(ilFrame) is false)
 			{
-				SetupStepper(corThread, AsyncStepper.StepType.StepOut);
+				SetupStepper(corThread, StepType.StepOut);
 				ContinueWithVariableClear();
 				return;
 			}
@@ -444,7 +369,7 @@ public partial class ManagedDebugger
 				ContinueWithVariableClear();
 				return;
 			}
-			SetupStepper(corThread, AsyncStepper.StepType.StepOver);
+			SetupStepper(corThread, StepType.StepOver);
 			ContinueWithVariableClear();
 			return;
 		}
@@ -456,7 +381,7 @@ public partial class ManagedDebugger
 			// Either justMyCode is enabled, or this is a genuinely unmapped method, ie compiler generated with DebuggerStepThrough etc
 			// also, landing in an async state machine will not have source info, allowing us to keep stepping to the MoveNext
 			// TODO: This should probably be more sophisticated - mark the CorDebugFunction as non user code - `JMCStatus = false`, enable JMC for the stepper and then step over, in case the non user code calls user code, e.g. LINQ methods
-			SetupStepper(corThread, AsyncStepper.StepType.StepIn);
+			SetupStepper(corThread, StepType.StepIn);
 			ContinueWithVariableClear();
 			return;
 		}
@@ -465,7 +390,7 @@ public partial class ManagedDebugger
 		var (currentIlOffset, nextUserCodeIlOffset) = metadataReader.GetFrameCurrentIlOffsetAndNextUserCodeIlOffset(ilFrame);
 		if (stepCompleteEventArgs.Reason is CorDebugStepReason.STEP_CALL && currentIlOffset < nextUserCodeIlOffset)
 		{
-			SetupStepper(corThread, AsyncStepper.StepType.StepOver);
+			SetupStepper(corThread, StepType.StepOver);
 			ContinueWithVariableClear();
 			return;
 		}
@@ -479,7 +404,7 @@ public partial class ManagedDebugger
 				metadataImport.HasAnyAttribute(mdMethodDef, AttributeConstants.JmcMethodAttributeNames);
 			if (methodIsNotDebuggable)
 			{
-				SetupStepper(corThread, AsyncStepper.StepType.StepIn);
+				SetupStepper(corThread, StepType.StepIn);
 				ContinueWithVariableClear();
 				return;
 			}
@@ -495,13 +420,7 @@ public partial class ManagedDebugger
 	private void HandleBreak(object? sender, BreakCorDebugManagedCallbackEventArgs breakEventArgs)
 	{
 		var corThread = breakEventArgs.Thread;
-		_asyncStepper?.Disable();
-		ClearStateMachineStartBreakpoint();
-		if (_stepper is not null)
-		{
-			_stepper.Deactivate();
-			_stepper = null;
-		}
+		EndStep();
 
 		OnStopped?.Invoke(corThread.Id, "pause");
 	}
@@ -578,13 +497,7 @@ public partial class ManagedDebugger
 			ContinueWithVariableClear();
 			return;
 		}
-		_asyncStepper?.Disable();
-		ClearStateMachineStartBreakpoint();
-		if (_stepper is not null)
-		{
-			_stepper.Deactivate();
-			_stepper = null;
-		}
+		EndStep();
 		_exceptionBreakModes[threadId] = breakMode;
 		OnStopped?.Invoke(corThread.Id, "exception");
 	}

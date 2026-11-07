@@ -7,6 +7,7 @@ using SharpDbg.Infrastructure.Debugger.ExpressionEvaluator.Cil;
 using SharpDbg.Infrastructure.Debugger.Models;
 using SharpDbg.Infrastructure.Debugger.Models.Response;
 using SharpDbg.Infrastructure.Debugger.Breakpoints;
+using SharpDbg.Infrastructure.Debugger.Stepping;
 
 namespace SharpDbg.Infrastructure.Debugger;
 
@@ -52,7 +53,7 @@ public partial class ManagedDebugger
 	private readonly Dictionary<ThreadId, ExceptionPropagationState> _exceptionStates = [];
 	// The mode that caused each thread's latest exception stop, used by the exceptionInfo response.
 	private readonly Dictionary<ThreadId, SharpDbgExceptionBreakMode> _exceptionBreakModes = [];
-	private AsyncStepper? _asyncStepper;
+	private readonly AsyncStepper _asyncStepper;
 	private CilExpressionEvaluator _expressionEvaluator = null!;
 
 	private Process? _debuggeeProcess;
@@ -260,214 +261,6 @@ public partial class ManagedDebugger
 		if (result is not Cor.S_OK) _logger?.Invoke($"Unable to configure exception callbacks outside user code: {result}");
 	}
 
-	private ICorDebugStepper? _stepper;
-
-	/// <summary>
-	/// Setup a stepper without continuing execution
-	/// </summary>
-	internal ICorDebugStepper SetupStepper(ICorDebugThread thread, AsyncStepper.StepType stepType)
-	{
-		var frame = thread.ActiveFrame;
-		if (frame is not ICorDebugILFrame ilFrame) throw new InvalidOperationException("Active frame is not an IL frame");
-		if (_stepper is not null) throw new InvalidOperationException("A step operation is already in progress");
-
-		ICorDebugStepper stepper = frame.CreateStepper();
-		stepper.SetInterceptMask(CorDebugIntercept.INTERCEPT_ALL & ~(CorDebugIntercept.INTERCEPT_SECURITY | CorDebugIntercept.INTERCEPT_CLASS_INIT));
-		stepper.SetUnmappedStopMask(CorDebugUnmappedStop.STOP_NONE);
-		if (_justMyCode) stepper.SetJMC(true);
-
-		if (stepType == AsyncStepper.StepType.StepOut)
-		{
-			stepper.StepOut();
-		}
-		else // StepIn or StepOver
-		{
-			var metadataReader = _modules[frame.Function.Module.BaseAddress].MetadataReader;
-
-			var currentIlOffset = ilFrame.IP.pnOffset;
-			var nullableResult = metadataReader.GetStartAndEndSequencePointIlOffsetsForIlOffset(frame.Function.Token, currentIlOffset);
-			if (nullableResult is var (startIlOffset, endIlOffset))
-			{
-				if (startIlOffset == endIlOffset)
-				{
-					endIlOffset = frame.Function.ILCode.Size;
-				}
-				var stepRange = new COR_DEBUG_STEP_RANGE
-				{
-					startOffset = checked((uint)startIlOffset),
-					endOffset = checked((uint)endIlOffset)
-				};
-				var stepIn = stepType is AsyncStepper.StepType.StepIn;
-				stepper.StepRange(stepIn, [stepRange], 1);
-			}
-			else
-			{
-				var stepIn = stepType is AsyncStepper.StepType.StepIn;
-				stepper.Step(stepIn);
-			}
-		}
-
-		_stepper = stepper;
-		return stepper;
-	}
-
-	private ICorDebugStepper? _awaitingUserFrameStepper;
-
-	/// <summary>
-	/// Step out of every frame above the first user code frame on the stack, without Just My Code so the step stops exactly there
-	/// </summary>
-	private bool TrySetupStepOutToAwaitingUserFrame(ICorDebugThread thread)
-	{
-		if (_stepper is not null) throw new InvalidOperationException("A step operation is already in progress");
-		ICorDebugILFrame? callee = null;
-		foreach (var frame in EnumerateFramesForThread(thread))
-		{
-			if (frame is not ICorDebugILFrame ilFrame) continue;
-			if (callee is not null && _modules.TryGetValue(ilFrame.Function.Module.BaseAddress, out var module) && module.IsUserCode && module.MetadataReader.HasSymbols)
-			{
-				var stepper = callee.CreateStepper();
-				stepper.SetInterceptMask(CorDebugIntercept.INTERCEPT_ALL & ~(CorDebugIntercept.INTERCEPT_SECURITY | CorDebugIntercept.INTERCEPT_CLASS_INIT));
-				stepper.SetUnmappedStopMask(CorDebugUnmappedStop.STOP_NONE);
-				stepper.StepOut();
-				_stepper = stepper;
-				_awaitingUserFrameStepper = stepper;
-				return true;
-			}
-			callee = ilFrame;
-		}
-		return false;
-	}
-
-	/// <summary>
-	/// Step out of an async void method's state machine. Returns false when a plain step-out does the right thing
-	/// </summary>
-	/// <remarks>
-	/// Before its first yield the step-out returns to the kick-off method's caller. Once the method has resumed after an await, the
-	/// thread pool called it, and there is no task for anyone to await, so there is nothing to return to: the step runs free, as in
-	/// vsdbg and ReSharper, rather than stopping in thread pool code or in whichever unrelated continuation that thread runs next
-	/// </remarks>
-	internal bool TrySetupAsyncVoidStepOut(ICorDebugThread thread, CORDB_ADDRESS moduleAddress, int kickoffMethodToken)
-	{
-		if (kickoffMethodToken is 0) return false;
-		TrySetupStepOutBeforeFirstYield(thread, moduleAddress, kickoffMethodToken);
-		return true;
-	}
-
-	private ICorDebugStepper? _stepOutToCallerStepper;
-
-	/// <summary>
-	/// Step out of an async state machine that has not yielded yet, i.e. whose kick-off method is still on the stack, to the kick-off
-	/// method's caller: until its first yield an async method is an ordinary call. Returns false once the method has resumed after an await
-	/// </summary>
-	/// <remarks>
-	/// The step leaves the kick-off method exactly, without Just My Code, so it does not stop in the builder's Start or in the kick-off
-	/// method's hidden code. Once back in the caller: if the caller's statement goes on to await, the step finishes the statement (see
-	/// <see cref="TryFinishAwaitingStatement"/>), so <c>await M()</c> lands after the await as when M has yielded, while
-	/// <c>var task = M();</c> stops on that line; and with Just My Code, a caller that is not user code is stepped out of as usual
-	/// </remarks>
-	internal bool TrySetupStepOutBeforeFirstYield(ICorDebugThread thread, CORDB_ADDRESS moduleAddress, int kickoffMethodToken)
-	{
-		if (kickoffMethodToken is 0) return false;
-		var kickoffFrame = FindKickoffFrame(thread, moduleAddress, kickoffMethodToken);
-		if (kickoffFrame is null) return false;
-		if (_stepper is not null) throw new InvalidOperationException("A step operation is already in progress");
-		var stepper = kickoffFrame.CreateStepper();
-		stepper.SetInterceptMask(CorDebugIntercept.INTERCEPT_ALL & ~(CorDebugIntercept.INTERCEPT_SECURITY | CorDebugIntercept.INTERCEPT_CLASS_INIT));
-		stepper.SetUnmappedStopMask(CorDebugUnmappedStop.STOP_NONE);
-		stepper.StepOut();
-		_stepper = stepper;
-		_stepOutToCallerStepper = stepper;
-		return true;
-	}
-
-	private (ICorDebugFunctionBreakpoint Breakpoint, int ThreadId)? _stateMachineStartBreakpoint;
-
-	/// <summary>
-	/// Without Just My Code, a step into an async method that lands in its kick-off method runs to the start of the state machine's
-	/// MoveNext instead of stepping on, then steps to its first line (<see cref="TrySetupStepToFirstLine"/>)
-	/// </summary>
-	/// <remarks>
-	/// The kick-off method has no source, so the step would carry on into what it calls: the state machine's constructor (also without
-	/// source), then Object..ctor and the builder's Create and Start, which do have decompiled source and would each end the step there,
-	/// and stepping over Start steps over MoveNext. Running to MoveNext works whatever the builder is, and finds MoveNext from metadata,
-	/// so it also works for a module without a PDB, which is decompiled once the step reaches it. With Just My Code the stepper skips all
-	/// of that by itself
-	/// </remarks>
-	private bool TrySetupRunToStateMachineStart(ICorDebugThread thread, ICorDebugILFrame frame)
-	{
-		if (_justMyCode) return false;
-		var function = frame.Function;
-		if (_modules.TryGetValue(function.Module.BaseAddress, out var module) is false) return false;
-		if (module.MetadataReader.GetAsyncStateMachineMoveNextMethod(function.Token) is not { } moveNextToken) return false;
-
-		var breakpoint = function.Module.GetFunctionFromToken(moveNextToken).ILCode.CreateBreakpoint(0);
-		breakpoint.Activate(true);
-		_stateMachineStartBreakpoint = (breakpoint, thread.Id);
-		return true;
-	}
-
-	/// <summary>
-	/// At the start of MoveNext, before its state dispatch: step over that dispatch to the method's first line. Returns false when the
-	/// step is already there
-	/// </summary>
-	private bool TrySetupStepToFirstLine(ICorDebugThread thread)
-	{
-		if (thread.ActiveFrame is not ICorDebugILFrame ilFrame) return false;
-		// Decompiles the module first if it has no PDB
-		GetSourceInfoAtFrame(ilFrame, _justMyCode is false);
-		var function = ilFrame.Function;
-		var metadataReader = _modules[function.Module.BaseAddress].MetadataReader;
-		var ip = ilFrame.IP.pnOffset;
-		if (metadataReader.GetNextUserCodeIlOffset(function.Token, ip) is not { } firstLineOffset)
-		{
-			// No source for MoveNext either: step on as from any other method without source
-			SetupStepper(thread, AsyncStepper.StepType.StepIn);
-			return true;
-		}
-		if (firstLineOffset == ip) return false;
-
-		if (_stepper is not null) throw new InvalidOperationException("A step operation is already in progress");
-		var stepper = ilFrame.CreateStepper();
-		stepper.SetInterceptMask(CorDebugIntercept.INTERCEPT_ALL & ~(CorDebugIntercept.INTERCEPT_SECURITY | CorDebugIntercept.INTERCEPT_CLASS_INIT));
-		stepper.SetUnmappedStopMask(CorDebugUnmappedStop.STOP_NONE);
-		stepper.StepRange(false, [new COR_DEBUG_STEP_RANGE { startOffset = checked((uint)ip), endOffset = checked((uint)firstLineOffset) }], 1);
-		_stepper = stepper;
-		return true;
-	}
-
-	private void ClearStateMachineStartBreakpoint()
-	{
-		if (_stateMachineStartBreakpoint is not var (breakpoint, _)) return;
-		_stateMachineStartBreakpoint = null;
-		// Leave a user breakpoint that shares the same CLR breakpoint active
-		if (_breakpointManager.FindByCorBreakpoint(breakpoint) is null) breakpoint.TryActivate(false);
-	}
-
-	private ICorDebugILFrame? FindKickoffFrame(ICorDebugThread thread, CORDB_ADDRESS moduleAddress, int kickoffMethodToken) =>
-		EnumerateFramesForThread(thread).OfType<ICorDebugILFrame>().Skip(1)
-			.FirstOrDefault(frame => frame.Function.Module.BaseAddress == moduleAddress && frame.Function.Token == kickoffMethodToken);
-
-	/// <summary>
-	/// Back in the caller of an async method that had not yielded, or on a hidden sequence point: if the code before the next visible
-	/// sequence point awaits, step over it, crossing the await, rather than stopping part way through the statement
-	/// </summary>
-	private async Task<bool> TryFinishAwaitingStatement(ICorDebugThread thread)
-	{
-		if (thread.ActiveFrame is not ICorDebugILFrame ilFrame || _asyncStepper is null) return false;
-		var function = ilFrame.Function;
-		if (_modules.TryGetValue(function.Module.BaseAddress, out var module) is false) return false;
-		var metadataReader = module.MetadataReader;
-		var asyncInfo = metadataReader.GetAsyncMethodSteppingInfo(function.Token);
-		if (asyncInfo is null) return false;
-		var ip = ilFrame.IP.pnOffset;
-		if (metadataReader.GetStartAndEndSequencePointIlOffsetsForIlOffset(function.Token, ip) is not var (_, statementEnd)) return false;
-		if (asyncInfo.AwaitInfos.Any(info => info.YieldOffset >= ip && info.YieldOffset < statementEnd) is false) return false;
-
-		var (handledByAsyncStepper, useSimpleStepper) = await _asyncStepper.TrySetupAsyncStep(thread, AsyncStepper.StepType.StepOver);
-		if (handledByAsyncStepper is false || useSimpleStepper is not false) SetupStepper(thread, AsyncStepper.StepType.StepOver);
-		return true;
-	}
-
 	/// <summary>
 	/// Try to bind a breakpoint to the actual code using symbol information
 	/// </summary>
@@ -663,9 +456,7 @@ public partial class ManagedDebugger
 		}
 		_breakpointManager.Clear();
 
-		_asyncStepper?.Dispose();
-		_asyncStepper = null;
-		_stepper = null!;
+		EndStep();
 		_threads.Clear();
 		_mainThreadId = null;
 		_oldestThreadId = null;

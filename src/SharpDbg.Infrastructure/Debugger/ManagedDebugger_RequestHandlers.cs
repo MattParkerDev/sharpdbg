@@ -12,6 +12,7 @@ using SharpDbg.Infrastructure.Debugger.Models.Response;
 using SharpDbg.Infrastructure.Debugger.PresentationHintModels;
 using ZLinq;
 using SharpDbg.Infrastructure.Debugger.Breakpoints;
+using SharpDbg.Infrastructure.Debugger.Stepping;
 
 namespace SharpDbg.Infrastructure.Debugger;
 
@@ -235,8 +236,7 @@ public partial class ManagedDebugger
 		Guard.Against.Null(_process);
 		if (_process.IsRunning is false) throw new InvalidOperationException("The process is not running, so it cannot be paused - it has either already stopped or has not finished starting");
 		_process.Stop(0);
-		_asyncStepper?.Disable();
-		ClearStateMachineStartBreakpoint();
+		EndStep();
 	}
 
 	/// <summary>
@@ -245,30 +245,7 @@ public partial class ManagedDebugger
 	public async Task StepNext(int threadId)
 	{
 		_logger?.Invoke($"StepNext on thread {threadId}");
-		if (_threads.TryGetValue(threadId, out var threadInfo))
-		{
-			var thread = threadInfo.Thread;
-			var frame = thread.ActiveFrame;
-			if (frame is not ICorDebugILFrame ilFrame) throw new InvalidOperationException("Active frame is not an IL frame");
-			if (_stepper is not null) throw new InvalidOperationException("A step operation is already in progress");
-
-			// Try async stepping first
-			if (_asyncStepper is not null)
-			{
-				var (handledByAsyncStepper, useSimpleStepper) = await _asyncStepper.TrySetupAsyncStep(thread, AsyncStepper.StepType.StepOver);
-				if (handledByAsyncStepper)
-				{
-					if (useSimpleStepper is false)
-					{
-						ContinueWithVariableClear();
-						return;
-					}
-				}
-			}
-
-			var stepper = SetupStepper(thread, AsyncStepper.StepType.StepOver);
-			ContinueWithVariableClear();
-		}
+		await StartUserStep(threadId, StepType.StepOver);
 	}
 
 	/// <summary>
@@ -277,30 +254,7 @@ public partial class ManagedDebugger
 	public async Task StepIn(int threadId)
 	{
 		_logger?.Invoke($"StepIn on thread {threadId}");
-		if (_threads.TryGetValue(threadId, out var threadInfo))
-		{
-			var thread = threadInfo.Thread;
-			var frame = thread.ActiveFrame;
-			if (frame is not null)
-			{
-				// Try async stepping first
-				if (_asyncStepper is not null)
-				{
-					var (handledByAsyncStepper, useSimpleStepper) = await _asyncStepper.TrySetupAsyncStep(thread, AsyncStepper.StepType.StepIn);
-					if (handledByAsyncStepper)
-					{
-						if (useSimpleStepper is false)
-						{
-							ContinueWithVariableClear();
-							return;
-						}
-					}
-				}
-
-				var stepper = SetupStepper(thread, AsyncStepper.StepType.StepIn);
-				ContinueWithVariableClear();
-			}
-		}
+		await StartUserStep(threadId, StepType.StepIn);
 	}
 
 	/// <summary>
@@ -309,33 +263,7 @@ public partial class ManagedDebugger
 	public async Task StepOut(int threadId)
 	{
 		_logger?.Invoke($"StepOut on thread {threadId}");
-		if (_threads.TryGetValue(threadId, out var threadInfo))
-		{
-			var thread = threadInfo.Thread;
-			var frame = thread.ActiveFrame;
-			if (frame is not null)
-			{
-				// Try async stepping first
-				if (_asyncStepper is not null)
-				{
-					var (handledByAsyncStepper, useSimpleStepper) = await _asyncStepper.TrySetupAsyncStep(thread, AsyncStepper.StepType.StepOut);
-					if (handledByAsyncStepper)
-					{
-						if (useSimpleStepper is false)
-						{
-							ContinueWithVariableClear();
-							return;
-						}
-					}
-				}
-
-				var stepper = SetupStepper(thread, AsyncStepper.StepType.StepOut);
-				if (stepper is not null)
-				{
-					ContinueWithVariableClear();
-				}
-			}
-		}
+		await StartUserStep(threadId, StepType.StepOut);
 	}
 
 	/// <summary>

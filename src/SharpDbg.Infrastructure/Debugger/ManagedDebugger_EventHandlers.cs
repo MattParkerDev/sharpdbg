@@ -243,6 +243,26 @@ public partial class ManagedDebugger
 		}
 
 		var corThread = breakpointCorDebugManagedCallbackEventArgs.Thread;
+		if (_stateMachineStartBreakpoint is var (stateMachineStart, stepThreadId) && stateMachineStart == functionBreakpoint
+			&& _breakpointManager.FindAllByCorBreakpoint(functionBreakpoint).Count is 0)
+		{
+			// Another invocation of the same async method started on another thread first: keep waiting for the stepping thread's
+			if (corThread.Id != stepThreadId)
+			{
+				ContinueWithVariableClear();
+				return;
+			}
+			ClearStateMachineStartBreakpoint();
+			if (TrySetupStepToFirstLine(corThread))
+			{
+				ContinueWithVariableClear();
+				return;
+			}
+			var sourceInfo = GetSourceInfoAtFrame(corThread.ActiveFrame, _justMyCode is false);
+			if (sourceInfo is null) OnStopped?.Invoke(corThread.Id, "step");
+			else OnStopped2?.Invoke(corThread.Id, sourceInfo.Value.FilePath, sourceInfo.Value.StartLine, sourceInfo.Value.StartColumn, "step", null);
+			return;
+		}
 		if (_entryBreakpoint is { } entryBreakpoint && entryBreakpoint.CorBreakpoint == functionBreakpoint)
 		{
 			// Remove the one-shot breakpoint unless a user breakpoint shares the same CLR breakpoint.
@@ -346,6 +366,7 @@ public partial class ManagedDebugger
 	private void CancelInProgressSteps()
 	{
 		_asyncStepper?.Disable();
+		ClearStateMachineStartBreakpoint();
 		if (_stepper is null) return;
 		_stepper.Deactivate();
 		_stepper = null;
@@ -404,6 +425,11 @@ public partial class ManagedDebugger
 				return;
 			}
 		}
+		if (TrySetupRunToStateMachineStart(corThread, ilFrame))
+		{
+			ContinueWithVariableClear();
+			return;
+		}
 		var module = _modules[ilFrame.Function.Module.BaseAddress];
 		if (module.MetadataReader.IsCurrentSequencePointHidden(ilFrame.Function.Token, ilFrame.IP.pnOffset))
 		{
@@ -461,6 +487,7 @@ public partial class ManagedDebugger
 	{
 		var corThread = breakEventArgs.Thread;
 		_asyncStepper?.Disable();
+		ClearStateMachineStartBreakpoint();
 		if (_stepper is not null)
 		{
 			_stepper.Deactivate();
@@ -543,6 +570,7 @@ public partial class ManagedDebugger
 			return;
 		}
 		_asyncStepper?.Disable();
+		ClearStateMachineStartBreakpoint();
 		if (_stepper is not null)
 		{
 			_stepper.Deactivate();

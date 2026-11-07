@@ -235,6 +235,7 @@ public partial class ManagedDebugger
 		if (_process.IsRunning is false) throw new InvalidOperationException("The process is not running, so it cannot be paused - it has either already stopped or has not finished starting");
 		_process.Stop(0);
 		_asyncStepper?.Disable();
+		ClearStateMachineStartBreakpoint();
 	}
 
 	/// <summary>

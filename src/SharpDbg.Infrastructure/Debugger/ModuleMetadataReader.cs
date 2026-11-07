@@ -474,6 +474,62 @@ public partial class ModuleMetadataReader : IDisposable
 	/// </summary>
 	/// <param name="methodToken">Method token</param>
 	/// <returns>Async method stepping info if method has await blocks, null otherwise</returns>
+	/// <summary>
+	/// The MoveNext of the state machine that an async kick-off method starts, from the method's [AsyncStateMachine(typeof(...))] attribute
+	/// </summary>
+	/// <remarks>
+	/// Plain metadata, so it needs no PDB. Null for any other method, iterators included: their attribute is IteratorStateMachine
+	/// </remarks>
+	public int? GetAsyncStateMachineMoveNextMethod(int kickoffMethodToken)
+	{
+		var reader = _peMetadataReader;
+		var method = reader.GetMethodDefinition(MetadataTokens.MethodDefinitionHandle(kickoffMethodToken));
+		foreach (var attributeHandle in method.GetCustomAttributes())
+		{
+			var attribute = reader.GetCustomAttribute(attributeHandle);
+			if (GetAttributeTypeFullName(reader, attribute) != "System.Runtime.CompilerServices.AsyncStateMachineAttribute") continue;
+
+			// Fixed argument: the state machine type, serialized by name ("Namespace.Outer+<M>d__0")
+			var blobReader = reader.GetBlobReader(attribute.Value);
+			if (blobReader.ReadUInt16() is not 1) return null;
+			var stateMachineTypeName = blobReader.ReadSerializedString();
+			if (stateMachineTypeName is null) return null;
+			if (stateMachineTypeName.IndexOf(',') is var assemblySeparator and >= 0) stateMachineTypeName = stateMachineTypeName[..assemblySeparator];
+			var stateMachineName = stateMachineTypeName[(stateMachineTypeName.LastIndexOf('+') + 1)..];
+
+			// The compiler nests the state machine in the kick-off method's type
+			foreach (var nestedTypeHandle in reader.GetTypeDefinition(method.GetDeclaringType()).GetNestedTypes())
+			{
+				var nestedType = reader.GetTypeDefinition(nestedTypeHandle);
+				if (reader.GetString(nestedType.Name) != stateMachineName) continue;
+				foreach (var methodHandle in nestedType.GetMethods())
+				{
+					if (reader.GetString(reader.GetMethodDefinition(methodHandle).Name) is "MoveNext") return MetadataTokens.GetToken(methodHandle);
+				}
+			}
+			return null;
+		}
+		return null;
+	}
+
+	private static string? GetAttributeTypeFullName(MetadataReader reader, CustomAttribute attribute)
+	{
+		var attributeType = attribute.Constructor.Kind switch
+		{
+			HandleKind.MemberReference => reader.GetMemberReference((MemberReferenceHandle)attribute.Constructor).Parent,
+			HandleKind.MethodDefinition => reader.GetMethodDefinition((MethodDefinitionHandle)attribute.Constructor).GetDeclaringType(),
+			_ => default
+		};
+		return attributeType.Kind switch
+		{
+			HandleKind.TypeReference when reader.GetTypeReference((TypeReferenceHandle)attributeType) is var typeReference =>
+				$"{reader.GetString(typeReference.Namespace)}.{reader.GetString(typeReference.Name)}",
+			HandleKind.TypeDefinition when reader.GetTypeDefinition((TypeDefinitionHandle)attributeType) is var typeDefinition =>
+				$"{reader.GetString(typeDefinition.Namespace)}.{reader.GetString(typeDefinition.Name)}",
+			_ => null
+		};
+	}
+
 	public AsyncMethodSteppingInfo? GetAsyncMethodSteppingInfo(int methodToken)
 	{
 		var reader = _pdbMetadataReader;

@@ -215,4 +215,39 @@ public class AsyncStepTests(ITestOutputHelper testOutputHelper)
 		afterCallerAwait.Reason.Should().Be(StoppedEvent.ReasonValue.Step);
 		afterCallerAwait.ReadStopInfo().line.Should().Be(11);
 	}
+
+	// Stepping into an async method lands on its first line. Without Just My Code it must not stop on the way in the state machine's
+	// constructor (Object..ctor) or the builder's Create and Start, which have decompiled source
+	[Theory]
+	[InlineData(true)]
+	[InlineData(false)]
+	public async Task SharpDbgCli_StepInRequest_IntoAsyncMethod_StopsOnItsFirstLine(bool justMyCode)
+	{
+		var startSuspended = true;
+		var (debugProtocolHost, adapter, p2) = TestHelper.GetRunningDebugProtocolHost(testOutputHelper, startSuspended);
+		using var _ = adapter;
+		using var __ = new ProcessKiller(p2);
+		using var ___ = debugProtocolHost;
+
+		var filePath = Path.JoinFromGitRoot("tests", "DebuggableConsoleApp", "AsyncUnawaitedTaskClass.cs");
+		await debugProtocolHost
+			.WithInitializeRequest()
+			.WithAttachRequest(p2.Id, justMyCode)
+			.WaitForInitializedEvent();
+		debugProtocolHost
+			.WithBreakpointsRequest(8, filePath)
+			.WithConfigurationDoneRequest()
+			.WithOptionalResumeRuntime(p2.Id, startSuspended);
+
+		var callStop = await debugProtocolHost.WaitForStoppedEvent();
+		callStop.ReadStopInfo().line.Should().Be(8);
+		var methodStart = await debugProtocolHost.WithStepInRequest(callStop.ThreadId!.Value).WaitForStoppedEvent();
+		methodStart.Reason.Should().Be(StoppedEvent.ReasonValue.Step);
+		methodStart.ThreadId.Should().Be(callStop.ThreadId);
+		var methodStartInfo = methodStart.ReadStopInfo();
+		methodStartInfo.filePath.Should().EndWith("AsyncUnawaitedTaskClass.cs");
+		methodStartInfo.line.Should().Be(15);
+		var firstStatement = await debugProtocolHost.WithStepOverRequest(methodStart.ThreadId!.Value).WaitForStoppedEvent();
+		firstStatement.ReadStopInfo().line.Should().Be(16);
+	}
 }

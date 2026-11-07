@@ -377,6 +377,69 @@ public partial class ManagedDebugger
 		return true;
 	}
 
+	private (ICorDebugFunctionBreakpoint Breakpoint, int ThreadId)? _stateMachineStartBreakpoint;
+
+	/// <summary>
+	/// Without Just My Code, a step into an async method that lands in its kick-off method runs to the start of the state machine's
+	/// MoveNext instead of stepping on, then steps to its first line (<see cref="TrySetupStepToFirstLine"/>)
+	/// </summary>
+	/// <remarks>
+	/// The kick-off method has no source, so the step would carry on into what it calls: the state machine's constructor (also without
+	/// source), then Object..ctor and the builder's Create and Start, which do have decompiled source and would each end the step there,
+	/// and stepping over Start steps over MoveNext. Running to MoveNext works whatever the builder is, and finds MoveNext from metadata,
+	/// so it also works for a module without a PDB, which is decompiled once the step reaches it. With Just My Code the stepper skips all
+	/// of that by itself
+	/// </remarks>
+	private bool TrySetupRunToStateMachineStart(ICorDebugThread thread, ICorDebugILFrame frame)
+	{
+		if (_justMyCode) return false;
+		var function = frame.Function;
+		if (_modules.TryGetValue(function.Module.BaseAddress, out var module) is false) return false;
+		if (module.MetadataReader.GetAsyncStateMachineMoveNextMethod(function.Token) is not { } moveNextToken) return false;
+
+		var breakpoint = function.Module.GetFunctionFromToken(moveNextToken).ILCode.CreateBreakpoint(0);
+		breakpoint.Activate(true);
+		_stateMachineStartBreakpoint = (breakpoint, thread.Id);
+		return true;
+	}
+
+	/// <summary>
+	/// At the start of MoveNext, before its state dispatch: step over that dispatch to the method's first line. Returns false when the
+	/// step is already there
+	/// </summary>
+	private bool TrySetupStepToFirstLine(ICorDebugThread thread)
+	{
+		if (thread.ActiveFrame is not ICorDebugILFrame ilFrame) return false;
+		// Decompiles the module first if it has no PDB
+		GetSourceInfoAtFrame(ilFrame, _justMyCode is false);
+		var function = ilFrame.Function;
+		var metadataReader = _modules[function.Module.BaseAddress].MetadataReader;
+		var ip = ilFrame.IP.pnOffset;
+		if (metadataReader.GetNextUserCodeIlOffset(function.Token, ip) is not { } firstLineOffset)
+		{
+			// No source for MoveNext either: step on as from any other method without source
+			SetupStepper(thread, AsyncStepper.StepType.StepIn);
+			return true;
+		}
+		if (firstLineOffset == ip) return false;
+
+		if (_stepper is not null) throw new InvalidOperationException("A step operation is already in progress");
+		var stepper = ilFrame.CreateStepper();
+		stepper.SetInterceptMask(CorDebugIntercept.INTERCEPT_ALL & ~(CorDebugIntercept.INTERCEPT_SECURITY | CorDebugIntercept.INTERCEPT_CLASS_INIT));
+		stepper.SetUnmappedStopMask(CorDebugUnmappedStop.STOP_NONE);
+		stepper.StepRange(false, [new COR_DEBUG_STEP_RANGE { startOffset = checked((uint)ip), endOffset = checked((uint)firstLineOffset) }], 1);
+		_stepper = stepper;
+		return true;
+	}
+
+	private void ClearStateMachineStartBreakpoint()
+	{
+		if (_stateMachineStartBreakpoint is not var (breakpoint, _)) return;
+		_stateMachineStartBreakpoint = null;
+		// Leave a user breakpoint that shares the same CLR breakpoint active
+		if (_breakpointManager.FindByCorBreakpoint(breakpoint) is null) breakpoint.TryActivate(false);
+	}
+
 	private ICorDebugILFrame? FindKickoffFrame(ICorDebugThread thread, CORDB_ADDRESS moduleAddress, int kickoffMethodToken) =>
 		EnumerateFramesForThread(thread).OfType<ICorDebugILFrame>().Skip(1)
 			.FirstOrDefault(frame => frame.Function.Module.BaseAddress == moduleAddress && frame.Function.Token == kickoffMethodToken);

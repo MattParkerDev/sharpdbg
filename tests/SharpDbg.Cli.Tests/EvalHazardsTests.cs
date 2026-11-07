@@ -85,7 +85,7 @@ public class EvalHazardsTests(ITestOutputHelper testOutputHelper)
 		{
 			try
 			{
-				debugProtocolHost.WithEvaluateRequest(frameId, expression, out var response);
+				var response = debugProtocolHost.Evaluate(frameId, expression);
 				return response.Result;
 			}
 			catch (Exception ex)

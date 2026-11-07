@@ -55,470 +55,283 @@ public class EvalTests(ITestOutputHelper testOutputHelper)
 		using var ____ = new AssertionScope();
 
 		var stackFrameId = stackTraceResponse.StackFrames!.First().Id;
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "myInt + 10", out var evaluateResponse);
+		var evaluateResponse = debugProtocolHost.Evaluate(stackFrameId, "myInt + 10");
 		evaluateResponse.Result.Should().Be("14");
 		evaluateResponse.VariablesReference.Should().Be(0);
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "myInt + myInt", out var evaluateResponse2);
-		evaluateResponse2.Result.Should().Be("8");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "myIntParam + 4", out var evaluateResponse3);
-		evaluateResponse3.Result.Should().Be("10");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "_instanceField + 4", out var evaluateResponse4);
-		evaluateResponse4.Result.Should().Be("9");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "_instanceStaticField + 4", out var evaluateResponse5);
-		evaluateResponse5.Result.Should().Be("10");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "_instanceStaticField = _instanceStaticField + 4", out var evaluateResponse6);
-		evaluateResponse6.Result.Should().Be("10");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "_instanceStaticField", out var evaluateResponse7);
-		evaluateResponse7.Result.Should().Be("10");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "IntProperty + 4", out var evaluateResponse8);
-		evaluateResponse8.Result.Should().Be("14");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "IntStaticProperty + 4", out var evaluateResponse9);
-		evaluateResponse9.Result.Should().Be("14");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "ClassProperty.IntField + 4", out var evaluateResponse10);
-		evaluateResponse10.Result.Should().Be("10");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "this.Get14() + 4", out var evaluateResponse11);
-		evaluateResponse11.Result.Should().Be("18");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "MyClass.IntStaticProperty + 4", out var evaluateResponse12);
-		evaluateResponse12.Result.Should().Be("14");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "DebuggableConsoleApp.MyClass.IntStaticProperty + 4", out var evaluateResponse13);
-		evaluateResponse13.Result.Should().Be("14");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "Namespace1.AnotherClass.IntStaticProperty + 4", out var evaluateResponse14);
-		evaluateResponse14.Result.Should().Be("14");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "this.DoubleNumber(4)", out var evaluateResponse15);
-		evaluateResponse15.Result.Should().Be("8");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "this.DoubleNumber(4f)", out var evaluateResponse16);
-		evaluateResponse16.Result.Should().Be("8");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "Get14()", out var evaluateResponse17);
-		evaluateResponse17.Result.Should().Be("14");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "GetObject().IntProperty", out var chainedFuncEvalResponse);
-		chainedFuncEvalResponse.Result.Should().Be("6");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "ReadObjectIn(GetObject())", out var referenceInTemporaryResponse);
-		referenceInTemporaryResponse.Result.Should().Be("6");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "GetObjectByReference().IntProperty", out var referenceReturnResponse);
-		referenceReturnResponse.Result.Should().Be("6");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "_classField.AddToIntField(ClearClassFieldAndCollect())", out var referenceAcrossFuncEvalResponse);
-		referenceAcrossFuncEvalResponse.Result.Should().Be("6");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "WasClearedClassFieldReleased()", out var releasedEvaluationHandleResponse);
-		releasedEvaluationHandleResponse.Result.Should().Be("true");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "new MyClass2().IntProperty", out var chainedFuncEvalResponse2);
-		chainedFuncEvalResponse2.Result.Should().Be("6");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "IntProperty.ToString()", out var evaluateResponse18);
-		evaluateResponse18.Result.Should().Be("\"10\"");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "this.TestMethod(4, \"asdf\")", out var evaluateResponse19);
-		evaluateResponse19.Result.Should().Be("8");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "$\"Count = {IntProperty}\"", out var evaluateResponse20);
-		evaluateResponse20.Result.Should().Be("\"Count = 10\"");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "this._classWithDebugDisplay", out var evaluateResponse21);
-		evaluateResponse21.Result.Should().Be("IntProperty = 14");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "_classWithDebugDisplay", out var evaluateResponse22);
-		evaluateResponse22.Result.Should().Be("IntProperty = 14");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "$\"{_instanceField}\"", out var evaluateResponse23);
-		evaluateResponse23.Result.Should().Be("\"5\"");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "_intList", out var evaluateResponse24);
-		evaluateResponse24.Result.Should().Be("Count = 4");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "$\"Count = {_intList.Count}\"", out var evaluateResponse25);
-		evaluateResponse25.Result.Should().Be("\"Count = 4\"");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "_classWithDebugDisplay2", out var evaluateResponse26);
-		evaluateResponse26.Result.Should().Be("Test = stringValue1");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "_classWithDebugDisplay3", out var evaluateResponse27);
-		evaluateResponse27.Result.Should().Be("Test = stringValue2");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "myInt = 5", out var evaluateResponse28);
-		evaluateResponse28.Result.Should().Be("5");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "myInt * 2", out var evaluateResponse29);
-		evaluateResponse29.Result.Should().Be("10");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "enumVar", out var evaluateResponse30);
-		evaluateResponse30.Result.Should().Be("SecondValue");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "enumVar = MyEnum.ThirdValue", out var evaluateResponse31);
-		evaluateResponse31.Result.Should().Be("ThirdValue");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "GenericTypeWithStaticField<string>.IntValue", out var evaluateResponse32);
-		evaluateResponse32.Result.Should().Be("4");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "GenericTypeWithStaticField<string>.IntProperty", out var evaluateResponse33);
-		evaluateResponse33.Result.Should().Be("5");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "IntProperty = 16", out var evaluateResponse34);
-		evaluateResponse34.Result.Should().Be("16");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "IntProperty", out var evaluateResponse35);
-		evaluateResponse35.Result.Should().Be("16");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "Namespace1.AnotherClass.MyStaticMethod()", out var evaluateResponse36);
-		evaluateResponse36.Result.Should().Be("Count = 1");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "Namespace1.AnotherClass.IntStaticProperty = 17", out var evaluateResponse37);
-		evaluateResponse37.Result.Should().Be("17");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "Namespace1.AnotherClass.IntStaticProperty", out var evaluateResponse38);
-		evaluateResponse38.Result.Should().Be("17");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "ClassProperty", out var evaluateResponse39);
-		evaluateResponse39.Result.Should().Be("{DebuggableConsoleApp.MyClass2}");
-		evaluateResponse39.VariablesReference.Should().BePositive();
-		debugProtocolHost.WithVariablesRequest(evaluateResponse39.VariablesReference, out var variablesResponse39);
-		variablesResponse39.Should().HaveCount(3);
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "structVar.ExtensionMethod()", out var evaluateResponse40);
-		evaluateResponse40.Result.Should().Be("5");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "myInt == 5 && myInt < 10", out var evaluateResponse41);
-		evaluateResponse41.Result.Should().Be("true");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "myInt == 4 && myInt < 10", out var evaluateResponse42);
-		evaluateResponse42.Result.Should().Be("false");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "myInt == 4 || myInt < 10", out var evaluateResponse43);
-		evaluateResponse43.Result.Should().Be("true");
+		debugProtocolHost.Evaluate(stackFrameId, "myInt + myInt").Result.Should().Be("8");
+		debugProtocolHost.Evaluate(stackFrameId, "myIntParam + 4").Result.Should().Be("10");
+		debugProtocolHost.Evaluate(stackFrameId, "_instanceField + 4").Result.Should().Be("9");
+		debugProtocolHost.Evaluate(stackFrameId, "_instanceStaticField + 4").Result.Should().Be("10");
+		debugProtocolHost.Evaluate(stackFrameId, "_instanceStaticField = _instanceStaticField + 4").Result.Should().Be("10");
+		debugProtocolHost.Evaluate(stackFrameId, "_instanceStaticField").Result.Should().Be("10");
+		debugProtocolHost.Evaluate(stackFrameId, "IntProperty + 4").Result.Should().Be("14");
+		debugProtocolHost.Evaluate(stackFrameId, "IntStaticProperty + 4").Result.Should().Be("14");
+		debugProtocolHost.Evaluate(stackFrameId, "ClassProperty.IntField + 4").Result.Should().Be("10");
+		debugProtocolHost.Evaluate(stackFrameId, "this.Get14() + 4").Result.Should().Be("18");
+		debugProtocolHost.Evaluate(stackFrameId, "MyClass.IntStaticProperty + 4").Result.Should().Be("14");
+		debugProtocolHost.Evaluate(stackFrameId, "DebuggableConsoleApp.MyClass.IntStaticProperty + 4").Result.Should().Be("14");
+		debugProtocolHost.Evaluate(stackFrameId, "Namespace1.AnotherClass.IntStaticProperty + 4").Result.Should().Be("14");
+		debugProtocolHost.Evaluate(stackFrameId, "this.DoubleNumber(4)").Result.Should().Be("8");
+		debugProtocolHost.Evaluate(stackFrameId, "this.DoubleNumber(4f)").Result.Should().Be("8");
+		debugProtocolHost.Evaluate(stackFrameId, "Get14()").Result.Should().Be("14");
+		debugProtocolHost.Evaluate(stackFrameId, "GetObject().IntProperty").Result.Should().Be("6");
+		debugProtocolHost.Evaluate(stackFrameId, "ReadObjectIn(GetObject())").Result.Should().Be("6");
+		debugProtocolHost.Evaluate(stackFrameId, "GetObjectByReference().IntProperty").Result.Should().Be("6");
+		debugProtocolHost.Evaluate(stackFrameId, "_classField.AddToIntField(ClearClassFieldAndCollect())").Result.Should().Be("6");
+		debugProtocolHost.Evaluate(stackFrameId, "WasClearedClassFieldReleased()").Result.Should().Be("true");
+		debugProtocolHost.Evaluate(stackFrameId, "new MyClass2().IntProperty").Result.Should().Be("6");
+		debugProtocolHost.Evaluate(stackFrameId, "IntProperty.ToString()").Result.Should().Be("\"10\"");
+		debugProtocolHost.Evaluate(stackFrameId, "this.TestMethod(4, \"asdf\")").Result.Should().Be("8");
+		debugProtocolHost.Evaluate(stackFrameId, "$\"Count = {IntProperty}\"").Result.Should().Be("\"Count = 10\"");
+		debugProtocolHost.Evaluate(stackFrameId, "this._classWithDebugDisplay").Result.Should().Be("IntProperty = 14");
+		debugProtocolHost.Evaluate(stackFrameId, "_classWithDebugDisplay").Result.Should().Be("IntProperty = 14");
+		debugProtocolHost.Evaluate(stackFrameId, "$\"{_instanceField}\"").Result.Should().Be("\"5\"");
+		debugProtocolHost.Evaluate(stackFrameId, "_intList").Result.Should().Be("Count = 4");
+		debugProtocolHost.Evaluate(stackFrameId, "$\"Count = {_intList.Count}\"").Result.Should().Be("\"Count = 4\"");
+		debugProtocolHost.Evaluate(stackFrameId, "_classWithDebugDisplay2").Result.Should().Be("Test = stringValue1");
+		debugProtocolHost.Evaluate(stackFrameId, "_classWithDebugDisplay3").Result.Should().Be("Test = stringValue2");
+		debugProtocolHost.Evaluate(stackFrameId, "myInt = 5").Result.Should().Be("5");
+		debugProtocolHost.Evaluate(stackFrameId, "myInt * 2").Result.Should().Be("10");
+		debugProtocolHost.Evaluate(stackFrameId, "enumVar").Result.Should().Be("SecondValue");
+		debugProtocolHost.Evaluate(stackFrameId, "enumVar = MyEnum.ThirdValue").Result.Should().Be("ThirdValue");
+		debugProtocolHost.Evaluate(stackFrameId, "GenericTypeWithStaticField<string>.IntValue").Result.Should().Be("4");
+		debugProtocolHost.Evaluate(stackFrameId, "GenericTypeWithStaticField<string>.IntProperty").Result.Should().Be("5");
+		debugProtocolHost.Evaluate(stackFrameId, "IntProperty = 16").Result.Should().Be("16");
+		debugProtocolHost.Evaluate(stackFrameId, "IntProperty").Result.Should().Be("16");
+		debugProtocolHost.Evaluate(stackFrameId, "Namespace1.AnotherClass.MyStaticMethod()").Result.Should().Be("Count = 1");
+		debugProtocolHost.Evaluate(stackFrameId, "Namespace1.AnotherClass.IntStaticProperty = 17").Result.Should().Be("17");
+		debugProtocolHost.Evaluate(stackFrameId, "Namespace1.AnotherClass.IntStaticProperty").Result.Should().Be("17");
+		var classPropertyResponse = debugProtocolHost.Evaluate(stackFrameId, "ClassProperty");
+		classPropertyResponse.Result.Should().Be("{DebuggableConsoleApp.MyClass2}");
+		classPropertyResponse.VariablesReference.Should().BePositive();
+		debugProtocolHost.WithVariablesRequest(classPropertyResponse.VariablesReference, out var classPropertyMembers);
+		classPropertyMembers.Should().HaveCount(3);
+		debugProtocolHost.Evaluate(stackFrameId, "structVar.ExtensionMethod()").Result.Should().Be("5");
+		debugProtocolHost.Evaluate(stackFrameId, "myInt == 5 && myInt < 10").Result.Should().Be("true");
+		debugProtocolHost.Evaluate(stackFrameId, "myInt == 4 && myInt < 10").Result.Should().Be("false");
+		debugProtocolHost.Evaluate(stackFrameId, "myInt == 4 || myInt < 10").Result.Should().Be("true");
 		// Short-circuit: the RHS would throw a NullReferenceException if it were evaluated
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "myInt == 4 && nullableRefType.GetHashCode() > 0", out var evaluateResponse44);
-		evaluateResponse44.Result.Should().Be("false");
+		debugProtocolHost.Evaluate(stackFrameId, "myInt == 4 && nullableRefType.GetHashCode() > 0").Result.Should().Be("false");
 
 		// Conversions must produce correctly-typed runtime values
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "enumVar = (MyEnum)2", out var evaluateResponse45);
-		evaluateResponse45.Result.Should().Be("ThirdValue");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "myParam = 5", out var evaluateResponse46);
-		evaluateResponse46.Result.Should().Be("5");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "(int)nullableIntWithVal + 1", out var evaluateResponse47);
-		evaluateResponse47.Result.Should().Be("5");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "(int)5.5", out var evaluateResponse48);
-		evaluateResponse48.Result.Should().Be("5");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "(int)enumVar", out var evaluateResponse49);
-		evaluateResponse49.Result.Should().Be("2");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "nullableInt ?? 5", out var evaluateResponse50);
-		evaluateResponse50.Result.Should().Be("5");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "nullableIntWithVal ?? 10", out var evaluateResponse51);
-		evaluateResponse51.Result.Should().Be("4");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "(myInt > 3) == true", out var evaluateResponse52);
-		evaluateResponse52.Result.Should().Be("true");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "(myInt > 5) == true", out var evaluateResponse53);
-		evaluateResponse53.Result.Should().Be("false");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "myInt += 2", out var evaluateResponse54);
-		evaluateResponse54.Result.Should().Be("7");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "GenericTypeWithStaticField<int[]>.IntValue", out var evaluateResponse55);
-		evaluateResponse55.Result.Should().Be("4");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "GenericTypeWithStaticField<DateTime>.IntValue", out var corelibValueTypeGenericResponse);
-		corelibValueTypeGenericResponse.Result.Should().Be("4");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "Array.Empty<DateTime>().Length", out var corelibValueTypeGenericMethodResponse);
-		corelibValueTypeGenericMethodResponse.Result.Should().Be("0");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "new int[2].Length", out var intArrayResponse);
-		intArrayResponse.Result.Should().Be("2");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "new MyClass[2].Length", out var classArrayResponse);
-		classArrayResponse.Result.Should().Be("2");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "new MyClass[0].Length", out var classZeroLengthArrayResponse);
-		classZeroLengthArrayResponse.Result.Should().Be("0");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "new DateTime[0].Length", out var corelibValueTypeZeroLengthArrayResponse);
-		corelibValueTypeZeroLengthArrayResponse.Result.Should().Be("0");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "new DateTime[2].Length", out var corelibValueTypeArrayResponse);
-		corelibValueTypeArrayResponse.Result.Should().Be("2");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "default(int)", out var evaluateResponse56);
-		evaluateResponse56.Result.Should().Be("0");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "default(string)", out var defaultStringResponse);
-		defaultStringResponse.Result.Should().Be("null");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "default(MyClass)", out var defaultRefTypeResponse);
-		defaultRefTypeResponse.Result.Should().Be("null");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "default(int[])", out var defaultArrayResponse);
-		defaultArrayResponse.Result.Should().Be("null");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "typeof(MyClass).ToString()", out var evaluateResponse57);
-		evaluateResponse57.Result.Should().Be("\"DebuggableConsoleApp.MyClass\"");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "IncrementByRef(ref myInt)", out var evaluateResponse58);
-		evaluateResponse58.Result.Should().Be("10");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "myInt", out var evaluateResponse59);
-		evaluateResponse59.Result.Should().Be("10");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "AssignOut(out myInt)", out var evaluateResponse60);
-		evaluateResponse60.Result.Should().Be("42");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "myInt", out var evaluateResponse61);
-		evaluateResponse61.Result.Should().Be("42");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "AddOneIn(in myInt)", out var evaluateResponse62);
-		evaluateResponse62.Result.Should().Be("43");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "_doubler(4)", out var evaluateResponse63);
-		evaluateResponse63.Result.Should().Be("8");
+		debugProtocolHost.Evaluate(stackFrameId, "enumVar = (MyEnum)2").Result.Should().Be("ThirdValue");
+		debugProtocolHost.Evaluate(stackFrameId, "myParam = 5").Result.Should().Be("5");
+		debugProtocolHost.Evaluate(stackFrameId, "(int)nullableIntWithVal + 1").Result.Should().Be("5");
+		debugProtocolHost.Evaluate(stackFrameId, "(int)5.5").Result.Should().Be("5");
+		debugProtocolHost.Evaluate(stackFrameId, "(int)enumVar").Result.Should().Be("2");
+		debugProtocolHost.Evaluate(stackFrameId, "nullableInt ?? 5").Result.Should().Be("5");
+		debugProtocolHost.Evaluate(stackFrameId, "nullableIntWithVal ?? 10").Result.Should().Be("4");
+		debugProtocolHost.Evaluate(stackFrameId, "(myInt > 3) == true").Result.Should().Be("true");
+		debugProtocolHost.Evaluate(stackFrameId, "(myInt > 5) == true").Result.Should().Be("false");
+		debugProtocolHost.Evaluate(stackFrameId, "myInt += 2").Result.Should().Be("7");
+		debugProtocolHost.Evaluate(stackFrameId, "GenericTypeWithStaticField<int[]>.IntValue").Result.Should().Be("4");
+		debugProtocolHost.Evaluate(stackFrameId, "GenericTypeWithStaticField<DateTime>.IntValue").Result.Should().Be("4");
+		debugProtocolHost.Evaluate(stackFrameId, "Array.Empty<DateTime>().Length").Result.Should().Be("0");
+		debugProtocolHost.Evaluate(stackFrameId, "new int[2].Length").Result.Should().Be("2");
+		debugProtocolHost.Evaluate(stackFrameId, "new MyClass[2].Length").Result.Should().Be("2");
+		debugProtocolHost.Evaluate(stackFrameId, "new MyClass[0].Length").Result.Should().Be("0");
+		debugProtocolHost.Evaluate(stackFrameId, "new DateTime[0].Length").Result.Should().Be("0");
+		debugProtocolHost.Evaluate(stackFrameId, "new DateTime[2].Length").Result.Should().Be("2");
+		debugProtocolHost.Evaluate(stackFrameId, "default(int)").Result.Should().Be("0");
+		debugProtocolHost.Evaluate(stackFrameId, "default(string)").Result.Should().Be("null");
+		debugProtocolHost.Evaluate(stackFrameId, "default(MyClass)").Result.Should().Be("null");
+		debugProtocolHost.Evaluate(stackFrameId, "default(int[])").Result.Should().Be("null");
+		debugProtocolHost.Evaluate(stackFrameId, "typeof(MyClass).ToString()").Result.Should().Be("\"DebuggableConsoleApp.MyClass\"");
+		debugProtocolHost.Evaluate(stackFrameId, "IncrementByRef(ref myInt)").Result.Should().Be("10");
+		debugProtocolHost.Evaluate(stackFrameId, "myInt").Result.Should().Be("10");
+		debugProtocolHost.Evaluate(stackFrameId, "AssignOut(out myInt)").Result.Should().Be("42");
+		debugProtocolHost.Evaluate(stackFrameId, "myInt").Result.Should().Be("42");
+		debugProtocolHost.Evaluate(stackFrameId, "AddOneIn(in myInt)").Result.Should().Be("43");
+		debugProtocolHost.Evaluate(stackFrameId, "_doubler(4)").Result.Should().Be("8");
 
 		// User-defined operators are resolved from the bound tree (Roslyn), so value-type operands and operators
 		// declared on the right operand's type work (structVar.Id == 5)
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "(structVar + structVar).Id", out var evaluateResponse64);
-		evaluateResponse64.Result.Should().Be("10");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "(5 + structVar).Id", out var evaluateResponse65);
-		evaluateResponse65.Result.Should().Be("10");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "(-structVar).Id", out var evaluateResponse66);
-		evaluateResponse66.Result.Should().Be("-5");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "structVar == structVar", out var evaluateResponse67);
-		evaluateResponse67.Result.Should().Be("true");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "this.DoubleNumber(myInt)", out var evaluateResponse68);
-		evaluateResponse68.Result.Should().Be("84");
+		debugProtocolHost.Evaluate(stackFrameId, "(structVar + structVar).Id").Result.Should().Be("10");
+		debugProtocolHost.Evaluate(stackFrameId, "(5 + structVar).Id").Result.Should().Be("10");
+		debugProtocolHost.Evaluate(stackFrameId, "(-structVar).Id").Result.Should().Be("-5");
+		debugProtocolHost.Evaluate(stackFrameId, "structVar == structVar").Result.Should().Be("true");
+		debugProtocolHost.Evaluate(stackFrameId, "this.DoubleNumber(myInt)").Result.Should().Be("84");
 
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "_intList.Where(s => s == 4).ToList()", out var evaluateResponse69);
-		evaluateResponse69.Result.Should().Be("Count = 1");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "_intList.Where(s => s == myInt).ToList()", out var evaluateResponse70);
-		evaluateResponse70.Result.Should().Be("Count = 0");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "_intList.Where(s => s == myInt).Select(s => s).ToList()", out var evaluateResponse71);
-		evaluateResponse71.Result.Should().Be("Count = 0");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "((Func<int, int>)(value => value + 1))(4)", out var inlineLambdaInvocationResponse);
-		inlineLambdaInvocationResponse.Result.Should().Be("5");
+		debugProtocolHost.Evaluate(stackFrameId, "_intList.Where(s => s == 4).ToList()").Result.Should().Be("Count = 1");
+		debugProtocolHost.Evaluate(stackFrameId, "_intList.Where(s => s == myInt).ToList()").Result.Should().Be("Count = 0");
+		debugProtocolHost.Evaluate(stackFrameId, "_intList.Where(s => s == myInt).Select(s => s).ToList()").Result.Should().Be("Count = 0");
+		debugProtocolHost.Evaluate(stackFrameId, "((Func<int, int>)(value => value + 1))(4)").Result.Should().Be("5");
 
 		// Lambdas retain the stopped frame's lexical context, including this and non-public members and types.
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "_intList.Where(value => value == _instanceField).ToList()", out var instanceCaptureLambdaResponse);
-		instanceCaptureLambdaResponse.Result.Should().Be("Count = 0");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "new[] { this }.Where(value => value == this).Count()", out var thisCaptureLambdaResponse);
-		thisCaptureLambdaResponse.Result.Should().Be("1");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "_intList.Select(value => DoubleNumber(value)).Last()", out var privateMethodLambdaResponse);
-		privateMethodLambdaResponse.Result.Should().Be("50");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "new[] { 1 }.Select(value => typeof(EvaluationLifetimeTracker).Name).Single()", out var internalTypeLambdaResponse);
-		internalTypeLambdaResponse.Result.Should().Be("\"EvaluationLifetimeTracker\"");
+		debugProtocolHost.Evaluate(stackFrameId, "_intList.Where(value => value == _instanceField).ToList()").Result.Should().Be("Count = 0");
+		debugProtocolHost.Evaluate(stackFrameId, "new[] { this }.Where(value => value == this).Count()").Result.Should().Be("1");
+		debugProtocolHost.Evaluate(stackFrameId, "_intList.Select(value => DoubleNumber(value)).Last()").Result.Should().Be("50");
+		debugProtocolHost.Evaluate(stackFrameId, "new[] { 1 }.Select(value => typeof(EvaluationLifetimeTracker).Name).Single()").Result.Should().Be("\"EvaluationLifetimeTracker\"");
 
 		// Nested lambdas and method groups retain their generated targets and methods.
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "new[] { 1, 2 }.Where(value => new[] { value }.Any(inner => inner == value)).Count()", out var nestedLambdaResponse);
-		nestedLambdaResponse.Result.Should().Be("2");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "new[] { -1 }.Where(value => value < 0).Select(Math.Abs).Single()", out var lambdaAndMethodGroupResponse);
-		lambdaAndMethodGroupResponse.Result.Should().Be("1");
+		debugProtocolHost.Evaluate(stackFrameId, "new[] { 1, 2 }.Where(value => new[] { value }.Any(inner => inner == value)).Count()").Result.Should().Be("2");
+		debugProtocolHost.Evaluate(stackFrameId, "new[] { -1 }.Where(value => value < 0).Select(Math.Abs).Single()").Result.Should().Be("1");
 
 		// All delegates in one expression share the same closure, including captures that are only written.
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "_intList.Select(value => myInt = value).Last()", out var writeOnlyCaptureLambdaResponse);
-		writeOnlyCaptureLambdaResponse.Result.Should().Be("25");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "myInt", out var writeOnlyCaptureValueResponse);
-		writeOnlyCaptureValueResponse.Result.Should().Be("25");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "myInt = 42", out var resetMyIntBeforeSharedClosureResponse);
-		resetMyIntBeforeSharedClosureResponse.Result.Should().Be("42");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "_intList.Select(value => myInt++).Select(value => myInt).ToList().Last()", out var sharedClosureLambdaResponse);
-		sharedClosureLambdaResponse.Result.Should().Be("46");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "myInt", out var sharedClosureValueResponse);
-		sharedClosureValueResponse.Result.Should().Be("46");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "myInt = 42", out var resetMyIntBeforeSameExpressionResponse);
-		resetMyIntBeforeSameExpressionResponse.Result.Should().Be("42");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "_intList.Select(value => myInt++).Last() + myInt", out var sameExpressionCaptureResponse);
-		sameExpressionCaptureResponse.Result.Should().Be("85");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "myInt", out var sameExpressionCaptureValueResponse);
-		sameExpressionCaptureValueResponse.Result.Should().Be("43");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "myInt = 42", out var restoreMyIntAfterLambdaResponse);
-		restoreMyIntAfterLambdaResponse.Result.Should().Be("42");
+		debugProtocolHost.Evaluate(stackFrameId, "_intList.Select(value => myInt = value).Last()").Result.Should().Be("25");
+		debugProtocolHost.Evaluate(stackFrameId, "myInt").Result.Should().Be("25");
+		debugProtocolHost.Evaluate(stackFrameId, "myInt = 42").Result.Should().Be("42");
+		debugProtocolHost.Evaluate(stackFrameId, "_intList.Select(value => myInt++).Select(value => myInt).ToList().Last()").Result.Should().Be("46");
+		debugProtocolHost.Evaluate(stackFrameId, "myInt").Result.Should().Be("46");
+		debugProtocolHost.Evaluate(stackFrameId, "myInt = 42").Result.Should().Be("42");
+		debugProtocolHost.Evaluate(stackFrameId, "_intList.Select(value => myInt++).Last() + myInt").Result.Should().Be("85");
+		debugProtocolHost.Evaluate(stackFrameId, "myInt").Result.Should().Be("43");
+		debugProtocolHost.Evaluate(stackFrameId, "myInt = 42").Result.Should().Be("42");
 
 		// We don't support this.
-		// debugProtocolHost.WithEvaluateRequest(stackFrameId, "new[] { 1 }.Select(delegate(int value) { return value + 1; }).Single()", out var anonymousMethodResponse);
-		// anonymousMethodResponse.Result.Should().Be("2");
+		// debugProtocolHost.Evaluate(stackFrameId, "new[] { 1 }.Select(delegate(int value) { return value + 1; }).Single()").Result.Should().Be("2");
 
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "nullableRefType == null", out var nullEqualityResponse);
-		nullEqualityResponse.Result.Should().Be("true");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "this == this", out var referenceEqualityResponse);
-		referenceEqualityResponse.Result.Should().Be("true");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "anotherVar == \"asdf\"", out var stringEqualityResponse);
-		stringEqualityResponse.Result.Should().Be("true");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "nullableIntWithVal.HasValue == true", out var booleanEqualityResponse);
-		booleanEqualityResponse.Result.Should().Be("true");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "enumVar == MyEnum.ThirdValue", out var equalEnumResponse);
-		equalEnumResponse.Result.Should().Be("true");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "enumVar == MyEnum.SecondValue", out var unequalEnumResponse);
-		unequalEnumResponse.Result.Should().Be("false");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "Convert.ToByte(myInt) == myInt", out var smallIntegralEqualityResponse);
-		smallIntegralEqualityResponse.Result.Should().Be("true");
+		debugProtocolHost.Evaluate(stackFrameId, "nullableRefType == null").Result.Should().Be("true");
+		debugProtocolHost.Evaluate(stackFrameId, "this == this").Result.Should().Be("true");
+		debugProtocolHost.Evaluate(stackFrameId, "anotherVar == \"asdf\"").Result.Should().Be("true");
+		debugProtocolHost.Evaluate(stackFrameId, "nullableIntWithVal.HasValue == true").Result.Should().Be("true");
+		debugProtocolHost.Evaluate(stackFrameId, "enumVar == MyEnum.ThirdValue").Result.Should().Be("true");
+		debugProtocolHost.Evaluate(stackFrameId, "enumVar == MyEnum.SecondValue").Result.Should().Be("false");
+		debugProtocolHost.Evaluate(stackFrameId, "Convert.ToByte(myInt) == myInt").Result.Should().Be("true");
 
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "(int?)myInt", out var nullableConversionResponse);
+		var nullableConversionResponse = debugProtocolHost.Evaluate(stackFrameId, "(int?)myInt");
 		nullableConversionResponse.Result.Should().Be("42");
 		nullableConversionResponse.Type.Should().Be("int?");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "(MyEnum)(myInt - 40)", out var enumConversionResponse);
+		var enumConversionResponse = debugProtocolHost.Evaluate(stackFrameId, "(MyEnum)(myInt - 40)");
 		enumConversionResponse.Result.Should().Be("ThirdValue");
 		enumConversionResponse.Type.Should().Be("DebuggableConsoleApp.MyEnum");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "enumWithFlagsVar | MyEnumWithFlags.FlagValue2", out var enumOperatorResponse);
-		enumOperatorResponse.Result.Should().Be("FlagValue1 | FlagValue2 | FlagValue3");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "(int)this.DoubleNumber(4f)", out var runtimeFloatToIntResponse);
-		runtimeFloatToIntResponse.Result.Should().Be("8");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "(double)this.DoubleNumber(4f)", out var runtimeFloatToDoubleResponse);
-		runtimeFloatToDoubleResponse.Result.Should().Be("8");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "this.DoubleNumber(this.DoubleNumber(4f) + 1f)", out var computedFloatArgumentResponse);
-		computedFloatArgumentResponse.Result.Should().Be("18");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "unchecked((ulong)(uint)(myInt - 43))", out var unsignedWideningResponse);
-		unsignedWideningResponse.Result.Should().Be("4294967295");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "this as object as string", out var incompatibleAsResponse);
-		incompatibleAsResponse.Result.Should().Be("null");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "((string)(object)this).Length", out var incompatibleCastResponse);
-		incompatibleCastResponse.Result.Should().Contain("InvalidCastException");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "(object)myInt != null", out var boxingResponse);
-		boxingResponse.Result.Should().Be("true");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "(int)(object)myInt", out var unboxingResponse);
-		unboxingResponse.Result.Should().Be("42");
+		debugProtocolHost.Evaluate(stackFrameId, "enumWithFlagsVar | MyEnumWithFlags.FlagValue2").Result.Should().Be("FlagValue1 | FlagValue2 | FlagValue3");
+		debugProtocolHost.Evaluate(stackFrameId, "(int)this.DoubleNumber(4f)").Result.Should().Be("8");
+		debugProtocolHost.Evaluate(stackFrameId, "(double)this.DoubleNumber(4f)").Result.Should().Be("8");
+		debugProtocolHost.Evaluate(stackFrameId, "this.DoubleNumber(this.DoubleNumber(4f) + 1f)").Result.Should().Be("18");
+		debugProtocolHost.Evaluate(stackFrameId, "unchecked((ulong)(uint)(myInt - 43))").Result.Should().Be("4294967295");
+		debugProtocolHost.Evaluate(stackFrameId, "this as object as string").Result.Should().Be("null");
+		debugProtocolHost.Evaluate(stackFrameId, "((string)(object)this).Length").Result.Should().Contain("InvalidCastException");
+		debugProtocolHost.Evaluate(stackFrameId, "(object)myInt != null").Result.Should().Be("true");
+		debugProtocolHost.Evaluate(stackFrameId, "(int)(object)myInt").Result.Should().Be("42");
 		// unbox.any must reject a box whose runtime type does not match the target type
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "(long)(object)myInt", out var incompatibleUnboxResponse);
-		incompatibleUnboxResponse.Result.Should().Contain("InvalidCastException");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "(int)(object)myParam", out var incompatibleUnboxResponse2);
-		incompatibleUnboxResponse2.Result.Should().Contain("InvalidCastException");
+		debugProtocolHost.Evaluate(stackFrameId, "(long)(object)myInt").Result.Should().Contain("InvalidCastException");
+		debugProtocolHost.Evaluate(stackFrameId, "(int)(object)myParam").Result.Should().Contain("InvalidCastException");
 		// reference type -> object is an identity conversion (no box), and must return the reference unchanged
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "(object)anotherVar", out var boxReferenceResponse);
-		boxReferenceResponse.Result.Should().Be("\"asdf\"");
+		debugProtocolHost.Evaluate(stackFrameId, "(object)anotherVar").Result.Should().Be("\"asdf\"");
 		// box/unbox round-trip of an exact enum type
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "(MyEnum)(object)enumVar", out var enumBoxResponse);
-		enumBoxResponse.Result.Should().Be("ThirdValue");
+		debugProtocolHost.Evaluate(stackFrameId, "(MyEnum)(object)enumVar").Result.Should().Be("ThirdValue");
 		// This is technically not correct behaviour, ie doesn't match behaviour of actual code, but no other debugger handles it. Assert it.
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "(MyEnum)(object)2", out var enumBoxResponse2);
-		enumBoxResponse2.Result.Should().Contain("InvalidCastException");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "Array.Empty<int>().Length", out var genericMethodResponse);
-		genericMethodResponse.Result.Should().Be("0");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "int.Parse(anotherVar)", out var throwingMethodResponse);
-		throwingMethodResponse.Result.Should().Contain("FormatException");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "checked(myInt + int.MaxValue)", out var checkedArithmeticResponse);
-		checkedArithmeticResponse.Result.Should().Contain("OverflowException");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "myInt << (myInt - 10)", out var intShiftResponse);
-		intShiftResponse.Result.Should().Be("42");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "-1 >>> (myInt - 41)", out var unsignedShiftResponse);
-		unsignedShiftResponse.Result.Should().Be("2147483647");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "ulong.MaxValue / (ulong)(myInt - 40)", out var ulongDivisionResponse);
-		ulongDivisionResponse.Result.Should().Be("9223372036854775807");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "0.0 / (myInt - myInt) == double.NaN", out var nanEqualityResponse);
-		nanEqualityResponse.Result.Should().Be("false");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "TestMethod(myString: \"asdf\", myInt: 4)", out var namedArgumentsResponse);
-		namedArgumentsResponse.Result.Should().Be("8");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "_intArray[0]", out var arrayIndexResponse);
-		arrayIndexResponse.Result.Should().Be("2");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "_intList[0]", out var indexerResponse);
-		indexerResponse.Result.Should().Be("1");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "nullableRefType?.GetHashCode()", out var conditionalAccessResponse);
-		conditionalAccessResponse.Result.Should().Be("null");
+		debugProtocolHost.Evaluate(stackFrameId, "(MyEnum)(object)2").Result.Should().Contain("InvalidCastException");
+		debugProtocolHost.Evaluate(stackFrameId, "Array.Empty<int>().Length").Result.Should().Be("0");
+		debugProtocolHost.Evaluate(stackFrameId, "int.Parse(anotherVar)").Result.Should().Contain("FormatException");
+		debugProtocolHost.Evaluate(stackFrameId, "checked(myInt + int.MaxValue)").Result.Should().Contain("OverflowException");
+		debugProtocolHost.Evaluate(stackFrameId, "myInt << (myInt - 10)").Result.Should().Be("42");
+		debugProtocolHost.Evaluate(stackFrameId, "-1 >>> (myInt - 41)").Result.Should().Be("2147483647");
+		debugProtocolHost.Evaluate(stackFrameId, "ulong.MaxValue / (ulong)(myInt - 40)").Result.Should().Be("9223372036854775807");
+		debugProtocolHost.Evaluate(stackFrameId, "0.0 / (myInt - myInt) == double.NaN").Result.Should().Be("false");
+		debugProtocolHost.Evaluate(stackFrameId, "TestMethod(myString: \"asdf\", myInt: 4)").Result.Should().Be("8");
+		debugProtocolHost.Evaluate(stackFrameId, "_intArray[0]").Result.Should().Be("2");
+		debugProtocolHost.Evaluate(stackFrameId, "_intList[0]").Result.Should().Be("1");
+		debugProtocolHost.Evaluate(stackFrameId, "nullableRefType?.GetHashCode()").Result.Should().Be("null");
 
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "$\"{myInt:D5}\"", out var interpolationFormatResponse);
-		interpolationFormatResponse.Result.Should().Be("\"00042\"");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "$\"{myInt,5}\"", out var interpolationAlignmentResponse);
-		interpolationAlignmentResponse.Result.Should().Be("\"   42\"");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "$\"x{nullableRefType}y\"", out var nullInterpolationResponse);
-		nullInterpolationResponse.Result.Should().Be("\"xy\"");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "$\"{ClassProperty}\"", out var objectInterpolationResponse);
-		objectInterpolationResponse.Result.Should().Be("\"DebuggableConsoleApp.MyClass2\"");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "$\"{enumVar}\"", out var enumInterpolationResponse);
-		enumInterpolationResponse.Result.Should().Be("\"ThirdValue\"");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "$\"{structVar}\"", out var structInterpolationResponse);
-		structInterpolationResponse.Result.Should().Be("\"DebuggableConsoleApp.MyStruct\"");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "anotherVar + nullableRefType", out var nullConcatenationResponse);
-		nullConcatenationResponse.Result.Should().Be("\"asdf\"");
+		debugProtocolHost.Evaluate(stackFrameId, "$\"{myInt:D5}\"").Result.Should().Be("\"00042\"");
+		debugProtocolHost.Evaluate(stackFrameId, "$\"{myInt,5}\"").Result.Should().Be("\"   42\"");
+		debugProtocolHost.Evaluate(stackFrameId, "$\"x{nullableRefType}y\"").Result.Should().Be("\"xy\"");
+		debugProtocolHost.Evaluate(stackFrameId, "$\"{ClassProperty}\"").Result.Should().Be("\"DebuggableConsoleApp.MyClass2\"");
+		debugProtocolHost.Evaluate(stackFrameId, "$\"{enumVar}\"").Result.Should().Be("\"ThirdValue\"");
+		debugProtocolHost.Evaluate(stackFrameId, "$\"{structVar}\"").Result.Should().Be("\"DebuggableConsoleApp.MyStruct\"");
+		debugProtocolHost.Evaluate(stackFrameId, "anotherVar + nullableRefType").Result.Should().Be("\"asdf\"");
 
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "structVar.Id", out var structFieldReadResponse);
-		structFieldReadResponse.Result.Should().Be("5");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "structVar.Id = 6", out var structFieldWriteResponse);
-		structFieldWriteResponse.Result.Should().Be("6");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "structVar.Id", out var structFieldReadAfterWriteResponse);
-		structFieldReadAfterWriteResponse.Result.Should().Be("6");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "structVar = default(MyStruct)", out var structAssignmentResponse);
-		structAssignmentResponse.Result.Should().Be("{DebuggableConsoleApp.MyStruct}");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "structVar.Id", out var structFieldReadAfterAssignmentResponse);
-		structFieldReadAfterAssignmentResponse.Result.Should().Be("0");
+		debugProtocolHost.Evaluate(stackFrameId, "structVar.Id").Result.Should().Be("5");
+		debugProtocolHost.Evaluate(stackFrameId, "structVar.Id = 6").Result.Should().Be("6");
+		debugProtocolHost.Evaluate(stackFrameId, "structVar.Id").Result.Should().Be("6");
+		debugProtocolHost.Evaluate(stackFrameId, "structVar = default(MyStruct)").Result.Should().Be("{DebuggableConsoleApp.MyStruct}");
+		debugProtocolHost.Evaluate(stackFrameId, "structVar.Id").Result.Should().Be("0");
 
 		// stobj: assigning a struct value to a field (stfld)
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "structVar.Id = 5", out var structResetIdResponse);
-		structResetIdResponse.Result.Should().Be("5");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "_structField = structVar", out var structToFieldAssignmentResponse);
-		structToFieldAssignmentResponse.Result.Should().Be("{DebuggableConsoleApp.MyStruct}");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "_structField.Id", out var structFieldValueReadBackResponse);
-		structFieldValueReadBackResponse.Result.Should().Be("5");
+		debugProtocolHost.Evaluate(stackFrameId, "structVar.Id = 5").Result.Should().Be("5");
+		debugProtocolHost.Evaluate(stackFrameId, "_structField = structVar").Result.Should().Be("{DebuggableConsoleApp.MyStruct}");
+		debugProtocolHost.Evaluate(stackFrameId, "_structField.Id").Result.Should().Be("5");
 
 		// stobj: struct value copied out of a field back into a local
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "structVar = _structField", out var structFromFieldAssignmentResponse);
-		structFromFieldAssignmentResponse.Result.Should().Be("{DebuggableConsoleApp.MyStruct}");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "structVar.Id", out var structLocalValueAfterFieldCopyResponse);
-		structLocalValueAfterFieldCopyResponse.Result.Should().Be("5");
+		debugProtocolHost.Evaluate(stackFrameId, "structVar = _structField").Result.Should().Be("{DebuggableConsoleApp.MyStruct}");
+		debugProtocolHost.Evaluate(stackFrameId, "structVar.Id").Result.Should().Be("5");
 
 		// ldobj: struct value loaded through a ref-return (call + ldobj + stloc)
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "structVar = GetStructByRef()", out var structViaRefReturnResponse);
-		structViaRefReturnResponse.Result.Should().Be("{DebuggableConsoleApp.MyStruct}");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "structVar.Id", out var structIdViaRefReturnResponse);
-		structIdViaRefReturnResponse.Result.Should().Be("5");
+		debugProtocolHost.Evaluate(stackFrameId, "structVar = GetStructByRef()").Result.Should().Be("{DebuggableConsoleApp.MyStruct}");
+		debugProtocolHost.Evaluate(stackFrameId, "structVar.Id").Result.Should().Be("5");
 
 		// stobj: struct value stored through a ref-return (call + ldloc + stobj)
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "GetStructByRef() = structVar", out var structStoreViaRefReturnResponse);
-		structStoreViaRefReturnResponse.Result.Should().Be("{DebuggableConsoleApp.MyStruct}");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "GetStructByRef().Id", out var structFieldIdAfterRefStoreResponse);
-		structFieldIdAfterRefStoreResponse.Result.Should().Be("5");
+		debugProtocolHost.Evaluate(stackFrameId, "GetStructByRef() = structVar").Result.Should().Be("{DebuggableConsoleApp.MyStruct}");
+		debugProtocolHost.Evaluate(stackFrameId, "GetStructByRef().Id").Result.Should().Be("5");
 
 		// unboxing conversion: cast-to-struct used as the receiver of an instance method call
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "((MyStruct)(object)structVar).GetId()", out var unboxReceiverResponse);
-		unboxReceiverResponse.Result.Should().Be("5");
+		debugProtocolHost.Evaluate(stackFrameId, "((MyStruct)(object)structVar).GetId()").Result.Should().Be("5");
 
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "default(MyStruct).Id", out var structDefaultResponse);
-		structDefaultResponse.Result.Should().Be("0");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "sizeof(int)", out var sizeOfResponse);
-		sizeOfResponse.Result.Should().Be("4");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "typeof(int[]).ToString()", out var arrayTypeOfResponse);
-		arrayTypeOfResponse.Result.Should().Be("\"System.Int32[]\"");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "typeof(System.Collections.Generic.List<int>).ToString()", out var genericTypeOfResponse);
-		genericTypeOfResponse.Result.Should().Be("\"System.Collections.Generic.List`1[System.Int32]\"");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "typeof(MyClassContainingAnotherClass.MyNestedClass).ToString()", out var nestedTypeOfResponse);
-		nestedTypeOfResponse.Result.Should().Be("\"DebuggableConsoleApp.MyClassContainingAnotherClass+MyNestedClass\"");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "TryGetObject(out var objectResult) ? objectResult.IntProperty : 0", out var outVarResponse);
-		outVarResponse.Result.Should().Be("6");
+		debugProtocolHost.Evaluate(stackFrameId, "default(MyStruct).Id").Result.Should().Be("0");
+		debugProtocolHost.Evaluate(stackFrameId, "sizeof(int)").Result.Should().Be("4");
+		debugProtocolHost.Evaluate(stackFrameId, "typeof(int[]).ToString()").Result.Should().Be("\"System.Int32[]\"");
+		debugProtocolHost.Evaluate(stackFrameId, "typeof(System.Collections.Generic.List<int>).ToString()").Result.Should().Be("\"System.Collections.Generic.List`1[System.Int32]\"");
+		debugProtocolHost.Evaluate(stackFrameId, "typeof(MyClassContainingAnotherClass.MyNestedClass).ToString()").Result.Should().Be("\"DebuggableConsoleApp.MyClassContainingAnotherClass+MyNestedClass\"");
+		debugProtocolHost.Evaluate(stackFrameId, "TryGetObject(out var objectResult) ? objectResult.IntProperty : 0").Result.Should().Be("6");
 
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "new OverloadResolutionGeneric<int>().Pick(\"hello\")", out var genericTypeOverloadResponse);
-		genericTypeOverloadResponse.Result.Should().Be("5");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "myInt = 42", out var myIntResetResponse);
-		myIntResetResponse.Result.Should().Be("42");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "OverloadResolutionByRef.Pick(ref myInt)", out var byRefOverloadResponse);
-		byRefOverloadResponse.Result.Should().Be("42");
+		debugProtocolHost.Evaluate(stackFrameId, "new OverloadResolutionGeneric<int>().Pick(\"hello\")").Result.Should().Be("5");
+		debugProtocolHost.Evaluate(stackFrameId, "myInt = 42").Result.Should().Be("42");
+		debugProtocolHost.Evaluate(stackFrameId, "OverloadResolutionByRef.Pick(ref myInt)").Result.Should().Be("42");
 
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "anotherVar = \"updated\"", out var referenceStringAssignmentResponse);
-		referenceStringAssignmentResponse.Result.Should().Be("\"updated\"");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "anotherVar", out var referenceStringReadBackResponse);
-		referenceStringReadBackResponse.Result.Should().Be("\"updated\"");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "anotherVar == \"updated\"", out var referenceStringEqualityResponse);
-		referenceStringEqualityResponse.Result.Should().Be("true");
+		debugProtocolHost.Evaluate(stackFrameId, "anotherVar = \"updated\"").Result.Should().Be("\"updated\"");
+		debugProtocolHost.Evaluate(stackFrameId, "anotherVar").Result.Should().Be("\"updated\"");
+		debugProtocolHost.Evaluate(stackFrameId, "anotherVar == \"updated\"").Result.Should().Be("true");
 
 		// String reference identity: reading a debuggee string must preserve the original reference instead of
 		// materializing a fresh string, so identity comparisons and assignments preserve aliasing.
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "IsSameString(anotherVar, anotherVar)", out var stringIdentityResponse);
-		stringIdentityResponse.Result.Should().Be("true");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "object.ReferenceEquals(anotherVar, anotherVar)", out var stringReferenceEqualsResponse);
-		stringReferenceEqualsResponse.Result.Should().Be("true");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "anotherVar = _name", out var stringAliasAssignmentResponse);
-		stringAliasAssignmentResponse.Result.Should().Be("\"TestName\"");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "IsSameString(anotherVar, _name)", out var stringAliasIdentityResponse);
-		stringAliasIdentityResponse.Result.Should().Be("true");
+		debugProtocolHost.Evaluate(stackFrameId, "IsSameString(anotherVar, anotherVar)").Result.Should().Be("true");
+		debugProtocolHost.Evaluate(stackFrameId, "object.ReferenceEquals(anotherVar, anotherVar)").Result.Should().Be("true");
+		debugProtocolHost.Evaluate(stackFrameId, "anotherVar = _name").Result.Should().Be("\"TestName\"");
+		debugProtocolHost.Evaluate(stackFrameId, "IsSameString(anotherVar, _name)").Result.Should().Be("true");
 
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "nullableRefType = new MyClass()", out var referenceObjectAssignmentResponse);
-		referenceObjectAssignmentResponse.Result.Should().Be("{DebuggableConsoleApp.MyClass}");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "nullableRefType == null", out var referenceObjectNotNullResponse);
-		referenceObjectNotNullResponse.Result.Should().Be("false");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "nullableRefType = null", out var referenceNullAssignmentResponse);
-		referenceNullAssignmentResponse.Result.Should().Be("null");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "nullableRefType == null", out var referenceNullReadBackResponse);
-		referenceNullReadBackResponse.Result.Should().Be("true");
+		debugProtocolHost.Evaluate(stackFrameId, "nullableRefType = new MyClass()").Result.Should().Be("{DebuggableConsoleApp.MyClass}");
+		debugProtocolHost.Evaluate(stackFrameId, "nullableRefType == null").Result.Should().Be("false");
+		debugProtocolHost.Evaluate(stackFrameId, "nullableRefType = null").Result.Should().Be("null");
+		debugProtocolHost.Evaluate(stackFrameId, "nullableRefType == null").Result.Should().Be("true");
 
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "_classField = null", out var referenceFieldNullAssignmentResponse);
-		referenceFieldNullAssignmentResponse.Result.Should().Be("null");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "_classField == null", out var referenceFieldNullReadBackResponse);
-		referenceFieldNullReadBackResponse.Result.Should().Be("true");
+		debugProtocolHost.Evaluate(stackFrameId, "_classField = null").Result.Should().Be("null");
+		debugProtocolHost.Evaluate(stackFrameId, "_classField == null").Result.Should().Be("true");
 
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "(new string[1])[0] = \"array-string\"", out var arrayStringAssignmentResponse);
-		arrayStringAssignmentResponse.Result.Should().Be("\"array-string\"");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "(new MyClass2[1])[0] = null", out var arrayNullAssignmentResponse);
-		arrayNullAssignmentResponse.Result.Should().Be("null");
+		debugProtocolHost.Evaluate(stackFrameId, "(new string[1])[0] = \"array-string\"").Result.Should().Be("\"array-string\"");
+		debugProtocolHost.Evaluate(stackFrameId, "(new MyClass2[1])[0] = null").Result.Should().Be("null");
 
 		// Comparison results and conversions keep their C# type when formatted
-		AssertEvaluation("$\"{InterpreterSemantics.UIntMax > 1}\"", "\"True\"");
-		AssertEvaluation("$\"{(char)(myInt + 78)}\"", "\"x\"");
-		AssertEvaluation("InterpreterSemantics.Text + InterpreterSemantics.Letter", "\"abcx\"");
-		AssertEvaluation("InterpreterSemantics.Letter + InterpreterSemantics.Text", "\"xabc\"");
-		AssertEvaluation("InterpreterSemantics.Letter.ToString()", "\"x\"");
+		debugProtocolHost.Evaluate(stackFrameId, "$\"{InterpreterSemantics.UIntMax > 1}\"").Result.Should().Be("\"True\"");
+		debugProtocolHost.Evaluate(stackFrameId, "$\"{(char)(myInt + 78)}\"").Result.Should().Be("\"x\"");
+		debugProtocolHost.Evaluate(stackFrameId, "InterpreterSemantics.Text + InterpreterSemantics.Letter").Result.Should().Be("\"abcx\"");
+		debugProtocolHost.Evaluate(stackFrameId, "InterpreterSemantics.Letter + InterpreterSemantics.Text").Result.Should().Be("\"xabc\"");
+		debugProtocolHost.Evaluate(stackFrameId, "InterpreterSemantics.Letter.ToString()").Result.Should().Be("\"x\"");
 		// Enums compare and convert through their underlying type
-		AssertEvaluation("InterpreterSemantics.SignedKind == SByteEnum.Negative", "true");
-		AssertEvaluation("(int)InterpreterSemantics.SignedKind", "-1");
-		AssertEvaluation("InterpreterSemantics.UnsignedKind == UShortEnum.Large", "true");
-		AssertEvaluation("(int)InterpreterSemantics.UnsignedKind", "40000");
+		debugProtocolHost.Evaluate(stackFrameId, "InterpreterSemantics.SignedKind == SByteEnum.Negative").Result.Should().Be("true");
+		debugProtocolHost.Evaluate(stackFrameId, "(int)InterpreterSemantics.SignedKind").Result.Should().Be("-1");
+		debugProtocolHost.Evaluate(stackFrameId, "InterpreterSemantics.UnsignedKind == UShortEnum.Large").Result.Should().Be("true");
+		debugProtocolHost.Evaluate(stackFrameId, "(int)InterpreterSemantics.UnsignedKind").Result.Should().Be("40000");
 		// Unchecked unsigned arithmetic wraps
-		AssertEvaluation("InterpreterSemantics.UIntMax - 1", "4294967294");
-		AssertEvaluation("InterpreterSemantics.UIntMax + 1", "0");
+		debugProtocolHost.Evaluate(stackFrameId, "InterpreterSemantics.UIntMax - 1").Result.Should().Be("4294967294");
+		debugProtocolHost.Evaluate(stackFrameId, "InterpreterSemantics.UIntMax + 1").Result.Should().Be("0");
 		// A long array index or length
-		AssertEvaluation("InterpreterSemantics.Numbers[InterpreterSemantics.LongIndex]", "1");
-		AssertEvaluation("new byte[InterpreterSemantics.LongIndex].Length", "1");
+		debugProtocolHost.Evaluate(stackFrameId, "InterpreterSemantics.Numbers[InterpreterSemantics.LongIndex]").Result.Should().Be("1");
+		debugProtocolHost.Evaluate(stackFrameId, "new byte[InterpreterSemantics.LongIndex].Length").Result.Should().Be("1");
 		// Storing an int32 stack value into a bool
-		AssertEvaluation("InterpreterSemantics.Flag = true", "true");
-		AssertEvaluation("InterpreterSemantics.Flag", "true");
+		debugProtocolHost.Evaluate(stackFrameId, "InterpreterSemantics.Flag = true").Result.Should().Be("true");
+		debugProtocolHost.Evaluate(stackFrameId, "InterpreterSemantics.Flag").Result.Should().Be("true");
 		// Constructors and methods on a value type run against its storage
-		AssertEvaluation("InterpreterSemantics.Maybe = 8", "8");
-		AssertEvaluation("InterpreterSemantics.Maybe", "8");
-		AssertEvaluation("nullableInt = 9", "9");
-		AssertEvaluation("nullableInt", "9");
-		AssertEvaluation("InterpreterSemantics.Holder.Nullable = 44.0", "44");
-		AssertEvaluation("InterpreterSemantics.Holder.Nullable", "44");
-		AssertEvaluation("InterpreterSemantics.Holder.Box = new WidthStruct(7)", "{DebuggableConsoleApp.WidthStruct}");
-		AssertEvaluation("InterpreterSemantics.Holder.Box.Width", "7");
-		AssertEvaluation("new WidthStruct(5).Width", "5");
+		debugProtocolHost.Evaluate(stackFrameId, "InterpreterSemantics.Maybe = 8").Result.Should().Be("8");
+		debugProtocolHost.Evaluate(stackFrameId, "InterpreterSemantics.Maybe").Result.Should().Be("8");
+		debugProtocolHost.Evaluate(stackFrameId, "nullableInt = 9").Result.Should().Be("9");
+		debugProtocolHost.Evaluate(stackFrameId, "nullableInt").Result.Should().Be("9");
+		debugProtocolHost.Evaluate(stackFrameId, "InterpreterSemantics.Holder.Nullable = 44.0").Result.Should().Be("44");
+		debugProtocolHost.Evaluate(stackFrameId, "InterpreterSemantics.Holder.Nullable").Result.Should().Be("44");
+		debugProtocolHost.Evaluate(stackFrameId, "InterpreterSemantics.Holder.Box = new WidthStruct(7)").Result.Should().Be("{DebuggableConsoleApp.WidthStruct}");
+		debugProtocolHost.Evaluate(stackFrameId, "InterpreterSemantics.Holder.Box.Width").Result.Should().Be("7");
+		debugProtocolHost.Evaluate(stackFrameId, "new WidthStruct(5).Width").Result.Should().Be("5");
 		// out var read back through unbox.any
-		AssertEvaluation("int.TryParse(\"7\", out var parsed) ? parsed : -1", "7");
+		debugProtocolHost.Evaluate(stackFrameId, "int.TryParse(\"7\", out var parsed) ? parsed : -1").Result.Should().Be("7");
 		// Array initializers copy the data the evaluation assembly carries
-		AssertEvaluation("new[] { 1, 2, 3 }.Length", "3");
-		AssertEvaluation("new[] { 1, 2, 3 }[1]", "2");
-		AssertEvaluation("new[] { 1.5, 2.5, 3.5 }[2]", "3.5");
-		AssertEvaluation("new long[] { 1, 2, 3, 4 }[3]", "4");
+		debugProtocolHost.Evaluate(stackFrameId, "new[] { 1, 2, 3 }.Length").Result.Should().Be("3");
+		debugProtocolHost.Evaluate(stackFrameId, "new[] { 1, 2, 3 }[1]").Result.Should().Be("2");
+		debugProtocolHost.Evaluate(stackFrameId, "new[] { 1.5, 2.5, 3.5 }[2]").Result.Should().Be("3.5");
+		debugProtocolHost.Evaluate(stackFrameId, "new long[] { 1, 2, 3, 4 }[3]").Result.Should().Be("4");
 		// Pattern variables are not supported, and say so
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "InterpreterSemantics.BoxedLong is long value ? value : 0", out var patternVariableResponse);
-		patternVariableResponse.Result.Should().Contain("pattern");
-		AssertEvaluation("InterpreterSemantics.BoxedLong is long", "true");
-
-		void AssertEvaluation(string expression, string expected)
-		{
-			debugProtocolHost.WithEvaluateRequest(stackFrameId, expression, out var response);
-			response.Result.Should().Be(expected, expression);
-		}
+		debugProtocolHost.Evaluate(stackFrameId, "InterpreterSemantics.BoxedLong is long value ? value : 0").Result.Should().Contain("pattern");
+		debugProtocolHost.Evaluate(stackFrameId, "InterpreterSemantics.BoxedLong is long").Result.Should().Be("true");
 	}
 
 	[Fact]
@@ -548,8 +361,7 @@ public class EvalTests(ITestOutputHelper testOutputHelper)
 		var stackFrameId = stackTraceResponse.StackFrames!.First().Id;
 
 		// 'value' must resolve to the innermost lambda's parameter (200), not the hoisted method-local 'value' (100)
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "value", out var evaluateResponse);
-		evaluateResponse.Result.Should().Be("200");
+		debugProtocolHost.Evaluate(stackFrameId, "value").Result.Should().Be("200");
 	}
 
 	[Fact]
@@ -578,12 +390,9 @@ public class EvalTests(ITestOutputHelper testOutputHelper)
 
 		var stackFrameId = stackTraceResponse.StackFrames!.First().Id;
 
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "default(T)", out var evaluateResponse);
-		evaluateResponse.Result.Should().Be("0");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "arg", out var evaluateResponse3);
-		evaluateResponse3.Result.Should().Be("4");
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "typeof(T)", out var evaluateResponse4);
-		evaluateResponse4.Result.Should().Be("System.Int32");
+		debugProtocolHost.Evaluate(stackFrameId, "default(T)").Result.Should().Be("0");
+		debugProtocolHost.Evaluate(stackFrameId, "arg").Result.Should().Be("4");
+		debugProtocolHost.Evaluate(stackFrameId, "typeof(T)").Result.Should().Be("System.Int32");
 	}
 
 	[Fact]
@@ -612,8 +421,7 @@ public class EvalTests(ITestOutputHelper testOutputHelper)
 
 		var stackFrameId = stackTraceResponse.StackFrames!.First().Id;
 
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "_testInt", out var evaluateResponse);
-		evaluateResponse.Result.Should().Be("4");
+		debugProtocolHost.Evaluate(stackFrameId, "_testInt").Result.Should().Be("4");
 	}
 
 	// At the entry point the debuggee has not loaded System.Linq, so Roslyn cannot see Enumerable until it is loaded
@@ -634,9 +442,7 @@ public class EvalTests(ITestOutputHelper testOutputHelper)
 		var stoppedEvent = await host.WaitForStoppedEvent();
 		var stackFrameId = host.GetTopStackFrame(stoppedEvent.ThreadId!.Value).Id;
 
-		host.WithEvaluateRequest(stackFrameId, "new[] { 1u, 2u }.Select(x => x * 2).Sum(x => x)", out var extensionMethodResponse);
-		extensionMethodResponse.Result.Should().Be("6");
-		host.WithEvaluateRequest(stackFrameId, "Enumerable.Range(1, 3).Sum()", out var staticClassResponse);
-		staticClassResponse.Result.Should().Be("6");
+		host.Evaluate(stackFrameId, "new[] { 1u, 2u }.Select(x => x * 2).Sum(x => x)").Result.Should().Be("6");
+		host.Evaluate(stackFrameId, "Enumerable.Range(1, 3).Sum()").Result.Should().Be("6");
 	}
 }

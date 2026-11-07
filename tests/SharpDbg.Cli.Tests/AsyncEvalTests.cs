@@ -54,11 +54,9 @@ public class AsyncEvalTests(ITestOutputHelper testOutputHelper)
 
 		void TestVariablesEval(int stackFrameId)
 		{
-			debugProtocolHost.WithEvaluateRequest(stackFrameId, "localInt", out var evaluateResponse);
-			evaluateResponse.Result.Should().Be("4");
+			debugProtocolHost.Evaluate(stackFrameId, "localInt").Result.Should().Be("4");
 
-			debugProtocolHost.WithEvaluateRequest(stackFrameId, "IntField", out var evaluateResponse2);
-			evaluateResponse2.Result.Should().Be("10");
+			debugProtocolHost.Evaluate(stackFrameId, "IntField").Result.Should().Be("10");
 		}
 	}
 }

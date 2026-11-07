@@ -62,7 +62,7 @@ public class EvalSemanticsTests(ITestOutputHelper testOutputHelper)
 			string actual;
 			try
 			{
-				debugProtocolHost.WithEvaluateRequest(frameId, expression, out var response);
+				var response = debugProtocolHost.Evaluate(frameId, expression);
 				actual = response.Result;
 			}
 			catch (Exception ex)
@@ -74,7 +74,7 @@ public class EvalSemanticsTests(ITestOutputHelper testOutputHelper)
 		failures.Should().BeEmpty(string.Join(Environment.NewLine, failures));
 
 		// A getter declared on a generic base runs with the base's type arguments, not the derived type's (none)
-		debugProtocolHost.WithEvaluateRequest(frameId, "derived", out var derivedResponse);
+		var derivedResponse = debugProtocolHost.Evaluate(frameId, "derived");
 		debugProtocolHost.WithVariablesRequest(derivedResponse.VariablesReference, out var derivedMembers);
 		derivedMembers.Single(member => member.Name == "Value").Value.Should().Be("9");
 	}
@@ -101,11 +101,8 @@ public class EvalSemanticsTests(ITestOutputHelper testOutputHelper)
 		var stoppedEvent = await debugProtocolHost.WaitForStoppedEvent();
 		var frameId = debugProtocolHost.GetTopStackFrame(stoppedEvent.ThreadId!.Value).Id;
 
-		debugProtocolHost.WithEvaluateRequest(frameId, "value + 1", out var readResponse);
-		readResponse.Result.Should().Be("12");
-		debugProtocolHost.WithEvaluateRequest(frameId, "value = 20", out var writeResponse);
-		writeResponse.Result.Should().Be("20");
-		debugProtocolHost.WithEvaluateRequest(frameId, "value", out var readBackResponse);
-		readBackResponse.Result.Should().Be("20");
+		debugProtocolHost.Evaluate(frameId, "value + 1").Result.Should().Be("12");
+		debugProtocolHost.Evaluate(frameId, "value = 20").Result.Should().Be("20");
+		debugProtocolHost.Evaluate(frameId, "value").Result.Should().Be("20");
 	}
 }

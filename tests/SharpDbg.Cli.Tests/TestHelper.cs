@@ -198,4 +198,10 @@ public static partial class TestHelper
 		evaluateResponse = debugProtocolHost.SendRequestSync(evaluateRequest);
 		return debugProtocolHost;
 	}
+
+	public static EvaluateResponse Evaluate(this DebugProtocolHost debugProtocolHost, int frameId, string expression)
+	{
+		debugProtocolHost.WithEvaluateRequest(frameId, expression, out var evaluateResponse);
+		return evaluateResponse;
+	}
 }

@@ -33,8 +33,7 @@ public class ExceptionTests(ITestOutputHelper testOutputHelper)
 
 		// set 'ExceptionToThrow' to .Normal - we do not want other tests to stop at the 'exception' stop event, only this one
 		debugProtocolHost.WithStackTraceRequest(stoppedEvent.ThreadId!.Value, out var stackTraceResponse);
-		debugProtocolHost.WithEvaluateRequest(stackTraceResponse.StackFrames.First().Id, "exceptionToThrow = ExceptionToThrow.Normal", out var evaluateResponse);
-		evaluateResponse.Result.Should().Be("Normal");
+		debugProtocolHost.Evaluate(stackTraceResponse.StackFrames.First().Id, "exceptionToThrow = ExceptionToThrow.Normal").Result.Should().Be("Normal");
 
 		debugProtocolHost.WithContinueRequest();
 
@@ -60,8 +59,7 @@ public class ExceptionTests(ITestOutputHelper testOutputHelper)
 		variables.Should().HaveCount(expectedVariables.Count);
 		variables.ShouldBeEquivalentToDebuggerVariables(expectedVariables);
 
-		debugProtocolHost.WithEvaluateRequest(stackTraceResponse.StackFrames.First().Id, "$exception", out var evaluateResponse2);
-		evaluateResponse2.Result.Should().Be(expectedVariables[0].Value);
+		debugProtocolHost.Evaluate(stackTraceResponse.StackFrames.First().Id, "$exception").Result.Should().Be(expectedVariables[0].Value);
 
 		var expectedExceptionInfoResponse = new ExceptionInfoResponse
 		{
@@ -112,8 +110,7 @@ public class ExceptionTests(ITestOutputHelper testOutputHelper)
 
 		// set 'ExceptionToThrow' to .ExternalCode - we do not want other tests to stop at the 'exception' stop event, only this one
 		debugProtocolHost.WithStackTraceRequest(stoppedEvent.ThreadId!.Value, out var stackTraceResponse);
-		debugProtocolHost.WithEvaluateRequest(stackTraceResponse.StackFrames.First().Id, "exceptionToThrow = ExceptionToThrow.ExternalCode", out var evaluateResponse);
-		evaluateResponse.Result.Should().Be("ExternalCode");
+		debugProtocolHost.Evaluate(stackTraceResponse.StackFrames.First().Id, "exceptionToThrow = ExceptionToThrow.ExternalCode").Result.Should().Be("ExternalCode");
 
 		debugProtocolHost.WithContinueRequest();
 
@@ -146,8 +143,7 @@ public class ExceptionTests(ITestOutputHelper testOutputHelper)
 		variables.Should().HaveCount(expectedVariables.Count);
 		variables.ShouldBeEquivalentToDebuggerVariables(expectedVariables);
 
-		debugProtocolHost.WithEvaluateRequest(stackTraceResponse.StackFrames.First().Id, "$exception", out var evaluateResponse2);
-		evaluateResponse2.Result.Should().Be(expectedVariables[0].Value);
+		debugProtocolHost.Evaluate(stackTraceResponse.StackFrames.First().Id, "$exception").Result.Should().Be(expectedVariables[0].Value);
 
 		var expectedExceptionInfoResponse = new ExceptionInfoResponse
 		{
@@ -361,8 +357,7 @@ public class ExceptionTests(ITestOutputHelper testOutputHelper)
 		setupStopInfo.line.Should().Be(setupBreakpointLine);
 
 		debugProtocolHost.WithStackTraceRequest(setupStop.ThreadId!.Value, out var stackTraceResponse);
-		debugProtocolHost.WithEvaluateRequest(stackTraceResponse.StackFrames.First().Id, $"exceptionToThrow = ExceptionToThrow.{exceptionToThrow}", out var evaluateResponse);
-		evaluateResponse.Result.Should().Be(exceptionToThrow);
+		debugProtocolHost.Evaluate(stackTraceResponse.StackFrames.First().Id, $"exceptionToThrow = ExceptionToThrow.{exceptionToThrow}").Result.Should().Be(exceptionToThrow);
 
 		debugProtocolHost
 			.WithBreakpointsRequest([completionMarkerLine], programPath)
@@ -409,8 +404,7 @@ public class ExceptionTests(ITestOutputHelper testOutputHelper)
 		setupStopInfo.line.Should().Be(setupBreakpointLine);
 
 		debugProtocolHost.WithStackTraceRequest(setupStop.ThreadId!.Value, out var stackTraceResponse);
-		debugProtocolHost.WithEvaluateRequest(stackTraceResponse.StackFrames.First().Id, $"exceptionToThrow = ExceptionToThrow.{exceptionToThrow}", out var evaluateResponse);
-		evaluateResponse.Result.Should().Be(exceptionToThrow);
+		debugProtocolHost.Evaluate(stackTraceResponse.StackFrames.First().Id, $"exceptionToThrow = ExceptionToThrow.{exceptionToThrow}").Result.Should().Be(exceptionToThrow);
 
 		debugProtocolHost
 			.WithBreakpointsRequest([completionMarkerLine], programPath)

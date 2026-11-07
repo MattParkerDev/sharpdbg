@@ -152,8 +152,7 @@ public class ConditionalBreakpointTests(ITestOutputHelper testOutputHelper)
 
 		debugProtocolHost.WithStackTraceRequest(stoppedEvent.ThreadId!.Value, out var stackTraceResponse);
 		var stackFrameId = stackTraceResponse.StackFrames!.First().Id;
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "_count", out var evaluateResponse);
-		evaluateResponse.Result.Should().Be("2");
+		debugProtocolHost.Evaluate(stackFrameId, "_count").Result.Should().Be("2");
 	}
 
 	[Fact]
@@ -185,8 +184,7 @@ public class ConditionalBreakpointTests(ITestOutputHelper testOutputHelper)
 
 		debugProtocolHost.WithStackTraceRequest(stoppedEvent.ThreadId!.Value, out var stackTraceResponse);
 		var stackFrameId = stackTraceResponse.StackFrames!.First().Id;
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "_count", out var evaluateResponse);
-		evaluateResponse.Result.Should().Be("2");
+		debugProtocolHost.Evaluate(stackFrameId, "_count").Result.Should().Be("2");
 
 		// Continue - should stop again on 3rd iteration
 		var stoppedEvent2 = await debugProtocolHost.WithContinueRequest().WaitForStoppedEvent();
@@ -196,8 +194,7 @@ public class ConditionalBreakpointTests(ITestOutputHelper testOutputHelper)
 
 		debugProtocolHost.WithStackTraceRequest(stoppedEvent2.ThreadId!.Value, out var stackTraceResponse2);
 		var stackFrameId2 = stackTraceResponse2.StackFrames!.First().Id;
-		debugProtocolHost.WithEvaluateRequest(stackFrameId2, "_count", out var evaluateResponse2);
-		evaluateResponse2.Result.Should().Be("3");
+		debugProtocolHost.Evaluate(stackFrameId2, "_count").Result.Should().Be("3");
 	}
 
 	[Fact]
@@ -229,8 +226,7 @@ public class ConditionalBreakpointTests(ITestOutputHelper testOutputHelper)
 
 		debugProtocolHost.WithStackTraceRequest(stoppedEvent.ThreadId!.Value, out var stackTraceResponse);
 		var stackFrameId = stackTraceResponse.StackFrames!.First().Id;
-		debugProtocolHost.WithEvaluateRequest(stackFrameId, "_count", out var evaluateResponse);
-		evaluateResponse.Result.Should().Be("2");
+		debugProtocolHost.Evaluate(stackFrameId, "_count").Result.Should().Be("2");
 
 		// Continue - should skip 3rd, stop on 4th (4 % 2 == 0)
 		var stoppedEvent2 = await debugProtocolHost.WithContinueRequest().WaitForStoppedEvent();
@@ -240,8 +236,7 @@ public class ConditionalBreakpointTests(ITestOutputHelper testOutputHelper)
 
 		debugProtocolHost.WithStackTraceRequest(stoppedEvent2.ThreadId!.Value, out var stackTraceResponse2);
 		var stackFrameId2 = stackTraceResponse2.StackFrames!.First().Id;
-		debugProtocolHost.WithEvaluateRequest(stackFrameId2, "_count", out var evaluateResponse2);
-		evaluateResponse2.Result.Should().Be("4");
+		debugProtocolHost.Evaluate(stackFrameId2, "_count").Result.Should().Be("4");
 	}
 
 	[Fact]

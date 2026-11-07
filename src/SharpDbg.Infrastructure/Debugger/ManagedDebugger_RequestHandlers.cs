@@ -358,9 +358,9 @@ public partial class ManagedDebugger
 		foreach (var request in breakpoints)
 		{
 			var bp = _breakpointManager.CreateBreakpoint(filePath, request.Line, request.Column, request.Condition, request.HitCondition);
-			if (request.Condition is not null && SyntaxFactory.ParseExpression(request.Condition).DescendantNodesAndSelf().Any(static node => node is AnonymousFunctionExpressionSyntax))
+			if (ConditionContainsLambda(request.Condition))
 			{
-				bp.Binding = new BreakpointManager.BreakpointBinding.Rejected("Lambda expressions are not supported in breakpoint conditions.");
+				bp.Binding = new BreakpointManager.BreakpointBinding.Rejected(LambdaConditionNotSupportedMessage);
 				result.Add(bp);
 				continue;
 			}
@@ -373,6 +373,11 @@ public partial class ManagedDebugger
 
 		return result;
 	}
+
+	private const string LambdaConditionNotSupportedMessage = "Lambda expressions are not supported in breakpoint conditions.";
+
+	private static bool ConditionContainsLambda(string? condition) =>
+		condition is not null && SyntaxFactory.ParseExpression(condition).DescendantNodesAndSelf().Any(static node => node is AnonymousFunctionExpressionSyntax);
 
 	public List<BreakpointManager.BreakpointInfo> SetFunctionBreakpoints(SharpDbgFunctionBreakpointRequest[] breakpoints)
 	{
@@ -390,6 +395,12 @@ public partial class ManagedDebugger
 		foreach (var request in breakpoints)
 		{
 			var bp = _breakpointManager.CreateFunctionBreakpoint(request.Name, request.Condition, request.HitCondition);
+			if (ConditionContainsLambda(request.Condition))
+			{
+				bp.Binding = new BreakpointManager.BreakpointBinding.Rejected(LambdaConditionNotSupportedMessage);
+				result.Add(bp);
+				continue;
+			}
 			try
 			{
 				_ = FunctionBreakpointPattern.Parse(request.Name);

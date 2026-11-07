@@ -16,15 +16,12 @@ public class BreakpointManager
 	public const string NotProcessedMessage = "Breakpoint has not been processed by the debugger.";
 
 	/// <summary>
-	/// Where a breakpoint stands in binding to code. A breakpoint is verified exactly when it is bound
+	/// Whether a breakpoint is bound to code in the debuggee. The breakpoint is reported to the client as verified only when it is bound
 	/// </summary>
 	/// <remarks>
-	/// <code>
-	/// Unbound ──bind──▶ SourceBound ──module unloaded──▶ Unbound
-	/// Unbound ──bind──▶ FunctionBound ──bind in another module──▶ FunctionBound
-	///                   FunctionBound ──last bound module unloaded──▶ Unbound
-	/// Rejected: terminal
-	/// </code>
+	/// Every breakpoint starts <see cref="Unbound"/>. It becomes <see cref="SourceBound"/> or <see cref="FunctionBound"/> when a
+	/// loaded module has code for it, and goes back to <see cref="Unbound"/> when the module(s) it is bound in unload.
+	/// A <see cref="Rejected"/> breakpoint never changes state.
 	/// </remarks>
 	public closed record BreakpointBinding
 	{

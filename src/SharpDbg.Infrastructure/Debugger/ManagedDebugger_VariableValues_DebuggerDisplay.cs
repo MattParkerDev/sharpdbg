@@ -1,3 +1,4 @@
+using System.Buffers;
 using System.Text;
 using ICorDebugSharp;
 using SharpDbg.Infrastructure.Debugger.ExpressionEvaluator;
@@ -8,25 +9,33 @@ public partial class ManagedDebugger
 {
 	private const int MaxDebuggerDisplayDepth = 10;
 	private const string DebuggerDisplayMaxDepthMessage = "<Evaluation of DebuggerDisplay attribute reached max recursion count>";
+	private static readonly SearchValues<char> FormatSpecifierChars = SearchValues.Create("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789");
 
-	private readonly record struct DebuggerDisplaySegment(string Text, bool IsExpression, bool NoQuotes);
+	private readonly Dictionary<string, DebuggerDisplaySegment[]> _parsedDebuggerDisplays = new();
+
+	private readonly record struct DebuggerDisplaySegment(Range Literal, string? Expression, bool NoQuotes);
 
 	private async Task<(string Value, bool ResultIsError)> FormatDebuggerDisplayAsync(string debuggerDisplay, ICorDebugValue value, ThreadId threadId, FrameStackDepth frameStackDepth, int debuggerDisplayDepth)
 	{
 		if (debuggerDisplayDepth >= MaxDebuggerDisplayDepth) return (DebuggerDisplayMaxDepthMessage, false);
 
+		if (_parsedDebuggerDisplays.TryGetValue(debuggerDisplay, out var segments) is false)
+		{
+			segments = ParseDebuggerDisplay(debuggerDisplay);
+			_parsedDebuggerDisplays[debuggerDisplay] = segments;
+		}
 		var thread = _process!.GetThread(threadId.Value);
 		var builder = new StringBuilder();
 		var resultIsError = false;
-		foreach (var segment in ParseDebuggerDisplay(debuggerDisplay))
+		foreach (var segment in segments)
 		{
-			if (segment.IsExpression is false)
+			if (segment.Expression is null)
 			{
-				builder.Append(segment.Text);
+				builder.Append(debuggerDisplay.AsSpan(segment.Literal));
 				continue;
 			}
 			var evalContext = new CompiledExpressionEvaluationContext(thread, threadId, frameStackDepth, value);
-			using var result = await _expressionEvaluator!.Evaluate(segment.Text, evalContext);
+			using var result = await _expressionEvaluator!.Evaluate(segment.Expression, evalContext);
 			if (result.Error is not null)
 			{
 				_logger?.Invoke($"Evaluation error: {result.Error}");
@@ -41,31 +50,33 @@ public partial class ManagedDebugger
 		return (builder.ToString(), resultIsError);
 	}
 
-	private static List<DebuggerDisplaySegment> ParseDebuggerDisplay(string debuggerDisplay)
+	private static DebuggerDisplaySegment[] ParseDebuggerDisplay(string debuggerDisplay)
 	{
+		var text = debuggerDisplay.AsSpan();
 		List<DebuggerDisplaySegment> segments = [];
 		var literalStart = 0;
 		var index = 0;
-		while (index < debuggerDisplay.Length)
+		while (index < text.Length)
 		{
-			if (debuggerDisplay[index] is not '{')
+			if (text[index] is not '{')
 			{
 				index++;
 				continue;
 			}
-			var end = FindExpressionEnd(debuggerDisplay, index + 1);
+			var end = FindExpressionEnd(text, index + 1);
 			if (end is -1) break; // Unterminated, so the rest is literal text
-			if (index > literalStart) segments.Add(new(debuggerDisplay[literalStart..index], false, false));
-			var (expression, noQuotes) = SplitFormatSpecifiers(debuggerDisplay[(index + 1)..end]);
-			segments.Add(new(expression, true, noQuotes));
+			if (index > literalStart) segments.Add(new(literalStart..index, null, false));
+			var expression = text[(index + 1)..end];
+			var (expressionLength, noQuotes) = SplitFormatSpecifiers(expression);
+			segments.Add(new(default, expression[..expressionLength].ToString(), noQuotes));
 			index = end + 1;
 			literalStart = index;
 		}
-		if (literalStart < debuggerDisplay.Length) segments.Add(new(debuggerDisplay[literalStart..], false, false));
-		return segments;
+		if (literalStart < text.Length) segments.Add(new(literalStart..text.Length, null, false));
+		return segments.ToArray();
 	}
 
-	private static int FindExpressionEnd(string text, int start)
+	private static int FindExpressionEnd(ReadOnlySpan<char> text, int start)
 	{
 		var depth = 0;
 		for (var i = start; i < text.Length; i++)
@@ -92,7 +103,7 @@ public partial class ManagedDebugger
 		return -1;
 	}
 
-	private static int SkipLiteral(string text, int quoteIndex)
+	private static int SkipLiteral(ReadOnlySpan<char> text, int quoteIndex)
 	{
 		var quote = text[quoteIndex];
 		for (var i = quoteIndex + 1; i < text.Length; i++)
@@ -103,17 +114,16 @@ public partial class ManagedDebugger
 		return -1;
 	}
 
-	private static (string Expression, bool NoQuotes) SplitFormatSpecifiers(string expression)
+	private static (int ExpressionLength, bool NoQuotes) SplitFormatSpecifiers(ReadOnlySpan<char> expression)
 	{
 		var depth = 0;
-		List<int> topLevelCommas = [];
 		for (var i = 0; i < expression.Length; i++)
 		{
 			switch (expression[i])
 			{
 				case '"' or '\'':
 					var literalEnd = SkipLiteral(expression, i);
-					if (literalEnd is -1) return (expression, false);
+					if (literalEnd is -1) return (expression.Length, false);
 					i = literalEnd;
 					break;
 				case '{' or '(' or '[':
@@ -122,17 +132,22 @@ public partial class ManagedDebugger
 				case '}' or ')' or ']':
 					depth--;
 					break;
-				case ',' when depth is 0:
-					topLevelCommas.Add(i);
-					break;
+				case ',' when depth is 0 && TryReadFormatSpecifiers(expression[(i + 1)..], out var noQuotes):
+					return (i, noQuotes);
 			}
 		}
-		foreach (var comma in topLevelCommas)
+		return (expression.Length, false);
+	}
+
+	private static bool TryReadFormatSpecifiers(ReadOnlySpan<char> specifiers, out bool noQuotes)
+	{
+		noQuotes = false;
+		foreach (var range in specifiers.Split(','))
 		{
-			var specifiers = expression[(comma + 1)..].Split(',', StringSplitOptions.TrimEntries);
-			if (specifiers.Any(specifier => specifier.Length is 0 || specifier.All(char.IsAsciiLetterOrDigit) is false)) continue;
-			return (expression[..comma], specifiers.Contains("nq"));
+			var specifier = specifiers[range].Trim();
+			if (specifier.IsEmpty || specifier.ContainsAnyExcept(FormatSpecifierChars)) return false;
+			noQuotes |= specifier is "nq";
 		}
-		return (expression, false);
+		return true;
 	}
 }

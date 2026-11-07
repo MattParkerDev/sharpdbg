@@ -570,15 +570,20 @@ public partial class ManagedDebugger
 		_session = SessionState.Ended.Instance;
 	}
 
-	private sealed class ExceptionPropagationState
+	/// <summary>
+	/// An exception in flight on a thread, from its first-chance callback until a catch handler is found or it goes unhandled.
+	/// A thread with no exception in flight has no entry in <see cref="_exceptionStates"/>
+	/// </summary>
+	/// <param name="HasReachedUserCode">
+	/// True once the exception has entered a JMC-marked frame. If the runtime then finds a handler outside JMC code, the exception is user-unhandled.
+	/// </param>
+	/// <param name="AlwaysStopReported">
+	/// True once an "all exceptions" stop has been reported, so the first-chance and user-first-chance callbacks don't both stop.
+	/// </param>
+	private readonly record struct ExceptionPropagationState(bool HasReachedUserCode, bool AlwaysStopReported)
 	{
-		// True once exception propagation has entered a JMC-marked frame. If the runtime later finds a
-		// handler outside JMC code, the exception is user-unhandled.
-		public required bool HasReachedUserCode { get; set; }
-
-		// Prevents the first-chance and user-first-chance callbacks for the same exception from producing
-		// duplicate "all exceptions" stops.
-		public required bool AlwaysStopReported { get; set; }
+		/// <summary>The state to assume when a callback arrives for a thread with no exception in flight</summary>
+		public static readonly ExceptionPropagationState NotStarted = new(HasReachedUserCode: false, AlwaysStopReported: false);
 	}
 }
 

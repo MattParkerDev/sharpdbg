@@ -73,8 +73,10 @@ public partial class ManagedDebugger
 	private void HandleThreadExited(object? sender, ExitThreadCorDebugManagedCallbackEventArgs exitThreadCorDebugManagedCallbackEventArgs)
 	{
 		var corThread = exitThreadCorDebugManagedCallbackEventArgs.Thread;
+		var threadId = new ThreadId(corThread.Id);
 		_threads.Remove(corThread.Id);
-		_exceptionBreakModes.Remove(new ThreadId(corThread.Id));
+		_exceptionStates.Remove(threadId);
+		_exceptionBreakModes.Remove(threadId);
 		OnThreadExited?.Invoke(corThread.Id);
 		Continue();
 	}
@@ -447,39 +449,24 @@ public partial class ManagedDebugger
 		{
 			case CorDebugExceptionCallbackType.DEBUG_EXCEPTION_FIRST_CHANCE:
 			{
-				var state = new ExceptionPropagationState
-				{
-					HasReachedUserCode = IsUserCodeFrame(exceptionEventArgs.Frame),
-					AlwaysStopReported = false
-				};
-				_exceptionStates[threadId] = state;
 				shouldStop = MatchesExceptionBreakpoint(SharpDbgExceptionBreakpointFilter.All, exceptionType);
-				state.AlwaysStopReported = shouldStop;
+				_exceptionStates[threadId] = new ExceptionPropagationState(HasReachedUserCode: IsUserCodeFrame(exceptionEventArgs.Frame), AlwaysStopReported: shouldStop);
 				breakMode = SharpDbgExceptionBreakMode.Always;
 				break;
 			}
 			case CorDebugExceptionCallbackType.DEBUG_EXCEPTION_USER_FIRST_CHANCE:
 			{
-				if (_exceptionStates.TryGetValue(threadId, out var state) is false)
-				{
-					state = new ExceptionPropagationState
-					{
-						HasReachedUserCode = false,
-						AlwaysStopReported = false
-					};
-					_exceptionStates[threadId] = state;
-				}
-				state.HasReachedUserCode = true;
-				shouldStop = state.AlwaysStopReported is false && MatchesExceptionBreakpoint(SharpDbgExceptionBreakpointFilter.All, exceptionType);
-				state.AlwaysStopReported |= shouldStop;
+				var alreadyReported = _exceptionStates.GetValueOrDefault(threadId, ExceptionPropagationState.NotStarted).AlwaysStopReported;
+				shouldStop = alreadyReported is false && MatchesExceptionBreakpoint(SharpDbgExceptionBreakpointFilter.All, exceptionType);
+				_exceptionStates[threadId] = new ExceptionPropagationState(HasReachedUserCode: true, AlwaysStopReported: alreadyReported || shouldStop);
 				breakMode = SharpDbgExceptionBreakMode.Always;
 				break;
 			}
 			case CorDebugExceptionCallbackType.DEBUG_EXCEPTION_CATCH_HANDLER_FOUND:
 			{
 				var handlerIsUserCode = IsUserCodeFrame(exceptionEventArgs.Frame);
-				shouldStop = _justMyCode && handlerIsUserCode is false && _exceptionStates.TryGetValue(threadId, out var state) && state.HasReachedUserCode && MatchesExceptionBreakpoint(SharpDbgExceptionBreakpointFilter.UserUnhandled, exceptionType);
-				_exceptionStates.Remove(threadId);
+				var state = _exceptionStates.Remove(threadId, out var removed) ? removed : ExceptionPropagationState.NotStarted;
+				shouldStop = _justMyCode && handlerIsUserCode is false && state.HasReachedUserCode && MatchesExceptionBreakpoint(SharpDbgExceptionBreakpointFilter.UserUnhandled, exceptionType);
 				breakMode = SharpDbgExceptionBreakMode.UserUnhandled;
 				break;
 			}

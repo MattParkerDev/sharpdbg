@@ -52,7 +52,7 @@ public partial class ManagedDebugger
 		{
 			// Fast path to avoid EE, which is far slower
 			var toStringFunction = FindMethodOnType(valueToFormat.ExactType, "ToString", [], false, false) ?? throw new InvalidOperationException($"Could not find ToString on {friendlyTypeName}");
-			var thread = _process!.GetThread(threadId.Value);
+			var thread = CorProcess!.GetThread(threadId.Value);
 			var typeParameters = valueToFormat.ExactType.TypeParameters;
 			var result = await thread.CreateEval().CallParameterizedFunctionAsync(ProcessRuntimeEventsUntilEvalEvent, EvalStatus, toStringFunction, typeParameters.Length, typeParameters, 1, [valueToFormat], throwOnException: true) ?? throw new InvalidOperationException($"ToString returned no value for {friendlyTypeName}");
 			try
@@ -81,7 +81,7 @@ public partial class ManagedDebugger
 
 		// TODO: pass a specific signature to handle proxy types that have multiple constructors - see ManagedDebugger.FindMethodOnType
 		var constructor = metadataImport.FindMethod(proxyClass.Token, ".ctor", 0, 0);
-		var eval = _process!.GetThread(threadId.Value).CreateEval();
+		var eval = CorProcess!.GetThread(threadId.Value).CreateEval();
 		var proxyInstance = await eval.NewParameterizedObjectAsync(ProcessRuntimeEventsUntilEvalEvent, EvalStatus, module.GetFunctionFromToken(constructor), typeArguments.Length, typeArguments, 1, [value]);
 		ArgumentNullException.ThrowIfNull(proxyInstance);
 		return proxyInstance;

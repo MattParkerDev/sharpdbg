@@ -13,12 +13,12 @@ public partial class ManagedDebugger
 	private void HandleProcessCreated(object? sender, CreateProcessCorDebugManagedCallbackEventArgs createProcessCorDebugManagedCallbackEventArgs)
 	{
 		_logger?.Invoke("Process created event");
-		if (_process is null && _isRemoteAttach)
+		if (_session is SessionState.WaitingForRemoteDebuggee { CorDebug: var corDebug })
 		{
-			_process = createProcessCorDebugManagedCallbackEventArgs.Process;
-			_isAttached = true;
+			var process = createProcessCorDebugManagedCallbackEventArgs.Process;
+			_session = new SessionState.Debugging(corDebug, process, DebuggeeProcess: null, IsRemote: true);
 			ConfigureExceptionCallbacks();
-			_logger?.Invoke($"Remote debuggee established connection to debugger, PID: {_process.Id}");
+			_logger?.Invoke($"Remote debuggee established connection to debugger, PID: {process.Id}");
 		}
 		Continue();
 	}
@@ -26,7 +26,7 @@ public partial class ManagedDebugger
 	private void HandleProcessExited(object? sender, ExitProcessCorDebugManagedCallbackEventArgs exitProcessCorDebugManagedCallbackEventArgs)
 	{
 		_logger?.Invoke($"Process exited");
-		int? exitCode = _debuggeeProcess?.HasExited is true ? _debuggeeProcess.ExitCode : null;
+		int? exitCode = _session is SessionState.Debugging { DebuggeeProcess: { HasExited: true } debuggeeProcess } ? debuggeeProcess.ExitCode : null;
 		OnExited?.Invoke(exitCode);
 		OnTerminated?.Invoke();
 	}
@@ -48,10 +48,10 @@ public partial class ManagedDebugger
 	private bool IsMainThreadCandidate(int threadId)
 	{
 		if (_mainThreadId is null) return true;
-		var processId = _process?.Id;
+		var processId = CorProcess?.Id;
 		if (processId is null || _mainThreadId == processId) return false;
 		if (threadId == processId) return true;
-		if (_isRemoteAttach is false && OperatingSystem.IsWindows()) return threadId == GetOldestThreadId(processId.Value);
+		if (_session is SessionState.Debugging { IsRemote: false } && OperatingSystem.IsWindows()) return threadId == GetOldestThreadId(processId.Value);
 		return threadId < _mainThreadId;
 	}
 
@@ -95,7 +95,7 @@ public partial class ManagedDebugger
 			{
 				var size = corModule.Size;
 				var baseAddress2 = corModule.BaseAddress;
-				var (bytes, _) = _process.ReadMemory(baseAddress2, size);
+				var (bytes, _) = CorProcess.ReadMemory(baseAddress2, size);
 				metadataReader = ModuleMetadataReader.TryLoadFromBytes(bytes);
 			}
 			else

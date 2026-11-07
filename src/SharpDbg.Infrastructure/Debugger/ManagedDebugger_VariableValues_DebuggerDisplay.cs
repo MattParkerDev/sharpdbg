@@ -24,7 +24,7 @@ public partial class ManagedDebugger
 			segments = ParseDebuggerDisplay(debuggerDisplay);
 			_parsedDebuggerDisplays[debuggerDisplay] = segments;
 		}
-		var thread = _process!.GetThread(threadId.Value);
+		var thread = CorProcess!.GetThread(threadId.Value);
 		var builder = new StringBuilder();
 		var resultIsError = false;
 		foreach (var segment in segments)

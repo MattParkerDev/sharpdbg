@@ -23,36 +23,23 @@ public enum SharpDbgExceptionBreakpointFilter { All, UserUnhandled }
 
 public partial class ManagedDebugger
 {
-	// Store launch info for deferred attach in ConfigurationDone
-	private LaunchInfo? _pendingLaunchInfo;
-	private RemoteAttachInfo? _pendingRemoteAttachInfo;
-
 	/// <summary>
 	/// Stores the launch request info for use in handling ConfigurationDone
 	/// </summary>
 	public void Launch(LaunchInfo launchInfo, bool justMyCode)
 	{
-		EnsureNoProcessBeingDebugged();
+		EnsureSessionNotStarted();
 		_logger?.Invoke($"Launching program: {launchInfo.Program} {string.Join(' ', launchInfo.Arguments)}");
 		_justMyCode = justMyCode;
 		_stopAtEntry = launchInfo.StopAtEntry;
-		_pendingLaunchInfo = launchInfo;
+		_session = new SessionState.LaunchRequested(launchInfo);
 	}
 
 	/// <summary>
 	/// Actually perform the launch using DbgShim APIs
 	/// </summary>
-	private async Task PerformLaunch()
+	private async Task PerformLaunch(LaunchInfo launchInfo)
 	{
-		if (_pendingLaunchInfo is null)
-		{
-			_logger?.Invoke("No pending launch to perform");
-			return;
-		}
-
-		var launchInfo = _pendingLaunchInfo;
-		_pendingLaunchInfo = null;
-
 		var processStartInfo = new ProcessStartInfo
 		{
 			FileName = launchInfo.Program,
@@ -76,7 +63,6 @@ public partial class ManagedDebugger
 
 		var process = Process.Start(processStartInfo);
 		if (process is null) throw new InvalidOperationException("Process start failed");
-		_debuggeeProcess = process;
 
 		process.OutputDataReceived += (_, e) =>
 		{
@@ -93,17 +79,9 @@ public partial class ManagedDebugger
 
 		_logger?.Invoke($"Process created suspended with PID: {processId}");
 
-		_corDebug = await ClrDebugExtensions.Automatic(processId, true);
-		_corDebug.Initialize();
-		_corDebug.SetManagedHandler(_callbacks);
-
-		_process = _corDebug.DebugActiveProcess(processId, false);
-		_isAttached = true;
-		ConfigureExceptionCallbacks();
-
-		_logger?.Invoke($"Successfully attached to process: {processId}");
+		var corDebug = await ClrDebugExtensions.Automatic(processId, resumeDiagnosticSuspension: true);
+		AttachToProcess(corDebug, processId, process);
 		OnProcessStarted?.Invoke(processId, launchInfo.Program);
-		SendAllBreakpointEvents();
 		return;
 
 		// The DataReceived callbacks run on background threads - a throwing subscriber (e.g. a disposed protocol layer) must not crash the adapter
@@ -150,20 +128,19 @@ public partial class ManagedDebugger
 	/// </summary>
 	public void Attach(int processId, bool justMyCode)
 	{
-		EnsureNoProcessBeingDebugged();
+		EnsureSessionNotStarted();
 		_logger?.Invoke($"Storing attach target: {processId}");
 		_justMyCode = justMyCode;
 		_stopAtEntry = false;
-		_pendingAttachProcessId = processId;
+		_session = new SessionState.AttachRequested(processId);
 	}
 
 	public void AttachRemote(RemoteAttachInfo remoteAttachInfo, bool justMyCode)
 	{
-		EnsureNoProcessBeingDebugged();
+		EnsureSessionNotStarted();
 		_justMyCode = justMyCode;
 		_stopAtEntry = false;
-		_pendingRemoteAttachInfo = remoteAttachInfo;
-		_isRemoteAttach = true;
+		_session = new SessionState.RemoteAttachRequested(remoteAttachInfo);
 	}
 
 	/// <summary>
@@ -174,27 +151,25 @@ public partial class ManagedDebugger
 		//System.Diagnostics.Debugger.Launch();
 		_logger?.Invoke("ConfigurationDone");
 
-		if (_pendingLaunchInfo is { LaunchRequestConsoleType: LaunchRequestConsoleType.ExternalTerminal or LaunchRequestConsoleType.IntegratedTerminal })
+		switch (_session)
 		{
-			var launchedProcessId = await Task.Run(() => SendRunInTerminalRequest.Invoke(_pendingLaunchInfo)); // get off the dispatcher thread
-			_pendingLaunchInfo = null;
-			PerformAttach(launchedProcessId);
-			await DiagnosticClientHelper.DiagnosticClientResumeRuntime(launchedProcessId);
-		}
-		else if (_pendingLaunchInfo is not null) // If we have a pending launch, perform it
-		{
-			await PerformLaunch();
-		}
-		else if (_pendingRemoteAttachInfo is not null)
-		{
-			PerformRemoteAttach(_pendingRemoteAttachInfo);
-			_pendingRemoteAttachInfo = null;
-		}
-		// Otherwise check for pending attach
-		else if (_pendingAttachProcessId.HasValue)
-		{
-			PerformAttach(_pendingAttachProcessId.Value);
-			_pendingAttachProcessId = null;
+			case SessionState.LaunchRequested { LaunchInfo: { LaunchRequestConsoleType: LaunchRequestConsoleType.ExternalTerminal or LaunchRequestConsoleType.IntegratedTerminal } launchInfo }:
+				var launchedProcessId = await Task.Run(() => SendRunInTerminalRequest.Invoke(launchInfo)); // get off the dispatcher thread
+				StartAttach(launchedProcessId);
+				await DiagnosticClientHelper.DiagnosticClientResumeRuntime(launchedProcessId);
+				break;
+			case SessionState.LaunchRequested { LaunchInfo: var launchInfo }:
+				await PerformLaunch(launchInfo);
+				break;
+			case SessionState.RemoteAttachRequested { RemoteAttachInfo: var remoteAttachInfo }:
+				PerformRemoteAttach(remoteAttachInfo);
+				break;
+			case SessionState.AttachRequested { ProcessId: var processId }:
+				StartAttach(processId);
+				break;
+			default:
+				_logger?.Invoke($"Nothing to launch or attach to, in session state {_session.GetType().Name}");
+				break;
 		}
 	}
 
@@ -209,22 +184,22 @@ public partial class ManagedDebugger
 
 	private void ContinueWithVariableClearAllowSuperfluousContinue()
 	{
-		Guard.Against.Null(_process);
+		Guard.Against.Null(CorProcess);
 		_variableManager.ClearAndDisposeHandleValues();
 		_frameReferenceManager.Clear();
 
-		var result = _process.TryContinue(false);
+		var result = CorProcess.TryContinue(false);
 		if (result is Cor.CORDBG_E_SUPERFLOUS_CONTINUE) return;
 		Marshal.ThrowExceptionForHR(result);
 	}
 
 	private void ContinueWithVariableClear()
 	{
-		Guard.Against.Null(_process);
+		Guard.Against.Null(CorProcess);
 		_variableManager.ClearAndDisposeHandleValues();
 		_frameReferenceManager.Clear();
 
-		_process.Continue(false);
+		CorProcess.Continue(false);
 	}
 
 	/// <summary>
@@ -233,9 +208,9 @@ public partial class ManagedDebugger
 	public void Pause()
 	{
 		_logger?.Invoke("Pause");
-		Guard.Against.Null(_process);
-		if (_process.IsRunning is false) throw new InvalidOperationException("The process is not running, so it cannot be paused - it has either already stopped or has not finished starting");
-		_process.Stop(0);
+		Guard.Against.Null(CorProcess);
+		if (CorProcess.IsRunning is false) throw new InvalidOperationException("The process is not running, so it cannot be paused - it has either already stopped or has not finished starting");
+		CorProcess.Stop(0);
 		EndStep();
 	}
 
@@ -295,7 +270,7 @@ public partial class ManagedDebugger
 			}
 
 			// Without a process the breakpoint stays unbound until modules load
-			if (_process is not null) TryBindBreakpoint(bp);
+			if (CorProcess is not null) TryBindBreakpoint(bp);
 
 			result.Add(bp);
 		}
@@ -337,7 +312,7 @@ public partial class ManagedDebugger
 				{
 					TryBindFunctionBreakpoint(bp, module);
 				}
-				if (bp.Binding is BreakpointBinding.Unbound) bp.Binding = new BreakpointBinding.Unbound(_process is null
+				if (bp.Binding is BreakpointBinding.Unbound) bp.Binding = new BreakpointBinding.Unbound(CorProcess is null
 					? BreakpointInfo.NotProcessedMessage
 					: $"No functions matching '{request.Name}' were found.");
 			}
@@ -357,7 +332,7 @@ public partial class ManagedDebugger
 	public List<(int id, string name)> GetThreads()
 	{
 		var result = new List<(int, string)>();
-		if (_process is null) return result;
+		if (CorProcess is null) return result;
 
 		try
 		{
@@ -662,17 +637,17 @@ public partial class ManagedDebugger
 	public void Terminate()
 	{
 		_logger?.Invoke("Terminate");
-		if (_process is not null)
+		if (CorProcess is not null)
 		{
 			try
 			{
 				// CORDBG_E_PROCESS_NOT_SYNCHRONIZED is thrown if attempting to terminate a running process. We need to stop it first.
-				if (_process.TryIsRunning(out var isRunning) is Cor.S_OK && isRunning)
+				if (CorProcess.TryIsRunning(out var isRunning) is Cor.S_OK && isRunning)
 				{
-					var stopResult = _process.TryStop(0);
+					var stopResult = CorProcess.TryStop(0);
 					if (stopResult is not (Cor.S_OK or Cor.CORDBG_E_PROCESS_TERMINATED)) _logger?.Invoke($"Error stopping process before terminating it: {stopResult}");
 				}
-				_process.Terminate(0);
+				CorProcess.Terminate(0);
 			}
 			catch (Exception ex)
 			{
@@ -695,9 +670,9 @@ public partial class ManagedDebugger
 		}
 		else
 		{
-			if (_process is not null && _isAttached && _process?.TryIsRunning(out var isRunning) is Cor.S_OK && isRunning)
+			if (CorProcess is { } process && process.TryIsRunning(out var isRunning) is Cor.S_OK && isRunning)
 			{
-				var hResult = _process.TryStop(0);
+				var hResult = process.TryStop(0);
 				if (hResult is not (Cor.S_OK or Cor.CORDBG_E_PROCESS_TERMINATED)) _logger?.Invoke($"Error stopping process during disconnect: {hResult}");
 			}
 			Dispose();
@@ -707,7 +682,7 @@ public partial class ManagedDebugger
 	public async Task<ExceptionInfo> ExceptionInfo(ThreadId threadId)
 	{
 		_logger?.Invoke($"ExceptionInfo for thread {threadId.Value}");
-		var thread = _process!.GetThread(threadId.Value);
+		var thread = CorProcess!.GetThread(threadId.Value);
 		if (thread.TryGetCurrentException(out var currentException) is not Cor.S_OK)
 		{
 			_logger?.Invoke("No current exception");

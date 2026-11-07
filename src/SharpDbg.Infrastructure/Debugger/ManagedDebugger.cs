@@ -14,8 +14,9 @@ namespace SharpDbg.Infrastructure.Debugger;
 // v1 of this class was AI generated, and could definitely do with some cleaning up
 public partial class ManagedDebugger
 {
-	private ICorDebug? _corDebug;
-	private ICorDebugProcess? _process;
+	private SessionState _session = SessionState.NotStarted.Instance;
+	// Null unless a process is being debugged
+	private ICorDebugProcess? CorProcess => _session is SessionState.Debugging debugging ? debugging.Process : null;
 	private readonly CorDebugManagedCallback _callbacks;
 	private readonly BreakpointManager _breakpointManager;
 	private readonly VariableManager _variableManager;
@@ -39,9 +40,6 @@ public partial class ManagedDebugger
 	/// metadata-blocks cache) can detect staleness and rebuild.
 	/// </summary>
 	internal int ModuleSet_Version { get; private set; }
-	private bool _isAttached;
-	private bool _isRemoteAttach;
-	private int? _pendingAttachProcessId;
 	private bool _justMyCode;
 	private bool _stopAtEntry;
 	private EntryBreakpoint? _entryBreakpoint;
@@ -55,8 +53,6 @@ public partial class ManagedDebugger
 	private readonly Dictionary<ThreadId, SharpDbgExceptionBreakMode> _exceptionBreakModes = [];
 	private readonly AsyncStepper _asyncStepper;
 	private CilExpressionEvaluator _expressionEvaluator = null!;
-
-	private Process? _debuggeeProcess;
 
 	public event Action<int, string>? OnStopped;
 	// ThreadId, FilePath, Line, Column, Reason, HitBreakpointIds, DecompiledSourceInfo
@@ -179,13 +175,13 @@ public partial class ManagedDebugger
 				case ExceptionCorDebugManagedCallbackEventArgs a: HandleException(sender, a); break;
 				case Exception2CorDebugManagedCallbackEventArgs a: HandleException2(sender, a); break;
 				case EvalCompleteCorDebugManagedCallbackEventArgs or EvalExceptionCorDebugManagedCallbackEventArgs: break; // don't continue on these, as they are being used for expression evaluation
-				default: _process?.Continue(false); break;
+				default: CorProcess?.Continue(false); break;
 			}
 		}
 		catch (Exception ex)
 		{
 			_logger?.Invoke($"Error handling event {e.GetType().Name}: {ex}");
-			if (_process is not null && _process.TryIsRunning(out var isRunning) is Cor.S_OK && isRunning is false)
+			if (CorProcess is not null && CorProcess.TryIsRunning(out var isRunning) is Cor.S_OK && isRunning is false)
 			{
 				Continue();
 			}
@@ -199,44 +195,77 @@ public partial class ManagedDebugger
 	}
 
 	/// <summary>
-	/// Actually attach to an existing process
+	/// Attach to a local process in the background, returning straight away
 	/// </summary>
-	private void PerformAttach(int processId)
+	/// <remarks>
+	/// The process may have been started with DOTNET_DefaultDiagnosticPortSuspend, and its runtime only starts, and so can only be
+	/// attached to, once something resumes it: the client, after ConfigurationDone returns, or ConfigurationDone itself for a launch in
+	/// a terminal
+	/// </remarks>
+	private void StartAttach(int processId)
 	{
 		_logger?.Invoke($"Attaching to process: {processId}");
-
-		// Initialize the debugger
-		_ = Task.Run(async () =>
+		_session = new SessionState.Attaching(processId);
+		// FinishAttach takes DapRequestAndRuntimeEventLock once attaching via dbgshim is complete. AsyncLock stores its re-entrant lock
+		// state in an AsyncLocal, and Task.Run copies AsyncLocals from the current thread to the task. SuppressFlow stops that copy, so
+		// FinishAttach cannot re-entrantly enter the lock this request holds
+		using (ExecutionContext.SuppressFlow())
 		{
-			_corDebug = await ClrDebugExtensions.Automatic(processId);
-			_corDebug.Initialize();
-			_corDebug.SetManagedHandler(_callbacks);
+			_ = Task.Run(() => FinishAttach(processId));
+		}
+	}
 
-			// Attach to the process
-			_process = _corDebug.DebugActiveProcess(processId, false);
-			_isAttached = true;
-			ConfigureExceptionCallbacks();
+	private async Task FinishAttach(int processId)
+	{
+		try
+		{
+			var corDebug = await ClrDebugExtensions.Automatic(processId);
+			using (await DapRequestAndRuntimeEventLock.LockAsync())
+			{
+				if (_session is not SessionState.Attaching)
+				{
+					_logger?.Invoke($"The session ended before the attach to process {processId} completed");
+					return;
+				}
+				AttachToProcess(corDebug, processId, debuggeeProcess: null);
+			}
+		}
+		catch (Exception ex)
+		{
+			_logger?.Invoke($"Error attaching to process {processId}: {ex}");
+		}
+	}
 
-			_logger?.Invoke($"Attached to process: {processId}");
-			SendAllBreakpointEvents();
-		});
+	/// <param name="debuggeeProcess">The process when the debugger started it</param>
+	private void AttachToProcess(ICorDebug corDebug, int processId, Process? debuggeeProcess)
+	{
+		corDebug.Initialize();
+		corDebug.SetManagedHandler(_callbacks);
+
+		var process = corDebug.DebugActiveProcess(processId, false);
+		_session = new SessionState.Debugging(corDebug, process, debuggeeProcess, IsRemote: false);
+		ConfigureExceptionCallbacks();
+
+		_logger?.Invoke($"Attached to process: {processId}");
+		SendAllBreakpointEvents();
 	}
 
 	private void PerformRemoteAttach(RemoteAttachInfo remoteAttachInfo)
 	{
 		_logger?.Invoke($"Attaching to remote process on {remoteAttachInfo.Address}:{remoteAttachInfo.Port}");
 
-		_corDebug = ClrDebugExtensions.Mobile(remoteAttachInfo);
-		_corDebug.SetManagedHandler(_callbacks);
+		var corDebug = ClrDebugExtensions.Mobile(remoteAttachInfo);
+		corDebug.SetManagedHandler(_callbacks);
 		try
 		{
 			// It is expected that this does not return a ICorDebugProcess in the remote scenario - it is obtained via the CreateProcess callback instead
 			// ClrDebug throws because it does not expect to receive a null pointer
-			_ = _corDebug.DebugActiveProcess(0, false);
+			_ = corDebug.DebugActiveProcess(0, false);
 		} catch { /* */ }
+		_session = new SessionState.WaitingForRemoteDebuggee(corDebug);
 
 		_logger?.Invoke($"Debugger listening on port {remoteAttachInfo.Port}, awaiting connection from debuggee");
-		_ = Task.Run(SendAllBreakpointEvents);
+		SendAllBreakpointEvents();
 	}
 
 	private void SendAllBreakpointEvents()
@@ -250,13 +279,13 @@ public partial class ManagedDebugger
 
 	private void Continue()
 	{
-		Guard.Against.Null(_process);
-		_process.Continue(false);
+		Guard.Against.Null(CorProcess);
+		CorProcess.Continue(false);
 	}
 
 	private void ConfigureExceptionCallbacks()
 	{
-		if (_process is not ICorDebugProcess8 process8) return;
+		if (CorProcess is not ICorDebugProcess8 process8) return;
 		var result = process8.TryEnableExceptionCallbacksOutsideOfMyCode(!_justMyCode);
 		if (result is not Cor.S_OK) _logger?.Invoke($"Unable to configure exception callbacks outside user code: {result}");
 	}
@@ -268,7 +297,7 @@ public partial class ManagedDebugger
 	{
 		try
 		{
-			if (_process is null) return false;
+			if (CorProcess is null) return false;
 
 			// Find the module whose symbols hold the document the path names. Only the best matches are tried, so that a breakpoint
 			// is never bound to a same-named file elsewhere because the file it names has no code at the line
@@ -375,9 +404,18 @@ public partial class ManagedDebugger
 		return wasVerified is false && bp.Verified;
 	}
 
-	private void EnsureNoProcessBeingDebugged()
+	private void EnsureSessionNotStarted()
 	{
-		if (_process is not null) throw new InvalidOperationException("A process is already being debugged, you must terminate/detach first.");
+		switch (_session)
+		{
+			case SessionState.NotStarted: return;
+			case SessionState.LaunchRequested or SessionState.AttachRequested or SessionState.RemoteAttachRequested:
+				throw new InvalidOperationException("A launch or attach has already been requested.");
+			case SessionState.Attaching or SessionState.WaitingForRemoteDebuggee or SessionState.Debugging:
+				throw new InvalidOperationException("A process is already being debugged.");
+			case SessionState.Ended:
+				throw new InvalidOperationException("The debug session has ended, so this debugger cannot debug another process.");
+		}
 	}
 
 	private ICorDebugFunctionBreakpoint? TryGetEntryBreakpoint(CORDB_ADDRESS moduleBaseAddress, int methodToken, int ilOffset)
@@ -398,7 +436,7 @@ public partial class ManagedDebugger
 	internal ICorDebugFrame GetFrameForThreadIdAndStackDepth(ThreadId threadId, FrameStackDepth stackDepth)
 	{
 		// We need to re-obtain the frame in case it has been neutered
-		var thread = _process!.GetThread(threadId.Value);
+		var thread = CorProcess!.GetThread(threadId.Value);
 		var frame = EnumerateFramesForThread(thread).ElementAt(stackDepth.Value);
 		return frame;
 	}
@@ -420,7 +458,7 @@ public partial class ManagedDebugger
 
 	internal ICorDebugValue? GetCurrentException(ThreadId threadId)
 	{
-		var thread = _process?.GetThread(threadId.Value);
+		var thread = CorProcess?.GetThread(threadId.Value);
 		if (thread is null) return null;
 		thread.TryGetCurrentException(out var currentException);
 		return currentException;
@@ -429,7 +467,13 @@ public partial class ManagedDebugger
 	// Not intended to implement IDisposable - it is intended that this is called via Disconnect()
 	private void Dispose()
 	{
-		if (_process is null) return; // A client may call Terminate, then Disconnect, both of which call Dispose. Dispose only needs to be run once.
+		// A client may call Terminate, then Disconnect, both of which call Dispose. Dispose only needs to be run once.
+		if (_session is not SessionState.Debugging debugging)
+		{
+			// An attach that completes, or a remote debuggee that connects, from now on is ignored
+			if (_session is SessionState.Attaching or SessionState.WaitingForRemoteDebuggee) _session = SessionState.Ended.Instance;
+			return;
+		}
 
 		// Dispose modules, which releases PDB files
 		foreach (var moduleInfo in _modules.Values)
@@ -476,14 +520,9 @@ public partial class ManagedDebugger
 		while (_runtimeEventChannel.Reader.TryRead(out _)) { }
 
 		// Detach from the process
-		_process?.TryDetach();
-
-		_isAttached = false;
-		_process = null;
-		_corDebug = null;
-
-		_debuggeeProcess?.Dispose();
-		_debuggeeProcess = null;
+		debugging.Process.TryDetach();
+		debugging.DebuggeeProcess?.Dispose();
+		_session = SessionState.Ended.Instance;
 	}
 
 	private sealed class ExceptionPropagationState

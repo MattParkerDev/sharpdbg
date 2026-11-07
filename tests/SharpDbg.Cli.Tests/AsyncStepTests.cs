@@ -250,4 +250,38 @@ public class AsyncStepTests(ITestOutputHelper testOutputHelper)
 		var firstStatement = await debugProtocolHost.WithStepOverRequest(methodStart.ThreadId!.Value).WaitForStoppedEvent();
 		firstStatement.ReadStopInfo().line.Should().Be(16);
 	}
+
+	// A 'break' jumps over the loop's own MoveNextAsync await to the hidden DisposeAsync, whose await yields: the step is carried across
+	// that await to the statement after the loop, not into the enumerator's finally or the framework code that resumes it
+	[Theory]
+	[InlineData(true)]
+	[InlineData(false)]
+	public async Task SharpDbgCli_StepOverRequest_OfBreakInAwaitForeach_StopsAfterTheLoop(bool justMyCode)
+	{
+		var startSuspended = true;
+		var (debugProtocolHost, adapter, p2) = TestHelper.GetRunningDebugProtocolHost(testOutputHelper, startSuspended);
+		using var _ = adapter;
+		using var __ = new ProcessKiller(p2);
+		using var ___ = debugProtocolHost;
+
+		var filePath = Path.JoinFromGitRoot("tests", "DebuggableConsoleApp", "AsyncForeachBreakClass.cs");
+		await debugProtocolHost
+			.WithInitializeRequest()
+			.WithAttachRequest(p2.Id, justMyCode)
+			.WaitForInitializedEvent();
+		debugProtocolHost
+			.WithBreakpointsRequest(11, filePath)
+			.WithConfigurationDoneRequest()
+			.WithOptionalResumeRuntime(p2.Id, startSuspended);
+
+		var breakStop = await debugProtocolHost.WaitForStoppedEvent();
+		breakStop.ReadStopInfo().line.Should().Be(11);
+		debugProtocolHost.WithClearBreakpointsRequest(filePath);
+
+		var afterLoop = await debugProtocolHost.WithStepOverRequest(breakStop.ThreadId!.Value).WaitForStoppedEvent();
+		afterLoop.Reason.Should().Be(StoppedEvent.ReasonValue.Step);
+		var afterLoopInfo = afterLoop.ReadStopInfo();
+		afterLoopInfo.filePath.Should().EndWith("AsyncForeachBreakClass.cs");
+		afterLoopInfo.line.Should().Be(13);
+	}
 }

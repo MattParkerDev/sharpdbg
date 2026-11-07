@@ -52,6 +52,7 @@ public static class Program
 			AsyncStackTraceClass.TestAsync().GetAwaiter().GetResult();
 			AsyncStepOutClass.TestAsync().GetAwaiter().GetResult();
 			AsyncUnawaitedTaskClass.TestAsync().GetAwaiter().GetResult();
+			AsyncForeachBreakClass.TestAsync().GetAwaiter().GetResult();
 			Thread.Sleep(100);
 			//await Task.Delay(500);
 		}

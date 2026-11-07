@@ -445,8 +445,8 @@ public partial class ManagedDebugger
 			.FirstOrDefault(frame => frame.Function.Module.BaseAddress == moduleAddress && frame.Function.Token == kickoffMethodToken);
 
 	/// <summary>
-	/// Back in the caller of an async method that had not yielded: if the rest of the current statement awaits, step over it, crossing
-	/// the await, rather than stopping part way through the statement
+	/// Back in the caller of an async method that had not yielded, or on a hidden sequence point: if the code before the next visible
+	/// sequence point awaits, step over it, crossing the await, rather than stopping part way through the statement
 	/// </summary>
 	private async Task<bool> TryFinishAwaitingStatement(ICorDebugThread thread)
 	{

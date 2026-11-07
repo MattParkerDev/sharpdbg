@@ -435,6 +435,13 @@ public partial class ManagedDebugger
 		{
 			// Skip hidden sequence points so source lookup does not report
 			// the preceding visible line as the step destination.
+			// Hidden code can await (e.g. the DisposeAsync of an 'await foreach' that a 'break' jumps to): carry the step across that
+			// await, rather than the next one in IL order that the step set out with
+			if (await TryFinishAwaitingStatement(corThread))
+			{
+				ContinueWithVariableClear();
+				return;
+			}
 			SetupStepper(corThread, AsyncStepper.StepType.StepOver);
 			ContinueWithVariableClear();
 			return;

@@ -241,9 +241,7 @@ public partial class ManagedDebugger
 			_entryBreakpoint = null;
 			_stopAtEntry = false;
 			EndStep();
-			var sourceInfo = GetSourceInfoAtFrame(corThread.ActiveFrame, _justMyCode is false);
-			if (sourceInfo is null) OnStopped?.Invoke(corThread.Id, "entry");
-			else OnStopped2?.Invoke(corThread.Id, sourceInfo.Value.FilePath, sourceInfo.Value.StartLine, sourceInfo.Value.StartColumn, "entry", null);
+			ReportStopAtActiveFrame(corThread, "entry");
 			return;
 		}
 
@@ -293,15 +291,13 @@ public partial class ManagedDebugger
 		var firstHitBreakpoint = hitBreakpoints[0];
 		if (firstHitBreakpoint.IsFunctionBreakpoint)
 		{
-			var sourceInfo = GetSourceInfoAtFrame(corThread.ActiveFrame, _justMyCode is false);
 			// There exists a 'function breakpoint' type, but netcoredbg et al do not use it, so lets just use 'breakpoint'
-			if (sourceInfo is null) OnStopped?.Invoke(corThread.Id, "breakpoint");
-			else OnStopped2?.Invoke(corThread.Id, sourceInfo.Value.FilePath, sourceInfo.Value.StartLine, sourceInfo.Value.StartColumn, "breakpoint", hitBreakpointIds);
+			ReportStopAtActiveFrame(corThread, "breakpoint", hitBreakpointIds);
 			return;
 		}
 
 		if (firstHitBreakpoint.Binding is not BreakpointBinding.SourceBound { Resolved: var resolvedBreakpoint }) throw new UnreachableException("A source breakpoint was hit while not bound - this should never happen, as only bound breakpoints are found by their runtime breakpoint");
-		OnStopped2?.Invoke(corThread.Id, firstHitBreakpoint.FilePath, resolvedBreakpoint.StartLine, resolvedBreakpoint.StartColumn, "breakpoint", hitBreakpointIds);
+		ReportStop(corThread.Id, "breakpoint", (firstHitBreakpoint.FilePath, resolvedBreakpoint.StartLine, resolvedBreakpoint.StartColumn), hitBreakpointIds);
 	}
 
 	private void TryBindEntryBreakpoint(ModuleInfo moduleInfo)
@@ -410,19 +406,21 @@ public partial class ManagedDebugger
 			}
 		}
 
-		var sourceFilePath = sourceInfo.Value.FilePath;
-		var line = sourceInfo.Value.StartLine;
-		var column = sourceInfo.Value.StartColumn;
 		//_logger?.Invoke($"StepComplete: method 0x{ilFrame.Function.Token} IL offset {ilFrame.IP.pnOffset}, reason: {stepCompleteEventArgs.Reason}");
-		OnStopped2?.Invoke(corThread.Id, sourceFilePath, line, column, "step", null);
+		ReportStop(corThread.Id, "step", (sourceInfo.Value.FilePath, sourceInfo.Value.StartLine, sourceInfo.Value.StartColumn));
 	}
 
 	private void HandleBreak(object? sender, BreakCorDebugManagedCallbackEventArgs breakEventArgs)
 	{
+		// A Debugger.Break in code run by an evaluation, e.g. a property getter, does not stop: the evaluation carries on
+		if (EvalStatus.IsRunning)
+		{
+			Continue();
+			return;
+		}
 		var corThread = breakEventArgs.Thread;
 		EndStep();
-
-		OnStopped?.Invoke(corThread.Id, "pause");
+		ReportStop(corThread.Id, "pause");
 	}
 
 	private void HandleException(object? sender, ExceptionCorDebugManagedCallbackEventArgs exceptionEventArgs)
@@ -499,7 +497,7 @@ public partial class ManagedDebugger
 		}
 		EndStep();
 		_exceptionBreakModes[threadId] = breakMode;
-		OnStopped?.Invoke(corThread.Id, "exception");
+		ReportStop(corThread.Id, "exception");
 	}
 
 	private static string GetCurrentExceptionType(ICorDebugThread thread)

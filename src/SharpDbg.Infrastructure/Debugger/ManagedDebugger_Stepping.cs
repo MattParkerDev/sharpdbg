@@ -40,13 +40,18 @@ public partial class ManagedDebugger
 	/// </summary>
 	private async Task StartUserStep(int threadId, StepType stepType)
 	{
+		if (_run is not RunState.Stopped)
+		{
+			_logger?.Invoke("Ignoring the step, as the debuggee is not stopped");
+			return;
+		}
 		if (_threads.TryGetValue(threadId, out var threadInfo) is false) return;
 		var thread = threadInfo.Thread;
 		if (thread.ActiveFrame is not ICorDebugILFrame) throw new InvalidOperationException("Active frame is not an IL frame");
 		if (_step is not StepState.Idle) throw new InvalidOperationException("A step operation is already in progress");
 
 		StartStep(await _asyncStepper.TryCreateAsyncStep(thread, stepType) ?? new StepState.Simple(CreateStepper(thread, stepType)));
-		ContinueWithVariableClear();
+		ContinueFromStop();
 	}
 
 	/// <summary>
@@ -63,9 +68,7 @@ public partial class ManagedDebugger
 				if (thread.Id != runToStart.ThreadId) break;
 				EndStep();
 				if (TrySetupStepToFirstLine(thread)) break;
-				var sourceInfo = GetSourceInfoAtFrame(thread.ActiveFrame, _justMyCode is false);
-				if (sourceInfo is null) OnStopped?.Invoke(thread.Id, "step");
-				else OnStopped2?.Invoke(thread.Id, sourceInfo.Value.FilePath, sourceInfo.Value.StartLine, sourceInfo.Value.StartColumn, "step", null);
+				ReportStopAtActiveFrame(thread, "step");
 				return true;
 			}
 			case StepState.AwaitingYield awaitingYield when awaitingYield.YieldBreakpoint == breakpoint:

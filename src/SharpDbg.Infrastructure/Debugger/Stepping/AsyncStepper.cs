@@ -72,7 +72,7 @@ public class AsyncStepper
 		{
 			// async void method: no task to wait for, so the step-out returns to the method's synchronous caller if there still is
 			// one. Once the method has resumed after an await, the thread pool called it, and there is no task for anyone to await,
-			// so there is nothing to return to: the step runs free, as in vsdbg and ReSharper, rather than stopping in thread pool
+			// so there is nothing to return to: the step runs free, rather than stopping in thread pool
 			// code or in whichever unrelated continuation that thread runs next
 			if (kickoffMethodToken is 0) return null;
 			return _debugger.TryCreateStepOutBeforeFirstYield(thread, moduleAddress, kickoffMethodToken) ?? StepState.Idle.Instance;

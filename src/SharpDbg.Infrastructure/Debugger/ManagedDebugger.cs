@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Runtime.InteropServices;
 using System.Threading.Channels;
 using Ardalis.GuardClauses;
 using ICorDebugSharp;
@@ -17,6 +18,7 @@ public partial class ManagedDebugger
 	private SessionState _session = SessionState.NotStarted.Instance;
 	// Null unless a process is being debugged
 	private ICorDebugProcess? CorProcess => _session is SessionState.Debugging debugging ? debugging.Process : null;
+	private RunState _run = RunState.Running.Instance;
 	private readonly CorDebugManagedCallback _callbacks;
 	private readonly BreakpointManager _breakpointManager;
 	private readonly VariableManager _variableManager;
@@ -157,6 +159,7 @@ public partial class ManagedDebugger
 
 	private async Task OnAnyEvent(object? sender, CorDebugManagedCallbackEventArgs e)
 	{
+		var runBeforeEvent = _run;
 		try
 		{
 			_logger?.Invoke($"Event: {e.GetType().Name}");
@@ -181,6 +184,9 @@ public partial class ManagedDebugger
 		catch (Exception ex)
 		{
 			_logger?.Invoke($"Error handling event {e.GetType().Name}: {ex}");
+			// A stop reported while handling this event (each report is a new Stopped) keeps the debuggee stopped, even though it failed
+			// after the report, e.g. in an event subscriber
+			if (_run is RunState.Stopped && ReferenceEquals(_run, runBeforeEvent) is false) return;
 			if (CorProcess is not null && CorProcess.TryIsRunning(out var isRunning) is Cor.S_OK && isRunning is false)
 			{
 				Continue();
@@ -281,6 +287,45 @@ public partial class ManagedDebugger
 	{
 		Guard.Against.Null(CorProcess);
 		CorProcess.Continue(false);
+	}
+
+	/// <summary>
+	/// Tell the client the debuggee has stopped. Every stop is reported through here
+	/// </summary>
+	/// <param name="location">Where the thread stopped, when known</param>
+	private void ReportStop(int threadId, string reason, (string FilePath, int Line, int Column)? location = null, List<int>? hitBreakpointIds = null)
+	{
+		_run = new RunState.Stopped(threadId, reason);
+		if (location is var (filePath, line, column)) OnStopped2?.Invoke(threadId, filePath, line, column, reason, hitBreakpointIds);
+		else OnStopped?.Invoke(threadId, reason);
+	}
+
+	/// <summary>
+	/// Tell the client the thread has stopped, at the location of its active frame
+	/// </summary>
+	private void ReportStopAtActiveFrame(ICorDebugThread thread, string reason, List<int>? hitBreakpointIds = null)
+	{
+		var sourceInfo = GetSourceInfoAtFrame(thread.ActiveFrame, _justMyCode is false);
+		ReportStop(thread.Id, reason, sourceInfo is { } source ? (source.FilePath, source.StartLine, source.StartColumn) : null, sourceInfo is null ? null : hitBreakpointIds);
+	}
+
+	/// <summary>
+	/// Continue from a stop reported to the client. The stop's variable and frame references are no longer valid
+	/// </summary>
+	private void ContinueFromStop()
+	{
+		if (_run is not RunState.Stopped) throw new InvalidOperationException("The debuggee is not stopped");
+		Guard.Against.Null(CorProcess);
+		_variableManager.ClearAndDisposeHandleValues();
+		_frameReferenceManager.Clear();
+
+		// The runtime counts stops, and only reports a superfluous continue when the count is zero, i.e. the process is already running.
+		// The stop was undone without the client being told, e.g. by an evaluation that could not be aborted, so the debuggee is
+		// running and the continue has nothing to do
+		var result = CorProcess.TryContinue(false);
+		if (result is Cor.CORDBG_E_SUPERFLOUS_CONTINUE) _logger?.Invoke("The debuggee was reported stopped, but was already running");
+		else Marshal.ThrowExceptionForHR(result);
+		_run = RunState.Running.Instance;
 	}
 
 	private void ConfigureExceptionCallbacks()

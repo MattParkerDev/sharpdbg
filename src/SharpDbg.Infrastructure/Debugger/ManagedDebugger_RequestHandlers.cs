@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using System.Runtime.InteropServices;
 using System.Text;
 using Ardalis.GuardClauses;
 using ICorDebugSharp;
@@ -179,18 +178,12 @@ public partial class ManagedDebugger
 	public void HandleContinueRequest()
 	{
 		_logger?.Invoke("Continue");
-		ContinueWithVariableClearAllowSuperfluousContinue();
-	}
-
-	private void ContinueWithVariableClearAllowSuperfluousContinue()
-	{
-		Guard.Against.Null(CorProcess);
-		_variableManager.ClearAndDisposeHandleValues();
-		_frameReferenceManager.Clear();
-
-		var result = CorProcess.TryContinue(false);
-		if (result is Cor.CORDBG_E_SUPERFLOUS_CONTINUE) return;
-		Marshal.ThrowExceptionForHR(result);
+		if (_run is not RunState.Stopped)
+		{
+			_logger?.Invoke("Ignoring the continue, as the debuggee is not stopped");
+			return;
+		}
+		ContinueFromStop();
 	}
 
 	private void ContinueWithVariableClear()
@@ -203,15 +196,26 @@ public partial class ManagedDebugger
 	}
 
 	/// <summary>
-	/// Pause execution
+	/// Pause execution, reporting the stop on the main thread
 	/// </summary>
+	/// <remarks>
+	/// The thread the client names is ignored, as all threads stop, and a pause while stopped is ignored
+	/// </remarks>
 	public void Pause()
 	{
 		_logger?.Invoke("Pause");
-		Guard.Against.Null(CorProcess);
-		if (CorProcess.IsRunning is false) throw new InvalidOperationException("The process is not running, so it cannot be paused - it has either already stopped or has not finished starting");
+		if (CorProcess is null) throw new InvalidOperationException("There is no process to pause, as it has not finished starting");
+		if (_run is RunState.Stopped)
+		{
+			_logger?.Invoke("Ignoring the pause, as the debuggee is already stopped");
+			return;
+		}
+		var threadId = _mainThreadId is { } mainThreadId && _threads.ContainsKey(mainThreadId) ? mainThreadId
+			: _threads.Count is not 0 ? _threads.Keys.First()
+			: throw new InvalidOperationException("There is no thread to pause, as the process has not finished starting");
 		CorProcess.Stop(0);
 		EndStep();
+		ReportStop(threadId, "pause");
 	}
 
 	/// <summary>

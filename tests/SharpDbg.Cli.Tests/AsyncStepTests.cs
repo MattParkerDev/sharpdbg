@@ -133,7 +133,7 @@ public class AsyncStepTests(ITestOutputHelper testOutputHelper)
 	}
 
 	// Once an async void method has resumed after an await, the thread pool called it: leaving it has no caller to stop in, so the
-	// step runs free (as in vsdbg and ReSharper) and the next stop is the breakpoint in the program's next loop iteration
+	// step runs free and the next stop is the breakpoint in the program's next loop iteration
 	[Theory]
 	[InlineData(true)]
 	[InlineData(false)]

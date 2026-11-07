@@ -261,12 +261,8 @@ public partial class ManagedDebugger
 
 		var corDebug = ClrDebugExtensions.Mobile(remoteAttachInfo);
 		corDebug.SetManagedHandler(_callbacks);
-		try
-		{
-			// It is expected that this does not return a ICorDebugProcess in the remote scenario - it is obtained via the CreateProcess callback instead
-			// ClrDebug throws because it does not expect to receive a null pointer
-			_ = corDebug.DebugActiveProcess(0, false);
-		} catch { /* */ }
+		// It is expected that this does not return a ICorDebugProcess in the remote scenario - it is obtained via the CreateProcess callback instead
+		_ = corDebug.TryDebugActiveProcess(0, false, out _);
 		_session = new SessionState.WaitingForRemoteDebuggee(corDebug);
 
 		_logger?.Invoke($"Debugger listening on port {remoteAttachInfo.Port}, awaiting connection from debuggee");

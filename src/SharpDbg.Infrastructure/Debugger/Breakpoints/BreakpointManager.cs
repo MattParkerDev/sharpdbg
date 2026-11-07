@@ -125,7 +125,7 @@ public class BreakpointManager
 	}
 
 	/// <summary>
-	/// Find breakpoint by ClrDebug breakpoint
+	/// Find breakpoint by ICorDebug breakpoint
 	/// </summary>
 	public BreakpointInfo? FindByCorBreakpoint(ICorDebugFunctionBreakpoint corBreakpoint)
 	{
@@ -136,7 +136,7 @@ public class BreakpointManager
 	}
 
 	/// <summary>
-	/// Find all breakpoints sharing a ClrDebug breakpoint, in the order they were created
+	/// Find all breakpoints sharing an ICorDebug breakpoint, in the order they were created
 	/// </summary>
 	public List<BreakpointInfo> FindAllByCorBreakpoint(ICorDebugFunctionBreakpoint corBreakpoint)
 	{
@@ -150,7 +150,7 @@ public class BreakpointManager
 	}
 
 	/// <summary>
-	/// The ClrDebug breakpoint of a source breakpoint already bound to this location, if any
+	/// The ICorDebug breakpoint of a source breakpoint already bound to this location, if any
 	/// </summary>
 	public ICorDebugFunctionBreakpoint? FindSourceCorBreakpointAt(CORDB_ADDRESS moduleBaseAddress, int methodToken, int ilOffset)
 	{

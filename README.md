@@ -2,7 +2,7 @@
 
 An open source, cross platform .NET debugger implementing the VS Code Debug Adapter Protocol (DAP), completely written in C#!
 
-SharpDbg uses the [ClrDebug](https://github.com/lordmilko/ClrDebug) managed wrapper around the ICorDebug APIs.
+SharpDbg uses [ICorDebugSharp](https://github.com/MattParkerDev/ICorDebugSharp), a managed wrapper around the ICorDebug APIs.
 
 ## Usage
 
@@ -58,7 +58,7 @@ SharpDbg is organized into three main components:
 ┌────────────────────────────▼────────────────────────────┐
 │              SharpDbg.Infrastructure                    │
 │  • Core debugger engine (ManagedDebugger)               │
-│  • ICorDebug API wrapper (ClrDebug)                     │
+│  • ICorDebug API wrapper (ICorDebugSharp)               │
 │  • Breakpoint and variable management                   │
 │  • Expression evaluator (compiler + interpreter)        │
 └─────────────────────────────────────────────────────────┘
@@ -95,6 +95,6 @@ This will produce the debug adapter executable at `artifacts/bin/SharpDbg.Cli/De
 
 ## References
 
-- **[ClrDebug](https://github.com/lordmilko/ClrDebug)** - Managed wrappers around the ICorDebug API
+- **[ICorDebugSharp](https://github.com/MattParkerDev/ICorDebugSharp)** - Managed wrappers around the ICorDebug API
 - **[netcoredbg](https://github.com/Samsung/netcoredbg)** - .NET debugger, written in C++
 - **[debug-adapter-protocol](https://github.com/microsoft/debug-adapter-protocol)** - Microsoft's VS Code Debug Adapter Protocol

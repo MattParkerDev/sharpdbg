@@ -750,15 +750,7 @@ public class DebugAdapter : IDapRequestHandler
 			FullTypeName = details.FullTypeName,
 			EvaluateName = details.EvaluateName,
 			StackTrace = details.StackTrace,
-			InnerException = details.InnerException.Select(inner => new ExceptionDetails
-			{
-				Message = inner.Message,
-				TypeName = inner.TypeName,
-				FullTypeName = inner.FullTypeName,
-				EvaluateName = inner.EvaluateName,
-				StackTrace = inner.StackTrace,
-				InnerException = [] // Only support one level of inner exceptions for now
-			}).ToList(),
+			InnerException = details.InnerException is [] ? null : details.InnerException.Select(ToProtocolExceptionDetails).ToList(),
 			AdditionalProperties = additionalProperties
 		};
 	}

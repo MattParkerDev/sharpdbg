@@ -75,7 +75,7 @@ public class ExceptionTests(ITestOutputHelper testOutputHelper)
 				FullTypeName = "System.InvalidOperationException",
 				EvaluateName = "$exception",
 				StackTrace = $"   at DebuggableConsoleApp.Exceptions.Test(ExceptionToThrow exceptionToThrow) in {breakpointedFilePath}:line 14",
-				InnerException = []
+				InnerException = null
 			}
 		};
 
@@ -161,7 +161,7 @@ public class ExceptionTests(ITestOutputHelper testOutputHelper)
 				FullTypeName = "System.FormatException",
 				EvaluateName = "$exception",
 				StackTrace = expectedStackTrace,
-				InnerException = []
+				InnerException = null
 			}
 		};
 
@@ -173,7 +173,7 @@ public class ExceptionTests(ITestOutputHelper testOutputHelper)
 		// Now we should land on the catch block
 		var stoppedEvent3 = await debugProtocolHost.WithStepOverRequest(stoppedEvent2.ThreadId!.Value).WaitForStoppedEvent();
 		var stopInfo3 = stoppedEvent3.ReadStopInfo();
-		stopInfo3.Should().Be((breakpointedFilePath, 32, 3));
+		stopInfo3.Should().Be((breakpointedFilePath, 37, 3));
 	}
 
 	[Fact]
@@ -288,6 +288,32 @@ public class ExceptionTests(ITestOutputHelper testOutputHelper)
 		return AssertAllExceptionsCondition(condition, expectExceptionStop);
 	}
 
+	[Fact]
+	public async Task ExceptionInfo_WrappedException_ReportsInnerExceptionChain()
+	{
+		var exceptionInfo = await AssertBreaksOnException(
+			new SetExceptionBreakpointsArguments { Filters = [], FilterOptions = [new ExceptionFilterOptions { FilterId = "all", Condition = "System.InvalidOperationException" }] },
+			exceptionToThrow: "Inner",
+			justMyCode: true,
+			expectedExceptionType: "System.InvalidOperationException",
+			expectedBreakMode: ExceptionBreakMode.Always);
+
+		exceptionInfo.Description.Should().Be("Exception thrown: 'System.InvalidOperationException' in DebuggableConsoleApp.dll: 'Outer exception'\n Inner exceptions found, see $exception in variables window for more details.\n Innermost exception \t System.Exception : Innermost exception");
+		exceptionInfo.Details!.Message.Should().Be("Outer exception");
+
+		var inner = exceptionInfo.Details.InnerException.Should().ContainSingle().Subject;
+		inner.FullTypeName.Should().Be("System.FormatException");
+		inner.TypeName.Should().Be("FormatException");
+		inner.Message.Should().Be("Inner exception");
+		inner.EvaluateName.Should().Be("$exception");
+		inner.ShouldHaveVisualStudioExceptionDetails("**System.FormatException:** 'Inner exception'", -2146233033, "DebuggableConsoleApp");
+
+		var innermost = inner.InnerException.Should().ContainSingle().Subject;
+		innermost.FullTypeName.Should().Be("System.Exception");
+		innermost.Message.Should().Be("Innermost exception");
+		innermost.InnerException.Should().BeNull();
+	}
+
 	private Task AssertAllExceptionsCondition(string condition, bool expectExceptionStop)
 	{
 		var request = new SetExceptionBreakpointsArguments
@@ -301,7 +327,7 @@ public class ExceptionTests(ITestOutputHelper testOutputHelper)
 			: AssertContinuesWithoutExceptionStop(request, exceptionToThrow: "Normal", justMyCode: true);
 	}
 
-	private async Task AssertBreaksOnException(
+	private async Task<ExceptionInfoResponse> AssertBreaksOnException(
 		SetExceptionBreakpointsArguments exceptionBreakpointsRequest,
 		string exceptionToThrow,
 		bool justMyCode,
@@ -348,6 +374,7 @@ public class ExceptionTests(ITestOutputHelper testOutputHelper)
 		var exceptionInfo = debugProtocolHost.SendRequestSync(new ExceptionInfoArguments { ThreadId = exceptionStop.ThreadId!.Value });
 		exceptionInfo.Details!.FullTypeName.Should().Be(expectedExceptionType);
 		exceptionInfo.BreakMode.Should().Be(expectedBreakMode);
+		return exceptionInfo;
 	}
 
 	private async Task AssertContinuesWithoutExceptionStop(

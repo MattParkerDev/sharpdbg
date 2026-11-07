@@ -27,9 +27,6 @@ public partial class ManagedDebugger
 		}
 	}
 
-	/// <summary>
-	/// Matches vsdbg: a condition that cannot be evaluated stops at the breakpoint, and says why in the output and on the breakpoint
-	/// </summary>
 	private void ReportBreakpointConditionError(BreakpointManager.BreakpointInfo breakpoint, string error)
 	{
 		var message = $"The condition for a breakpoint failed to execute. The condition was '{breakpoint.Condition}'. The error returned was '{error}'.";

@@ -28,6 +28,11 @@ public static class Exceptions
 				// List.Sort catches the comparer exception in library code before propagating a wrapper to user code.
 				numbers.Sort((_, _) => throw new InvalidOperationException("User-unhandled test exception"));
 			}
+			else if (exceptionToThrow is ExceptionToThrow.Inner)
+			{
+				try { try { throw new Exception("Innermost exception"); } catch (Exception innermost) { throw new FormatException("Inner exception", innermost); } }
+				catch (Exception inner) { throw new InvalidOperationException("Outer exception", inner); }
+			}
 		}
 		catch (Exception e)
 		{
@@ -43,4 +48,5 @@ public enum ExceptionToThrow
 	ExternalCode,
 	HandledWithinExternalCode,
 	UserUnhandled,
+	Inner,
 }

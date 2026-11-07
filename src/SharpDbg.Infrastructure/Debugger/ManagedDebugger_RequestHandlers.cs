@@ -781,44 +781,79 @@ public partial class ManagedDebugger
 		}
 
 		var frameStackDepth = new FrameStackDepth(0);
-		var (friendlyTypeName, _, _, _) = await GetValueForCorDebugValueAsync(currentException, threadId, frameStackDepth, false);
+		var details = await GetExceptionDetails(currentException, 0);
 
-		var hResult = await GetExceptionPropertyValue("HResult");
-		var source = await GetExceptionPropertyValue("Source");
-		var message = await GetExceptionPropertyValue("Message");
-		var stackTrace = await GetExceptionPropertyValue("StackTrace");
-
-		var typeNameSpan = friendlyTypeName.AsSpan();
-		var lastDot = typeNameSpan.LastIndexOf('.');
-		var exceptionTypeNameNoNamespace = lastDot is not -1
-			? typeNameSpan[(lastDot + 1)..].ToString()
-			: friendlyTypeName;
+		var description = $"Exception thrown: '{details.FullTypeName}' in {details.Source}.dll: '{details.Message}'";
+		if (details.InnerException is [var firstInner])
+		{
+			var innermost = firstInner;
+			while (innermost.InnerException is [var next]) innermost = next;
+			description += $"\n Inner exceptions found, see $exception in variables window for more details.\n Innermost exception \t {innermost.FullTypeName} : {innermost.Message}";
+		}
 
 		var exceptionInfo = new ExceptionInfo
 		{
-			ExceptionId = $"CLR/{friendlyTypeName}",
-			Description = $"Exception thrown: '{friendlyTypeName}' in {source}.dll: '{message}'",
+			ExceptionId = $"CLR/{details.FullTypeName}",
+			Description = description,
 			BreakMode = _exceptionBreakModes.GetValueOrDefault(threadId, SharpDbgExceptionBreakMode.Unknown),
 			Code = 0,
-			Details = new ExceptionInfo.ExceptionDetails
+			Details = details
+		};
+		return exceptionInfo;
+
+		async Task<ExceptionInfo.ExceptionDetails> GetExceptionDetails(ICorDebugValue exception, int depth)
+		{
+			var (friendlyTypeName, _, _, _) = await GetValueForCorDebugValueAsync(exception, threadId, frameStackDepth, false);
+
+			var hResult = await GetExceptionPropertyValue(exception, "HResult");
+			var source = await GetExceptionPropertyValue(exception, "Source");
+			var message = await GetExceptionPropertyValue(exception, "Message");
+			var stackTrace = await GetExceptionPropertyValue(exception, "StackTrace");
+
+			var typeNameSpan = friendlyTypeName.AsSpan();
+			var lastDot = typeNameSpan.LastIndexOf('.');
+			var exceptionTypeNameNoNamespace = lastDot is not -1
+				? typeNameSpan[(lastDot + 1)..].ToString()
+				: friendlyTypeName;
+
+			// Each level nests the next, as ExceptionDetails is recursive. The depth limit guards against a chain made cyclic via reflection
+			List<ExceptionInfo.ExceptionDetails> innerException = [];
+			if (depth < MaxInnerExceptionDepth)
+			{
+				var innerValue = await GetExceptionProperty(exception, "InnerException");
+				try
+				{
+					if (innerValue is not ICorDebugReferenceValue { IsNull: true }) innerException.Add(await GetExceptionDetails(innerValue, depth + 1));
+				}
+				finally
+				{
+					if (innerValue is ICorDebugHandleValue handle) handle.TryDispose();
+				}
+			}
+
+			return new ExceptionInfo.ExceptionDetails
 			{
 				Message = message,
 				TypeName = exceptionTypeNameNoNamespace,
 				FullTypeName = friendlyTypeName,
 				EvaluateName = "$exception",
 				StackTrace = stackTrace,
-				InnerException = [],
+				InnerException = innerException,
 				FormattedDescription = $"**{friendlyTypeName}:** '{message}'",
 				HResult = int.Parse(hResult),
 				Source = source
-			}
-		};
-		return exceptionInfo;
+			};
+		}
 
-		async Task<string> GetExceptionPropertyValue(string propertyName)
+		async Task<ICorDebugValue> GetExceptionProperty(ICorDebugValue exception, string propertyName)
 		{
-			var propertyValue = await currentException.GetPropertyValue(ProcessRuntimeEventsUntilEvalEvent, EvalStatus, (ICorDebugILFrame)thread.ActiveFrame, propertyName)
+			return await exception.GetPropertyValue(ProcessRuntimeEventsUntilEvalEvent, EvalStatus, (ICorDebugILFrame)thread.ActiveFrame, propertyName)
 				?? throw new InvalidOperationException($"Exception property '{propertyName}' returned no value");
+		}
+
+		async Task<string> GetExceptionPropertyValue(ICorDebugValue exception, string propertyName)
+		{
+			var propertyValue = await GetExceptionProperty(exception, propertyName);
 			try
 			{
 				var (_, value, _, _) = await GetValueForCorDebugValueAsync(propertyValue, threadId, frameStackDepth, false);
@@ -830,6 +865,8 @@ public partial class ManagedDebugger
 			}
 		}
 	}
+
+	private const int MaxInnerExceptionDepth = 20;
 
 	public void SetExceptionBreakpoints(IReadOnlyList<SharpDbgExceptionBreakpointRequest> breakpoints)
 	{

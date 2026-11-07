@@ -227,8 +227,12 @@ public partial class ManagedDebugger
 			}
 			// Inversely, if the stepper is still Active, ie incomplete, it means the breakpoint occurred before the step destination, and therefore should override/disable/abandon the step, and we should stop at the breakpoint.
 			// Example: stepping over a method, with a breakpoint inside the method.
-			_stepper.Deactivate();
-			_stepper = null;
+			// A user breakpoint only abandons the step once we know we stop: one whose condition is false must leave the step running.
+			if (breakpoint is not ICorDebugFunctionBreakpoint userCandidate || _breakpointManager.FindAllByCorBreakpoint(userCandidate).Count is 0)
+			{
+				_stepper.Deactivate();
+				_stepper = null;
+			}
 		}
 
 		if (breakpoint is not ICorDebugFunctionBreakpoint functionBreakpoint)
@@ -245,6 +249,7 @@ public partial class ManagedDebugger
 			if (_breakpointManager.FindByCorBreakpoint(functionBreakpoint) is null) functionBreakpoint.TryActivate(false);
 			_entryBreakpoint = null;
 			_stopAtEntry = false;
+			CancelInProgressSteps();
 			var sourceInfo = GetSourceInfoAtFrame(corThread.ActiveFrame, _justMyCode is false);
 			if (sourceInfo is null) OnStopped?.Invoke(corThread.Id, "entry");
 			else OnStopped2?.Invoke(corThread.Id, sourceInfo.Value.FilePath, sourceInfo.Value.StartLine, sourceInfo.Value.StartColumn, "entry", null);
@@ -322,6 +327,7 @@ public partial class ManagedDebugger
 			return;
 		}
 
+		CancelInProgressSteps();
 		var hitBreakpointIds = hitBreakpoints.Select(bp => bp.Id).ToList();
 		var firstHitBreakpoint = hitBreakpoints[0];
 		if (firstHitBreakpoint.IsFunctionBreakpoint)
@@ -335,6 +341,15 @@ public partial class ManagedDebugger
 
 		if (firstHitBreakpoint.ResolvedBreakpointFromPdb is not {} resolvedBreakpoint) throw new UnreachableException("Breakpoint was not resolved from PDB - this should never happen, as source breakpoints are only bound to resolved source locations");
 		OnStopped2?.Invoke(corThread.Id, firstHitBreakpoint.FilePath, resolvedBreakpoint.StartLine, resolvedBreakpoint.StartColumn, "breakpoint", hitBreakpointIds);
+	}
+
+	// A stop at a breakpoint ends any step in progress, including an async step waiting to resume
+	private void CancelInProgressSteps()
+	{
+		_asyncStepper?.Disable();
+		if (_stepper is null) return;
+		_stepper.Deactivate();
+		_stepper = null;
 	}
 
 	private void TryBindEntryBreakpoint(ModuleInfo moduleInfo)

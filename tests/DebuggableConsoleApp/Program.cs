@@ -46,6 +46,7 @@ public static class Program
 			DebuggerBrowsableRootHidden.Test();
 			ClassWithIndexer.Test();
 			EvalHazardsClass.Test();
+			StepOverConditionalBreakpointClass.Test();
 			myClassWithGenericMethod.Test(4);
 			AsyncStackTraceClass.TestAsync().GetAwaiter().GetResult();
 			Thread.Sleep(100);

@@ -243,4 +243,35 @@ public class ConditionalBreakpointTests(ITestOutputHelper testOutputHelper)
 		debugProtocolHost.WithEvaluateRequest(stackFrameId2, "_count", out var evaluateResponse2);
 		evaluateResponse2.Result.Should().Be("4");
 	}
+
+	[Fact]
+	public async Task StepOver_CallHittingBreakpointWithFalseCondition_StillCompletesTheStep()
+	{
+		var startSuspended = true;
+		var (debugProtocolHost, adapter, p2) = TestHelper.GetRunningDebugProtocolHost(testOutputHelper, startSuspended);
+		using var _ = adapter;
+		using var __ = new ProcessKiller(p2);
+		using var ___ = debugProtocolHost;
+
+		await debugProtocolHost
+			.WithInitializeRequest()
+			.WithAttachRequest(p2.Id)
+			.WaitForInitializedEvent();
+
+		var file = Path.JoinFromGitRoot("tests", "DebuggableConsoleApp", "StepOverConditionalBreakpointClass.cs");
+		debugProtocolHost
+			.WithBreakpointsRequest(file, [new SharpDbgBreakpointRequest(8), new SharpDbgBreakpointRequest(14, "value == 99")])
+			.WithConfigurationDoneRequest()
+			.WithOptionalResumeRuntime(p2.Id, startSuspended);
+
+		var stoppedEvent = await debugProtocolHost.WaitForStoppedEvent();
+		stoppedEvent.ReadStopInfo().line.Should().Be(8);
+
+		debugProtocolHost.WithStepOverRequest(stoppedEvent.ThreadId!.Value);
+		var stepStop = await debugProtocolHost.WaitForStoppedEvent();
+		stepStop.Reason.Should().Be(StoppedEvent.ReasonValue.Step);
+		var stopInfo = stepStop.ReadStopInfo();
+		stopInfo.filePath.Should().EndWith("StepOverConditionalBreakpointClass.cs");
+		stopInfo.line.Should().Be(9);
+	}
 }

@@ -51,6 +51,7 @@ public static class Program
 			myClassWithGenericMethod.Test(4);
 			AsyncStackTraceClass.TestAsync().GetAwaiter().GetResult();
 			AsyncStepOutClass.TestAsync().GetAwaiter().GetResult();
+			AsyncUnawaitedTaskClass.TestAsync().GetAwaiter().GetResult();
 			Thread.Sleep(100);
 			//await Task.Delay(500);
 		}

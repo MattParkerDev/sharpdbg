@@ -170,7 +170,7 @@ public partial class ManagedDebugger
 				case LoadModuleCorDebugManagedCallbackEventArgs a: HandleModuleLoaded(sender, a); break;
 				case UnloadModuleCorDebugManagedCallbackEventArgs a: HandleModuleUnloaded(sender, a); break;
 				case BreakpointCorDebugManagedCallbackEventArgs a: await HandleBreakpoint(sender, a).ConfigureAwait(false); break;
-				case StepCompleteCorDebugManagedCallbackEventArgs a: HandleStepComplete(sender, a); break;
+				case StepCompleteCorDebugManagedCallbackEventArgs a: await HandleStepComplete(sender, a).ConfigureAwait(false); break;
 				case BreakCorDebugManagedCallbackEventArgs a: HandleBreak(sender, a); break;
 				case ExceptionCorDebugManagedCallbackEventArgs a: HandleException(sender, a); break;
 				case Exception2CorDebugManagedCallbackEventArgs a: HandleException2(sender, a); break;
@@ -339,26 +339,66 @@ public partial class ManagedDebugger
 	/// Step out of an async void method's state machine. Returns false when a plain step-out does the right thing
 	/// </summary>
 	/// <remarks>
-	/// Before its first yield the kick-off method is still on the stack, and the step-out returns to whoever called it. With Just My
-	/// Code a plain step-out passes through AsyncVoidMethodBuilder.Start and the kick-off method by itself; without it, step out of the
-	/// kick-off method so the step does not stop in the builder. Once the method has resumed after an await, the thread pool called it,
-	/// so there is no caller to return to: the step runs free, as in vsdbg and ReSharper, rather than stopping in thread pool code or in
-	/// whichever unrelated continuation that thread runs next
+	/// Before its first yield the step-out returns to the kick-off method's caller. Once the method has resumed after an await, the
+	/// thread pool called it, and there is no task for anyone to await, so there is nothing to return to: the step runs free, as in
+	/// vsdbg and ReSharper, rather than stopping in thread pool code or in whichever unrelated continuation that thread runs next
 	/// </remarks>
 	internal bool TrySetupAsyncVoidStepOut(ICorDebugThread thread, CORDB_ADDRESS moduleAddress, int kickoffMethodToken)
 	{
 		if (kickoffMethodToken is 0) return false;
-		if (_stepper is not null) throw new InvalidOperationException("A step operation is already in progress");
-		var kickoffFrame = EnumerateFramesForThread(thread).OfType<ICorDebugILFrame>().Skip(1)
-			.FirstOrDefault(frame => frame.Function.Module.BaseAddress == moduleAddress && frame.Function.Token == kickoffMethodToken);
-		if (kickoffFrame is null) return true;
-		if (_justMyCode) return false;
+		TrySetupStepOutBeforeFirstYield(thread, moduleAddress, kickoffMethodToken);
+		return true;
+	}
 
+	private ICorDebugStepper? _stepOutToCallerStepper;
+
+	/// <summary>
+	/// Step out of an async state machine that has not yielded yet, i.e. whose kick-off method is still on the stack, to the kick-off
+	/// method's caller: until its first yield an async method is an ordinary call. Returns false once the method has resumed after an await
+	/// </summary>
+	/// <remarks>
+	/// The step leaves the kick-off method exactly, without Just My Code, so it does not stop in the builder's Start or in the kick-off
+	/// method's hidden code. Once back in the caller: if the caller's statement goes on to await, the step finishes the statement (see
+	/// <see cref="TryFinishAwaitingStatement"/>), so <c>await M()</c> lands after the await as when M has yielded, while
+	/// <c>var task = M();</c> stops on that line; and with Just My Code, a caller that is not user code is stepped out of as usual
+	/// </remarks>
+	internal bool TrySetupStepOutBeforeFirstYield(ICorDebugThread thread, CORDB_ADDRESS moduleAddress, int kickoffMethodToken)
+	{
+		if (kickoffMethodToken is 0) return false;
+		var kickoffFrame = FindKickoffFrame(thread, moduleAddress, kickoffMethodToken);
+		if (kickoffFrame is null) return false;
+		if (_stepper is not null) throw new InvalidOperationException("A step operation is already in progress");
 		var stepper = kickoffFrame.CreateStepper();
 		stepper.SetInterceptMask(CorDebugIntercept.INTERCEPT_ALL & ~(CorDebugIntercept.INTERCEPT_SECURITY | CorDebugIntercept.INTERCEPT_CLASS_INIT));
 		stepper.SetUnmappedStopMask(CorDebugUnmappedStop.STOP_NONE);
 		stepper.StepOut();
 		_stepper = stepper;
+		_stepOutToCallerStepper = stepper;
+		return true;
+	}
+
+	private ICorDebugILFrame? FindKickoffFrame(ICorDebugThread thread, CORDB_ADDRESS moduleAddress, int kickoffMethodToken) =>
+		EnumerateFramesForThread(thread).OfType<ICorDebugILFrame>().Skip(1)
+			.FirstOrDefault(frame => frame.Function.Module.BaseAddress == moduleAddress && frame.Function.Token == kickoffMethodToken);
+
+	/// <summary>
+	/// Back in the caller of an async method that had not yielded: if the rest of the current statement awaits, step over it, crossing
+	/// the await, rather than stopping part way through the statement
+	/// </summary>
+	private async Task<bool> TryFinishAwaitingStatement(ICorDebugThread thread)
+	{
+		if (thread.ActiveFrame is not ICorDebugILFrame ilFrame || _asyncStepper is null) return false;
+		var function = ilFrame.Function;
+		if (_modules.TryGetValue(function.Module.BaseAddress, out var module) is false) return false;
+		var metadataReader = module.MetadataReader;
+		var asyncInfo = metadataReader.GetAsyncMethodSteppingInfo(function.Token);
+		if (asyncInfo is null) return false;
+		var ip = ilFrame.IP.pnOffset;
+		if (metadataReader.GetStartAndEndSequencePointIlOffsetsForIlOffset(function.Token, ip) is not var (_, statementEnd)) return false;
+		if (asyncInfo.AwaitInfos.Any(info => info.YieldOffset >= ip && info.YieldOffset < statementEnd) is false) return false;
+
+		var (handledByAsyncStepper, useSimpleStepper) = await _asyncStepper.TrySetupAsyncStep(thread, AsyncStepper.StepType.StepOver);
+		if (handledByAsyncStepper is false || useSimpleStepper is not false) SetupStepper(thread, AsyncStepper.StepType.StepOver);
 		return true;
 	}
 

@@ -246,7 +246,10 @@ public class AsyncStepper
 							return (false, null);
 						}
 
-						// Not async void - use NotifyDebuggerOfWaitCompletion magic
+						// Before its first yield the method is an ordinary call: return to the caller, which may not await the task yet
+						if (_debugger.TrySetupStepOutBeforeFirstYield(thread, moduleAddress, asyncInfo.KickoffMethodToken)) return (true, false);
+
+						// Resumed after an await: no caller to return to, so wait for the task and stop where its awaiter resumes
 						var success = await SetNotificationForWaitCompletion(builder, ilFrame!, thread);
 						if (success)
 						{

@@ -369,7 +369,7 @@ public partial class ManagedDebugger
 		}
 	}
 
-	private void HandleStepComplete(object? sender, StepCompleteCorDebugManagedCallbackEventArgs stepCompleteEventArgs)
+	private async Task HandleStepComplete(object? sender, StepCompleteCorDebugManagedCallbackEventArgs stepCompleteEventArgs)
 	{
 		var corThread = stepCompleteEventArgs.Thread;
 		var ilFrame = (ICorDebugILFrame)corThread.ActiveFrame;
@@ -387,6 +387,22 @@ public partial class ManagedDebugger
 			SetupStepper(corThread, AsyncStepper.StepType.StepOver);
 			ContinueWithVariableClear();
 			return;
+		}
+		if (stepper == _stepOutToCallerStepper)
+		{
+			// Returned from an async method's kick-off method, which had not yielded
+			_stepOutToCallerStepper = null;
+			if (await TryFinishAwaitingStatement(corThread))
+			{
+				ContinueWithVariableClear();
+				return;
+			}
+			if (_justMyCode && IsUserCodeFrame(ilFrame) is false)
+			{
+				SetupStepper(corThread, AsyncStepper.StepType.StepOut);
+				ContinueWithVariableClear();
+				return;
+			}
 		}
 		var module = _modules[ilFrame.Function.Module.BaseAddress];
 		if (module.MetadataReader.IsCurrentSequencePointHidden(ilFrame.Function.Token, ilFrame.IP.pnOffset))

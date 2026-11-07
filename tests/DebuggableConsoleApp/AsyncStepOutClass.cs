@@ -24,7 +24,7 @@ public static class AsyncStepOutClass
 		return 3;
 	}
 
-	// Stepped out of before its first await, while AsyncVoidMethodBuilder.Start is still on the stack
+	// Left before its first await, while AsyncVoidMethodBuilder.Start is on the stack, and after it, once the thread pool resumed it
 	private static async void FireAndForget()
 	{
 		var pending = 1;

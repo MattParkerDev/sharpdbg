@@ -336,24 +336,30 @@ public partial class ManagedDebugger
 	}
 
 	/// <summary>
-	/// Without Just My Code, step out of the state machine's kick-off method if it is still on the stack, i.e. the method has not yielded yet
+	/// Step out of an async void method's state machine. Returns false when a plain step-out does the right thing
 	/// </summary>
-	internal bool TrySetupStepOutOfKickoffMethod(ICorDebugThread thread, CORDB_ADDRESS moduleAddress, int kickoffMethodToken)
+	/// <remarks>
+	/// Before its first yield the kick-off method is still on the stack, and the step-out returns to whoever called it. With Just My
+	/// Code a plain step-out passes through AsyncVoidMethodBuilder.Start and the kick-off method by itself; without it, step out of the
+	/// kick-off method so the step does not stop in the builder. Once the method has resumed after an await, the thread pool called it,
+	/// so there is no caller to return to: the step runs free, as in vsdbg and ReSharper, rather than stopping in thread pool code or in
+	/// whichever unrelated continuation that thread runs next
+	/// </remarks>
+	internal bool TrySetupAsyncVoidStepOut(ICorDebugThread thread, CORDB_ADDRESS moduleAddress, int kickoffMethodToken)
 	{
-		if (_justMyCode || kickoffMethodToken is 0) return false;
+		if (kickoffMethodToken is 0) return false;
 		if (_stepper is not null) throw new InvalidOperationException("A step operation is already in progress");
-		foreach (var frame in EnumerateFramesForThread(thread).OfType<ICorDebugILFrame>().Skip(1))
-		{
-			var function = frame.Function;
-			if (function.Module.BaseAddress != moduleAddress || function.Token != kickoffMethodToken) continue;
-			var stepper = frame.CreateStepper();
-			stepper.SetInterceptMask(CorDebugIntercept.INTERCEPT_ALL & ~(CorDebugIntercept.INTERCEPT_SECURITY | CorDebugIntercept.INTERCEPT_CLASS_INIT));
-			stepper.SetUnmappedStopMask(CorDebugUnmappedStop.STOP_NONE);
-			stepper.StepOut();
-			_stepper = stepper;
-			return true;
-		}
-		return false;
+		var kickoffFrame = EnumerateFramesForThread(thread).OfType<ICorDebugILFrame>().Skip(1)
+			.FirstOrDefault(frame => frame.Function.Module.BaseAddress == moduleAddress && frame.Function.Token == kickoffMethodToken);
+		if (kickoffFrame is null) return true;
+		if (_justMyCode) return false;
+
+		var stepper = kickoffFrame.CreateStepper();
+		stepper.SetInterceptMask(CorDebugIntercept.INTERCEPT_ALL & ~(CorDebugIntercept.INTERCEPT_SECURITY | CorDebugIntercept.INTERCEPT_CLASS_INIT));
+		stepper.SetUnmappedStopMask(CorDebugUnmappedStop.STOP_NONE);
+		stepper.StepOut();
+		_stepper = stepper;
+		return true;
 	}
 
 	/// <summary>

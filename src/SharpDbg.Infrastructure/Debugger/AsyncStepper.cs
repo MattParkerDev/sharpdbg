@@ -240,10 +240,9 @@ public class AsyncStepper
 						var builderType = ManagedDebugger.GetCorDebugTypeFriendlyName(builder.ExactType);
 						if (builderType == "System.Runtime.CompilerServices.AsyncVoidMethodBuilder")
 						{
-							// async void method: no task to wait for, so the step-out returns to the method's synchronous caller. With
-							// Just My Code the plain step-out passes through the builder and the kick-off method by itself; without it,
-							// step out of the kick-off method so the step does not stop in AsyncVoidMethodBuilder.Start
-							if (_debugger.TrySetupStepOutOfKickoffMethod(thread, moduleAddress, asyncInfo.KickoffMethodToken)) return (true, false);
+							// async void method: no task to wait for, so the step-out returns to the method's synchronous caller if
+							// there still is one, and otherwise runs free
+							if (_debugger.TrySetupAsyncVoidStepOut(thread, moduleAddress, asyncInfo.KickoffMethodToken)) return (true, false);
 							return (false, null);
 						}
 

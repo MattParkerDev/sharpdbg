@@ -131,4 +131,43 @@ public class AsyncStepTests(ITestOutputHelper testOutputHelper)
 		afterAsyncVoidInfo.filePath.Should().EndWith("AsyncStepOutClass.cs");
 		afterAsyncVoidInfo.line.Should().Be(10);
 	}
+
+	// Once an async void method has resumed after an await, the thread pool called it: leaving it has no caller to stop in, so the
+	// step runs free (as in vsdbg and ReSharper) and the next stop is the breakpoint in the program's next loop iteration
+	[Theory]
+	[InlineData(true)]
+	[InlineData(false)]
+	public async Task SharpDbgCli_StepRequests_LeavingResumedAsyncVoidMethod_RunFree(bool justMyCode)
+	{
+		var startSuspended = true;
+		var (debugProtocolHost, adapter, p2) = TestHelper.GetRunningDebugProtocolHost(testOutputHelper, startSuspended);
+		using var _ = adapter;
+		using var __ = new ProcessKiller(p2);
+		using var ___ = debugProtocolHost;
+
+		var filePath = Path.JoinFromGitRoot("tests", "DebuggableConsoleApp", "AsyncStepOutClass.cs");
+		await debugProtocolHost
+			.WithInitializeRequest()
+			.WithAttachRequest(p2.Id, justMyCode)
+			.WaitForInitializedEvent();
+		debugProtocolHost
+			.WithBreakpointsRequest(32, filePath)
+			.WithConfigurationDoneRequest()
+			.WithOptionalResumeRuntime(p2.Id, startSuspended);
+
+		var resumedStop = await debugProtocolHost.WaitForStoppedEvent();
+		resumedStop.ReadStopInfo().line.Should().Be(32);
+
+		var afterStepOut = await debugProtocolHost.WithStepOutRequest(resumedStop.ThreadId!.Value).WaitForStoppedEvent();
+		afterStepOut.Reason.Should().Be(StoppedEvent.ReasonValue.Breakpoint);
+		afterStepOut.ReadStopInfo().line.Should().Be(32);
+
+		var closingBrace = await debugProtocolHost.WithStepOverRequest(afterStepOut.ThreadId!.Value).WaitForStoppedEvent();
+		closingBrace.Reason.Should().Be(StoppedEvent.ReasonValue.Step);
+		closingBrace.ReadStopInfo().line.Should().Be(33);
+
+		var afterStepOver = await debugProtocolHost.WithStepOverRequest(closingBrace.ThreadId!.Value).WaitForStoppedEvent();
+		afterStepOver.Reason.Should().Be(StoppedEvent.ReasonValue.Breakpoint);
+		afterStepOver.ReadStopInfo().line.Should().Be(32);
+	}
 }

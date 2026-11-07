@@ -6,6 +6,7 @@ using NeoSmart.AsyncLock;
 using SharpDbg.Infrastructure.Debugger.ExpressionEvaluator.Cil;
 using SharpDbg.Infrastructure.Debugger.Models;
 using SharpDbg.Infrastructure.Debugger.Models.Response;
+using SharpDbg.Infrastructure.Debugger.Breakpoints;
 
 namespace SharpDbg.Infrastructure.Debugger;
 
@@ -72,7 +73,7 @@ public partial class ManagedDebugger
 	public event Action<string>? OnImportantOutput;
 	public event Action<int, string>? OnProcessStarted;
 	// hitMessage: a message that belongs only to the current hit, e.g. a condition that failed to evaluate, shown in place of the breakpoint's own
-	public delegate void BreakpointChangedHandler(BreakpointManager.BreakpointInfo breakpoint, string? hitMessage = null);
+	public delegate void BreakpointChangedHandler(BreakpointInfo breakpoint, string? hitMessage = null);
 	public event BreakpointChangedHandler? OnBreakpointChanged;
 	public event Func<LaunchInfo, int> SendRunInTerminalRequest = null!;
 
@@ -470,7 +471,7 @@ public partial class ManagedDebugger
 	/// <summary>
 	/// Try to bind a breakpoint to the actual code using symbol information
 	/// </summary>
-	private bool TryBindBreakpoint(BreakpointManager.BreakpointInfo bp)
+	private bool TryBindBreakpoint(BreakpointInfo bp)
 	{
 		try
 		{
@@ -501,7 +502,7 @@ public partial class ManagedDebugger
 			if (targetModule is null || resolved is null)
 			{
 				// No module found with symbols for this file
-				bp.Binding = new BreakpointManager.BreakpointBinding.Unbound(NoSymbolsForDocumentMessage);
+				bp.Binding = new BreakpointBinding.Unbound(NoSymbolsForDocumentMessage);
 				_logger?.Invoke($"Breakpoint at {bp.FilePath}:{bp.RequestedLine} - no symbols found");
 				return false;
 			}
@@ -517,7 +518,7 @@ public partial class ManagedDebugger
 				?? ilCode.CreateBreakpoint(resolved.ILOffset);
 			if (corBreakpoint != _entryBreakpoint?.CorBreakpoint) corBreakpoint.Activate(true);
 
-			bp.Binding = new BreakpointManager.BreakpointBinding.SourceBound(corBreakpoint, targetModule.BaseAddress, resolved);
+			bp.Binding = new BreakpointBinding.SourceBound(corBreakpoint, targetModule.BaseAddress, resolved);
 
 			_logger?.Invoke($"Breakpoint bound at {bp.FilePath}:{bp.RequestedLine} -> resolved to line {resolved.StartLine}, IL offset {resolved.ILOffset} in method 0x{resolved.MethodToken:X}");
 			return true;
@@ -525,7 +526,7 @@ public partial class ManagedDebugger
 		catch (Exception ex)
 		{
 			_logger?.Invoke($"Error binding breakpoint at {bp.FilePath}:{bp.RequestedLine}: {ex.Message}");
-			bp.Binding = new BreakpointManager.BreakpointBinding.Unbound($"Error binding breakpoint: {ex.Message}");
+			bp.Binding = new BreakpointBinding.Unbound($"Error binding breakpoint: {ex.Message}");
 			return false;
 		}
 	}
@@ -551,17 +552,17 @@ public partial class ManagedDebugger
 	/// <summary>
 	/// Binds all matching functions in a module and returns true only when the BreakpointInfo becomes verified.
 	/// </summary>
-	private bool TryBindFunctionBreakpoint(BreakpointManager.BreakpointInfo bp, ModuleInfo module)
+	private bool TryBindFunctionBreakpoint(BreakpointInfo bp, ModuleInfo module)
 	{
 		if (module.MetadataReader.HasSymbols is false || bp.FunctionName is null) return false;
-		if (bp.Binding is BreakpointManager.BreakpointBinding.Rejected) return false;
+		if (bp.Binding is BreakpointBinding.Rejected) return false;
 		var wasVerified = bp.Verified;
 		try
 		{
 			var pattern = FunctionBreakpointPattern.Parse(bp.FunctionName);
 			foreach (var resolved in FunctionBreakpointMetadataResolver.Resolve(module.MetadataReader, pattern))
 			{
-				var bindings = bp.Binding is BreakpointManager.BreakpointBinding.FunctionBound bound ? bound.Bindings : [];
+				var bindings = bp.Binding is BreakpointBinding.FunctionBound bound ? bound.Bindings : [];
 				if (bindings.Any(binding => binding.ModuleBaseAddress == module.BaseAddress && binding.MethodToken == resolved.MethodToken))
 				{
 					continue;
@@ -570,13 +571,13 @@ public partial class ManagedDebugger
 				var corBreakpoint = TryGetEntryBreakpoint(module.BaseAddress, resolved.MethodToken, resolved.Source.ILOffset)
 					?? function.ILCode.CreateBreakpoint(resolved.Source.ILOffset);
 				if (corBreakpoint != _entryBreakpoint?.CorBreakpoint) corBreakpoint.Activate(true);
-				bp.Binding = new BreakpointManager.BreakpointBinding.FunctionBound(bindings.Add(new BreakpointManager.FunctionBreakpointBinding(corBreakpoint, module.BaseAddress, resolved.MethodToken, resolved.Source)));
+				bp.Binding = new BreakpointBinding.FunctionBound(bindings.Add(new FunctionBreakpointBinding(corBreakpoint, module.BaseAddress, resolved.MethodToken, resolved.Source)));
 			}
 		}
 		catch (Exception ex)
 		{
 			_logger?.Invoke($"Error binding function breakpoint '{bp.FunctionName}' in {module.ModuleName}: {ex.Message}");
-			if (bp.Binding is BreakpointManager.BreakpointBinding.Unbound) bp.Binding = new BreakpointManager.BreakpointBinding.Unbound($"Error binding function breakpoint: {ex.Message}");
+			if (bp.Binding is BreakpointBinding.Unbound) bp.Binding = new BreakpointBinding.Unbound($"Error binding function breakpoint: {ex.Message}");
 		}
 		return wasVerified is false && bp.Verified;
 	}

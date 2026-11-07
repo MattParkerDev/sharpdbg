@@ -3,6 +3,7 @@ using ICorDebugSharp;
 using SharpDbg.Infrastructure.Debugger.ExpressionEvaluator;
 using SharpDbg.Infrastructure.Debugger.ExpressionEvaluator.Cil;
 using SharpDbg.Infrastructure.Debugger.Models.Response;
+using SharpDbg.Infrastructure.Debugger.Breakpoints;
 
 namespace SharpDbg.Infrastructure.Debugger;
 
@@ -179,20 +180,20 @@ public partial class ManagedDebugger
 		{
 			switch (breakpoint.Binding)
 			{
-				case BreakpointManager.BreakpointBinding.FunctionBound bound:
+				case BreakpointBinding.FunctionBound bound:
 					var remaining = bound.Bindings.RemoveAll(binding => binding.ModuleBaseAddress == baseAddress);
 					if (remaining.Length == bound.Bindings.Length) break;
 					if (remaining.Length > 0)
 					{
-						breakpoint.Binding = new BreakpointManager.BreakpointBinding.FunctionBound(remaining);
+						breakpoint.Binding = new BreakpointBinding.FunctionBound(remaining);
 						break;
 					}
-					breakpoint.Binding = new BreakpointManager.BreakpointBinding.Unbound(NoMatchingFunctionMessage);
+					breakpoint.Binding = new BreakpointBinding.Unbound(NoMatchingFunctionMessage);
 					OnBreakpointChanged?.Invoke(breakpoint);
 					break;
 
-				case BreakpointManager.BreakpointBinding.SourceBound bound when bound.ModuleBaseAddress == baseAddress:
-					breakpoint.Binding = new BreakpointManager.BreakpointBinding.Unbound(NoSymbolsForDocumentMessage);
+				case BreakpointBinding.SourceBound bound when bound.ModuleBaseAddress == baseAddress:
+					breakpoint.Binding = new BreakpointBinding.Unbound(NoSymbolsForDocumentMessage);
 					TryBindBreakpoint(breakpoint);
 					OnBreakpointChanged?.Invoke(breakpoint);
 					break;
@@ -316,7 +317,7 @@ public partial class ManagedDebugger
 			return;
 		}
 
-		var hitBreakpoints = new List<BreakpointManager.BreakpointInfo>();
+		var hitBreakpoints = new List<BreakpointInfo>();
 		foreach (var managedBreakpoint in managedBreakpoints)
 		{
 			managedBreakpoint.HitCount++;
@@ -359,7 +360,7 @@ public partial class ManagedDebugger
 			return;
 		}
 
-		if (firstHitBreakpoint.Binding is not BreakpointManager.BreakpointBinding.SourceBound { Resolved: var resolvedBreakpoint }) throw new UnreachableException("A source breakpoint was hit while not bound - this should never happen, as only bound breakpoints are found by their runtime breakpoint");
+		if (firstHitBreakpoint.Binding is not BreakpointBinding.SourceBound { Resolved: var resolvedBreakpoint }) throw new UnreachableException("A source breakpoint was hit while not bound - this should never happen, as only bound breakpoints are found by their runtime breakpoint");
 		OnStopped2?.Invoke(corThread.Id, firstHitBreakpoint.FilePath, resolvedBreakpoint.StartLine, resolvedBreakpoint.StartColumn, "breakpoint", hitBreakpointIds);
 	}
 

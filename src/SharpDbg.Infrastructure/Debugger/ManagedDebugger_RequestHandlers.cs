@@ -11,6 +11,7 @@ using SharpDbg.Infrastructure.Debugger.Models;
 using SharpDbg.Infrastructure.Debugger.Models.Response;
 using SharpDbg.Infrastructure.Debugger.PresentationHintModels;
 using ZLinq;
+using SharpDbg.Infrastructure.Debugger.Breakpoints;
 
 namespace SharpDbg.Infrastructure.Debugger;
 
@@ -340,7 +341,7 @@ public partial class ManagedDebugger
 	/// <summary>
 	/// Set breakpoints for a source file with optional conditions
 	/// </summary>
-	public List<BreakpointManager.BreakpointInfo> SetBreakpoints(string filePath, SharpDbgBreakpointRequest[] breakpoints)
+	public List<BreakpointInfo> SetBreakpoints(string filePath, SharpDbgBreakpointRequest[] breakpoints)
 	{
 		//System.Diagnostics.Debugger.Launch();
 		_logger?.Invoke($"SetBreakpoints: {filePath}, breakpoints: {string.Join(",", breakpoints.Select(b => $"L{b.Line} {(b.Column is not null ? $"C{b.Column}" : null)} {(b.Condition is not null ? $"[{b.Condition}]" : null)}"))}");
@@ -354,13 +355,13 @@ public partial class ManagedDebugger
 		}
 
 		// Create new breakpoints
-		var result = new List<BreakpointManager.BreakpointInfo>();
+		var result = new List<BreakpointInfo>();
 		foreach (var request in breakpoints)
 		{
 			var bp = _breakpointManager.CreateBreakpoint(filePath, request.Line, request.Column, request.Condition, request.HitCondition);
 			if (ConditionContainsLambda(request.Condition))
 			{
-				bp.Binding = new BreakpointManager.BreakpointBinding.Rejected(LambdaConditionNotSupportedMessage);
+				bp.Binding = new BreakpointBinding.Rejected(LambdaConditionNotSupportedMessage);
 				result.Add(bp);
 				continue;
 			}
@@ -379,7 +380,7 @@ public partial class ManagedDebugger
 	private static bool ConditionContainsLambda(string? condition) =>
 		condition is not null && SyntaxFactory.ParseExpression(condition).DescendantNodesAndSelf().Any(static node => node is AnonymousFunctionExpressionSyntax);
 
-	public List<BreakpointManager.BreakpointInfo> SetFunctionBreakpoints(SharpDbgFunctionBreakpointRequest[] breakpoints)
+	public List<BreakpointInfo> SetFunctionBreakpoints(SharpDbgFunctionBreakpointRequest[] breakpoints)
 	{
 		foreach (var bp in _breakpointManager.GetFunctionBreakpoints())
 		{
@@ -391,13 +392,13 @@ public partial class ManagedDebugger
 		}
 		_breakpointManager.ClearFunctionBreakpoints();
 
-		var result = new List<BreakpointManager.BreakpointInfo>();
+		var result = new List<BreakpointInfo>();
 		foreach (var request in breakpoints)
 		{
 			var bp = _breakpointManager.CreateFunctionBreakpoint(request.Name, request.Condition, request.HitCondition);
 			if (ConditionContainsLambda(request.Condition))
 			{
-				bp.Binding = new BreakpointManager.BreakpointBinding.Rejected(LambdaConditionNotSupportedMessage);
+				bp.Binding = new BreakpointBinding.Rejected(LambdaConditionNotSupportedMessage);
 				result.Add(bp);
 				continue;
 			}
@@ -408,14 +409,14 @@ public partial class ManagedDebugger
 				{
 					TryBindFunctionBreakpoint(bp, module);
 				}
-				if (bp.Binding is BreakpointManager.BreakpointBinding.Unbound) bp.Binding = new BreakpointManager.BreakpointBinding.Unbound(_process is null
-					? BreakpointManager.NotProcessedMessage
+				if (bp.Binding is BreakpointBinding.Unbound) bp.Binding = new BreakpointBinding.Unbound(_process is null
+					? BreakpointInfo.NotProcessedMessage
 					: $"No functions matching '{request.Name}' were found.");
 			}
 			catch (ArgumentException ex)
 			{
 				// The name is not a valid function breakpoint pattern, so no module could ever match it
-				bp.Binding = new BreakpointManager.BreakpointBinding.Rejected(ex.Message);
+				bp.Binding = new BreakpointBinding.Rejected(ex.Message);
 			}
 			result.Add(bp);
 		}

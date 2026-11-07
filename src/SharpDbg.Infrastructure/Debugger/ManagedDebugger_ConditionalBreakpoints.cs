@@ -2,6 +2,7 @@ using System.Runtime.InteropServices;
 using ICorDebugSharp;
 using SharpDbg.Infrastructure.Debugger.ExpressionEvaluator;
 using SharpDbg.Infrastructure.Debugger.ExpressionEvaluator.Compiler;
+using SharpDbg.Infrastructure.Debugger.Breakpoints;
 
 namespace SharpDbg.Infrastructure.Debugger;
 
@@ -27,7 +28,7 @@ public partial class ManagedDebugger
 		}
 	}
 
-	private void ReportBreakpointConditionError(BreakpointManager.BreakpointInfo breakpoint, string error)
+	private void ReportBreakpointConditionError(BreakpointInfo breakpoint, string error)
 	{
 		var message = $"The condition for a breakpoint failed to execute. The condition was '{breakpoint.Condition}'. The error returned was '{error}'.";
 		_logger?.Invoke(message);

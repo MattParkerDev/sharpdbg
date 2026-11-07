@@ -1,7 +1,6 @@
-using System.Collections.Immutable;
 using ICorDebugSharp;
 
-namespace SharpDbg.Infrastructure.Debugger;
+namespace SharpDbg.Infrastructure.Debugger.Breakpoints;
 
 /// <summary>
 /// Manages breakpoint tracking and mapping
@@ -12,96 +11,6 @@ public class BreakpointManager
 	private readonly Dictionary<int, BreakpointInfo> _breakpoints = new();
 	private readonly Dictionary<string, List<int>> _breakpointsByFile = new();
 	private readonly Lock _lock = new();
-
-	public const string NotProcessedMessage = "Breakpoint has not been processed by the debugger.";
-
-	/// <summary>
-	/// Whether a breakpoint is bound to code in the debuggee. The breakpoint is reported to the client as verified only when it is bound
-	/// </summary>
-	/// <remarks>
-	/// Every breakpoint starts <see cref="Unbound"/>. It becomes <see cref="SourceBound"/> or <see cref="FunctionBound"/> when a
-	/// loaded module has code for it, and goes back to <see cref="Unbound"/> when the module(s) it is bound in unload.
-	/// A <see cref="Rejected"/> breakpoint never changes state.
-	/// </remarks>
-	public closed record BreakpointBinding
-	{
-		/// <summary>Not bound to code yet. Binding is tried again whenever a module with symbols loads</summary>
-		public sealed record Unbound(string Message) : BreakpointBinding;
-
-		/// <summary>Can never be bound, e.g. its condition is not supported. Never tried again</summary>
-		public sealed record Rejected(string Message) : BreakpointBinding;
-
-		/// <summary>A source breakpoint bound to the location the PDB resolved its line to</summary>
-		public sealed record SourceBound(ICorDebugFunctionBreakpoint CorBreakpoint, CORDB_ADDRESS ModuleBaseAddress, ModuleMetadataReader.ResolvedBreakpoint Resolved) : BreakpointBinding;
-
-		/// <summary>A function breakpoint bound to every matching method in the loaded modules. Always has at least one binding</summary>
-		public sealed record FunctionBound(ImmutableArray<FunctionBreakpointBinding> Bindings) : BreakpointBinding
-		{
-			public ImmutableArray<FunctionBreakpointBinding> Bindings { get; } = Bindings.IsDefaultOrEmpty
-				? throw new ArgumentException("A bound function breakpoint must have at least one binding", nameof(Bindings))
-				: Bindings;
-		}
-	}
-
-	public class BreakpointInfo
-	{
-		public int Id { get; init; }
-		public string FilePath { get; init; } = string.Empty;
-		/// <summary>The line the client asked for, which binding resolves to the nearest line with code</summary>
-		public int RequestedLine { get; init; }
-		public int? RequestedColumn { get; init; }
-		public string? FunctionName { get; init; }
-		public bool IsFunctionBreakpoint => FunctionName is not null;
-
-		public BreakpointBinding Binding
-		{
-			get;
-			set
-			{
-				if (field is BreakpointBinding.Rejected) throw new InvalidOperationException($"Breakpoint {Id} was rejected, so it cannot change state");
-				if (value is BreakpointBinding.SourceBound && IsFunctionBreakpoint || value is BreakpointBinding.FunctionBound && IsFunctionBreakpoint is false)
-					throw new InvalidOperationException($"Breakpoint {Id} cannot be bound as a {(IsFunctionBreakpoint ? "source" : "function")} breakpoint");
-				field = value;
-			}
-		} = new BreakpointBinding.Unbound(NotProcessedMessage);
-
-		public bool Verified => Binding is BreakpointBinding.SourceBound or BreakpointBinding.FunctionBound;
-
-		public string? Message => Binding switch
-		{
-			BreakpointBinding.Unbound unbound => unbound.Message,
-			BreakpointBinding.Rejected rejected => rejected.Message,
-			BreakpointBinding.SourceBound or BreakpointBinding.FunctionBound => null
-		};
-
-		// The resolved location once bound, otherwise the requested one
-		public int Line => Binding is BreakpointBinding.SourceBound bound ? bound.Resolved.StartLine : RequestedLine;
-		public int? Column => Binding is BreakpointBinding.SourceBound bound ? bound.Resolved.StartColumn : RequestedColumn;
-		public int? EndLine => Binding is BreakpointBinding.SourceBound bound ? bound.Resolved.EndLine : null;
-		public int? EndColumn => Binding is BreakpointBinding.SourceBound bound ? bound.Resolved.EndColumn : null;
-
-		public IEnumerable<ICorDebugFunctionBreakpoint> CorBreakpoints => Binding switch
-		{
-			BreakpointBinding.SourceBound bound => [bound.CorBreakpoint],
-			BreakpointBinding.FunctionBound bound => bound.Bindings.Select(binding => binding.CorBreakpoint),
-			BreakpointBinding.Unbound or BreakpointBinding.Rejected => []
-		};
-
-		/// <summary>Conditional expression to evaluate when breakpoint is hit</summary>
-		public string? Condition { get; set; }
-
-		/// <summary>Hit count condition (e.g., ">=10", "==5", "%3")</summary>
-		public string? HitCondition { get; set; }
-
-		/// <summary>Current hit count for this breakpoint</summary>
-		public int HitCount { get; set; }
-	}
-
-	public record FunctionBreakpointBinding(
-		ICorDebugFunctionBreakpoint CorBreakpoint,
-		CORDB_ADDRESS ModuleBaseAddress,
-		int MethodToken,
-		ModuleMetadataReader.ResolvedBreakpoint Source);
 
 	/// <summary>
 	/// Create a new breakpoint

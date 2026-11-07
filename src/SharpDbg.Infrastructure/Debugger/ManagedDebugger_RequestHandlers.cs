@@ -30,7 +30,7 @@ public partial class ManagedDebugger
 		EnsureSessionNotStarted();
 		_logger?.Invoke($"Launching program: {launchInfo.Program} {string.Join(' ', launchInfo.Arguments)}");
 		_justMyCode = justMyCode;
-		_stopAtEntry = launchInfo.StopAtEntry;
+		_entryBreakpoint = launchInfo.StopAtEntry ? EntryBreakpointState.Armed.Instance : EntryBreakpointState.NotRequested.Instance;
 		_session = new SessionState.LaunchRequested(launchInfo);
 	}
 
@@ -111,7 +111,7 @@ public partial class ManagedDebugger
 	// once nothing uses it
 	private void DeactivateIfUnused(ICorDebugFunctionBreakpoint corBreakpoint)
 	{
-		if (corBreakpoint == _entryBreakpoint?.CorBreakpoint || _breakpointManager.FindByCorBreakpoint(corBreakpoint) is not null) return;
+		if (corBreakpoint == EntryCorBreakpoint || _breakpointManager.FindByCorBreakpoint(corBreakpoint) is not null) return;
 		try
 		{
 			corBreakpoint.Activate(false);
@@ -130,7 +130,7 @@ public partial class ManagedDebugger
 		EnsureSessionNotStarted();
 		_logger?.Invoke($"Storing attach target: {processId}");
 		_justMyCode = justMyCode;
-		_stopAtEntry = false;
+		_entryBreakpoint = EntryBreakpointState.NotRequested.Instance;
 		_session = new SessionState.AttachRequested(processId);
 	}
 
@@ -138,7 +138,7 @@ public partial class ManagedDebugger
 	{
 		EnsureSessionNotStarted();
 		_justMyCode = justMyCode;
-		_stopAtEntry = false;
+		_entryBreakpoint = EntryBreakpointState.NotRequested.Instance;
 		_session = new SessionState.RemoteAttachRequested(remoteAttachInfo);
 	}
 

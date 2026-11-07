@@ -236,12 +236,11 @@ public partial class ManagedDebugger
 
 		var corThread = breakpointCorDebugManagedCallbackEventArgs.Thread;
 		if (await TryHandleStepBreakpoint(corThread, functionBreakpoint)) return;
-		if (_entryBreakpoint is { } entryBreakpoint && entryBreakpoint.CorBreakpoint == functionBreakpoint)
+		if (EntryCorBreakpoint == functionBreakpoint)
 		{
 			// Remove the one-shot breakpoint unless a user breakpoint shares the same CLR breakpoint.
 			if (_breakpointManager.FindByCorBreakpoint(functionBreakpoint) is null) functionBreakpoint.TryActivate(false);
-			_entryBreakpoint = null;
-			_stopAtEntry = false;
+			_entryBreakpoint = EntryBreakpointState.Consumed.Instance;
 			EndStep();
 			ReportStopAtActiveFrame(corThread, "entry");
 			return;
@@ -304,14 +303,14 @@ public partial class ManagedDebugger
 
 	private void TryBindEntryBreakpoint(ModuleInfo moduleInfo)
 	{
-		if (_stopAtEntry is false || _entryBreakpoint is not null) return;
+		if (_entryBreakpoint is not EntryBreakpointState.Armed) return;
 		try
 		{
 			if (moduleInfo.MetadataReader.ResolveManagedEntryPoint() is not { } entryPoint) return;
 			var function = moduleInfo.Module.GetFunctionFromToken(entryPoint.MethodToken);
 			var corBreakpoint = function.ILCode.CreateBreakpoint(entryPoint.ILOffset);
 			corBreakpoint.Activate(true);
-			_entryBreakpoint = new EntryBreakpoint(corBreakpoint, moduleInfo.BaseAddress, entryPoint.MethodToken, entryPoint.ILOffset);
+			_entryBreakpoint = new EntryBreakpointState.Bound(corBreakpoint, moduleInfo.BaseAddress, entryPoint.MethodToken, entryPoint.ILOffset);
 			_logger?.Invoke($"Entry breakpoint bound in {moduleInfo.ModuleName} at method 0x{entryPoint.MethodToken:X}, IL offset {entryPoint.ILOffset}");
 		}
 		catch (Exception ex)

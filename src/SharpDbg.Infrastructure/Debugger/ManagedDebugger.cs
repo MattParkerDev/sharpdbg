@@ -43,9 +43,8 @@ public partial class ManagedDebugger
 	/// </summary>
 	internal int ModuleSet_Version { get; private set; }
 	private bool _justMyCode;
-	private bool _stopAtEntry;
-	private EntryBreakpoint? _entryBreakpoint;
-	private sealed record EntryBreakpoint(ICorDebugFunctionBreakpoint CorBreakpoint, CORDB_ADDRESS ModuleBaseAddress, int MethodToken, int IlOffset);
+	private EntryBreakpointState _entryBreakpoint = EntryBreakpointState.NotRequested.Instance;
+	private ICorDebugFunctionBreakpoint? EntryCorBreakpoint => (_entryBreakpoint as EntryBreakpointState.Bound)?.CorBreakpoint;
 
 	// The active exception filters and optional type conditions supplied by the DAP client.
 	private IReadOnlyList<SharpDbgExceptionBreakpointRequest> _exceptionBreakpoints = [];
@@ -383,7 +382,7 @@ public partial class ManagedDebugger
 			var corBreakpoint = TryGetEntryBreakpoint(targetModule.BaseAddress, resolved.MethodToken, resolved.ILOffset)
 				?? _breakpointManager.FindSourceCorBreakpointAt(targetModule.BaseAddress, resolved.MethodToken, resolved.ILOffset)
 				?? ilCode.CreateBreakpoint(resolved.ILOffset);
-			if (corBreakpoint != _entryBreakpoint?.CorBreakpoint) corBreakpoint.Activate(true);
+			if (corBreakpoint != EntryCorBreakpoint) corBreakpoint.Activate(true);
 
 			bp.Binding = new BreakpointBinding.SourceBound(corBreakpoint, targetModule.BaseAddress, resolved);
 
@@ -437,7 +436,7 @@ public partial class ManagedDebugger
 				var function = module.Module.GetFunctionFromToken(resolved.MethodToken);
 				var corBreakpoint = TryGetEntryBreakpoint(module.BaseAddress, resolved.MethodToken, resolved.Source.ILOffset)
 					?? function.ILCode.CreateBreakpoint(resolved.Source.ILOffset);
-				if (corBreakpoint != _entryBreakpoint?.CorBreakpoint) corBreakpoint.Activate(true);
+				if (corBreakpoint != EntryCorBreakpoint) corBreakpoint.Activate(true);
 				bp.Binding = new BreakpointBinding.FunctionBound(bindings.Add(new FunctionBreakpointBinding(corBreakpoint, module.BaseAddress, resolved.MethodToken, resolved.Source)));
 			}
 		}
@@ -465,7 +464,7 @@ public partial class ManagedDebugger
 
 	private ICorDebugFunctionBreakpoint? TryGetEntryBreakpoint(CORDB_ADDRESS moduleBaseAddress, int methodToken, int ilOffset)
 	{
-		return _entryBreakpoint is { } entry && entry.ModuleBaseAddress == moduleBaseAddress &&
+		return _entryBreakpoint is EntryBreakpointState.Bound entry && entry.ModuleBaseAddress == moduleBaseAddress &&
 			entry.MethodToken == methodToken && entry.IlOffset == ilOffset
 			? entry.CorBreakpoint
 			: null;
@@ -528,12 +527,8 @@ public partial class ManagedDebugger
 		_modules.Clear();
 
 		// Deactivate all breakpoints
-		if (_entryBreakpoint is { } entryBreakpoint)
-		{
-			entryBreakpoint.CorBreakpoint.TryActivate(false);
-			_entryBreakpoint = null;
-		}
-		_stopAtEntry = false;
+		EntryCorBreakpoint?.TryActivate(false);
+		_entryBreakpoint = EntryBreakpointState.NotRequested.Instance;
 		foreach (var bp in _breakpointManager.GetAllBreakpoints())
 		{
 			foreach (var corBreakpoint in bp.CorBreakpoints)

@@ -45,6 +45,7 @@ public static class Program
 			DebuggerDisplayFormatting.Test();
 			DebuggerBrowsableRootHidden.Test();
 			ClassWithIndexer.Test();
+			EvalHazardsClass.Test();
 			myClassWithGenericMethod.Test(4);
 			AsyncStackTraceClass.TestAsync().GetAwaiter().GetResult();
 			Thread.Sleep(100);

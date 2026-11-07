@@ -150,6 +150,7 @@ public partial class ManagedDebugger
 			{
 				return callbackEvent;
 			}
+			if (callbackEvent is ExitProcessCorDebugManagedCallbackEventArgs) throw new EvalException("The debuggee exited during evaluation");
 		}
 		throw new InvalidOperationException("Expected to read an eval event from the runtime event queue, but Channel completed unexpectedly");
 	}

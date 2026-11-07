@@ -24,7 +24,17 @@ public partial class ManagedDebugger
 		var typeParameters = type.TypeParameters;
 		var thread = GetIlFrameForThreadIdAndStackDepth(threadId, stackDepth).Chain.Thread;
 		var eval = thread.CreateEval();
-		var initializationValue = await eval.NewParameterizedObjectNoConstructorAsync(ProcessRuntimeEventsUntilEvalEvent, EvalStatus, type.Class, typeParameters.Length, typeParameters, throwOnException: true) ?? throw new EvalException("Type initialization returned no value");
+		ICorDebugValue? initializationValue;
+		try
+		{
+			initializationValue = await eval.NewParameterizedObjectNoConstructorAsync(ProcessRuntimeEventsUntilEvalEvent, EvalStatus, type.Class, typeParameters.Length, typeParameters, throwOnException: true);
+		}
+		catch (Exception ex) when (ex is EvalException or COMException or ArgumentException)
+		{
+			// Some types cannot be allocated without a constructor (string, abstract classes); read the field as it is
+			return;
+		}
+		if (initializationValue is null) throw new EvalException("Type initialization returned no value");
 
 		try
 		{

@@ -194,6 +194,26 @@ internal sealed class EvaluationMetadataResolver(ManagedDebugger debugger, Metad
 		throw new MissingMethodException(GetTypeName(declaringType), name);
 	}
 
+	/// <summary>
+	/// Multi-dimensional arrays have no metadata of their own: element access compiles to calls to the
+	/// runtime-provided <c>Get</c>, <c>Set</c> and <c>Address</c> methods on the array type specification.
+	/// </summary>
+	public bool TryResolveArrayMethod(int token, out string methodName, out int rank)
+	{
+		methodName = string.Empty;
+		rank = 0;
+		var handle = MetadataTokens.EntityHandle(token);
+		if (handle.Kind != HandleKind.MemberReference) return false;
+		var member = evaluationReader.GetMemberReference((MemberReferenceHandle)handle);
+		if (member.Parent.Kind != HandleKind.TypeSpecification) return false;
+		var blob = evaluationReader.GetBlobReader(evaluationReader.GetTypeSpecification((TypeSpecificationHandle)member.Parent).Signature);
+		if (blob.ReadSignatureTypeCode() != SignatureTypeCode.Array) return false;
+		var parameterCount = member.DecodeMethodSignature(SignatureNameProvider.Instance, genericContext: null).ParameterTypes.Length;
+		methodName = evaluationReader.GetString(member.Name);
+		rank = methodName == "Set" ? parameterCount - 1 : parameterCount;
+		return methodName is "Get" or "Set" or "Address";
+	}
+
 	public bool TryResolveEvaluationMethod(int token, out ResolvedEvaluationMethod result)
 	{
 		var handle = MetadataTokens.EntityHandle(token);
@@ -614,8 +634,10 @@ internal sealed class EvaluationMetadataResolver(ManagedDebugger debugger, Metad
 		private static string GetFullName(MetadataReader reader, TypeDefinitionHandle handle)
 		{
 			var type = reader.GetTypeDefinition(handle);
-			var ns = reader.GetString(type.Namespace);
 			var name = reader.GetString(type.Name);
+			var declaringType = type.GetDeclaringType();
+			if (!declaringType.IsNil) return $"{GetFullName(reader, declaringType)}+{name}";
+			var ns = reader.GetString(type.Namespace);
 			return string.IsNullOrEmpty(ns) ? name : $"{ns}.{name}";
 		}
 

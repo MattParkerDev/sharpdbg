@@ -346,6 +346,12 @@ internal sealed class CilInterpreter(ManagedDebugger debugger, RuntimeAssemblyPr
 				{
 					var source = stack.Pop();
 					if (source.Location is not null) source = source.Dereference();
+					var unboxType = resolver.ResolveTypeToken((int)instruction.Operand!);
+					if (IsNullableType(unboxType))
+					{
+						stack.Push(await UnboxToNullableAsync(source, unboxType, resolver, context, handles));
+						continue;
+					}
 					if (source.IsNull) throw NullReference();
 					var boxed = source.CorValue is ICorDebugReferenceValue reference
 						? reference.Dereference() as ICorDebugBoxValue
@@ -568,6 +574,18 @@ internal sealed class CilInterpreter(ManagedDebugger debugger, RuntimeAssemblyPr
 						if (evaluationMethod.Signature.ReturnType != PrimitiveTypeCode.Void.ToString()) stack.Push(methodResult);
 						continue;
 					}
+					if (resolver.TryResolveArrayMethod((int)instruction.Operand!, out var arrayMethodName, out var arrayRank))
+					{
+						var elementValue = arrayMethodName == "Set" ? stack.Pop() : null;
+						var indices = new uint[arrayRank];
+						for (var dimension = arrayRank - 1; dimension >= 0; dimension--) indices[dimension] = checked((uint)stack.Pop().AsInt32());
+						var array = GetArrayValue(stack.Pop());
+						var element = new CorDebugLocation(array.GetElement(arrayRank, indices));
+						if (elementValue is not null) element.Write(await MaterializeForStoreAsync(elementValue, context, handles));
+						else if (arrayMethodName == "Address") stack.Push(CilValue.FromLocation(element));
+						else stack.Push(handles.Root(element.Read()));
+						continue;
+					}
 					var method = resolver.ResolveMethod((int)instruction.Operand!);
 					var argumentValues = new CilValue[method.Signature.ParameterTypes.Length];
 					for (var argument = argumentValues.Length - 1; argument >= 0; argument--) argumentValues[argument] = stack.Pop();
@@ -612,7 +630,7 @@ internal sealed class CilInterpreter(ManagedDebugger debugger, RuntimeAssemblyPr
 
 					var declaringTypeArity = resolver.GetRuntimeTypeGenericArity(method.DeclaringType);
 					var declaringTypeArguments = !method.IsStatic && declaringTypeArity > 0 && callArguments[0].ExactType is { } receiverType
-						? receiverType.TypeParameters.Take(declaringTypeArity).ToArray()
+						? (FindInstantiationOf(receiverType, method.DeclaringType) ?? receiverType).TypeParameters.Take(declaringTypeArity).ToArray()
 						: method.DeclaringType.TypeArguments.IsDefaultOrEmpty
 							? []
 							: method.DeclaringType.TypeArguments.Select(resolver.GetCorDebugType).ToArray();
@@ -659,6 +677,32 @@ internal sealed class CilInterpreter(ManagedDebugger debugger, RuntimeAssemblyPr
 		}
 
 		throw new InvalidOperationException("Generated evaluation method ended without ret");
+	}
+
+	// A method declared on a generic base class takes the base's instantiation, not the receiver's own type arguments
+	private static ICorDebugType? FindInstantiationOf(ICorDebugType type, ResolvedRuntimeType declaringType)
+	{
+		var declaringToken = MetadataTokens.GetToken(declaringType.Handle);
+		var declaringModule = declaringType.Module.Module.BaseAddress;
+		for (ICorDebugType? current = type; current is not null; current = TryGetBase(current))
+		{
+			if (current.Type is not (CorElementType.CLASS or CorElementType.VALUETYPE)) return null;
+			var currentClass = current.Class;
+			if ((int)currentClass.Token == declaringToken && currentClass.Module.BaseAddress == declaringModule) return current;
+		}
+		return null;
+
+		static ICorDebugType? TryGetBase(ICorDebugType type)
+		{
+			try
+			{
+				return type.Base;
+			}
+			catch
+			{
+				return null;
+			}
+		}
 	}
 
 	private static EvaluationFunctionPointer CreateRuntimeFunctionPointer(ResolvedRuntimeMethod method) =>
@@ -720,7 +764,7 @@ internal sealed class CilInterpreter(ManagedDebugger debugger, RuntimeAssemblyPr
 	{
 		if (value.CorValue is not null && expectedType?.Primitive is null or PrimitiveTypeCode.String or PrimitiveTypeCode.Object) return value.CorValue;
 		var eval = context.Thread.CreateEval();
-		var expectedElementType = GetPrimitiveElementType(expectedType?.Primitive);
+		var expectedElementType = GetCreatablePrimitiveElementType(expectedType?.Primitive);
 		if (value.Value is null && expectedElementType is { } primitiveElementType && value.CorValue?.UnwrapDebugValue() is ICorDebugGenericValue sourceGeneric)
 		{
 			var primitiveResult = (ICorDebugGenericValue)eval.CreateValue(primitiveElementType, null);
@@ -772,6 +816,14 @@ internal sealed class CilInterpreter(ManagedDebugger debugger, RuntimeAssemblyPr
 		}
 		return result;
 	}
+
+	// ICorDebugEval.CreateValue rejects ELEMENT_TYPE_I/U, so native integers are created at their fixed width
+	private static CorElementType? GetCreatablePrimitiveElementType(PrimitiveTypeCode? primitive) => GetPrimitiveElementType(primitive) switch
+	{
+		CorElementType.I => IntPtr.Size == 8 ? CorElementType.I8 : CorElementType.I4,
+		CorElementType.U => IntPtr.Size == 8 ? CorElementType.U8 : CorElementType.U4,
+		var elementType => elementType
+	};
 
 	private static CorElementType? GetPrimitiveElementType(PrimitiveTypeCode? primitive) => primitive switch
 	{
@@ -889,6 +941,42 @@ internal sealed class CilInterpreter(ManagedDebugger debugger, RuntimeAssemblyPr
 	/// exact primitive match or an exact runtime type match. Enum/underlying-type and interface-compatible boxes
 	/// are intentionally not accepted (unbox.any is only emitted for value-type targets).
 	/// </summary>
+	private static bool IsNullableType(ResolvedCilType type)
+	{
+		if (type.RuntimeType is not { } runtimeType) return false;
+		var reader = runtimeType.Module.MetadataReader.PeMetadataReader;
+		var definition = reader.GetTypeDefinition(runtimeType.Handle);
+		return reader.StringComparer.Equals(definition.Name, "Nullable`1") && reader.StringComparer.Equals(definition.Namespace, "System");
+	}
+
+	// unbox.any Nullable<T> takes null to an empty nullable and a boxed T to a nullable holding it
+	private async Task<CilValue> UnboxToNullableAsync(CilValue source, ResolvedCilType nullableType, EvaluationMetadataResolver resolver, CompiledExpressionEvaluationContext context, EvaluationHandleScope handles)
+	{
+		var result = await CreateDefaultValueAsync(nullableType, resolver, context, handles);
+		if (source.IsNull) return result;
+		var boxed = source.CorValue is ICorDebugReferenceValue reference
+			? reference.Dereference() as ICorDebugBoxValue
+			: source.CorValue as ICorDebugBoxValue;
+		var underlyingType = resolver.GetCorDebugType(nullableType).TypeParameters[0];
+		if (boxed is null || !IsSameType(boxed.Object.ExactType, underlyingType))
+		{
+			throw new InvalidCastException($"InvalidCastException: Cannot unbox the debuggee value to '{resolver.GetAssemblyQualifiedTypeName(nullableType)}'");
+		}
+		var nullable = (ICorDebugObjectValue)result.CorValue!.UnwrapDebugValue();
+		var nullableClass = nullable.Class;
+		var metadata = nullableClass.Module.GetMetaDataInterface<IMetaDataImport>();
+		new CorDebugLocation(nullable.GetFieldValue(nullableClass, metadata.FindField(nullableClass.Token, "hasValue", 0, 0))).Write(CilValue.FromPrimitive(true));
+		new CorDebugLocation(nullable.GetFieldValue(nullableClass, metadata.FindField(nullableClass.Token, "value", 0, 0))).Write(CilValue.FromCorValue(boxed.Object));
+		return result;
+	}
+
+	private static bool IsSameType(ICorDebugType left, ICorDebugType right)
+	{
+		if (left.Type != right.Type) return false;
+		if (left.Type is not (CorElementType.CLASS or CorElementType.VALUETYPE)) return true;
+		return left.Class.Token == right.Class.Token && left.Class.Module.BaseAddress == right.Class.Module.BaseAddress;
+	}
+
 	private static bool IsUnboxCompatible(ICorDebugValue boxedObject, ResolvedCilType targetType)
 	{
 		var unwrapped = boxedObject.UnwrapDebugValue();
@@ -965,6 +1053,13 @@ internal sealed class CilInterpreter(ManagedDebugger debugger, RuntimeAssemblyPr
 	private async Task<CilValue> BoxAsync(CilValue value, ICorDebugType targetType, CompiledExpressionEvaluationContext context, EvaluationHandleScope handles)
 	{
 		if (value.Location is not null) value = value.Dereference();
+		// Boxing a Nullable<T> boxes its value, or yields null
+		if (value.CorValue is { } nullableCandidate && ManagedDebugger.TryGetNullableUnderlyingValue(nullableCandidate, out _, out var underlying))
+		{
+			return underlying is null
+				? CilValue.Null()
+				: await BoxAsync(CilValue.FromCorValue(underlying), targetType.TypeParameters[0], context, handles);
+		}
 		var sourceBytes = value.CorValue?.UnwrapDebugValue() is ICorDebugGenericValue sourceGeneric
 			? sourceGeneric.GetValueAsBytes()
 			: value.Value is { } primitive
@@ -1181,8 +1276,14 @@ internal sealed class CilInterpreter(ManagedDebugger debugger, RuntimeAssemblyPr
 			}
 			return constrainedBox;
 		}
+		// A host primitive constrained to a value type (an enum constant) is boxed as that type, not as its underlying primitive
+		if (constrainedType?.RuntimeType is not null && value.CorValue is null && value.Value is not null && !IsReferenceType(constrainedType))
+		{
+			var boxedConstrained = await BoxAsync(value, resolver.GetCorDebugType(constrainedType), context, handles);
+			return boxedConstrained.CorValue!;
+		}
 		if (value.CorValue is not null) return value.CorValue;
-		if (value.Value is null) return await MaterializeForCallAsync(value, context, handles);
+		if (value.Value is null or string) return await MaterializeForCallAsync(value, context, handles);
 		var elementType = GetPrimitiveElementType(value.Value);
 		if (!primitiveTypes.CorElementToValueClassMap.TryGetValue(elementType, out var boxedClass))
 		{
@@ -1506,7 +1607,23 @@ internal sealed class CilInterpreter(ManagedDebugger debugger, RuntimeAssemblyPr
 			var v when v == OpCodes.Conv_Ovf_I4.Value => CilValue.FromPrimitive(checked((int)(isFloat ? value.AsFloat() : signed))),
 			var v when v == OpCodes.Conv_Ovf_U4.Value => CilValue.FromPrimitive(checked((uint)(isFloat ? value.AsFloat() : signed))),
 			var v when v == OpCodes.Conv_Ovf_I8.Value => CilValue.FromPrimitive(isFloat ? checked((long)value.AsFloat()) : signed),
-			var v when v == OpCodes.Conv_Ovf_U8.Value => CilValue.FromPrimitive(isFloat ? checked((ulong)value.AsFloat()) : unsigned),
+			var v when v == OpCodes.Conv_Ovf_U8.Value => CilValue.FromPrimitive(isFloat ? checked((ulong)value.AsFloat()) : value.Value is ulong ? unsigned : checked((ulong)signed)),
+			var v when v == OpCodes.Conv_Ovf_I.Value => IntPtr.Size == 8
+				? CilValue.FromPrimitive(isFloat ? checked((long)value.AsFloat()) : signed)
+				: CilValue.FromPrimitive(checked((int)(isFloat ? value.AsFloat() : signed))),
+			var v when v == OpCodes.Conv_Ovf_U.Value => IntPtr.Size == 8
+				? CilValue.FromPrimitive(isFloat ? checked((ulong)value.AsFloat()) : checked((ulong)signed))
+				: CilValue.FromPrimitive(checked((uint)(isFloat ? value.AsFloat() : signed))),
+			var v when v == OpCodes.Conv_Ovf_I1_Un.Value => CilValue.FromPrimitive((int)checked((sbyte)unsigned)),
+			var v when v == OpCodes.Conv_Ovf_U1_Un.Value => CilValue.FromPrimitive((int)checked((byte)unsigned)),
+			var v when v == OpCodes.Conv_Ovf_I2_Un.Value => CilValue.FromPrimitive((int)checked((short)unsigned)),
+			var v when v == OpCodes.Conv_Ovf_U2_Un.Value => CilValue.FromPrimitive((int)checked((ushort)unsigned)),
+			var v when v == OpCodes.Conv_Ovf_I4_Un.Value => CilValue.FromPrimitive(checked((int)unsigned)),
+			var v when v == OpCodes.Conv_Ovf_U4_Un.Value => CilValue.FromPrimitive(checked((uint)unsigned)),
+			var v when v == OpCodes.Conv_Ovf_I8_Un.Value => CilValue.FromPrimitive(checked((long)unsigned)),
+			var v when v == OpCodes.Conv_Ovf_U8_Un.Value => CilValue.FromPrimitive(unsigned),
+			var v when v == OpCodes.Conv_Ovf_I_Un.Value => IntPtr.Size == 8 ? CilValue.FromPrimitive(checked((long)unsigned)) : CilValue.FromPrimitive(checked((int)unsigned)),
+			var v when v == OpCodes.Conv_Ovf_U_Un.Value => IntPtr.Size == 8 ? CilValue.FromPrimitive(unsigned) : CilValue.FromPrimitive(checked((uint)unsigned)),
 			_ => throw new NotSupportedException($"Conversion opcode '{op.Name}' is not supported yet")
 		};
 	}
@@ -1521,10 +1638,12 @@ internal sealed class CilInterpreter(ManagedDebugger debugger, RuntimeAssemblyPr
 		if (op == OpCodes.Bgt_Un || op == OpCodes.Bgt_Un_S) return Compare(OpCodes.Cgt_Un, left, right);
 		if (op == OpCodes.Blt || op == OpCodes.Blt_S) return Compare(OpCodes.Clt, left, right);
 		if (op == OpCodes.Blt_Un || op == OpCodes.Blt_Un_S) return Compare(OpCodes.Clt_Un, left, right);
-		if (op == OpCodes.Bge || op == OpCodes.Bge_S) return !Compare(OpCodes.Clt, left, right);
-		if (op == OpCodes.Bge_Un || op == OpCodes.Bge_Un_S) return !Compare(OpCodes.Clt_Un, left, right);
-		if (op == OpCodes.Ble || op == OpCodes.Ble_S) return !Compare(OpCodes.Cgt, left, right);
-		if (op == OpCodes.Ble_Un || op == OpCodes.Ble_Un_S) return !Compare(OpCodes.Cgt_Un, left, right);
+		// For floats the signed and unordered forms swap when negated: bge must not branch on NaN, bge.un must
+		var isFloat = left.Value is float or double || right.Value is float or double;
+		if (op == OpCodes.Bge || op == OpCodes.Bge_S) return !Compare(isFloat ? OpCodes.Clt_Un : OpCodes.Clt, left, right);
+		if (op == OpCodes.Bge_Un || op == OpCodes.Bge_Un_S) return !Compare(isFloat ? OpCodes.Clt : OpCodes.Clt_Un, left, right);
+		if (op == OpCodes.Ble || op == OpCodes.Ble_S) return !Compare(isFloat ? OpCodes.Cgt_Un : OpCodes.Cgt, left, right);
+		if (op == OpCodes.Ble_Un || op == OpCodes.Ble_Un_S) return !Compare(isFloat ? OpCodes.Cgt : OpCodes.Cgt_Un, left, right);
 		throw new NotSupportedException($"Conditional branch '{op.Name}' is not supported");
 	}
 

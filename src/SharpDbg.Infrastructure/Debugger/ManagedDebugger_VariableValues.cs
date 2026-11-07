@@ -240,7 +240,7 @@ public partial class ManagedDebugger
 		return valueValue;
 	}
 
-	private static bool TryGetNullableUnderlyingValue(ICorDebugValue corDebugValue, out string nullableTypeName, out ICorDebugValue? underlyingValue)
+	internal static bool TryGetNullableUnderlyingValue(ICorDebugValue corDebugValue, out string nullableTypeName, out ICorDebugValue? underlyingValue)
 	{
 		nullableTypeName = "";
 		underlyingValue = null;

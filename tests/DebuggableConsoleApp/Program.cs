@@ -45,6 +45,7 @@ public static class Program
 			DebuggerDisplayFormatting.Test();
 			DebuggerBrowsableRootHidden.Test();
 			ClassWithIndexer.Test();
+			EvaluationSemanticsClass.Test();
 			EvalHazardsClass.Test();
 			StepOverConditionalBreakpointClass.Test();
 			myClassWithGenericMethod.Test(4);

@@ -48,6 +48,9 @@ public class AsyncStepper
 	private class AsyncStep
 	{
 		public int ThreadId;
+		// The stepping activation's MoveNext frame. Other activations of the same method run the same code, so they hit the yield
+		// breakpoint too: a recursive call reaches its own await on this thread, deeper in the stack, before the stepping one does
+		public (CORDB_ADDRESS Start, CORDB_ADDRESS End) FrameStackRange;
 		public StepType InitialStepType;
 		public uint ResumeOffset;
 		public AsyncStepStatus Status;
@@ -287,6 +290,7 @@ public class AsyncStepper
 				_currentAsyncStep = new AsyncStep
 				{
 					ThreadId = thread.Id,
+					FrameStackRange = ilFrame.StackRange,
 					InitialStepType = stepType,
 					ResumeOffset = awaitInfo.ResumeOffset,
 					Status = AsyncStepStatus.YieldBreakpoint,
@@ -369,8 +373,9 @@ public class AsyncStepper
 
 			if (_currentAsyncStep.Status == AsyncStepStatus.YieldBreakpoint)
 			{
-				if (_currentAsyncStep.ThreadId != thread.Id)
+				if (_currentAsyncStep.ThreadId != thread.Id || frame.StackRange != _currentAsyncStep.FrameStackRange)
 				{
+					// Another activation yielding: keep waiting for the stepping one
 					return (false, null);
 				}
 				// Yield breakpoint hit - switch to resume breakpoint

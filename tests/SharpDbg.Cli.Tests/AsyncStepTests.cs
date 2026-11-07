@@ -284,4 +284,39 @@ public class AsyncStepTests(ITestOutputHelper testOutputHelper)
 		afterLoopInfo.filePath.Should().EndWith("AsyncForeachBreakClass.cs");
 		afterLoopInfo.line.Should().Be(13);
 	}
+
+	// Stepping over a recursive await: the inner activations hit the same await first, the step must end in the one it started in
+	[Theory]
+	[InlineData(true)]
+	[InlineData(false)]
+	public async Task SharpDbgCli_StepOverRequest_OfRecursiveAwait_StaysInTheSameActivation(bool justMyCode)
+	{
+		var startSuspended = true;
+		var (debugProtocolHost, adapter, p2) = TestHelper.GetRunningDebugProtocolHost(testOutputHelper, startSuspended);
+		using var _ = adapter;
+		using var __ = new ProcessKiller(p2);
+		using var ___ = debugProtocolHost;
+
+		var filePath = Path.JoinFromGitRoot("tests", "DebuggableConsoleApp", "AsyncRecursionClass.cs");
+		await debugProtocolHost
+			.WithInitializeRequest()
+			.WithAttachRequest(p2.Id, justMyCode)
+			.WaitForInitializedEvent();
+		debugProtocolHost
+			.WithBreakpointsRequest(16, filePath)
+			.WithConfigurationDoneRequest()
+			.WithOptionalResumeRuntime(p2.Id, startSuspended);
+
+		var recurseStop = await debugProtocolHost.WaitForStoppedEvent();
+		recurseStop.ReadStopInfo().line.Should().Be(16);
+		debugProtocolHost.WithStackTraceRequest(recurseStop.ThreadId!.Value, out var startStack);
+		debugProtocolHost.Evaluate(startStack.StackFrames!.First().Id, "n").Result.Should().Be("3", "the outermost activation reaches the await first");
+		debugProtocolHost.WithClearBreakpointsRequest(filePath);
+
+		var afterAwait = await debugProtocolHost.WithStepOverRequest(recurseStop.ThreadId!.Value).WaitForStoppedEvent();
+		afterAwait.Reason.Should().Be(StoppedEvent.ReasonValue.Step);
+		afterAwait.ReadStopInfo().line.Should().Be(17);
+		debugProtocolHost.WithStackTraceRequest(afterAwait.ThreadId!.Value, out var endStack);
+		debugProtocolHost.Evaluate(endStack.StackFrames!.First().Id, "n").Result.Should().Be("3");
+	}
 }

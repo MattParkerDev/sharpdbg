@@ -53,6 +53,7 @@ public static class Program
 			AsyncStepOutClass.TestAsync().GetAwaiter().GetResult();
 			AsyncUnawaitedTaskClass.TestAsync().GetAwaiter().GetResult();
 			AsyncForeachBreakClass.TestAsync().GetAwaiter().GetResult();
+			AsyncRecursionClass.TestAsync().GetAwaiter().GetResult();
 			Thread.Sleep(100);
 			//await Task.Delay(500);
 		}

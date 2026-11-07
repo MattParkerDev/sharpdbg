@@ -44,6 +44,7 @@ public static class Program
 			SameFileName.Test();
 			DebuggerDisplayFormatting.Test();
 			DebuggerBrowsableRootHidden.Test();
+			ClassWithIndexer.Test();
 			myClassWithGenericMethod.Test(4);
 			AsyncStackTraceClass.TestAsync().GetAwaiter().GetResult();
 			Thread.Sleep(100);

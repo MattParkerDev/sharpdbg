@@ -552,6 +552,7 @@ public partial class ManagedDebugger
 
 				// Get method attributes to check if it's static
 				var getterMethodProps = metadataImport.GetMethodProps(getMethodDef);
+				if (Marshal.ReadByte(getterMethodProps.ppvSigBlob, 1) is not 0) return; // Indexers need arguments, so are not listed
 				var getterAttr = getterMethodProps.pdwAttr;
 
 				var isStatic = getterAttr.IsMdStatic();

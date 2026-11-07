@@ -150,7 +150,7 @@ public partial class ManagedDebugger
 		// Try to bind any pending breakpoints now that we have a new module with symbols
 		if (metadataReader.HasSymbols)
 		{
-			TryBindPendingBreakpoints();
+			TryBindUnboundSourceBreakpoints();
 			foreach (var breakpoint in _breakpointManager.GetFunctionBreakpoints())
 			{
 				var becameVerified = TryBindFunctionBreakpoint(breakpoint, moduleInfo);
@@ -177,25 +177,26 @@ public partial class ManagedDebugger
 
 		foreach (var breakpoint in _breakpointManager.GetAllBreakpoints())
 		{
-			if (breakpoint.IsFunctionBreakpoint)
+			switch (breakpoint.Binding)
 			{
-				var removedBindingCount = breakpoint.FunctionBindings.RemoveAll(binding => binding.ModuleBaseAddress == baseAddress);
-				if (removedBindingCount is 0 || breakpoint.FunctionBindings.Count > 0) continue;
+				case BreakpointManager.BreakpointBinding.FunctionBound bound:
+					var remaining = bound.Bindings.RemoveAll(binding => binding.ModuleBaseAddress == baseAddress);
+					if (remaining.Length == bound.Bindings.Length) break;
+					if (remaining.Length > 0)
+					{
+						breakpoint.Binding = new BreakpointManager.BreakpointBinding.FunctionBound(remaining);
+						break;
+					}
+					breakpoint.Binding = new BreakpointManager.BreakpointBinding.Unbound(NoMatchingFunctionMessage);
+					OnBreakpointChanged?.Invoke(breakpoint);
+					break;
 
-				breakpoint.Verified = false;
-				breakpoint.Message = "The breakpoint will not currently be hit. No matching function has been loaded.";
-				OnBreakpointChanged?.Invoke(breakpoint);
-				continue;
+				case BreakpointManager.BreakpointBinding.SourceBound bound when bound.ModuleBaseAddress == baseAddress:
+					breakpoint.Binding = new BreakpointManager.BreakpointBinding.Unbound(NoSymbolsForDocumentMessage);
+					TryBindBreakpoint(breakpoint);
+					OnBreakpointChanged?.Invoke(breakpoint);
+					break;
 			}
-
-			if (breakpoint.ModuleBaseAddress != baseAddress) continue;
-			breakpoint.CorBreakpoint = null;
-			breakpoint.ResolvedBreakpointFromPdb = null;
-			breakpoint.ModuleBaseAddress = null;
-			breakpoint.Verified = false;
-			breakpoint.Message = "The breakpoint will not currently be hit. No symbols have been loaded for this document.";
-			TryBindBreakpoint(breakpoint);
-			OnBreakpointChanged?.Invoke(breakpoint);
 		}
 
 		OnModuleUnloaded?.Invoke(moduleInfo.ModulePath, moduleInfo.ModuleName, moduleInfo.ModulePath);
@@ -358,7 +359,7 @@ public partial class ManagedDebugger
 			return;
 		}
 
-		if (firstHitBreakpoint.ResolvedBreakpointFromPdb is not {} resolvedBreakpoint) throw new UnreachableException("Breakpoint was not resolved from PDB - this should never happen, as source breakpoints are only bound to resolved source locations");
+		if (firstHitBreakpoint.Binding is not BreakpointManager.BreakpointBinding.SourceBound { Resolved: var resolvedBreakpoint }) throw new UnreachableException("A source breakpoint was hit while not bound - this should never happen, as only bound breakpoints are found by their runtime breakpoint");
 		OnStopped2?.Invoke(corThread.Id, firstHitBreakpoint.FilePath, resolvedBreakpoint.StartLine, resolvedBreakpoint.StartColumn, "breakpoint", hitBreakpointIds);
 	}
 

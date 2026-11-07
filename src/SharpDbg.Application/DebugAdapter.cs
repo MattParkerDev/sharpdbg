@@ -177,7 +177,7 @@ public class DebugAdapter : IDapRequestHandler
 			});
 		};
 
-		_debugger.OnBreakpointChanged += breakpoint =>
+		_debugger.OnBreakpointChanged += (breakpoint, hitMessage) =>
 		{
 			Connection.SendEvent(new BreakpointEvent
 			{
@@ -188,10 +188,10 @@ public class DebugAdapter : IDapRequestHandler
 					Verified = breakpoint.Verified,
 					Line = breakpoint.IsFunctionBreakpoint ? null : ConvertDebuggerLineToClient(breakpoint.Line),
 					Column = breakpoint is { IsFunctionBreakpoint: false, Verified: true, Column: not null } ? ConvertDebuggerColumnToClient(breakpoint.Column.Value) : null,
-					EndLine = breakpoint is { IsFunctionBreakpoint: false, Verified: true } ? ConvertDebuggerLineToClient(breakpoint.EndLine) : null,
-					EndColumn = breakpoint is { IsFunctionBreakpoint: false, Verified: true, EndColumn: not null } ? ConvertDebuggerColumnToClient(breakpoint.EndColumn.Value) : null,
+					EndLine = breakpoint is { IsFunctionBreakpoint: false, EndLine: { } endLine } ? ConvertDebuggerLineToClient(endLine) : null,
+					EndColumn = breakpoint is { IsFunctionBreakpoint: false, EndColumn: { } endColumn } ? ConvertDebuggerColumnToClient(endColumn) : null,
 					Offset = breakpoint is { IsFunctionBreakpoint: false, Verified: true } ? 0 : null,
-					Message = breakpoint.Message,
+					Message = hitMessage ?? breakpoint.Message,
 					Source = breakpoint is not { IsFunctionBreakpoint: false, Verified: true } ? null : new Source
 					{
 						Path = breakpoint.FilePath,
@@ -485,8 +485,8 @@ public class DebugAdapter : IDapRequestHandler
 					Verified = bp.Verified,
 					Line = ConvertDebuggerLineToClient(bp.Line),
 					Column = bp is { Verified: true, Column: not null } ? ConvertDebuggerColumnToClient(bp.Column.Value) : null,
-					EndLine = bp.Verified ? ConvertDebuggerLineToClient(bp.EndLine) : null,
-					EndColumn = bp is { Verified: true, EndColumn: not null } ? ConvertDebuggerColumnToClient(bp.EndColumn.Value) : null,
+					EndLine = bp.EndLine is { } endLine ? ConvertDebuggerLineToClient(endLine) : null,
+					EndColumn = bp.EndColumn is { } endColumn ? ConvertDebuggerColumnToClient(endColumn) : null,
 					Message = bp.Message,
 					Source = new Source
 					{

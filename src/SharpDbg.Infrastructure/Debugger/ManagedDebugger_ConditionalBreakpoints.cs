@@ -35,10 +35,7 @@ public partial class ManagedDebugger
 		OnImportantOutput?.Invoke($"Breakpoint error: {message} - {location}\n");
 
 		// The message only belongs to this hit, so is not kept on the breakpoint
-		var previousMessage = breakpoint.Message;
-		breakpoint.Message = message;
-		OnBreakpointChanged?.Invoke(breakpoint);
-		breakpoint.Message = previousMessage;
+		OnBreakpointChanged?.Invoke(breakpoint, message);
 	}
 
 	private static bool EvaluateHitCondition(int hitCount, string hitCondition)

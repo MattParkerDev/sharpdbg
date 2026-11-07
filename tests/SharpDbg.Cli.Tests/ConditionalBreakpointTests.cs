@@ -32,6 +32,39 @@ public class ConditionalBreakpointTests(ITestOutputHelper testOutputHelper)
 	}
 
 	[Fact]
+	public async Task ConditionalBreakpoint_WithLambda_IsNotBoundWhenModulesLoad()
+	{
+		var startSuspended = true;
+		var (debugProtocolHost, adapter, p2) = TestHelper.GetRunningDebugProtocolHost(testOutputHelper, startSuspended);
+		using var _ = adapter;
+		using var __ = new ProcessKiller(p2);
+		using var ___ = debugProtocolHost;
+
+		await debugProtocolHost
+			.WithInitializeRequest()
+			.WithAttachRequest(p2.Id)
+			.WaitForInitializedEvent();
+
+		// Set before the process is attached, so the rejected breakpoint is still around when the module with its document loads
+		debugProtocolHost
+			.WithBreakpointsRequest(Path.JoinFromGitRoot("tests", "DebuggableConsoleApp", "MyClass.cs"),
+				[
+					new SharpDbgBreakpointRequest(15, "_intList.Any(value => value == 4)"),
+					new SharpDbgBreakpointRequest(22)
+				],
+				out var response)
+			.WithConfigurationDoneRequest()
+			.WithOptionalResumeRuntime(p2.Id, startSuspended);
+		var rejectedBreakpointId = response.Breakpoints[0].Id;
+
+		var stoppedEvent = await debugProtocolHost.WaitForStoppedEvent();
+		var stopInfo = stoppedEvent.ReadStopInfo();
+		stopInfo.filePath.Should().EndWith("MyClass.cs");
+		stopInfo.line.Should().Be(22);
+		debugProtocolHost.ReceivedEvents.OfType<BreakpointEvent>().Where(e => e.Breakpoint.Id == rejectedBreakpointId).Should().NotContain(e => e.Breakpoint.Verified);
+	}
+
+	[Fact]
 	public async Task ConditionalBreakpoint_WithTrueCondition_Stops()
 	{
 		var startSuspended = true;

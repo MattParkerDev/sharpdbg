@@ -124,7 +124,7 @@ public partial class ManagedDebugger
 		var bp = _breakpointManager.GetBreakpoint(id);
 		if (bp is null) return false;
 		var removed = _breakpointManager.RemoveBreakpoint(id);
-		if (bp.CorBreakpoint is not null) DeactivateIfUnused(bp.CorBreakpoint);
+		foreach (var corBreakpoint in bp.CorBreakpoints) DeactivateIfUnused(corBreakpoint);
 		return removed;
 	}
 
@@ -346,7 +346,7 @@ public partial class ManagedDebugger
 		_logger?.Invoke($"SetBreakpoints: {filePath}, breakpoints: {string.Join(",", breakpoints.Select(b => $"L{b.Line} {(b.Column is not null ? $"C{b.Column}" : null)} {(b.Condition is not null ? $"[{b.Condition}]" : null)}"))}");
 
 		// Clear and deactivate existing breakpoints for this file
-		var existingCorBreakpoints = _breakpointManager.GetBreakpointsForFile(filePath).Select(bp => bp.CorBreakpoint).OfType<ICorDebugFunctionBreakpoint>().Distinct().ToList();
+		var existingCorBreakpoints = _breakpointManager.GetBreakpointsForFile(filePath).SelectMany(bp => bp.CorBreakpoints).Distinct().ToList();
 		_breakpointManager.ClearBreakpointsForFile(filePath);
 		foreach (var corBreakpoint in existingCorBreakpoints)
 		{
@@ -360,21 +360,13 @@ public partial class ManagedDebugger
 			var bp = _breakpointManager.CreateBreakpoint(filePath, request.Line, request.Column, request.Condition, request.HitCondition);
 			if (request.Condition is not null && SyntaxFactory.ParseExpression(request.Condition).DescendantNodesAndSelf().Any(static node => node is AnonymousFunctionExpressionSyntax))
 			{
-				bp.Message = "Lambda expressions are not supported in breakpoint conditions.";
+				bp.Binding = new BreakpointManager.BreakpointBinding.Rejected("Lambda expressions are not supported in breakpoint conditions.");
 				result.Add(bp);
 				continue;
 			}
 
-			// Try to bind the breakpoint if we have a process
-			if (_process is not null)
-			{
-				TryBindBreakpoint(bp);
-			}
-			else
-			{
-				// No process yet, mark as pending
-				bp.Message = "Breakpoint has not been processed by the debugger.";
-			}
+			// Without a process the breakpoint stays unbound until modules load
+			if (_process is not null) TryBindBreakpoint(bp);
 
 			result.Add(bp);
 		}
@@ -386,9 +378,9 @@ public partial class ManagedDebugger
 	{
 		foreach (var bp in _breakpointManager.GetFunctionBreakpoints())
 		{
-			foreach (var binding in bp.FunctionBindings)
+			foreach (var corBreakpoint in bp.CorBreakpoints)
 			{
-				try { binding.CorBreakpoint.Activate(false); }
+				try { corBreakpoint.Activate(false); }
 				catch (Exception ex) { _logger?.Invoke($"Error deactivating function breakpoint: {ex.Message}"); }
 			}
 		}
@@ -405,13 +397,14 @@ public partial class ManagedDebugger
 				{
 					TryBindFunctionBreakpoint(bp, module);
 				}
-				if (!bp.Verified) bp.Message = _process is null
-					? "Breakpoint has not been processed by the debugger."
-					: $"No functions matching '{request.Name}' were found.";
+				if (bp.Binding is BreakpointManager.BreakpointBinding.Unbound) bp.Binding = new BreakpointManager.BreakpointBinding.Unbound(_process is null
+					? BreakpointManager.NotProcessedMessage
+					: $"No functions matching '{request.Name}' were found.");
 			}
 			catch (ArgumentException ex)
 			{
-				bp.Message = ex.Message;
+				// The name is not a valid function breakpoint pattern, so no module could ever match it
+				bp.Binding = new BreakpointManager.BreakpointBinding.Rejected(ex.Message);
 			}
 			result.Add(bp);
 		}

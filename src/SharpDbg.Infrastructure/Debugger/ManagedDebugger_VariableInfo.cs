@@ -214,34 +214,35 @@ public partial class ManagedDebugger
 
 	private int GetVariablesReference(ICorDebugValue corDebugValue, string friendlyTypeName, ThreadId threadId, FrameStackDepth stackDepth, ICorDebugValue? debuggerProxyInstance)
 	{
+		return HasChildren(corDebugValue, friendlyTypeName) ? GenerateUniqueVariableReference(corDebugValue, threadId, stackDepth, debuggerProxyInstance) : 0;
+	}
+
+	private bool HasChildren(ICorDebugValue corDebugValue, string friendlyTypeName)
+	{
 		var unwrappedDebugValue = corDebugValue.UnwrapDebugValue();
 		if (unwrappedDebugValue is ICorDebugArrayValue arrayValue)
 		{
-			if (arrayValue.Count is 0) return 0;
-			return GenerateUniqueVariableReference(corDebugValue, threadId, stackDepth, debuggerProxyInstance);
+			return arrayValue.Count is not 0;
 		}
 		else if (unwrappedDebugValue is ICorDebugObjectValue objectValue)
 		{
 			if (TryGetNullableUnderlyingValue(corDebugValue, out _, out var underlyingValueOrNull))
 			{
-				if (underlyingValueOrNull is null) return 0;
-				if (underlyingValueOrNull.UnwrapDebugValue() is not ICorDebugObjectValue objValue) return 0; // underlying value is primitive
+				if (underlyingValueOrNull is null) return false;
+				if (underlyingValueOrNull.UnwrapDebugValue() is not ICorDebugObjectValue objValue) return false; // underlying value is primitive
 				objectValue = objValue;
 			}
 
 			var type = objectValue.Type;
 			// Strings are objects but typically displayed as primitives
-			if (type is CorElementType.STRING) return 0;
+			if (type is CorElementType.STRING) return false;
 			// Decimal is a struct but should be treated as a primitive
-			if (friendlyTypeName is "decimal" or "decimal?") return 0;
+			if (friendlyTypeName is "decimal" or "decimal?") return false;
 			// a boxed primitive is CorElementType.VALUETYPE but should be displayed as a primitive. They can never be nullable.
-			if (friendlyTypeName is "bool" or "byte" or "sbyte" or "char" or "short" or "ushort" or "int" or "uint" or "long" or "ulong" or "float" or "double" or "nint" or "nuint") return 0;
-			if (type is CorElementType.CLASS or CorElementType.VALUETYPE or CorElementType.SZARRAY or CorElementType.ARRAY)
-			{
-				return GenerateUniqueVariableReference(corDebugValue, threadId, stackDepth, debuggerProxyInstance);
-			}
+			if (friendlyTypeName is "bool" or "byte" or "sbyte" or "char" or "short" or "ushort" or "int" or "uint" or "long" or "ulong" or "float" or "double" or "nint" or "nuint") return false;
+			return type is CorElementType.CLASS or CorElementType.VALUETYPE or CorElementType.SZARRAY or CorElementType.ARRAY;
 		}
-		return 0;
+		return false;
 	}
 
 	private int GenerateUniqueVariableReference(ICorDebugValue value, ThreadId threadId, FrameStackDepth stackDepth, ICorDebugValue? debuggerProxyInstance)
@@ -249,6 +250,67 @@ public partial class ManagedDebugger
 		var variablesReference = new VariablesReference(StoredReferenceKind.StackVariable, value, threadId, stackDepth, debuggerProxyInstance);
 		var reference = _variableManager.CreateReference(variablesReference);
 		return reference;
+	}
+
+	private async Task AddStackVariableChildren(VariablesReference variablesReference, List<VariableInfo> result)
+	{
+		if (variablesReference.DebuggerProxyInstance is not null)
+		{
+			// get the public members of the debugger proxy instance instead
+			var proxyObjectValue = variablesReference.DebuggerProxyInstance.UnwrapDebugValueToObject();
+			await AddMembersAndStaticPseudoVariable(variablesReference.DebuggerProxyInstance, proxyObjectValue.ExactType, variablesReference.ThreadId, variablesReference.FrameStackDepth, result, false);
+			var rawValueVariablesReference = _variableManager.CreateReference(new VariablesReference(StoredReferenceKind.RawView, variablesReference.ObjectValue, variablesReference.ThreadId, variablesReference.FrameStackDepth, null));
+			var rawValuePseudoVariable = new VariableInfo
+			{
+				Name = "Raw View",
+				Value = "",
+				Type = "",
+				PresentationHint = new VariablePresentationHint { Kind = PresentationHintKind.Class },
+				VariablesReference = rawValueVariablesReference
+			};
+			result.Add(rawValuePseudoVariable);
+			return;
+		}
+		var unwrappedDebugValue = variablesReference.ObjectValue!.UnwrapDebugValue();
+
+		if (unwrappedDebugValue is ICorDebugArrayValue arrayValue)
+		{
+			await AddArrayElements(arrayValue, variablesReference.ThreadId, variablesReference.FrameStackDepth, result, referenceValue: variablesReference.ObjectValue);
+		}
+		else if (unwrappedDebugValue is ICorDebugObjectValue objectValue)
+		{
+			if (IsEnumerable(objectValue.ExactType))
+			{
+				AddEnumerablePseudoVariables(variablesReference, result);
+			}
+			else
+			{
+				await AddMembersAndStaticPseudoVariable(variablesReference.ObjectValue!, objectValue.ExactType, variablesReference.ThreadId, variablesReference.FrameStackDepth, result);
+			}
+		}
+		else
+		{
+			throw new ArgumentOutOfRangeException(nameof(unwrappedDebugValue));
+		}
+	}
+
+	private const int MaxRootHiddenDepth = 10;
+	private readonly AsyncLocal<int> _rootHiddenDepth = new();
+
+	/// DebuggerBrowsableState.RootHidden lists a member's children in place of the member, and nothing for a value with no children.
+	/// Returns Handled false when nested too deep (e.g. a member returning 'this'), so the member is listed as itself instead
+	private async Task<(bool Handled, bool ValueRetained)> TryAddRootHiddenChildren(ICorDebugValue value, ThreadId threadId, FrameStackDepth stackDepth, List<VariableInfo> result)
+	{
+		if (_rootHiddenDepth.Value >= MaxRootHiddenDepth) return (false, false);
+		var resolvedValue = ResolveCorDebugValue(value);
+		if (resolvedValue.Value is not { } valueToExpand) return (true, false);
+		var (friendlyTypeName, _, _, debuggerProxyTypeName) = GetValueForCorDebugValue(valueToExpand, true);
+		var debuggerProxyInstance = debuggerProxyTypeName is null ? null : await CreateDebuggerProxyInstance(valueToExpand, threadId, valueToExpand.ExactType.Class.Module, debuggerProxyTypeName, valueToExpand.ExactType.TypeParameters);
+		if (HasChildren(value, resolvedValue.FriendlyTypeNameOverride ?? friendlyTypeName) is false) return (true, false);
+		// AsyncLocal, so the increment is seen by the nested calls below and undone when this method returns
+		_rootHiddenDepth.Value++;
+		await AddStackVariableChildren(new VariablesReference(StoredReferenceKind.StackVariable, value, threadId, stackDepth, debuggerProxyInstance), result);
+		return (true, true);
 	}
 
 	private async Task AddMembersAndStaticPseudoVariable(ICorDebugValue corDebugValue, ICorDebugType corDebugType, ThreadId threadId, FrameStackDepth stackDepth, List<VariableInfo> result, bool includeNonPublicMembers = true)
@@ -444,15 +506,7 @@ public partial class ManagedDebugger
 
 				var objectValue = corDebugValue.UnwrapDebugValueToObject();
 				var fieldCorDebugValue = isStatic ? await GetStaticFieldValueAsync(corDebugType, mdFieldDef, threadId, stackDepth) : objectValue.GetFieldValue(corDebugClass, mdFieldDef);
-				if (debuggerBrowsableRootHidden)
-				{
-					var unwrappedDebugValue = fieldCorDebugValue.UnwrapDebugValue();
-					if (unwrappedDebugValue is ICorDebugArrayValue arrayValue)
-					{
-						await AddArrayElements(arrayValue, threadId, stackDepth, result, referenceValue: fieldCorDebugValue);
-						return;
-					}
-				}
+				if (debuggerBrowsableRootHidden && (await TryAddRootHiddenChildren(fieldCorDebugValue, threadId, stackDepth, result)).Handled) return;
 				var (friendlyTypeName, value, debuggerProxyInstance, resultIsError) = await GetValueForCorDebugValueAsync(fieldCorDebugValue, threadId, stackDepth, true);
 				VariablePresentationHint? variablePresentationHint = resultIsError ? new VariablePresentationHint { Attributes = AttributesValue.FailedEvaluation } : null;
 				var variableInfo = new VariableInfo
@@ -531,12 +585,9 @@ public partial class ManagedDebugger
 				{
 					if (debuggerBrowsableRootHidden)
 					{
-						var unwrappedDebugValue = returnValue.UnwrapDebugValue();
-						if (unwrappedDebugValue is ICorDebugArrayValue arrayValue)
-						{
-							retainReturnValue = await AddArrayElements(arrayValue, threadId, stackDepth, result, referenceValue: returnValue);
-							return;
-						}
+						var (handled, valueRetained) = await TryAddRootHiddenChildren(returnValue, threadId, stackDepth, result);
+						retainReturnValue = valueRetained;
+						if (handled) return;
 					}
 					var (friendlyTypeName, value, debuggerProxyInstance, resultIsError) = await GetValueForCorDebugValueAsync(returnValue, threadId, stackDepth, true);
 					VariablePresentationHint? variablePresentationHint = resultIsError ? new VariablePresentationHint { Attributes = AttributesValue.FailedEvaluation } : null;

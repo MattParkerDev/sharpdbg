@@ -645,44 +645,7 @@ public partial class ManagedDebugger
 			}
 			else if (variablesReference.ReferenceKind is StoredReferenceKind.StackVariable)
 			{
-				if (variablesReference.DebuggerProxyInstance is not null)
-				{
-					// get the public members of the debugger proxy instance instead
-					var objectValue = variablesReference.DebuggerProxyInstance.UnwrapDebugValueToObject();
-					await AddMembersAndStaticPseudoVariable(variablesReference.DebuggerProxyInstance, objectValue.ExactType, variablesReference.ThreadId, variablesReference.FrameStackDepth, result, false);
-					var rawValueVariablesReference = _variableManager.CreateReference(new VariablesReference(StoredReferenceKind.RawView, variablesReference.ObjectValue, variablesReference.ThreadId, variablesReference.FrameStackDepth, null));
-					var rawValuePseudoVariable = new VariableInfo
-					{
-						Name = "Raw View",
-						Value = "",
-						Type = "",
-						PresentationHint = new VariablePresentationHint { Kind = PresentationHintKind.Class },
-						VariablesReference = rawValueVariablesReference
-					};
-					result.Add(rawValuePseudoVariable);
-					return result;
-				}
-				var unwrappedDebugValue = variablesReference.ObjectValue!.UnwrapDebugValue();
-
-				if (unwrappedDebugValue is ICorDebugArrayValue arrayValue)
-				{
-					await AddArrayElements(arrayValue, variablesReference.ThreadId, variablesReference.FrameStackDepth, result, referenceValue: variablesReference.ObjectValue);
-				}
-				else if (unwrappedDebugValue is ICorDebugObjectValue objectValue)
-				{
-					if (IsEnumerable(objectValue.ExactType))
-					{
-						AddEnumerablePseudoVariables(variablesReference, result);
-					}
-					else
-					{
-						await AddMembersAndStaticPseudoVariable(variablesReference.ObjectValue!, objectValue.ExactType, variablesReference.ThreadId, variablesReference.FrameStackDepth, result);
-					}
-				}
-				else
-				{
-					throw new ArgumentOutOfRangeException(nameof(unwrappedDebugValue));
-				}
+				await AddStackVariableChildren(variablesReference, result);
 			}
 			else if (variablesReference.ReferenceKind is StoredReferenceKind.StaticClassVariable)
 			{

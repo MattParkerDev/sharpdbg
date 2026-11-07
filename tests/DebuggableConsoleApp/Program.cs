@@ -43,6 +43,7 @@ public static class Program
 			SomeFolder.SameFileName.Test();
 			SameFileName.Test();
 			DebuggerDisplayFormatting.Test();
+			DebuggerBrowsableRootHidden.Test();
 			myClassWithGenericMethod.Test(4);
 			AsyncStackTraceClass.TestAsync().GetAwaiter().GetResult();
 			Thread.Sleep(100);

@@ -7,7 +7,8 @@ namespace SharpDbg.Infrastructure.Debugger;
 
 public partial class ManagedDebugger
 {
-	private async Task<bool> EvaluateBreakpointCondition(ICorDebugThread corThread, string condition)
+	/// <returns>Whether the condition is true, or the error if it could not be evaluated to a boolean</returns>
+	private async Task<(bool IsTrue, string? Error)> EvaluateBreakpointCondition(ICorDebugThread corThread, string condition)
 	{
 		try
 		{
@@ -17,19 +18,30 @@ public partial class ManagedDebugger
 			var evalContext = new CompiledExpressionEvaluationContext(corThread, threadId, frameStackDepth);
 			using var result = await _expressionEvaluator.Evaluate(condition, evalContext);
 
-			if (result.Error is not null)
-			{
-				_logger?.Invoke($"Condition evaluation error for '{condition}': {result.Error}");
-				return false; // Don't stop on error - condition couldn't be evaluated, so skip the breakpoint
-			}
-
-			return IsTruthyValue(result.Value);
+			if (result.Error is not null) return (false, result.Error);
+			return TryGetBoolean(result.Value) is { } isTrue ? (isTrue, null) : (false, "The breakpoint condition must evaluate to a boolean operation");
 		}
 		catch (Exception ex)
 		{
-			_logger?.Invoke($"Exception evaluating condition '{condition}': {ex.Message}");
-			return false; // Don't stop on exception - condition couldn't be evaluated, so skip the breakpoint
+			return (false, ex.Message);
 		}
+	}
+
+	/// <summary>
+	/// Matches vsdbg: a condition that cannot be evaluated stops at the breakpoint, and says why in the output and on the breakpoint
+	/// </summary>
+	private void ReportBreakpointConditionError(BreakpointManager.BreakpointInfo breakpoint, string error)
+	{
+		var message = $"The condition for a breakpoint failed to execute. The condition was '{breakpoint.Condition}'. The error returned was '{error}'.";
+		_logger?.Invoke(message);
+		var location = breakpoint.IsFunctionBreakpoint ? breakpoint.FunctionName : $"{breakpoint.FilePath}:{breakpoint.Line}";
+		OnImportantOutput?.Invoke($"Breakpoint error: {message} - {location}\n");
+
+		// The message only belongs to this hit, so is not kept on the breakpoint
+		var previousMessage = breakpoint.Message;
+		breakpoint.Message = message;
+		OnBreakpointChanged?.Invoke(breakpoint);
+		breakpoint.Message = previousMessage;
 	}
 
 	private static bool EvaluateHitCondition(int hitCount, string hitCondition)
@@ -54,48 +66,19 @@ public partial class ManagedDebugger
 		};
 	}
 
-	/// <summary>
-	/// Check if a debug value is truthy (true, non-zero, non-null)
-	/// </summary>
-	private static bool IsTruthyValue(ICorDebugValue? value)
+	private static bool? TryGetBoolean(ICorDebugValue? value)
 	{
-		if (value is null) return false;
+		if (value?.UnwrapDebugValue() is not ICorDebugGenericValue { Type: CorElementType.BOOLEAN } genericValue) return null;
 
-		var unwrapped = value.UnwrapDebugValue();
-
-		if (unwrapped is ICorDebugGenericValue genericValue)
+		var buffer = Marshal.AllocHGlobal(genericValue.Size);
+		try
 		{
-			var buffer = Marshal.AllocHGlobal(genericValue.Size);
-			try
-			{
-				genericValue.GetValue(buffer);
-				return genericValue.Type switch
-				{
-					CorElementType.BOOLEAN => Marshal.ReadByte(buffer) != 0,
-					CorElementType.I1 or CorElementType.U1 => Marshal.ReadByte(buffer) != 0,
-					CorElementType.I2 or CorElementType.U2 => Marshal.ReadInt16(buffer) != 0,
-					CorElementType.I4 or CorElementType.U4 => Marshal.ReadInt32(buffer) != 0,
-					CorElementType.I8 or CorElementType.U8 => Marshal.ReadInt64(buffer) != 0,
-					CorElementType.R4 => BitConverter.ToSingle(BitConverter.GetBytes(Marshal.ReadInt32(buffer)), 0) != 0,
-					CorElementType.R8 => BitConverter.ToDouble(BitConverter.GetBytes(Marshal.ReadInt64(buffer)), 0) != 0,
-					_ => true // Unknown types - default to true
-				};
-			}
-			catch
-			{
-				return false;
-			}
-			finally
-			{
-				Marshal.FreeHGlobal(buffer);
-			}
+			genericValue.GetValue(buffer);
+			return Marshal.ReadByte(buffer) != 0;
 		}
-
-		if (unwrapped is ICorDebugReferenceValue refValue)
+		finally
 		{
-			return !refValue.IsNull;
+			Marshal.FreeHGlobal(buffer);
 		}
-
-		return true;
 	}
 }

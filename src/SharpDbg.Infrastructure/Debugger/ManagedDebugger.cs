@@ -68,6 +68,8 @@ public partial class ManagedDebugger
 	public event Action<string, string, string>? OnModuleUnloaded;
 	// Output text, isError (true for stderr, false for stdout)
 	public event Action<string, bool>? OnOutput;
+	// Debugger messages the user should see, e.g. a breakpoint condition that failed to evaluate
+	public event Action<string>? OnImportantOutput;
 	public event Action<int, string>? OnProcessStarted;
 	public event Action<BreakpointManager.BreakpointInfo>? OnBreakpointChanged;
 	public event Func<LaunchInfo, int> SendRunInTerminalRequest = null!;

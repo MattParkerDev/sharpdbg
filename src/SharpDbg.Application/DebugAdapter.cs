@@ -289,6 +289,14 @@ public class DebugAdapter : IDapRequestHandler
 				Output = output
 			});
 		};
+		_debugger.OnImportantOutput += output =>
+		{
+			Connection.SendEvent(new OutputEvent
+			{
+				Category = OutputEvent.CategoryValue.Important,
+				Output = output
+			});
+		};
 		_debugger.SendRunInTerminalRequest += launchInfo =>
 		{
 			var programForTitle = launchInfo.Program is "dotnet" ? launchInfo.Arguments[0] : launchInfo.Program;

@@ -1,5 +1,7 @@
+using System.Collections.Concurrent;
 using AwesomeAssertions;
 using SharpDbg.Cli.Tests.Helpers;
+using SharpDbg.DapProtocol;
 using SharpDbg.Infrastructure.Debugger;
 
 namespace SharpDbg.Cli.Tests;
@@ -85,6 +87,54 @@ public class ConditionalBreakpointTests(ITestOutputHelper testOutputHelper)
 		var stopInfo = stoppedEvent.ReadStopInfo();
 		stopInfo.filePath.Should().EndWith("MyClass.cs");
 		stopInfo.line.Should().Be(22);
+	}
+
+	[Theory]
+	[InlineData("myInt", "The breakpoint condition must evaluate to a boolean operation")]
+	[InlineData("nosuchname", "error: The name 'nosuchname' does not exist in the current context")]
+	[InlineData("int.Parse(\"x\") == 1", "error: Evaluation threw System.FormatException")]
+	public async Task ConditionalBreakpoint_WithConditionThatCannotBeEvaluated_StopsAndReportsTheError(string condition, string expectedError)
+	{
+		var startSuspended = true;
+		var filePath = Path.JoinFromGitRoot("tests", "DebuggableConsoleApp", "MyClass.cs");
+
+		var (debugProtocolHost, initializedEventTcs, _, adapter, p2) = TestHelper.GetRunningDebugProtocolHost(testOutputHelper, startSuspended);
+		using var _ = adapter;
+		using var __ = new ProcessKiller(p2);
+		using var ___ = debugProtocolHost;
+
+		// The shared event slot can drop the stop that follows straight after the breakpoint event, so wait on our own
+		var stoppedEventTcs = new TaskCompletionSource<StoppedEvent>(TaskCreationOptions.RunContinuationsAsynchronously);
+		debugProtocolHost.RegisterEventType<StoppedEvent>(@event => stoppedEventTcs.TrySetResult(@event));
+		var importantOutputs = new ConcurrentQueue<string>();
+		var breakpointMessages = new ConcurrentQueue<string>();
+		debugProtocolHost.RegisterEventType<OutputEvent>(@event =>
+		{
+			if (@event.Category == OutputEvent.CategoryValue.Important) importantOutputs.Enqueue(@event.Output);
+		});
+		debugProtocolHost.RegisterEventType<BreakpointEvent>(@event =>
+		{
+			if (@event.Breakpoint.Message is { } message) breakpointMessages.Enqueue(message);
+		});
+
+		await debugProtocolHost
+			.WithInitializeRequest()
+			.WithAttachRequest(p2.Id)
+			.WaitForInitializedEvent(initializedEventTcs);
+
+		debugProtocolHost
+			.WithBreakpointsRequest(filePath, [new SharpDbgBreakpointRequest(15, condition)])
+			.WithConfigurationDoneRequest()
+			.WithOptionalResumeRuntime(p2.Id, startSuspended);
+
+		var stoppedEvent = await stoppedEventTcs.Task.WaitAsync(TestContext.Current.CancellationToken);
+		var stopInfo = stoppedEvent.ReadStopInfo();
+		stopInfo.filePath.Should().EndWith("MyClass.cs");
+		stopInfo.line.Should().Be(15);
+
+		var expectedMessage = $"The condition for a breakpoint failed to execute. The condition was '{condition}'. The error returned was '{expectedError}'.";
+		importantOutputs.Should().Equal($"Breakpoint error: {expectedMessage} - {filePath}:15\n");
+		breakpointMessages.Should().Contain(expectedMessage);
 	}
 
 	[Fact]

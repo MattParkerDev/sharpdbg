@@ -302,10 +302,15 @@ public partial class ManagedDebugger
 				continue;
 			}
 
-			if (managedBreakpoint.Condition is not null && await EvaluateBreakpointCondition(corThread, managedBreakpoint.Condition) is false)
+			if (managedBreakpoint.Condition is not null)
 			{
-				_logger?.Invoke($"Conditional breakpoint condition not met: {managedBreakpoint.Condition}");
-				continue;
+				var (isTrue, error) = await EvaluateBreakpointCondition(corThread, managedBreakpoint.Condition);
+				if (error is not null) ReportBreakpointConditionError(managedBreakpoint, error);
+				else if (isTrue is false)
+				{
+					_logger?.Invoke($"Conditional breakpoint condition not met: {managedBreakpoint.Condition}");
+					continue;
+				}
 			}
 
 			hitBreakpoints.Add(managedBreakpoint);

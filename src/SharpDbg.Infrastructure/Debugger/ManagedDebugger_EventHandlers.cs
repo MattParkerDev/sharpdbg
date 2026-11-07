@@ -274,15 +274,14 @@ public partial class ManagedDebugger
 					_stepper = null;
 				}
 
-				var sourceInfo = GetSourceInfoAtFrame(corThread.ActiveFrame, _justMyCode is false);
-				if (sourceInfo is null)
+				// The task-completion hook runs inside the awaiting caller's GetResult: step out to that caller, then finish its
+				// await statement. Stepping is exact here so it lands in the same place whether or not Just My Code is enabled
+				if (TrySetupStepOutToAwaitingUserFrame(corThread) is false)
 				{
-					// Step into Task.NotifyDebuggerOfWaitCompletion to continue the async
-					// step-out toward the awaiting caller's next user-code location.
 					SetupStepper(corThread, AsyncStepper.StepType.StepIn);
-					ContinueWithVariableClear();
-					return;
 				}
+				ContinueWithVariableClear();
+				return;
 			}
 		}
 
@@ -381,6 +380,14 @@ public partial class ManagedDebugger
 		var stepper = _stepper ?? throw new InvalidOperationException("No stepper found for step complete");
 		stepper.Deactivate(); // I really don't know if its necessary to deactivate the steppers once done
 		_stepper = null;
+		if (stepper == _awaitingUserFrameStepper)
+		{
+			// Back in the awaiting caller, just after the awaiter's GetResult: the step ends on the statement after the await
+			_awaitingUserFrameStepper = null;
+			SetupStepper(corThread, AsyncStepper.StepType.StepOver);
+			ContinueWithVariableClear();
+			return;
+		}
 		var module = _modules[ilFrame.Function.Module.BaseAddress];
 		if (module.MetadataReader.IsCurrentSequencePointHidden(ilFrame.Function.Token, ilFrame.IP.pnOffset))
 		{

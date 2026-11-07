@@ -80,32 +80,37 @@ public class AsyncStepper
 	}
 
 	/// <summary>
-	/// Call SetNotificationForWaitCompletion on the async builder
+	/// Ask the method's task to notify the debugger when its awaiter observes completion (Task.NotifyDebuggerOfWaitCompletion)
 	/// </summary>
-	private async Task<bool> SetNotificationForWaitCompletion(ICorDebugValue builder, ICorDebugILFrame? frame, ICorDebugThread thread)
+	/// <remarks>
+	/// Only the non-generic AsyncTaskMethodBuilder has its own SetNotificationForWaitCompletion; AsyncTaskMethodBuilder&lt;T&gt; and the
+	/// ValueTask builders do not. Every one of them exposes its task through ObjectIdForDebugger (for a ValueTask builder, the
+	/// state machine box, which is a Task), so the notification is set on that task directly.
+	/// </remarks>
+	private async Task<bool> SetNotificationForWaitCompletion(ICorDebugValue builder, ICorDebugILFrame frame, ICorDebugThread thread)
 	{
 		try
 		{
-			var objectValue = builder.UnwrapDebugValueToObject();
+			var task = await GetObjectIdForDebugger(builder, frame);
+			if (task is null) return false;
+			var taskObject = task.UnwrapDebugValueToObject();
 
 			var eval = thread.CreateEval();
 			var boolValue = eval.NewBooleanValue(true);
 
-			// Find SetNotificationForWaitCompletion method
-			var function = _debugger.FindMethodOnType(objectValue.ExactType, "SetNotificationForWaitCompletion", [boolValue], false, false);
+			// Declared on the non-generic System.Threading.Tasks.Task, found through the box's base types
+			var function = _debugger.FindMethodOnType(taskObject.ExactType, "SetNotificationForWaitCompletion", [boolValue], false, false);
 			Guard.Against.Null(function);
 
-			// Call builder.SetNotificationForWaitCompletion(true)
-			var typeParameterArgs = objectValue.ExactType.TypeParameters;
 			// result should be null, as SetNotificationForWaitCompletion returns void
 			var result = await eval.CallParameterizedFunctionAsync(
 				_debugger.ProcessRuntimeEventsUntilEvalEvent,
 				_debugger.EvalStatus,
 				function,
-				typeParameterArgs.Length,
-				typeParameterArgs,
+				0,
+				[],
 				2,
-				[builder, boolValue]
+				[task, boolValue]
 			);
 			if (result is not null) throw new InvalidOperationException("SetNotificationForWaitCompletion returned a value when void was expected");
 			return true;
@@ -235,12 +240,15 @@ public class AsyncStepper
 						var builderType = ManagedDebugger.GetCorDebugTypeFriendlyName(builder.ExactType);
 						if (builderType == "System.Runtime.CompilerServices.AsyncVoidMethodBuilder")
 						{
-							// async void method - use normal step-out
+							// async void method: no task to wait for, so the step-out returns to the method's synchronous caller. With
+							// Just My Code the plain step-out passes through the builder and the kick-off method by itself; without it,
+							// step out of the kick-off method so the step does not stop in AsyncVoidMethodBuilder.Start
+							if (_debugger.TrySetupStepOutOfKickoffMethod(thread, moduleAddress, asyncInfo.KickoffMethodToken)) return (true, false);
 							return (false, null);
 						}
 
 						// Not async void - use NotifyDebuggerOfWaitCompletion magic
-						var success = await SetNotificationForWaitCompletion(builder, frame as ICorDebugILFrame, thread);
+						var success = await SetNotificationForWaitCompletion(builder, ilFrame!, thread);
 						if (success)
 						{
 							// Setup breakpoint in Task.NotifyDebuggerOfWaitCompletion

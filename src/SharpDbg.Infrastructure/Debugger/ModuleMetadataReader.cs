@@ -64,6 +64,8 @@ public partial class ModuleMetadataReader : IDisposable
 	{
 		public List<AsyncAwaitInfo> AwaitInfos { get; set; } = new();
 		public int LastUserCodeIlOffset { get; set; }
+		// The method the user wrote, which creates the state machine and starts it through its builder; nil if not recorded
+		public int KickoffMethodToken { get; set; }
 	}
 
 	private ModuleMetadataReader(PEReader peReader)
@@ -510,6 +512,8 @@ public partial class ModuleMetadataReader : IDisposable
 
 		// Find last IL offset for user code in this method
 		var debugInfo = reader.GetMethodDebugInformation(methodHandle);
+		var kickoffMethod = debugInfo.GetStateMachineKickoffMethod();
+		if (kickoffMethod.IsNil is false) result.KickoffMethodToken = MetadataTokens.GetToken(kickoffMethod);
 
 		if (!debugInfo.SequencePointsBlob.IsNil)
 		{

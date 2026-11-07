@@ -50,6 +50,7 @@ public static class Program
 			StepOverConditionalBreakpointClass.Test();
 			myClassWithGenericMethod.Test(4);
 			AsyncStackTraceClass.TestAsync().GetAwaiter().GetResult();
+			AsyncStepOutClass.TestAsync().GetAwaiter().GetResult();
 			Thread.Sleep(100);
 			//await Task.Delay(500);
 		}

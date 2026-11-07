@@ -308,6 +308,54 @@ public partial class ManagedDebugger
 		return stepper;
 	}
 
+	private ICorDebugStepper? _awaitingUserFrameStepper;
+
+	/// <summary>
+	/// Step out of every frame above the first user code frame on the stack, without Just My Code so the step stops exactly there
+	/// </summary>
+	private bool TrySetupStepOutToAwaitingUserFrame(ICorDebugThread thread)
+	{
+		if (_stepper is not null) throw new InvalidOperationException("A step operation is already in progress");
+		ICorDebugILFrame? callee = null;
+		foreach (var frame in EnumerateFramesForThread(thread))
+		{
+			if (frame is not ICorDebugILFrame ilFrame) continue;
+			if (callee is not null && _modules.TryGetValue(ilFrame.Function.Module.BaseAddress, out var module) && module.IsUserCode && module.MetadataReader.HasSymbols)
+			{
+				var stepper = callee.CreateStepper();
+				stepper.SetInterceptMask(CorDebugIntercept.INTERCEPT_ALL & ~(CorDebugIntercept.INTERCEPT_SECURITY | CorDebugIntercept.INTERCEPT_CLASS_INIT));
+				stepper.SetUnmappedStopMask(CorDebugUnmappedStop.STOP_NONE);
+				stepper.StepOut();
+				_stepper = stepper;
+				_awaitingUserFrameStepper = stepper;
+				return true;
+			}
+			callee = ilFrame;
+		}
+		return false;
+	}
+
+	/// <summary>
+	/// Without Just My Code, step out of the state machine's kick-off method if it is still on the stack, i.e. the method has not yielded yet
+	/// </summary>
+	internal bool TrySetupStepOutOfKickoffMethod(ICorDebugThread thread, CORDB_ADDRESS moduleAddress, int kickoffMethodToken)
+	{
+		if (_justMyCode || kickoffMethodToken is 0) return false;
+		if (_stepper is not null) throw new InvalidOperationException("A step operation is already in progress");
+		foreach (var frame in EnumerateFramesForThread(thread).OfType<ICorDebugILFrame>().Skip(1))
+		{
+			var function = frame.Function;
+			if (function.Module.BaseAddress != moduleAddress || function.Token != kickoffMethodToken) continue;
+			var stepper = frame.CreateStepper();
+			stepper.SetInterceptMask(CorDebugIntercept.INTERCEPT_ALL & ~(CorDebugIntercept.INTERCEPT_SECURITY | CorDebugIntercept.INTERCEPT_CLASS_INIT));
+			stepper.SetUnmappedStopMask(CorDebugUnmappedStop.STOP_NONE);
+			stepper.StepOut();
+			_stepper = stepper;
+			return true;
+		}
+		return false;
+	}
+
 	/// <summary>
 	/// Try to bind a breakpoint to the actual code using symbol information
 	/// </summary>

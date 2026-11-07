@@ -1,4 +1,5 @@
 using AwesomeAssertions;
+using SharpDbg.DapProtocol;
 using SharpDbg.Cli.Tests.Helpers;
 
 namespace SharpDbg.Cli.Tests;
@@ -83,5 +84,51 @@ public class AsyncStepTests(ITestOutputHelper testOutputHelper)
 		var stopInfo11 = stoppedEvent11.ReadStopInfo();
 		stopInfo11.filePath.Should().EndWith("MyAsyncClass.cs");
 		stopInfo11.line.Should().Be(14);
+	}
+
+	// An async step-out waits for the method's task and stops in the awaiting caller, on the statement after the await. Without
+	// Just My Code the step must still land there, not in the builder or the thread pool code that resumes the caller
+	[Theory]
+	[InlineData(true)]
+	[InlineData(false)]
+	public async Task SharpDbgCli_StepOutRequest_OfAsyncMethods_StopsInTheCaller(bool justMyCode)
+	{
+		var startSuspended = true;
+		var (debugProtocolHost, adapter, p2) = TestHelper.GetRunningDebugProtocolHost(testOutputHelper, startSuspended);
+		using var _ = adapter;
+		using var __ = new ProcessKiller(p2);
+		using var ___ = debugProtocolHost;
+
+		var filePath = Path.JoinFromGitRoot("tests", "DebuggableConsoleApp", "AsyncStepOutClass.cs");
+		await debugProtocolHost
+			.WithInitializeRequest()
+			.WithAttachRequest(p2.Id, justMyCode)
+			.WaitForInitializedEvent();
+		debugProtocolHost
+			.WithBreakpointsRequest([18, 24, 30], filePath)
+			.WithConfigurationDoneRequest()
+			.WithOptionalResumeRuntime(p2.Id, startSuspended);
+
+		// ValueTask: AsyncValueTaskMethodBuilder's task is reached through ObjectIdForDebugger
+		var valueTaskStop = await debugProtocolHost.WaitForStoppedEvent();
+		valueTaskStop.ReadStopInfo().line.Should().Be(18);
+		var afterValueTask = await debugProtocolHost.WithStepOutRequest(valueTaskStop.ThreadId!.Value).WaitForStoppedEvent();
+		afterValueTask.Reason.Should().Be(StoppedEvent.ReasonValue.Step);
+		afterValueTask.ReadStopInfo().line.Should().Be(9);
+
+		var taskStop = await debugProtocolHost.WithContinueRequest().WaitForStoppedEvent();
+		taskStop.ReadStopInfo().line.Should().Be(24);
+		var afterTask = await debugProtocolHost.WithStepOutRequest(taskStop.ThreadId!.Value).WaitForStoppedEvent();
+		afterTask.Reason.Should().Be(StoppedEvent.ReasonValue.Step);
+		afterTask.ReadStopInfo().line.Should().Be(10);
+
+		// async void has no task to wait for: before its first await the step returns to the synchronous caller
+		var asyncVoidStop = await debugProtocolHost.WithContinueRequest().WaitForStoppedEvent();
+		asyncVoidStop.ReadStopInfo().line.Should().Be(30);
+		var afterAsyncVoid = await debugProtocolHost.WithStepOutRequest(asyncVoidStop.ThreadId!.Value).WaitForStoppedEvent();
+		afterAsyncVoid.Reason.Should().Be(StoppedEvent.ReasonValue.Step);
+		var afterAsyncVoidInfo = afterAsyncVoid.ReadStopInfo();
+		afterAsyncVoidInfo.filePath.Should().EndWith("AsyncStepOutClass.cs");
+		afterAsyncVoidInfo.line.Should().Be(10);
 	}
 }

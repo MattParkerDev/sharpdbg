@@ -196,7 +196,7 @@ public static class Extensions
 		try
 		{
 			eval.Thread.Process.Continue(false);
-			var evalEvent = await processEventsUntilEvalEventFunc();
+			var evalEvent = await WaitForEvalEventOrAbortAsync(eval, processEventsUntilEvalEventFunc());
 			if (evalEvent is EvalCompleteCorDebugManagedCallbackEventArgs completeEvent)
 			{
 				if (completeEvent.Eval != eval) throw new ManagedDebugger.EvalException("EvalComplete callback error - Eval does not match");
@@ -225,6 +225,28 @@ public static class Extensions
 		{
 			evalStatus.IsRunning = false;
 		}
+	}
+
+	public static TimeSpan EvalTimeout { get; set; } = TimeSpan.FromSeconds(5);
+	private static readonly TimeSpan EvalAbortTimeout = TimeSpan.FromSeconds(5);
+
+	// An evaluation that does not complete in time is aborted, then rudely aborted. Either way the abort's own
+	// completion event is consumed here, so it is not mistaken for the result of a later evaluation
+	private static async Task<CorDebugManagedCallbackEventArgs> WaitForEvalEventOrAbortAsync(ICorDebugEval eval, Task<CorDebugManagedCallbackEventArgs> evalEventTask)
+	{
+		if (await Task.WhenAny(evalEventTask, Task.Delay(EvalTimeout)) == evalEventTask) return await evalEventTask;
+
+		eval.TryAbort();
+		if (await Task.WhenAny(evalEventTask, Task.Delay(EvalAbortTimeout)) != evalEventTask)
+		{
+			eval.TryRudeAbort();
+			if (await Task.WhenAny(evalEventTask, Task.Delay(EvalAbortTimeout)) != evalEventTask)
+			{
+				throw new ManagedDebugger.EvalException($"Evaluation timed out after {EvalTimeout.TotalSeconds:0} seconds and could not be aborted");
+			}
+		}
+		await evalEventTask;
+		throw new ManagedDebugger.EvalException($"Evaluation timed out after {EvalTimeout.TotalSeconds:0} seconds");
 	}
 
 	public static ICorDebugValue NewBooleanValue(this ICorDebugEval eval, bool value)

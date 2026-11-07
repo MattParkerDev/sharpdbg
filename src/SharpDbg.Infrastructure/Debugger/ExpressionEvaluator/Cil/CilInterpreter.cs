@@ -346,7 +346,7 @@ internal sealed class CilInterpreter(ManagedDebugger debugger, RuntimeAssemblyPr
 				{
 					var source = stack.Pop();
 					if (source.Location is not null) source = source.Dereference();
-					if (source.IsNull) throw new NullReferenceException();
+					if (source.IsNull) throw NullReference();
 					var boxed = source.CorValue is ICorDebugReferenceValue reference
 						? reference.Dereference() as ICorDebugBoxValue
 						: source.CorValue as ICorDebugBoxValue;
@@ -363,7 +363,7 @@ internal sealed class CilInterpreter(ManagedDebugger debugger, RuntimeAssemblyPr
 				{
 					var source = stack.Pop();
 					if (source.Location is not null) source = source.Dereference();
-					if (source.IsNull) throw new NullReferenceException();
+					if (source.IsNull) throw NullReference();
 					var boxed = source.CorValue is ICorDebugReferenceValue reference
 						? reference.Dereference() as ICorDebugBoxValue
 						: source.CorValue as ICorDebugBoxValue;
@@ -604,7 +604,7 @@ internal sealed class CilInterpreter(ManagedDebugger debugger, RuntimeAssemblyPr
 					{
 						var receiver = receiverValue!;
 						if (receiver.Location is not null) receiver = receiver.Dereference();
-						if (receiver.IsNull) throw new NullReferenceException();
+						if (receiver.IsNull) throw NullReference();
 						callArguments[0] = receiver.Value is EvaluationDelegate or EvaluationClosure
 							? await MaterializeForCallAsync(receiver, compiled, resolver, delegateAssemblyLoader, context, handles)
 							: await MaterializeReceiverAsync(receiver, context, callConstrainedType, resolver, handles);
@@ -948,15 +948,19 @@ internal sealed class CilInterpreter(ManagedDebugger debugger, RuntimeAssemblyPr
 
 	private static ICorDebugArrayValue GetArrayValue(CilValue value) =>
 		value.CorValue?.UnwrapDebugValue() as ICorDebugArrayValue
-		?? throw new NullReferenceException("Array reference is null");
+		?? throw NullReference();
 
 	private static ICorDebugObjectValue GetFieldReceiver(CilValue receiver)
 	{
 		var corValue = receiver.CorValue;
 		if (corValue is null && receiver.Location is CorDebugLocation directLocation) corValue = directLocation.Value;
 		else if (corValue is null && receiver.Location is not null) corValue = receiver.Location.Read().CorValue;
-		return corValue?.UnwrapDebugValueToObject() ?? throw new NullReferenceException("Instance field receiver is null");
+		if (corValue is null or ICorDebugReferenceValue { IsNull: true }) throw NullReference();
+		return corValue.UnwrapDebugValueToObject();
 	}
+
+	// Matches how an exception thrown by the debuggee during a func-eval is reported
+	private static ManagedDebugger.EvalException NullReference() => new("Evaluation threw System.NullReferenceException");
 
 	private async Task<CilValue> BoxAsync(CilValue value, ICorDebugType targetType, CompiledExpressionEvaluationContext context, EvaluationHandleScope handles)
 	{

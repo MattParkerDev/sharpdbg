@@ -19,7 +19,7 @@ public class DebuggerDisplayTests(ITestOutputHelper testOutputHelper)
 			.WithAttachRequest(p2.Id)
 			.WaitForInitializedEvent();
 		debugProtocolHost
-			.WithBreakpointsRequest(24, Path.JoinFromGitRoot("tests", "DebuggableConsoleApp", "DebuggerDisplayFormatting.cs"))
+			.WithBreakpointsRequest(27,Path.JoinFromGitRoot("tests", "DebuggableConsoleApp", "DebuggerDisplayFormatting.cs"))
 			.WithConfigurationDoneRequest()
 			.WithOptionalResumeRuntime(p2.Id, startSuspended);
 
@@ -32,5 +32,8 @@ public class DebuggerDisplayTests(ITestOutputHelper testOutputHelper)
 		variables.Single(v => v.Name == "debuggerDisplayFormatting").Value.Should().Be(
 			"""Bool = true, String = "text", NoQuotes = text, Null = null, NullableInt = null, Enum = Monday, Char = 120 'x', Add = 3, Nested = Value = "nested", Missing = error: The name 'Missing' does not exist in the current context, Recursive = <Evaluation of DebuggerDisplay attribute reached max recursion count>""");
 		variables.Single(v => v.Name == "lazy").Value.Should().Be("ThreadSafetyMode = null, IsValueCreated = true, IsValueFaulted = false, Value = 99");
+		variables.Single(v => v.Name == "braced").Value.Should().Be("{3}");
+		variables.Single(v => v.Name == "linkTail").Value.Should().Be("tail -> error: Evaluation threw System.NullReferenceException");
+		variables.Single(v => v.Name == "derived").Value.Should().Be("base b");
 	}
 }

@@ -58,6 +58,14 @@ public partial class ManagedDebugger
 		var index = 0;
 		while (index < text.Length)
 		{
+			// '\{' and '\}' are literal braces, so the backslash is dropped and the brace starts the next literal
+			if (text[index] is '\\' && index + 1 < text.Length && text[index + 1] is '{' or '}')
+			{
+				if (index > literalStart) segments.Add(new(literalStart..index, null, false));
+				literalStart = index + 1;
+				index += 2;
+				continue;
+			}
 			if (text[index] is not '{')
 			{
 				index++;

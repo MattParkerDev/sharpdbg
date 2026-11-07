@@ -152,7 +152,7 @@ public partial class ManagedDebugger
 		}
 		var typeName = GetCorDebugTypeFriendlyName(corDebugObjectValue.ExactType);
 		var hasDebuggerTypeProxyAttribute = metaDataImport.TryGetCustomAttributeByName(corDebugObjectValue.Class.Token, "System.Diagnostics.DebuggerTypeProxyAttribute", out var debuggerTypeProxyAttributePointer, out var debuggerTypeProxyAttributeSize) is Cor.S_OK;
-		var hasDebuggerDisplayAttribute = metaDataImport.TryGetCustomAttributeByName(corDebugObjectValue.Class.Token, "System.Diagnostics.DebuggerDisplayAttribute", out var debuggerDisplayAttributePointer, out var debuggerDisplayAttributeSize) is Cor.S_OK;
+		var hasDebuggerDisplayAttribute = TryGetInheritedDebuggerDisplayAttribute(corDebugObjectValue.ExactType, out var debuggerDisplayAttributePointer, out var debuggerDisplayAttributeSize);
 
 		var debugProxyTypeName = hasDebuggerTypeProxyAttribute ? GetCustomAttributeResultString(debuggerTypeProxyAttributePointer, debuggerTypeProxyAttributeSize) : null;
 		if (IsTupleType(typeName))
@@ -186,6 +186,19 @@ public partial class ManagedDebugger
 		}
 
 		return new(typeName, $"{{{typeName}}}", CorDebugValueFormatKind.None, debugProxyTypeName);
+	}
+
+	/// DebuggerDisplayAttribute is Inherited = true, so the nearest one on <paramref name="corDebugType"/> or its base types applies
+	private static bool TryGetInheritedDebuggerDisplayAttribute(ICorDebugType corDebugType, out IntPtr attributePointer, out uint attributeSize)
+	{
+		for (var type = corDebugType; type is not null; type = type.Base)
+		{
+			var metaDataImport = type.Class.Module.GetMetaDataInterface<IMetaDataImport>();
+			if (metaDataImport.TryGetCustomAttributeByName(type.Class.Token, "System.Diagnostics.DebuggerDisplayAttribute", out attributePointer, out attributeSize) is Cor.S_OK) return true;
+		}
+		attributePointer = IntPtr.Zero;
+		attributeSize = 0;
+		return false;
 	}
 
 	/// Returns true if <paramref name="corDebugType"/> or any of its base types (up to but not

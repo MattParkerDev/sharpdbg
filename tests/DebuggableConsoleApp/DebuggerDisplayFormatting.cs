@@ -20,6 +20,9 @@ public class DebuggerDisplayFormatting
 		var debuggerDisplayFormatting = new DebuggerDisplayFormatting();
 		var lazy = new Lazy<int>(() => 99);
 		_ = lazy.Value;
+		var braced = new DebuggerDisplayFormattingBraced();
+		var linkTail = new DebuggerDisplayFormattingLink("tail", null);
+		var derived = new DebuggerDisplayFormattingDerived();
 		Console.WriteLine(debuggerDisplayFormatting);
 	}
 }
@@ -32,3 +35,27 @@ public class DebuggerDisplayFormattingNested
 
 [DebuggerDisplay("{this}")]
 public class DebuggerDisplayFormattingRecursive;
+
+[DebuggerDisplay(@"\{{Value}\}")]
+public class DebuggerDisplayFormattingBraced
+{
+	public int Value = 3;
+}
+
+[DebuggerDisplay("{_name,nq} -> {Next._name,nq}")]
+public class DebuggerDisplayFormattingLink(string name, DebuggerDisplayFormattingLink? next)
+{
+	private string _name = name;
+	public DebuggerDisplayFormattingLink? Next = next;
+}
+
+[DebuggerDisplay("base {Tag,nq}")]
+public class DebuggerDisplayFormattingBase
+{
+	public string Tag = "b";
+}
+
+public class DebuggerDisplayFormattingDerived : DebuggerDisplayFormattingBase
+{
+	public int Extra = 9;
+}

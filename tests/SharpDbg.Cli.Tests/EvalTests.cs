@@ -1,4 +1,5 @@
 using AwesomeAssertions;
+using AwesomeAssertions.Execution;
 using SharpDbg.DapProtocol;
 using SharpDbg.Cli.Tests.Helpers;
 
@@ -51,6 +52,7 @@ public class EvalTests(ITestOutputHelper testOutputHelper)
 
 		variables.Should().HaveCount(11);
 		//variables.ShouldBeEquivalentToDebuggerVariables(expectedVariables);
+		using var ____ = new AssertionScope();
 
 		var stackFrameId = stackTraceResponse.StackFrames!.First().Id;
 		debugProtocolHost.WithEvaluateRequest(stackFrameId, "myInt + 10", out var evaluateResponse);
@@ -470,7 +472,6 @@ public class EvalTests(ITestOutputHelper testOutputHelper)
 		debugProtocolHost.WithEvaluateRequest(stackFrameId, "(new MyClass2[1])[0] = null", out var arrayNullAssignmentResponse);
 		arrayNullAssignmentResponse.Result.Should().Be("null");
 
-		var failures = new List<string>();
 		// Comparison results and conversions keep their C# type when formatted
 		AssertEvaluation("$\"{InterpreterSemantics.UIntMax > 1}\"", "\"True\"");
 		AssertEvaluation("$\"{(char)(myInt + 78)}\"", "\"x\"");
@@ -510,14 +511,13 @@ public class EvalTests(ITestOutputHelper testOutputHelper)
 		AssertEvaluation("new long[] { 1, 2, 3, 4 }[3]", "4");
 		// Pattern variables are not supported, and say so
 		debugProtocolHost.WithEvaluateRequest(stackFrameId, "InterpreterSemantics.BoxedLong is long value ? value : 0", out var patternVariableResponse);
-		if (!patternVariableResponse.Result.Contains("pattern")) failures.Add($"pattern variable => {patternVariableResponse.Result}");
+		patternVariableResponse.Result.Should().Contain("pattern");
 		AssertEvaluation("InterpreterSemantics.BoxedLong is long", "true");
-		string.Join(Environment.NewLine, failures).Should().BeEmpty();
 
 		void AssertEvaluation(string expression, string expected)
 		{
 			debugProtocolHost.WithEvaluateRequest(stackFrameId, expression, out var response);
-			if (response.Result != expected) failures.Add($"{expression} => {response.Result} (expected {expected})");
+			response.Result.Should().Be(expected, expression);
 		}
 	}
 

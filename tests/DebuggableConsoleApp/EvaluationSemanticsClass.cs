@@ -11,6 +11,7 @@ public class EvaluationSemanticsClass
 		int? maybe = 3;
 		long big = 5;
 		object boxedInt = 42;
+		object boxedFalse = false;
 		var map = new Dictionary<string, int> { ["one"] = 1, ["two"] = 2 };
 		var matrix = new int[,] { { 1, 2 }, { 3, 4 } };
 		var derived = new DerivedFromGeneric();

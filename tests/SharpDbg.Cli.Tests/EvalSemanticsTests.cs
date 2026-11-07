@@ -20,7 +20,7 @@ public class EvalSemanticsTests(ITestOutputHelper testOutputHelper)
 			.WithAttachRequest(p2.Id)
 			.WaitForInitializedEvent();
 		debugProtocolHost
-			.WithBreakpointsRequest(17, Path.JoinFromGitRoot("tests", "DebuggableConsoleApp", "EvaluationSemanticsClass.cs"))
+			.WithBreakpointsRequest(18, Path.JoinFromGitRoot("tests", "DebuggableConsoleApp", "EvaluationSemanticsClass.cs"))
 			.WithConfigurationDoneRequest()
 			.WithOptionalResumeRuntime(p2.Id, startSuspended);
 
@@ -52,6 +52,8 @@ public class EvalSemanticsTests(ITestOutputHelper testOutputHelper)
 			("(int?)boxedInt", "42"),
 			("((int?)null).HasValue", "false"),
 			("matrix[0, 1] + matrix[1, 1]", "6"),
+			("(bool)boxedFalse ? \"yes\" : \"no\"", "\"no\""),
+			("!(bool)boxedFalse ? \"yes\" : \"no\"", "\"yes\""),
 		];
 
 		var failures = new List<string>();

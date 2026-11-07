@@ -103,21 +103,24 @@ internal sealed class CilValue
 		_ => throw new InvalidOperationException($"Value '{Value?.GetType().Name ?? "null"}' is not a floating-point stack value")
 	};
 
-	public bool IsTrue() => CorValue is ICorDebugReferenceValue reference
-		? !reference.IsNull
-		: CorValue is not null
-			? true
-			: Value switch
-			{
-				null => false,
-				bool value => value,
-				float value => value != 0,
-				double value => value != 0,
-				long value => value != 0,
-				ulong value => value != 0,
-				string => true,
-				_ => AsInt32() != 0
-			};
+	public bool IsTrue() => CorValue switch
+	{
+		ICorDebugReferenceValue reference => !reference.IsNull,
+		ICorDebugBoxValue => true,
+		// An unboxed primitive (e.g. unbox.any bool) is surfaced as a value type rather than a host primitive
+		not null => !TryReadValueTypeInteger(out var integer) || integer != 0,
+		null => Value switch
+		{
+			null => false,
+			bool value => value,
+			float value => value != 0,
+			double value => value != 0,
+			long value => value != 0,
+			ulong value => value != 0,
+			string => true,
+			_ => AsInt32() != 0
+		}
+	};
 
 	private static object? ReadPrimitive(ICorDebugValue value)
 	{

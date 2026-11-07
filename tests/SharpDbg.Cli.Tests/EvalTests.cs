@@ -469,6 +469,56 @@ public class EvalTests(ITestOutputHelper testOutputHelper)
 		arrayStringAssignmentResponse.Result.Should().Be("\"array-string\"");
 		debugProtocolHost.WithEvaluateRequest(stackFrameId, "(new MyClass2[1])[0] = null", out var arrayNullAssignmentResponse);
 		arrayNullAssignmentResponse.Result.Should().Be("null");
+
+		var failures = new List<string>();
+		// Comparison results and conversions keep their C# type when formatted
+		AssertEvaluation("$\"{InterpreterSemantics.UIntMax > 1}\"", "\"True\"");
+		AssertEvaluation("$\"{(char)(myInt + 78)}\"", "\"x\"");
+		AssertEvaluation("InterpreterSemantics.Text + InterpreterSemantics.Letter", "\"abcx\"");
+		AssertEvaluation("InterpreterSemantics.Letter + InterpreterSemantics.Text", "\"xabc\"");
+		AssertEvaluation("InterpreterSemantics.Letter.ToString()", "\"x\"");
+		// Enums compare and convert through their underlying type
+		AssertEvaluation("InterpreterSemantics.SignedKind == SByteEnum.Negative", "true");
+		AssertEvaluation("(int)InterpreterSemantics.SignedKind", "-1");
+		AssertEvaluation("InterpreterSemantics.UnsignedKind == UShortEnum.Large", "true");
+		AssertEvaluation("(int)InterpreterSemantics.UnsignedKind", "40000");
+		// Unchecked unsigned arithmetic wraps
+		AssertEvaluation("InterpreterSemantics.UIntMax - 1", "4294967294");
+		AssertEvaluation("InterpreterSemantics.UIntMax + 1", "0");
+		// A long array index or length
+		AssertEvaluation("InterpreterSemantics.Numbers[InterpreterSemantics.LongIndex]", "1");
+		AssertEvaluation("new byte[InterpreterSemantics.LongIndex].Length", "1");
+		// Storing an int32 stack value into a bool
+		AssertEvaluation("InterpreterSemantics.Flag = true", "true");
+		AssertEvaluation("InterpreterSemantics.Flag", "true");
+		// Constructors and methods on a value type run against its storage
+		AssertEvaluation("InterpreterSemantics.Maybe = 8", "8");
+		AssertEvaluation("InterpreterSemantics.Maybe", "8");
+		AssertEvaluation("nullableInt = 9", "9");
+		AssertEvaluation("nullableInt", "9");
+		AssertEvaluation("InterpreterSemantics.Holder.Nullable = 44.0", "44");
+		AssertEvaluation("InterpreterSemantics.Holder.Nullable", "44");
+		AssertEvaluation("InterpreterSemantics.Holder.Box = new WidthStruct(7)", "{DebuggableConsoleApp.WidthStruct}");
+		AssertEvaluation("InterpreterSemantics.Holder.Box.Width", "7");
+		AssertEvaluation("new WidthStruct(5).Width", "5");
+		// out var read back through unbox.any
+		AssertEvaluation("int.TryParse(\"7\", out var parsed) ? parsed : -1", "7");
+		// Array initializers copy the data the evaluation assembly carries
+		AssertEvaluation("new[] { 1, 2, 3 }.Length", "3");
+		AssertEvaluation("new[] { 1, 2, 3 }[1]", "2");
+		AssertEvaluation("new[] { 1.5, 2.5, 3.5 }[2]", "3.5");
+		AssertEvaluation("new long[] { 1, 2, 3, 4 }[3]", "4");
+		// Pattern variables are not supported, and say so
+		debugProtocolHost.WithEvaluateRequest(stackFrameId, "InterpreterSemantics.BoxedLong is long value ? value : 0", out var patternVariableResponse);
+		if (!patternVariableResponse.Result.Contains("pattern")) failures.Add($"pattern variable => {patternVariableResponse.Result}");
+		AssertEvaluation("InterpreterSemantics.BoxedLong is long", "true");
+		string.Join(Environment.NewLine, failures).Should().BeEmpty();
+
+		void AssertEvaluation(string expression, string expected)
+		{
+			debugProtocolHost.WithEvaluateRequest(stackFrameId, expression, out var response);
+			if (response.Result != expected) failures.Add($"{expression} => {response.Result} (expected {expected})");
+		}
 	}
 
 	[Fact]
@@ -564,5 +614,29 @@ public class EvalTests(ITestOutputHelper testOutputHelper)
 
 		debugProtocolHost.WithEvaluateRequest(stackFrameId, "_testInt", out var evaluateResponse);
 		evaluateResponse.Result.Should().Be("4");
+	}
+
+	// At the entry point the debuggee has not loaded System.Linq, so Roslyn cannot see Enumerable until it is loaded
+	[Fact]
+	public async Task SharpDbgCli_EvaluationRequest_LinqBeforeSystemLinqIsLoaded_LoadsTheAssembly()
+	{
+		var (host, adapter) = TestHelper.GetLaunchDebugProtocolHostInProc(testOutputHelper);
+		using var _ = adapter;
+		using var __ = host;
+		var program = Path.JoinFromGitRoot("artifacts", "bin", "TopLevelStatementsConsoleApp", "debug", "TopLevelStatementsConsoleApp.dll");
+
+		await host
+			.WithInitializeRequest()
+			.WithLaunchRequest(program, stopAtEntry: true, justMyCode: true)
+			.WaitForInitializedEvent();
+		host.WithConfigurationDoneRequest();
+
+		var stoppedEvent = await host.WaitForStoppedEvent();
+		var stackFrameId = host.GetTopStackFrame(stoppedEvent.ThreadId!.Value).Id;
+
+		host.WithEvaluateRequest(stackFrameId, "new[] { 1u, 2u }.Select(x => x * 2).Sum(x => x)", out var extensionMethodResponse);
+		extensionMethodResponse.Result.Should().Be("6");
+		host.WithEvaluateRequest(stackFrameId, "Enumerable.Range(1, 3).Sum()", out var staticClassResponse);
+		staticClassResponse.Result.Should().Be("6");
 	}
 }

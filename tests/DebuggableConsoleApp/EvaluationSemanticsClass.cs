@@ -16,6 +16,14 @@ public class EvaluationSemanticsClass
 		var matrix = new int[,] { { 1, 2 }, { 3, 4 } };
 		var derived = new DerivedFromGeneric();
 		;
+		var counter = 10;
+		Bump(ref counter);
+	}
+
+	private static void Bump(ref int value)
+	{
+		value += 1;
+		;
 	}
 
 	public class GenericBase<T>

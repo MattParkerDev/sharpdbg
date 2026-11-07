@@ -151,6 +151,7 @@ internal sealed class CilValue
 	{
 		value = 0;
 		if (CorValue?.UnwrapDebugValue() is not ICorDebugGenericValue { Type: CorElementType.VALUETYPE } generic) return false;
+		if (TryReadEnumValue(generic, out value)) return true;
 		var data = generic.GetValueAsBytes();
 		value = data.Length switch
 		{
@@ -161,6 +162,42 @@ internal sealed class CilValue
 			_ => 0
 		};
 		return data.Length is 1 or 2 or 4 or 8;
+	}
+
+	// An enum is read through its underlying type, so a signed or unsigned small enum widens like its underlying value does
+	private static bool TryReadEnumValue(ICorDebugGenericValue generic, out long value)
+	{
+		value = 0;
+		if (generic is not ICorDebugObjectValue objectValue) return false;
+		ICorDebugValue underlying;
+		try
+		{
+			if (objectValue.ExactType.Base is not { } baseType || baseType.Type is not CorElementType.CLASS) return false;
+			var baseClass = baseType.Class;
+			var baseMetadata = baseClass.Module.GetMetaDataInterface<IMetaDataImport>();
+			if (baseMetadata.GetTypeDefProps(baseClass.Token).szTypeDef is not "System.Enum") return false;
+			var enumClass = objectValue.Class;
+			var metadata = enumClass.Module.GetMetaDataInterface<IMetaDataImport>();
+			underlying = objectValue.GetFieldValue(enumClass, metadata.FindField(enumClass.Token, "value__", 0, 0));
+		}
+		catch
+		{
+			return false;
+		}
+		switch (ReadPrimitive(underlying))
+		{
+			case sbyte v: value = v; return true;
+			case byte v: value = v; return true;
+			case short v: value = v; return true;
+			case ushort v: value = v; return true;
+			case int v: value = v; return true;
+			case uint v: value = v; return true;
+			case long v: value = v; return true;
+			case ulong v: value = unchecked((long)v); return true;
+			case char v: value = v; return true;
+			case bool v: value = v ? 1 : 0; return true;
+			default: return false;
+		}
 	}
 }
 
@@ -173,6 +210,7 @@ internal interface ICilLocation
 internal sealed class CorDebugLocation(ICorDebugValue value) : ICilLocation
 {
 	public ICorDebugValue Value => value;
+	public bool IsByRef => value is ICorDebugReferenceValue { Type: CorElementType.BYREF };
 	public CilValue Read() => CilValue.FromCorValue(GetStorageValue());
 	public void Write(CilValue source)
 	{
@@ -293,27 +331,36 @@ internal static class CilValueEncoding
 {
 	public static byte[] GetBytesForSize(object value, int size) => size switch
 	{
-		1 => [unchecked((byte)Convert.ToInt64(value))],
-		2 => BitConverter.GetBytes(unchecked((short)Convert.ToInt64(value))),
-		4 => BitConverter.GetBytes(unchecked((int)Convert.ToInt64(value))),
-		8 => BitConverter.GetBytes(Convert.ToInt64(value)),
+		1 => [unchecked((byte)ToBits(value))],
+		2 => BitConverter.GetBytes(unchecked((short)ToBits(value))),
+		4 => BitConverter.GetBytes(unchecked((int)ToBits(value))),
+		8 => BitConverter.GetBytes(ToBits(value)),
 		_ => throw new NotSupportedException($"Cannot encode a primitive CIL value into a {size}-byte value type")
 	};
 
+	// Integer stores truncate like stind/stfld do (a uint computed as an int32 stack value of -2 stores as 4294967294)
 	public static byte[] GetBytes(object value, CorElementType targetType) => targetType switch
 	{
-		CorElementType.BOOLEAN => [(bool)value ? (byte)1 : (byte)0],
-		CorElementType.CHAR => BitConverter.GetBytes(Convert.ToChar(value)),
-		CorElementType.I1 => [unchecked((byte)Convert.ToSByte(value))],
-		CorElementType.U1 => [Convert.ToByte(value)],
-		CorElementType.I2 => BitConverter.GetBytes(Convert.ToInt16(value)),
-		CorElementType.U2 => BitConverter.GetBytes(Convert.ToUInt16(value)),
-		CorElementType.I4 => BitConverter.GetBytes(Convert.ToInt32(value)),
-		CorElementType.U4 => BitConverter.GetBytes(Convert.ToUInt32(value)),
-		CorElementType.I8 => BitConverter.GetBytes(Convert.ToInt64(value)),
-		CorElementType.U8 => BitConverter.GetBytes(Convert.ToUInt64(value)),
+		CorElementType.BOOLEAN => [ToBits(value) != 0 ? (byte)1 : (byte)0],
+		CorElementType.CHAR => BitConverter.GetBytes(unchecked((char)ToBits(value))),
+		CorElementType.I1 => [unchecked((byte)ToBits(value))],
+		CorElementType.U1 => [unchecked((byte)ToBits(value))],
+		CorElementType.I2 => BitConverter.GetBytes(unchecked((short)ToBits(value))),
+		CorElementType.U2 => BitConverter.GetBytes(unchecked((ushort)ToBits(value))),
+		CorElementType.I4 => BitConverter.GetBytes(unchecked((int)ToBits(value))),
+		CorElementType.U4 => BitConverter.GetBytes(unchecked((uint)ToBits(value))),
+		CorElementType.I8 => BitConverter.GetBytes(ToBits(value)),
+		CorElementType.U8 => BitConverter.GetBytes(unchecked((ulong)ToBits(value))),
 		CorElementType.R4 => BitConverter.GetBytes(Convert.ToSingle(value)),
 		CorElementType.R8 => BitConverter.GetBytes(Convert.ToDouble(value)),
 		_ => throw new NotSupportedException($"Cannot encode a primitive CIL value as '{targetType}'")
+	};
+
+	private static long ToBits(object value) => value switch
+	{
+		bool b => b ? 1 : 0,
+		char c => c,
+		ulong u => unchecked((long)u),
+		_ => Convert.ToInt64(value)
 	};
 }

@@ -412,7 +412,7 @@ public partial class ManagedDebugger
 
 		await AddFields(nonStaticFieldDefs, metadataImport, corDebugType, corDebugValue, result, threadId, stackDepth);
 		// We need to pass the un-unwrapped reference value here, as we need to invoke CallParameterizedFunction with the correct parameters
-		await AddProperties(nonStaticProperties, metadataImport, corDebugClass, threadId, stackDepth, corDebugValue, result);
+		await AddProperties(nonStaticProperties, metadataImport, corDebugType, threadId, stackDepth, corDebugValue, result);
 
 		// Handle members on base types recursively
 		var baseType = corDebugType.Base;
@@ -433,7 +433,7 @@ public partial class ManagedDebugger
 
 		await AddFields(staticFieldDefs, metadataImport, corDebugType, corDebugValue, result, threadId, stackDepth);
 		// We need to pass the un-unwrapped reference value here, as we need to invoke CallParameterizedFunction with the correct parameters
-		await AddProperties(staticProperties, metadataImport, corDebugClass, threadId, stackDepth, corDebugValue, result);
+		await AddProperties(staticProperties, metadataImport, corDebugType, threadId, stackDepth, corDebugValue, result);
 
 		// Handle members on base types recursively
 		var baseType = corDebugType.Base;
@@ -535,8 +535,9 @@ public partial class ManagedDebugger
 	}
 
 	internal class EvalException(string message) : Exception(message);
-	private async Task AddProperties(mdProperty[] mdProperties, IMetaDataImport metadataImport, ICorDebugClass corDebugClass, ThreadId threadId, FrameStackDepth stackDepth, ICorDebugValue corDebugValue, List<VariableInfo> result)
+	private async Task AddProperties(mdProperty[] mdProperties, IMetaDataImport metadataImport, ICorDebugType declaringType, ThreadId threadId, FrameStackDepth stackDepth, ICorDebugValue corDebugValue, List<VariableInfo> result)
 	{
+		var corDebugClass = declaringType.Class;
 		foreach (var mdProperty in mdProperties)
 		{
 			var propertyProps = metadataImport.GetPropertyProps(mdProperty);
@@ -570,10 +571,8 @@ public partial class ManagedDebugger
 				var getMethod = corDebugClass.Module.GetFunctionFromToken(getMethodDef);
 				var eval = variablesReferenceIlFrame.Chain.Thread.CreateEval();
 
-				// May not be correct, will need further testing
-				var parameterizedContainingType = corDebugValue.ExactType;
-
-				var typeParameterTypes = parameterizedContainingType.TypeParameters;
+				// A getter declared on a generic base takes the base's instantiation, not the value's own type arguments
+				var typeParameterTypes = declaringType.TypeParameters;
 
 				// For instance properties, pass the object; for static, pass nothing
 				ICorDebugValue[] corDebugValues = isStatic ? [] : [corDebugValue];

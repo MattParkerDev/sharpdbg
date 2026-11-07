@@ -102,9 +102,22 @@ internal sealed class CilExpressionCompiler(ManagedDebugger debugger)
 	private DelegateMaterializerAssembly? _delegateMaterializer;
 	private int _cachedModuleVersion = -1;
 
-	public CompiledEvaluationMethod? TryCompile(string expression, CompiledExpressionEvaluationContext context, out string? errorMessage)
+	// Errors Roslyn reports for a member or type it cannot see, which may be in an assembly the debuggee has not loaded yet
+	private static readonly HashSet<string> _unresolvedSymbolErrorIds = ["CS0103", "CS0234", "CS0246", "CS1061", "CS1935"];
+
+	public CompiledEvaluationMethod? TryCompile(string expression, CompiledExpressionEvaluationContext context, out string? errorMessage) =>
+		TryCompile(expression, context, out errorMessage, out _);
+
+	public CompiledEvaluationMethod? TryCompile(string expression, CompiledExpressionEvaluationContext context, out string? errorMessage, out bool hasUnresolvedSymbol)
 	{
 		errorMessage = null;
+		hasUnresolvedSymbol = false;
+		if (DeclaresPatternVariable(expression))
+		{
+			// The expression evaluator has no storage for a pattern's variable, Roslyn's code generation fails on it
+			errorMessage = "Declaring a variable in a pattern is not supported";
+			return null;
+		}
 		if (context.RootValue is not null)
 		{
 			var syntax = SyntaxFactory.ParseExpression(expression);
@@ -136,6 +149,7 @@ internal sealed class CilExpressionCompiler(ManagedDebugger debugger)
 
 			if (result is null || diagnostics.HasAnyErrors())
 			{
+				hasUnresolvedSymbol = diagnostics.AsEnumerable().Any(d => d.Severity == DiagnosticSeverity.Error && _unresolvedSymbolErrorIds.Contains(d.Id));
 				errorMessage = string.Join("; ", diagnostics.AsEnumerable()
 					.Where(d => d.Severity == DiagnosticSeverity.Error)
 					.Select(d => d.GetMessage()));
@@ -149,6 +163,13 @@ internal sealed class CilExpressionCompiler(ManagedDebugger debugger)
 			diagnostics.Free();
 		}
 	}
+
+	private static bool DeclaresPatternVariable(string expression) =>
+		SyntaxFactory.ParseExpression(expression).DescendantNodesAndSelf()
+			.OfType<SingleVariableDesignationSyntax>()
+			.Where(designation => designation.Parent is PatternSyntax)
+			// A lambda's body is compiled as an ordinary method, where a pattern variable is a local like any other
+			.Any(designation => !designation.Ancestors().Any(node => node is AnonymousFunctionExpressionSyntax));
 
 	private CompileCacheKey CreateCacheKey(string expression, CompiledExpressionEvaluationContext context, ICorDebugILFrame frame, ICorDebugModule preferredModule, bool hasException)
 	{

@@ -110,6 +110,7 @@ public static class CorDebugValueExtensions
 
 		ICorDebugType? currentType = unwrappedValue.ExactType;
 		mdProperty foundPropertyDef = default;
+		ICorDebugType? foundType = null;
 		ICorDebugClass? foundClass = null;
 		IMetaDataImport? foundMetadata = null;
 
@@ -122,6 +123,7 @@ public static class CorDebugValueExtensions
 			if (prop?.IsNil is false)
 			{
 				foundPropertyDef = prop.Value;
+				foundType = currentType;
 				foundClass = cls;
 				foundMetadata = meta;
 				break;
@@ -147,10 +149,8 @@ public static class CorDebugValueExtensions
 		var setterFunction = setMethodDef == mdMethodDef.Nil ? null : foundClass.Module.GetFunctionFromToken(setMethodDef);
 		var eval = ilFrame.Chain.Thread.CreateEval();
 
-		// May not be correct, will need further testing
-		var parameterizedContainingType = objectValue.ExactType;
-
-		var typeParameterTypes = parameterizedContainingType.TypeParameters;
+		// A getter declared on a generic base takes the base's instantiation, not the value's own type arguments
+		var typeParameterTypes = foundType!.TypeParameters;
 
 		// For instance properties, pass the object; for static, pass nothing. Must pass the original CorDebugReferenceValue, not the dereferenced one.
 		ICorDebugValue[] corDebugValues = isStatic ? [] : [objectValue];

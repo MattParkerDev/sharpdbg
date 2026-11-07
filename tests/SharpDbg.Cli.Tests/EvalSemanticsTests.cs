@@ -72,5 +72,40 @@ public class EvalSemanticsTests(ITestOutputHelper testOutputHelper)
 			if (actual != expected) failures.Add($"{expression} => {actual} (expected {expected})");
 		}
 		failures.Should().BeEmpty(string.Join(Environment.NewLine, failures));
+
+		// A getter declared on a generic base runs with the base's type arguments, not the derived type's (none)
+		debugProtocolHost.WithEvaluateRequest(frameId, "derived", out var derivedResponse);
+		debugProtocolHost.WithVariablesRequest(derivedResponse.VariablesReference, out var derivedMembers);
+		derivedMembers.Single(member => member.Name == "Value").Value.Should().Be("9");
+	}
+
+	// A 'ref' parameter is an address: reading it is ldarg + ldind, assigning it is ldarg + stind
+	[Fact]
+	public async Task EvaluateRequest_RefParameter_ReadsAndWritesThroughTheReference()
+	{
+		var startSuspended = true;
+		var (debugProtocolHost, adapter, p2) = TestHelper.GetRunningDebugProtocolHost(testOutputHelper, startSuspended);
+		using var _ = adapter;
+		using var __ = new ProcessKiller(p2);
+		using var ___ = debugProtocolHost;
+
+		await debugProtocolHost
+			.WithInitializeRequest()
+			.WithAttachRequest(p2.Id)
+			.WaitForInitializedEvent();
+		debugProtocolHost
+			.WithBreakpointsRequest(26, Path.JoinFromGitRoot("tests", "DebuggableConsoleApp", "EvaluationSemanticsClass.cs"))
+			.WithConfigurationDoneRequest()
+			.WithOptionalResumeRuntime(p2.Id, startSuspended);
+
+		var stoppedEvent = await debugProtocolHost.WaitForStoppedEvent();
+		var frameId = debugProtocolHost.GetTopStackFrame(stoppedEvent.ThreadId!.Value).Id;
+
+		debugProtocolHost.WithEvaluateRequest(frameId, "value + 1", out var readResponse);
+		readResponse.Result.Should().Be("12");
+		debugProtocolHost.WithEvaluateRequest(frameId, "value = 20", out var writeResponse);
+		writeResponse.Result.Should().Be("20");
+		debugProtocolHost.WithEvaluateRequest(frameId, "value", out var readBackResponse);
+		readBackResponse.Result.Should().Be("20");
 	}
 }

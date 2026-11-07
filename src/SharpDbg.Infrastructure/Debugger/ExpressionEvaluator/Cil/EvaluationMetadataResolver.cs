@@ -316,6 +316,22 @@ internal sealed class EvaluationMetadataResolver(ManagedDebugger debugger, Metad
 	public ResolvedCilType ResolveEvaluationFieldType(FieldDefinitionHandle handle) =>
 		evaluationReader.GetFieldDefinition(handle).DecodeSignature(new RuntimeTypeSignatureProvider(this), genericContext: null);
 
+	public ResolvedRuntimeMethod ResolveMethodOnType(ResolvedRuntimeType declaringType, string methodName, params string[] parameterTypes)
+	{
+		var reader = declaringType.Module.MetadataReader.PeMetadataReader;
+		foreach (var handle in reader.GetTypeDefinition(declaringType.Handle).GetMethods())
+		{
+			var method = reader.GetMethodDefinition(handle);
+			if (reader.GetString(method.Name) != methodName) continue;
+			var signature = method.DecodeSignature(SignatureNameProvider.Instance, genericContext: null);
+			if (signature.ParameterTypes.SequenceEqual(parameterTypes))
+			{
+				return new ResolvedRuntimeMethod(declaringType, handle, methodName, signature, (method.Attributes & MethodAttributes.Static) != 0);
+			}
+		}
+		throw new MissingMethodException(GetTypeName(declaringType), methodName);
+	}
+
 	public ResolvedRuntimeMethod ResolveRuntimeMethod(string @namespace, string typeName, string methodName, params string[] parameterTypes)
 	{
 		var cacheKey = $"{@namespace}.{typeName}.{methodName}({string.Join(",", parameterTypes)})";
@@ -612,7 +628,7 @@ internal sealed class EvaluationMetadataResolver(ManagedDebugger debugger, Metad
 
 	private static bool TypesCompatible(string expected, string actual) => expected == actual;
 
-	private sealed class SignatureNameProvider : ISignatureTypeProvider<string, object?>
+	internal sealed class SignatureNameProvider : ISignatureTypeProvider<string, object?>
 	{
 		public static SignatureNameProvider Instance { get; } = new();
 		public string GetArrayType(string elementType, ArrayShape shape) => $"{elementType}[{new string(',', shape.Rank - 1)}]";

@@ -15,3 +15,6 @@ internal sealed class EvaluationClosure(TypeDefinitionHandle type, MethodDefinit
 
 internal sealed record EvaluationFunctionPointer(int MethodToken, ResolvedRuntimeMethod? RuntimeMethod = null);
 internal sealed record EvaluationDelegate(EvaluationFunctionPointer Function, CilValue Target, ResolvedRuntimeType DelegateType);
+
+// The token of an evaluation assembly field holding an array initializer's data
+internal sealed record EvaluationFieldData(FieldDefinitionHandle Handle);

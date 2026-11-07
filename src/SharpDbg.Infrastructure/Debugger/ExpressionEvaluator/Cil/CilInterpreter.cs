@@ -150,7 +150,15 @@ internal sealed class CilInterpreter(ManagedDebugger debugger, RuntimeAssemblyPr
 				}
 				if (op == OpCodes.Ldnull) { stack.Push(CilValue.Null()); continue; }
 				if (op == OpCodes.Ldstr) { stack.Push(CilValue.FromPrimitive(resolver.ResolveUserString((int)instruction.Operand!))); continue; }
-				if (op == OpCodes.Ldtoken) { stack.Push(CilValue.FromPrimitive(resolver.ResolveTypeToken((int)instruction.Operand!))); continue; }
+				if (op == OpCodes.Ldtoken)
+				{
+					var tokenHandle = MetadataTokens.EntityHandle((int)instruction.Operand!);
+					// An array initializer's data lives in a field of the evaluation assembly, copied in by RuntimeHelpers.InitializeArray
+					stack.Push(tokenHandle.Kind == HandleKind.FieldDefinition
+						? CilValue.FromVirtual(new EvaluationFieldData((FieldDefinitionHandle)tokenHandle))
+						: CilValue.FromPrimitive(resolver.ResolveTypeToken((int)instruction.Operand!)));
+					continue;
+				}
 				if (op == OpCodes.Ldc_I4_M1) { stack.Push(CilValue.FromPrimitive(-1)); continue; }
 				if (op == OpCodes.Ldc_I4_0) { stack.Push(CilValue.FromPrimitive(0)); continue; }
 				if (op == OpCodes.Ldc_I4_1) { stack.Push(CilValue.FromPrimitive(1)); continue; }
@@ -168,7 +176,7 @@ internal sealed class CilInterpreter(ManagedDebugger debugger, RuntimeAssemblyPr
 
 				if (TryGetArgumentIndex(op, instruction.Operand, out var argumentIndex))
 				{
-					stack.Push(handles.Root(arguments[argumentIndex].Read()).WithSourceLocation(arguments[argumentIndex]));
+					stack.Push(LoadSlot(arguments[argumentIndex], handles));
 					continue;
 				}
 				if (TryGetArgumentAddressIndex(op, instruction.Operand, out argumentIndex))
@@ -184,7 +192,7 @@ internal sealed class CilInterpreter(ManagedDebugger debugger, RuntimeAssemblyPr
 
 				if (TryGetLocalIndex(op, instruction.Operand, out var localIndex))
 				{
-					stack.Push(handles.Root(locals[localIndex].Read()).WithSourceLocation(locals[localIndex]));
+					stack.Push(LoadSlot(locals[localIndex], handles));
 					continue;
 				}
 				if (TryGetLocalAddressIndex(op, instruction.Operand, out localIndex))
@@ -286,7 +294,7 @@ internal sealed class CilInterpreter(ManagedDebugger debugger, RuntimeAssemblyPr
 				}
 				if (op == OpCodes.Newarr)
 				{
-					var length = checked((uint)stack.Pop().AsInt32());
+					var length = checked((uint)stack.Pop().AsInt64());
 					var elementCilType = resolver.ResolveTypeToken((int)instruction.Operand!);
 					var elementType = resolver.GetCorDebugType(elementCilType);
 					var array = await CreateArrayAsync(elementCilType, elementType, length, resolver, context, handles);
@@ -301,14 +309,14 @@ internal sealed class CilInterpreter(ManagedDebugger debugger, RuntimeAssemblyPr
 				}
 				if (op == OpCodes.Ldelema)
 				{
-					var indexValue = stack.Pop().AsInt32();
+					var indexValue = AsArrayIndex(stack.Pop());
 					var array = GetArrayValue(stack.Pop());
 					stack.Push(CilValue.FromLocation(new CorDebugLocation(array.GetElementAtPosition(indexValue))));
 					continue;
 				}
 				if (op.Name?.StartsWith("ldelem.", StringComparison.Ordinal) == true || op == OpCodes.Ldelem)
 				{
-					var indexValue = stack.Pop().AsInt32();
+					var indexValue = AsArrayIndex(stack.Pop());
 					var array = GetArrayValue(stack.Pop());
 					stack.Push(handles.Root(new CorDebugLocation(array.GetElementAtPosition(indexValue)).Read()));
 					continue;
@@ -316,7 +324,7 @@ internal sealed class CilInterpreter(ManagedDebugger debugger, RuntimeAssemblyPr
 				if (op.Name?.StartsWith("stelem.", StringComparison.Ordinal) == true || op == OpCodes.Stelem)
 				{
 					var elementValue = stack.Pop();
-					var indexValue = stack.Pop().AsInt32();
+					var indexValue = AsArrayIndex(stack.Pop());
 					var array = GetArrayValue(stack.Pop());
 					new CorDebugLocation(array.GetElementAtPosition(indexValue)).Write(await MaterializeForStoreAsync(elementValue, context, handles));
 					continue;
@@ -353,6 +361,12 @@ internal sealed class CilInterpreter(ManagedDebugger debugger, RuntimeAssemblyPr
 						continue;
 					}
 					if (source.IsNull) throw NullReference();
+					// A synthetic variable ('out var') is read back as its stored value, which is already unboxed
+					if (source.CorValue is null && source.Value is not null)
+					{
+						stack.Push(source);
+						continue;
+					}
 					var boxed = source.CorValue is ICorDebugReferenceValue reference
 						? reference.Dereference() as ICorDebugBoxValue
 						: source.CorValue as ICorDebugBoxValue;
@@ -484,36 +498,11 @@ internal sealed class CilInterpreter(ManagedDebugger debugger, RuntimeAssemblyPr
 						stack.Push(CilValue.FromVirtual(new EvaluationDelegate(function, delegateTarget, constructor.DeclaringType)));
 						continue;
 					}
-					var argumentValues = new ICorDebugValue[constructorArguments.Length];
-					var temporaryByRefArguments = new List<(ICilLocation Location, ICorDebugValue Value)>();
-					for (var argument = 0; argument < argumentValues.Length; argument++)
+					if (IsSpanOverReference(constructor, resolver))
 					{
-						argumentValues[argument] = constructor.Signature.ParameterTypes[argument].EndsWith('&')
-							? await MaterializeByRefArgumentAsync(constructorArguments[argument], context, handles, temporaryByRefArguments)
-							: await MaterializeForCallAsync(constructorArguments[argument], context, handles);
+						(constructor, constructorArguments) = await RewriteSpanOverReferenceAsync(constructor, constructorArguments[0], resolver, context, handles);
 					}
-					var typeArguments = constructor.DeclaringType.TypeArguments.IsDefaultOrEmpty
-						? []
-						: constructor.DeclaringType.TypeArguments.Select(resolver.GetCorDebugType).ToArray();
-					var eval = context.Thread.CreateEval();
-					ICorDebugValue? newValue;
-					try
-					{
-						newValue = handles.Track(await eval.NewParameterizedObjectAsync(
-							debugger.ProcessRuntimeEventsUntilEvalEvent,
-							debugger.EvalStatus,
-							constructor.Function,
-							typeArguments.Length,
-							typeArguments.Length == 0 ? null : typeArguments,
-							argumentValues.Length,
-							argumentValues,
-							throwOnException: true));
-					}
-					finally
-					{
-						WriteBackTemporaryByRefArguments(temporaryByRefArguments, handles);
-					}
-					stack.Push(newValue is null ? CilValue.Null() : CilValue.FromCorValue(newValue));
+					stack.Push(await NewObjectAsync(constructor, constructorArguments, resolver, context, handles));
 					continue;
 				}
 
@@ -591,6 +580,12 @@ internal sealed class CilInterpreter(ManagedDebugger debugger, RuntimeAssemblyPr
 					for (var argument = argumentValues.Length - 1; argument >= 0; argument--) argumentValues[argument] = stack.Pop();
 					CilValue? receiverValue = null;
 					if (!method.IsStatic) receiverValue = stack.Pop();
+					if (argumentValues is [var initializedArray, { Value: EvaluationFieldData }] && method.Name == "InitializeArray"
+						&& resolver.GetRuntimeTypeName(method.DeclaringType) == "System.Runtime.CompilerServices.RuntimeHelpers")
+					{
+						InitializeArray(initializedArray, argumentValues[1], compiled);
+						continue;
+					}
 					if (resolver.GetRuntimeTypeName(method.DeclaringType) == "System.Type" && method.Name == "GetTypeFromHandle")
 					{
 						var tokenType = argumentValues[0].Value as ResolvedCilType
@@ -608,6 +603,14 @@ internal sealed class CilInterpreter(ManagedDebugger debugger, RuntimeAssemblyPr
 					if (receiverValue?.Value is StringBuilder || receiverValue?.Location?.Read().Value is StringBuilder || argumentValues.Any(a => a.Value is StringBuilder))
 					{
 						throw new InvalidOperationException($"Unhandled interpolated-string call '{resolver.GetRuntimeTypeName(method.DeclaringType)}.{method.Name}'");
+					}
+					// 'ldloca x; call S::.ctor' constructs a value type in place. A func eval constructing into the storage
+					// does not reach a frame local or a temporary of the expression, so it is built and then stored
+					if (method.Name == ".ctor" && receiverValue?.Location is { } constructedLocation && EvaluationMetadataResolver.IsValueType(method.DeclaringType))
+					{
+						var constructed = await NewObjectAsync(method, argumentValues, resolver, context, handles);
+						constructedLocation.Write(await MaterializeForStoreAsync(constructed, context, handles));
+						continue;
 					}
 
 					var callArguments = new ICorDebugValue[method.Signature.ParameterTypes.Length + (method.IsStatic ? 0 : 1)];
@@ -705,6 +708,92 @@ internal sealed class CilInterpreter(ManagedDebugger debugger, RuntimeAssemblyPr
 		}
 	}
 
+	private async Task<CilValue> NewObjectAsync(ResolvedRuntimeMethod constructor, CilValue[] constructorArguments, EvaluationMetadataResolver resolver, CompiledExpressionEvaluationContext context, EvaluationHandleScope handles)
+	{
+		var argumentValues = new ICorDebugValue[constructorArguments.Length];
+		var temporaryByRefArguments = new List<(ICilLocation Location, ICorDebugValue Value)>();
+		for (var argument = 0; argument < argumentValues.Length; argument++)
+		{
+			argumentValues[argument] = constructor.Signature.ParameterTypes[argument].EndsWith('&')
+				? await MaterializeByRefArgumentAsync(constructorArguments[argument], context, handles, temporaryByRefArguments)
+				: await MaterializeForCallAsync(constructorArguments[argument], context, handles);
+		}
+		var typeArguments = constructor.DeclaringType.TypeArguments.IsDefaultOrEmpty
+			? []
+			: constructor.DeclaringType.TypeArguments.Select(resolver.GetCorDebugType).ToArray();
+		var eval = context.Thread.CreateEval();
+		ICorDebugValue? newValue;
+		try
+		{
+			newValue = handles.Track(await eval.NewParameterizedObjectAsync(
+				debugger.ProcessRuntimeEventsUntilEvalEvent,
+				debugger.EvalStatus,
+				constructor.Function,
+				typeArguments.Length,
+				typeArguments.Length == 0 ? null : typeArguments,
+				argumentValues.Length,
+				argumentValues,
+				throwOnException: true));
+		}
+		finally
+		{
+			WriteBackTemporaryByRefArguments(temporaryByRefArguments, handles);
+		}
+		return newValue is null ? CilValue.Null() : CilValue.FromCorValue(newValue);
+	}
+
+	// 'new ReadOnlySpan<T>(ref value)' (how string + char is lowered) would point the span at a func eval's
+	// temporary copy of the value, gone once that eval returns, so the span is built over a one-element array instead
+	private static bool IsSpanOverReference(ResolvedRuntimeMethod constructor, EvaluationMetadataResolver resolver) =>
+		constructor.Name == ".ctor"
+		&& constructor.Signature.ParameterTypes is ["!0&"]
+		&& resolver.GetRuntimeTypeName(constructor.DeclaringType) is "System.ReadOnlySpan`1" or "System.Span`1";
+
+	private async Task<(ResolvedRuntimeMethod Constructor, CilValue[] Arguments)> RewriteSpanOverReferenceAsync(
+		ResolvedRuntimeMethod constructor,
+		CilValue reference,
+		EvaluationMetadataResolver resolver,
+		CompiledExpressionEvaluationContext context,
+		EvaluationHandleScope handles)
+	{
+		var elementCilType = constructor.DeclaringType.TypeArguments[0];
+		var array = await CreateArrayAsync(elementCilType, resolver.GetCorDebugType(elementCilType), 1, resolver, context, handles)
+			?? throw new InvalidOperationException("Failed to allocate span storage");
+		var element = reference.Location is not null ? reference.Dereference() : reference;
+		new CorDebugLocation(GetArrayValue(CilValue.FromCorValue(array)).GetElementAtPosition(0)).Write(await MaterializeForStoreAsync(element, context, handles));
+		var arrayConstructor = resolver.ResolveMethodOnType(constructor.DeclaringType, ".ctor", "!0[]");
+		return (arrayConstructor, [CilValue.FromCorValue(array)]);
+	}
+
+	// A by-reference argument or local (a 'ref' parameter) is an address on the stack, read through ldind/ldobj
+	private static CilValue LoadSlot(ICilLocation slot, EvaluationHandleScope handles) =>
+		slot is CorDebugLocation { IsByRef: true }
+			? CilValue.FromLocation(slot)
+			: handles.Root(slot.Read()).WithSourceLocation(slot);
+
+	// ldelem/stelem take a native int index, which conv.ovf.i leaves as an int64 for a long index
+	private static int AsArrayIndex(CilValue value) => checked((int)value.AsInt64());
+
+	private static void InitializeArray(CilValue arrayValue, CilValue fieldValue, CompiledEvaluationMethod compiled)
+	{
+		var field = fieldValue.Value as EvaluationFieldData ?? throw new InvalidOperationException("InitializeArray requires a field token");
+		var array = GetArrayValue(arrayValue);
+		var rva = compiled.MetadataReader.GetFieldDefinition(field.Handle).GetRelativeVirtualAddress();
+		var data = compiled.PeReader.GetSectionData(rva);
+		var offset = 0;
+		for (var i = 0; i < array.Count; i++)
+		{
+			var element = array.GetElementAtPosition(i).UnwrapDebugValue() as ICorDebugGenericValue
+				?? throw new NotSupportedException("Only arrays of primitive elements can be initialized from data");
+			var bytes = data.GetContent(offset, element.Size).ToArray();
+			offset += element.Size;
+			unsafe
+			{
+				fixed (byte* pointer = bytes) element.SetValue((nint)pointer);
+			}
+		}
+	}
+
 	private static EvaluationFunctionPointer CreateRuntimeFunctionPointer(ResolvedRuntimeMethod method) =>
 		new(MetadataTokens.GetToken(method.Handle), method);
 
@@ -769,6 +858,10 @@ internal sealed class CilInterpreter(ManagedDebugger debugger, RuntimeAssemblyPr
 		{
 			var primitiveResult = (ICorDebugGenericValue)eval.CreateValue(primitiveElementType, null);
 			var sourceBytes = sourceGeneric.GetValueAsBytes();
+			if (sourceBytes.Length != primitiveResult.Size && value.TryGetInt64(out var integer))
+			{
+				sourceBytes = CilValueEncoding.GetBytes(integer, primitiveElementType);
+			}
 			unsafe
 			{
 				fixed (byte* pointer = sourceBytes) primitiveResult.SetValue((nint)pointer);
@@ -1355,8 +1448,8 @@ internal sealed class CilInterpreter(ManagedDebugger debugger, RuntimeAssemblyPr
 		}
 		if (method.Name == "AppendFormatted")
 		{
-			var value = arguments[0];
-			var alignment = arguments.Select(a => a.Value).OfType<int>().Skip(value.Value is int ? 1 : 0).FirstOrDefault();
+			var value = CoerceToPrimitive(arguments[0], method.MethodTypeArguments.IsDefaultOrEmpty ? null : method.MethodTypeArguments[0].Primitive);
+			var alignment = arguments.Skip(1).Select(a => a.Value).OfType<int>().FirstOrDefault();
 			var format = arguments.Select(a => a.Value).OfType<string>().FirstOrDefault();
 			var text = await FormatInterpolatedValueAsync(value, format, resolver, context, handles);
 			if (alignment != 0) text = alignment > 0 ? text.PadLeft(alignment) : text.PadRight(-alignment);
@@ -1368,6 +1461,26 @@ internal sealed class CilInterpreter(ManagedDebugger debugger, RuntimeAssemblyPr
 			return (true, CilValue.FromPrimitive(builder.ToString()));
 		}
 		return (false, null);
+	}
+
+	// A comparison or a narrowing conversion leaves an int32 on the stack, typed by the call it is passed to
+	private static CilValue CoerceToPrimitive(CilValue value, PrimitiveTypeCode? type)
+	{
+		if (value.Location is not null || value.CorValue is not null || value.Value is null or string or float or double) return value;
+		return type switch
+		{
+			PrimitiveTypeCode.Boolean => CilValue.FromPrimitive(value.IsTrue()),
+			PrimitiveTypeCode.Char => CilValue.FromPrimitive(unchecked((char)value.AsInt64())),
+			PrimitiveTypeCode.SByte => CilValue.FromPrimitive(unchecked((sbyte)value.AsInt64())),
+			PrimitiveTypeCode.Byte => CilValue.FromPrimitive(unchecked((byte)value.AsInt64())),
+			PrimitiveTypeCode.Int16 => CilValue.FromPrimitive(unchecked((short)value.AsInt64())),
+			PrimitiveTypeCode.UInt16 => CilValue.FromPrimitive(unchecked((ushort)value.AsInt64())),
+			PrimitiveTypeCode.Int32 => CilValue.FromPrimitive(unchecked((int)value.AsInt64())),
+			PrimitiveTypeCode.UInt32 => CilValue.FromPrimitive(unchecked((uint)value.AsInt64())),
+			PrimitiveTypeCode.Int64 => CilValue.FromPrimitive(value.AsInt64()),
+			PrimitiveTypeCode.UInt64 => CilValue.FromPrimitive(value.AsUInt64()),
+			_ => value
+		};
 	}
 
 	private async Task<string> FormatInterpolatedValueAsync(

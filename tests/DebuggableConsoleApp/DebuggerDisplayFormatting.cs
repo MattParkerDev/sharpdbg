@@ -23,7 +23,7 @@ public class DebuggerDisplayFormatting
 		var braced = new DebuggerDisplayFormattingBraced();
 		var linkTail = new DebuggerDisplayFormattingLink("tail", null);
 		var derived = new DebuggerDisplayFormattingDerived();
-		Console.WriteLine(debuggerDisplayFormatting);
+		;
 	}
 }
 

@@ -20,8 +20,8 @@ public class DebuggerBrowsableRootHidden
 	{
 		var rootHidden = new DebuggerBrowsableRootHidden();
 		var rootHiddenCycle = new DebuggerBrowsableRootHiddenCycle();
-		Console.WriteLine(rootHidden);
-		Console.WriteLine(rootHiddenCycle);
+		;
+		;
 	}
 }
 

@@ -8,6 +8,6 @@ public class ClassWithIndexer
 	public static void Test()
 	{
 		var classWithIndexer = new ClassWithIndexer();
-		Console.WriteLine(classWithIndexer);
+		;
 	}
 }

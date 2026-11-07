@@ -1,10 +1,65 @@
 using AwesomeAssertions;
 using SharpDbg.Cli.Tests.Helpers;
+using SharpDbg.DapProtocol;
+using SharpDbg.Infrastructure.Debugger;
 
 namespace SharpDbg.Cli.Tests;
 
 public class StepTests(ITestOutputHelper testOutputHelper)
 {
+	[Fact]
+	public async Task ResumeRequests_SendContinuedEventBeforeTheNextStop()
+	{
+		var startSuspended = true;
+
+		var (debugProtocolHost, adapter, p2) = TestHelper.GetRunningDebugProtocolHost(testOutputHelper, startSuspended);
+		using var _ = adapter;
+		using var __ = new ProcessKiller(p2);
+		using var ___ = debugProtocolHost;
+
+		await debugProtocolHost
+			.WithInitializeRequest()
+			.WithAttachRequest(p2.Id)
+			.WaitForInitializedEvent();
+		debugProtocolHost
+			.WithBreakpointsRequest(20)
+			.WithConfigurationDoneRequest()
+			.WithOptionalResumeRuntime(p2.Id, startSuspended);
+
+		var threadId = (await debugProtocolHost.WaitForStoppedEvent()).ThreadId!.Value;
+
+		// An evaluation runs the debuggee, but the client is not told it continued
+		debugProtocolHost.WithStackTraceRequest(threadId, out var stackTrace);
+		debugProtocolHost.Evaluate(stackTrace.StackFrames[0].Id, "AnotherClass.MyStaticMethod()");
+
+		// WaitForEvent fails if the stop comes before the continued event
+		debugProtocolHost.WithStepInRequest(threadId);
+		await ExpectContinuedThenStop();
+		debugProtocolHost.WithStepOutRequest(threadId);
+		await ExpectContinuedThenStop();
+		debugProtocolHost.WithStepOverRequest(threadId);
+		await ExpectContinuedThenStop();
+
+		// The false condition's hit is not reported, so it sends no continued event either
+		debugProtocolHost.WithBreakpointsRequest(Path.JoinFromGitRoot("tests", "DebuggableConsoleApp", "MyClass.cs"), [new SharpDbgBreakpointRequest(20, "_counter == 1000"), new SharpDbgBreakpointRequest(21)], out var breakpointsResponse);
+		breakpointsResponse.Breakpoints.Should().AllSatisfy(b => b.Verified.Should().BeTrue());
+		debugProtocolHost.WithContinueRequest(threadId);
+		await ExpectContinuedThenStop();
+
+		debugProtocolHost.ReceivedEvents.OfType<ContinuedEvent>().Should().HaveCount(4)
+			.And.AllSatisfy(e =>
+			{
+				e.ThreadId.Should().Be(threadId);
+				e.AllThreadsContinued.Should().BeTrue();
+			});
+
+		async Task ExpectContinuedThenStop()
+		{
+			await debugProtocolHost.WaitForEvent<ContinuedEvent>();
+			await debugProtocolHost.WaitForStoppedEvent();
+		}
+	}
+
 	[Fact]
 	public async Task SharpDbgCli_StepRequests_Returns_StoppedEventsAtCorrectLocation()
 	{

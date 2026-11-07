@@ -175,7 +175,8 @@ public partial class ManagedDebugger
 	/// <summary>
 	/// Continue execution
 	/// </summary>
-	public void HandleContinueRequest()
+	/// <param name="threadId">The thread the client asked to continue. All threads are continued</param>
+	public void HandleContinueRequest(int threadId)
 	{
 		_logger?.Invoke("Continue");
 		if (_run is not RunState.Stopped)
@@ -183,7 +184,7 @@ public partial class ManagedDebugger
 			_logger?.Invoke("Ignoring the continue, as the debuggee is not stopped");
 			return;
 		}
-		ContinueFromStop();
+		ContinueFromStop(threadId);
 	}
 
 	private void ContinueWithVariableClear()

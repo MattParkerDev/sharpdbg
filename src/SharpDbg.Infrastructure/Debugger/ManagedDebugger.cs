@@ -311,7 +311,12 @@ public partial class ManagedDebugger
 	/// <summary>
 	/// Continue from a stop reported to the client. The stop's variable and frame references are no longer valid
 	/// </summary>
-	private void ContinueFromStop()
+	/// <remarks>
+	/// Tells the client, with a continued event sent before the request's response. Resuming from an event the
+	/// client was never told about, e.g. a breakpoint whose condition is false, sends no continued event
+	/// </remarks>
+	/// <param name="threadId">The thread the client's request named</param>
+	private void ContinueFromStop(int threadId)
 	{
 		if (_run is not RunState.Stopped) throw new InvalidOperationException("The debuggee is not stopped");
 		Guard.Against.Null(CorProcess);
@@ -325,6 +330,8 @@ public partial class ManagedDebugger
 		if (result is Cor.CORDBG_E_SUPERFLOUS_CONTINUE) _logger?.Invoke("The debuggee was reported stopped, but was already running");
 		else Marshal.ThrowExceptionForHR(result);
 		_run = RunState.Running.Instance;
+		// The request holds DapRequestAndRuntimeEventLock, so this is sent before any stop the continue leads to
+		OnContinued?.Invoke(threadId);
 	}
 
 	private void ConfigureExceptionCallbacks()

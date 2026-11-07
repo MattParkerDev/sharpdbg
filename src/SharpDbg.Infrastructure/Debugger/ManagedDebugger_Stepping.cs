@@ -51,7 +51,7 @@ public partial class ManagedDebugger
 		if (_step is not StepState.Idle) throw new InvalidOperationException("A step operation is already in progress");
 
 		StartStep(await _asyncStepper.TryCreateAsyncStep(thread, stepType) ?? new StepState.Simple(CreateStepper(thread, stepType)));
-		ContinueFromStop();
+		ContinueFromStop(threadId);
 	}
 
 	/// <summary>

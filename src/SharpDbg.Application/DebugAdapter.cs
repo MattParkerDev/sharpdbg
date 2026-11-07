@@ -650,7 +650,7 @@ public class DebugAdapter : IDapRequestHandler
 	{
 		return RunLocked<ContinueResponse>("Failed to continue", () =>
 		{
-			_debugger.HandleContinueRequest();
+			_debugger.HandleContinueRequest(arguments.ThreadId);
 			return new ContinueResponse { AllThreadsContinued = true };
 		});
 	}

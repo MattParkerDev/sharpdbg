@@ -58,4 +58,46 @@ public class LambdaVariablesTests(ITestOutputHelper testOutputHelper)
 		variables.Should().HaveCount(11);
 		variables.ShouldBeEquivalentToDebuggerVariables(expectedVariables);
 	}
+
+	// https://github.com/MattParkerDev/sharpdbg/issues/58
+	[Fact]
+	public async Task SharpDbgCli_CapturedParameter_VariablesRequest_ListsClosureCopyOnce()
+	{
+		var startSuspended = true;
+		var (debugProtocolHost, initializedEventTcs, debugEventTcs, adapter, p2) = TestHelper.GetRunningDebugProtocolHost(testOutputHelper, startSuspended);
+		using var _ = adapter;
+		using var __ = new ProcessKiller(p2);
+		using var ___ = debugProtocolHost;
+
+		await debugProtocolHost
+			.WithInitializeRequest()
+			.WithAttachRequest(p2.Id)
+			.WaitForInitializedEvent(initializedEventTcs);
+		var filePath = Path.JoinFromGitRoot("tests", "DebuggableConsoleApp", "Lambdas", "MyLambdaClass.cs");
+		debugProtocolHost
+			.WithBreakpointsRequest([59, 68], filePath)
+			.WithConfigurationDoneRequest()
+			.WithOptionalResumeRuntime(p2.Id, startSuspended);
+
+		// In the method that declares the parameter: the parameter's own slot is stale, the closure's copy is the live one
+		var stoppedEvent = await debugProtocolHost.WaitForStoppedEvent(debugEventTcs);
+		stoppedEvent.ReadStopInfo().line.Should().Be(59);
+		var variables = GetTopFrameVariables(stoppedEvent.ThreadId!.Value);
+		variables.Select(v => (v.Name, v.Value)).Should().BeEquivalentTo([("captured", "7"), ("f", "{System.Func<int>}")]);
+
+		// In a lambda whose own parameter is captured by a nested lambda, which also captures from the enclosing closure
+		var stoppedEvent2 = await debugProtocolHost.WithContinueRequest().WaitForStoppedEvent(debugEventTcs);
+		stoppedEvent2.ReadStopInfo().line.Should().Be(68);
+		var variables2 = GetTopFrameVariables(stoppedEvent2.ThreadId!.Value);
+		variables2.Select(v => (v.Name, v.Value)).Should().BeEquivalentTo([("x", "10"), ("value", "3"), ("outerLocal", "13"), ("innerLambda", "{System.Func<int>}")]);
+
+		List<Variable> GetTopFrameVariables(int threadId)
+		{
+			debugProtocolHost
+				.WithStackTraceRequest(threadId, out var stackTraceResponse)
+				.WithScopesRequest(stackTraceResponse.StackFrames.First().Id, out var scopesResponse)
+				.WithVariablesRequest(scopesResponse.Scopes.Single().VariablesReference, out var variables);
+			return variables;
+		}
+	}
 }

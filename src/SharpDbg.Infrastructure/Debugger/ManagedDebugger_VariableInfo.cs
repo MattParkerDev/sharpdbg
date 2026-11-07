@@ -18,6 +18,9 @@ public partial class ManagedDebugger
 {
 	private async Task AddLocalVariables(ModuleInfo module, ICorDebugFunction corDebugFunction, List<VariableInfo> result, ThreadId threadId, FrameStackDepth stackDepth, ICorDebugValue? classContainingHoistedLocalsValue)
 	{
+		// A closure can be reached more than once, e.g. as the lambda's 'this', and again as the parent of a closure
+		// created in the lambda body, so each is only read once
+		var visitedClosures = new HashSet<CORDB_ADDRESS>();
 		if (classContainingHoistedLocalsValue is not null)
 		{
 			// If we have a classContainingHoistedLocalsValue, it means captured variables from the outer scope are stored
@@ -25,7 +28,7 @@ public partial class ManagedDebugger
 			// so that variables captured from enclosing lambdas are also included.
 			// We do NOT return here: non-captured locals declared inside the lambda body are still plain IL locals
 			// on the lambda method frame and must also be read below.
-			await AddClosureChainMembers(classContainingHoistedLocalsValue, threadId, stackDepth, result);
+			await AddClosureChainMembers(classContainingHoistedLocalsValue, threadId, stackDepth, result, visitedClosures);
 		}
 		var corDebugIlFrame = GetIlFrameForThreadIdAndStackDepth(threadId, stackDepth);
 		if (corDebugIlFrame.LocalVariables.Length is 0) return;
@@ -36,7 +39,7 @@ public partial class ManagedDebugger
 			if (localVariableName is null) continue; // Compiler generated locals will not be found. E.g. DefaultInterpolatedStringHandler
 			if (IsLambdaDisplayClass(localVariableCorDebugValue))
 			{
-				await AddClosureChainMembers(localVariableCorDebugValue, threadId, stackDepth, result);
+				await AddClosureChainMembers(localVariableCorDebugValue, threadId, stackDepth, result, visitedClosures);
 				continue;
 			}
 			await WithFailureHandling(result, localVariableName, async () =>
@@ -67,12 +70,13 @@ public partial class ManagedDebugger
 	/// Walks the compiler-generated closure chain starting at <paramref name="closureValue"/>,
 	/// calling AddMembers on each closure class. Parent closures are linked via a field of
 	/// kind <see cref="GeneratedNameKind.DisplayClassLocalOrField"/> (e.g. "&lt;&gt;8__1").
-	private async Task AddClosureChainMembers(ICorDebugValue closureValue, ThreadId threadId, FrameStackDepth stackDepth, List<VariableInfo> result)
+	private async Task AddClosureChainMembers(ICorDebugValue closureValue, ThreadId threadId, FrameStackDepth stackDepth, List<VariableInfo> result, HashSet<CORDB_ADDRESS> visitedClosures)
 	{
+		var objectValue = closureValue.UnwrapDebugValueToObject();
+		if (visitedClosures.Add(objectValue.Address) is false) return;
 		await AddMembers(closureValue, closureValue.ExactType, threadId, stackDepth, result);
 
 		// Follow the DisplayClassLocalOrField link to the parent closure, if any
-		var objectValue = closureValue.UnwrapDebugValueToObject();
 		var metadataImport = objectValue.Class.Module.GetMetaDataInterface<IMetaDataImport>();
 		var fields = metadataImport.EnumFields(objectValue.Class.Token);
 		foreach (var field in fields)
@@ -81,7 +85,7 @@ public partial class ManagedDebugger
 			if (GeneratedNameParser.GetKind(fieldProps.szField) is GeneratedNameKind.DisplayClassLocalOrField)
 			{
 				var parentClosureValue = objectValue.GetFieldValue(objectValue.Class, field);
-				await AddClosureChainMembers(parentClosureValue, threadId, stackDepth, result);
+				await AddClosureChainMembers(parentClosureValue, threadId, stackDepth, result, visitedClosures);
 				break; // only one parent link per closure class
 			}
 		}
@@ -135,6 +139,7 @@ public partial class ManagedDebugger
 				});
 			}
 		}
+		var hoistedArgumentNames = GetNamesHoistedIntoFrameClosures(module, corDebugFunction, corDebugIlFrame);
 		var skipCount = isStatic ? 0 : 1; // Skip 'this' for instance methods, as we already handled it
 		foreach (var (index, argumentCorDebugValue) in arguments.Skip(skipCount).Index())
 		{
@@ -144,6 +149,9 @@ public partial class ManagedDebugger
 			var paramProps = metadataImport.GetParamProps(paramDef);
 			var argumentName = paramProps.szName;
 			if (argumentName is null) continue;
+			// A parameter captured by a lambda is copied into the closure created in this method, and from then on only that
+			// copy is updated - it is listed with the closure's members instead
+			if (hoistedArgumentNames.Contains(argumentName)) continue;
 			await WithFailureHandling(result, argumentName, async () =>
 			{
 				var (friendlyTypeName, value, debuggerProxyInstance, resultIsError) = await GetValueForCorDebugValueAsync(argumentCorDebugValue, threadId, stackDepth, true);
@@ -159,6 +167,26 @@ public partial class ManagedDebugger
 			});
 		}
 		return classContainingHoistedLocalsValue;
+	}
+
+	/// The field names of the closure classes created in this frame, i.e. held in its in-scope locals. Closures reached
+	/// through 'this' or a parent link belong to an enclosing scope, so a parameter of the same name there is shadowed, not hoisted
+	private static HashSet<string> GetNamesHoistedIntoFrameClosures(ModuleInfo module, ICorDebugFunction corDebugFunction, ICorDebugILFrame corDebugIlFrame)
+	{
+		var result = new HashSet<string>();
+		var currentIlOffset = corDebugIlFrame.IP.pnOffset;
+		foreach (var (index, localVariableCorDebugValue) in corDebugIlFrame.LocalVariables.Index())
+		{
+			if (module.MetadataReader.GetLocalVariableName(corDebugFunction.Token, index, currentIlOffset) is null) continue;
+			if (IsLambdaDisplayClass(localVariableCorDebugValue) is false) continue;
+			var corClass = localVariableCorDebugValue.ExactType.Class;
+			var metadataImport = corClass.Module.GetMetaDataInterface<IMetaDataImport>();
+			foreach (var field in metadataImport.EnumFields(corClass.Token))
+			{
+				result.Add(metadataImport.GetFieldProps(field).szField);
+			}
+		}
+		return result;
 	}
 
 	private async Task AddCurrentException(List<VariableInfo> result, ThreadId threadId, FrameStackDepth stackDepth)

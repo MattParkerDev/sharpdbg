@@ -51,4 +51,22 @@ public class MyLambdaClass
 		};
 		return outerLambda(3);
 	}
+
+	public static int CapturedParameterMethod(int captured)
+	{
+		var f = () => captured + 1;
+		captured = 7; // only the closure's copy of a hoisted parameter is updated
+		return f(); // set breakpoint here
+	}
+
+	public static int NestedCapturedParameterMethod(int value)
+	{
+		Func<int, int> outerLambda = x =>
+		{
+			var outerLocal = x + value;
+			Func<int> innerLambda = () => outerLocal + x + value;
+			return innerLambda(); // set breakpoint here
+		};
+		return outerLambda(10);
+	}
 }

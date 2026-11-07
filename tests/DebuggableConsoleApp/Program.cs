@@ -38,6 +38,8 @@ public static class Program
 			OverloadedMethodsClass.CallAllMethods();
 			MyStaticClass.Test();
 			myLambdaClass.VariableShadowingMethod();
+			MyLambdaClass.CapturedParameterMethod(5);
+			MyLambdaClass.NestedCapturedParameterMethod(3);
 			myClassWithGenericMethod.Test(4);
 			AsyncStackTraceClass.TestAsync().GetAwaiter().GetResult();
 			Thread.Sleep(100);

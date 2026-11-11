@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Runtime.Versioning;
 using ICorDebugSharp;
 using SharpDbg.Infrastructure.Debugger.ExpressionEvaluator;
 using SharpDbg.Infrastructure.Debugger.ExpressionEvaluator.Cil;
@@ -55,6 +56,7 @@ public partial class ManagedDebugger
 		return threadId < _mainThreadId;
 	}
 
+	[SupportedOSPlatform("windows")]
 	private int? GetOldestThreadId(int processId)
 	{
 		if (_oldestThreadId is not null) return _oldestThreadId;

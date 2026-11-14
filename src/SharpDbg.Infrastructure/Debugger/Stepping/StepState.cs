@@ -10,7 +10,8 @@ namespace SharpDbg.Infrastructure.Debugger.Stepping;
 /// breakpoint, an exception or a pause. Most steps are one <see cref="Simple"/> step after another, until one lands on a line.
 /// Stepping over an await goes <see cref="AwaitingYield"/>, <see cref="AwaitingResume"/>, then <see cref="Simple"/>. Stepping out
 /// of an async method that has resumed after an await goes <see cref="AwaitingTaskCompletion"/>,
-/// <see cref="StepOutToAwaitingUserFrame"/>, then <see cref="Simple"/>
+/// <see cref="StepOutToAwaitingUserFrame"/>, then <see cref="Simple"/>. A step through an await of a runtime-async method (.NET 11) is a
+/// <see cref="RuntimeAsyncAwait"/>, with its stepper until the stepping frame leaves at the await, then without, then <see cref="Simple"/>
 /// </remarks>
 public closed record StepState
 {
@@ -47,10 +48,17 @@ public closed record StepState
 	/// <summary>An async step out after the method has resumed: waiting for its task to complete, in Task.NotifyDebuggerOfWaitCompletion</summary>
 	public sealed record AwaitingTaskCompletion(ICorDebugFunctionBreakpoint NotifyBreakpoint) : StepState;
 
+	/// <summary>
+	/// A step through an await of a runtime-async method, waiting for the awaiting method to go on after it: its stepper runs until the
+	/// stepping frame leaves at the await (null once it has, or for a step out of a resumed run, which runs free to the waiting caller)
+	/// </summary>
+	public sealed record RuntimeAsyncAwait(ICorDebugStepper? Stepper, RuntimeAsyncStep Step) : StepState;
+
 	public ICorDebugStepper? CorStepper => this switch
 	{
 		Idle or RunToStateMachineStart or AwaitingResume or AwaitingTaskCompletion => null,
 		Simple step => step.Stepper,
+		RuntimeAsyncAwait step => step.Stepper,
 		StepOutToAwaitingUserFrame step => step.Stepper,
 		StepOutToKickoffCaller step => step.Stepper,
 		AwaitingYield step => step.Stepper
@@ -62,6 +70,7 @@ public closed record StepState
 		RunToStateMachineStart step => step.Breakpoint,
 		AwaitingYield step => step.YieldBreakpoint,
 		AwaitingResume step => step.ResumeBreakpoint,
-		AwaitingTaskCompletion step => step.NotifyBreakpoint
+		AwaitingTaskCompletion step => step.NotifyBreakpoint,
+		RuntimeAsyncAwait step => step.Step.ResumeBreakpoint
 	};
 }

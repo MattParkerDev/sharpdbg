@@ -488,7 +488,11 @@ public partial class ManagedDebugger
 		return frame;
 	}
 
-	private static IEnumerable<ICorDebugFrame> EnumerateFramesForThread(ICorDebugThread thread)
+	internal void Log(string message) => _logger?.Invoke(message);
+
+	internal ICorDebugThread? TryGetThread(int threadId) => _threads.TryGetValue(threadId, out var threadInfo) ? threadInfo.Thread : null;
+
+	internal static IEnumerable<ICorDebugFrame> EnumerateFramesForThread(ICorDebugThread thread)
 	{
 		foreach (var chain in thread.EnumerateChains())
 		{

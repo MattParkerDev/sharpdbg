@@ -324,9 +324,20 @@ public partial class ManagedDebugger
 	private async Task HandleStepComplete(object? sender, StepCompleteCorDebugManagedCallbackEventArgs stepCompleteEventArgs)
 	{
 		var corThread = stepCompleteEventArgs.Thread;
-		var ilFrame = (ICorDebugILFrame)corThread.ActiveFrame;
 		var step = _step;
 		if (step.CorStepper is null) throw new InvalidOperationException($"No stepper found for step complete, in step state {step.GetType().Name}");
+		if (step is StepState.RuntimeAsyncAwait runtimeAsync)
+		{
+			if (_asyncStepper.WaitAtAwait(corThread, runtimeAsync) is { } waiting)
+			{
+				// The step's runtime-async method left at an await that suspended: the step goes on where its run does
+				runtimeAsync.Stepper?.TryDeactivate();
+				_step = waiting;
+				ContinueWithVariableClear();
+				return;
+			}
+		}
+		var ilFrame = (ICorDebugILFrame)corThread.ActiveFrame;
 		// A step waiting for an await's yield breakpoint did not reach it, so the step over the await ends here too
 		EndStep();
 		if (step is StepState.StepOutToAwaitingUserFrame)
@@ -351,7 +362,7 @@ public partial class ManagedDebugger
 				return;
 			}
 		}
-		if (TrySetupRunToStateMachineStart(corThread, ilFrame))
+		if (TrySetupRunToStateMachineStart(corThread, ilFrame) || (stepCompleteEventArgs.Reason is CorDebugStepReason.STEP_CALL && TrySetupRunToRuntimeAsyncStart(corThread)))
 		{
 			ContinueWithVariableClear();
 			return;
@@ -465,6 +476,12 @@ public partial class ManagedDebugger
 			}
 			case CorDebugExceptionCallbackType.DEBUG_EXCEPTION_CATCH_HANDLER_FOUND:
 			{
+				if (_step is StepState.RuntimeAsyncAwait runtimeAsync && exceptionEventArgs.Frame is { } handler && _asyncStepper.UnwindsStep(corThread, runtimeAsync.Step, handler))
+				{
+					// The step's await will never go on: the step is a plain one again
+					_logger?.Invoke("An exception unwinds the step's frame: the step through its await ends");
+					EndRuntimeAsyncWait(runtimeAsync);
+				}
 				var handlerIsUserCode = IsUserCodeFrame(exceptionEventArgs.Frame);
 				var state = _exceptionStates.Remove(threadId, out var removed) ? removed : ExceptionPropagationState.NotStarted;
 				shouldStop = _justMyCode && handlerIsUserCode is false && state.HasReachedUserCode && MatchesExceptionBreakpoint(SharpDbgExceptionBreakpointFilter.UserUnhandled, exceptionType);

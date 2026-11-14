@@ -33,6 +33,22 @@ public partial class ManagedDebugger
 				// Ignore handle cleanup errors
 			}
 		}
+		if (step is StepState.RuntimeAsyncAwait { Step.Chain: { } chain }) chain.TryDispose();
+	}
+
+	/// <summary>
+	/// End a runtime-async step's wait for its await, leaving its stepper, if any, to step on as a simple step
+	/// </summary>
+	private void EndRuntimeAsyncWait(StepState.RuntimeAsyncAwait runtimeAsync)
+	{
+		if (runtimeAsync.Stepper is not { } stepper)
+		{
+			EndStep();
+			return;
+		}
+		_step = new StepState.Simple(stepper);
+		DeactivateIfUnused(runtimeAsync.Step.ResumeBreakpoint);
+		runtimeAsync.Step.Chain?.TryDispose();
 	}
 
 	/// <summary>
@@ -86,12 +102,37 @@ public partial class ManagedDebugger
 				SetupStepper(thread, awaitingResume.StepType);
 				break;
 			}
+			case StepState.RuntimeAsyncAwait runtimeAsync when runtimeAsync.Step.ResumeBreakpoint == breakpoint:
+			{
+				var resume = _asyncStepper.TakeRuntimeResume(thread, runtimeAsync.Step);
+				if (resume is AsyncStepper.RuntimeResume.Another) break;
+				if (resume is AsyncStepper.RuntimeResume.DoneAtOnce)
+				{
+					// What it awaited was done at once: the step goes on through the statement as it was
+					_logger?.Invoke("The await was done at once: the step goes on");
+					EndRuntimeAsyncWait(runtimeAsync);
+					break;
+				}
+				EndStep();
+				var function = thread.ActiveFrame.Function;
+				if (runtimeAsync.Step.ResumesPast && thread.ActiveFrame is ICorDebugILFrame resumed
+				    && _modules[function.Module.BaseAddress].MetadataReader.IsVisibleSequencePointStart((int)function.Token, resumed.IP.pnOffset))
+				{
+					_logger?.Invoke($"The awaiting method goes on past the await's statement on thread {thread.Id}: the step ends there");
+					ReportStopAtActiveFrame(thread, "step");
+					return true;
+				}
+				_logger?.Invoke($"The awaiting method goes on after the await on thread {thread.Id}: the step goes on there");
+				SetupStepper(thread, runtimeAsync.Step.Type is StepType.StepOut ? StepType.StepOver : runtimeAsync.Step.Type);
+				break;
+			}
 			case StepState.AwaitingTaskCompletion awaitingTaskCompletion when awaitingTaskCompletion.NotifyBreakpoint == breakpoint:
 			{
 				EndStep();
 				// The task-completion hook runs inside the awaiting caller's GetResult: step out to that caller, then finish its
-				// await statement. Stepping is exact here so it lands in the same place whether or not Just My Code is enabled
-				StartStep(TryCreateStepOutToAwaitingUserFrame(thread) ?? new StepState.Simple(CreateStepper(thread, StepType.StepIn)));
+				// await statement. Stepping is exact here so it lands in the same place whether or not Just My Code is enabled. A
+				// runtime-async caller's GetResult is the dispatcher's, called before the caller itself: wait where the caller goes on
+				StartStep(_asyncStepper.TryWaitForResumingCaller(thread) ?? TryCreateStepOutToAwaitingUserFrame(thread) ?? new StepState.Simple(CreateStepper(thread, StepType.StepIn)));
 				break;
 			}
 			default:
@@ -109,7 +150,8 @@ public partial class ManagedDebugger
 	/// <summary>
 	/// Create and activate a stepper, without continuing execution
 	/// </summary>
-	internal ICorDebugStepper CreateStepper(ICorDebugThread thread, StepType stepType)
+	/// <param name="justMyCode">Whether the stepper steps with Just My Code, when not as the session does</param>
+	internal ICorDebugStepper CreateStepper(ICorDebugThread thread, StepType stepType, bool? justMyCode = null)
 	{
 		var frame = thread.ActiveFrame;
 		if (frame is not ICorDebugILFrame ilFrame) throw new InvalidOperationException("Active frame is not an IL frame");
@@ -117,7 +159,7 @@ public partial class ManagedDebugger
 		ICorDebugStepper stepper = frame.CreateStepper();
 		stepper.SetInterceptMask(CorDebugIntercept.INTERCEPT_ALL & ~(CorDebugIntercept.INTERCEPT_SECURITY | CorDebugIntercept.INTERCEPT_CLASS_INIT));
 		stepper.SetUnmappedStopMask(CorDebugUnmappedStop.STOP_NONE);
-		if (_justMyCode) stepper.SetJMC(true);
+		if (justMyCode ?? _justMyCode) stepper.SetJMC(true);
 
 		if (stepType == StepType.StepOut)
 		{
@@ -222,6 +264,36 @@ public partial class ManagedDebugger
 	}
 
 	/// <summary>
+	/// Without Just My Code, a step into a runtime-async method through its task-returning thunk (a call not awaited at once, e.g.
+	/// <c>var task = WorkAsync();</c>) lands in the runtime's AsyncHelpers, which the thunk calls before the method itself: run to the
+	/// start of the method instead, then step to its first line (<see cref="TrySetupStepToFirstLine"/>)
+	/// </summary>
+	/// <remarks>
+	/// The thunk shares the method's token, with no IL of the method's mapped at its IP. With Just My Code the stepper skips it by itself
+	/// </remarks>
+	private bool TrySetupRunToRuntimeAsyncStart(ICorDebugThread thread)
+	{
+		if (_justMyCode) return false;
+		foreach (var frame in EnumerateFramesForThread(thread))
+		{
+			if (frame is not ICorDebugILFrame ilFrame) return false;
+			var function = ilFrame.Function;
+			if (_modules.TryGetValue(function.Module.BaseAddress, out var module) is false) return false;
+			// The runtime's own code between the thunk and the stop
+			if (module.Module.Name.EndsWith("System.Private.CoreLib.dll", StringComparison.OrdinalIgnoreCase)) continue;
+			if (module.MetadataReader.IsRuntimeAsync((int)function.Token) is false) return false;
+			if (ilFrame.IP.pMappingResult is not (CorDebugMappingResult.MAPPING_UNMAPPED_ADDRESS or CorDebugMappingResult.MAPPING_NO_INFO)) return false;
+
+			_logger?.Invoke($"Step into the runtime-async method 0x{(int)function.Token:X} through its thunk: running to its start");
+			var breakpoint = function.ILCode.CreateBreakpoint(0);
+			breakpoint.Activate(true);
+			StartStep(new StepState.RunToStateMachineStart(breakpoint, thread.Id));
+			return true;
+		}
+		return false;
+	}
+
+	/// <summary>
 	/// At the start of MoveNext, before its state dispatch: step over that dispatch to the method's first line. Returns false when the
 	/// step is already there
 	/// </summary>
@@ -263,6 +335,13 @@ public partial class ManagedDebugger
 		var function = ilFrame.Function;
 		if (_modules.TryGetValue(function.Module.BaseAddress, out var module) is false) return false;
 		var metadataReader = module.MetadataReader;
+		if (metadataReader.IsRuntimeAsync((int)function.Token))
+		{
+			if (_asyncStepper.HasRuntimeAwaitAhead(ilFrame) is false) return false;
+			if (await _asyncStepper.TryCreateRuntimeAsyncStep(thread, ilFrame, StepType.StepOver) is not { } runtimeAsyncStep) return false;
+			StartStep(runtimeAsyncStep);
+			return true;
+		}
 		var asyncInfo = metadataReader.GetAsyncMethodSteppingInfo(function.Token);
 		if (asyncInfo is null) return false;
 		var ip = ilFrame.IP.pnOffset;

@@ -6,7 +6,7 @@ namespace SharpDbg.Infrastructure.Debugger.Stepping;
 /// <summary>
 /// Creates the step states that carry a step across an await, or out of an async method. The debugger holds the state and moves it on
 /// </summary>
-public class AsyncStepper
+public partial class AsyncStepper
 {
 	private readonly ManagedDebugger _debugger;
 	private readonly Dictionary<CORDB_ADDRESS, ModuleInfo> _modules;
@@ -32,6 +32,8 @@ public class AsyncStepper
 		var function = frame.Function;
 		var moduleAddress = function.Module.BaseAddress;
 		if (_modules.TryGetValue(moduleAddress, out var moduleInfo) is false || moduleInfo.MetadataReader.HasSymbols is false) return null;
+		// .NET 11's runtime async: no state machine, so no async stepping information either
+		if (frame is ICorDebugILFrame runtimeAsyncFrame && moduleInfo.MetadataReader.IsRuntimeAsync((int)function.Token)) return await TryCreateRuntimeAsyncStep(thread, runtimeAsyncFrame, stepType);
 		var asyncInfo = moduleInfo.MetadataReader.GetAsyncMethodSteppingInfo(function.Token);
 		if (asyncInfo is null) return null;
 
@@ -133,6 +135,19 @@ public class AsyncStepper
 		{
 			var task = await GetObjectIdForDebugger(builder, frame);
 			if (task is null) return false;
+			return await SetNotificationForWaitCompletion(task, thread);
+		}
+		catch (Exception)
+		{
+			return false;
+		}
+	}
+
+	/// <summary>Ask a task to notify the debugger when its awaiter observes completion (Task.NotifyDebuggerOfWaitCompletion)</summary>
+	private async Task<bool> SetNotificationForWaitCompletion(ICorDebugHandleValue task, ICorDebugThread thread)
+	{
+		try
+		{
 			var taskObject = task.UnwrapDebugValueToObject();
 
 			var eval = thread.CreateEval();

@@ -168,7 +168,7 @@ public class StepTests(ITestOutputHelper testOutputHelper)
 		var stopInfo2 = stoppedEvent2.ReadStopInfo();
 		stopInfo2.filePath.Should().EndWith("Console.cs");
 		// Bumping ICSharpCode.Decompiler changed the decompiled output, so the line number changed. If this is failing, clear temp/SharpIdeSymbolCache and try again.
-		stopInfo2.line.Should().Be(1219);
+		stopInfo2.line.Should().Be(1245);
 	}
 
 	[Fact]

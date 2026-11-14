@@ -14,4 +14,6 @@ public static class AttributeConstants
 		"System.Diagnostics.DebuggerHiddenAttribute"
 	];
 	public const string ExtensionMethodAttributeName = "System.Runtime.CompilerServices.ExtensionAttribute";
+	public const string DebuggerHiddenAttributeName = "System.Diagnostics.DebuggerHiddenAttribute";
+	public const string StackTraceHiddenAttributeName = "System.Diagnostics.StackTraceHiddenAttribute";
 }

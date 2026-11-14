@@ -380,13 +380,14 @@ public partial class ManagedDebugger
 			var threadId = new ThreadId(threadIdInt);
 			foreach (var (physicalDepth, frame) in EnumerateFramesForThread(thread).AsValueEnumerable().Index())
 			{
+				framesForSyntheticAsyncFrames.Add((physicalDepth, frame));
+				if (IsHiddenRuntimeFrame(frame)) continue;
 				if (index >= endFrame) return result;
 				if (index >= startFrame)
 				{
 					var frameId = _frameReferenceManager.GetOrCreateFrameId(threadId, new FrameStackDepth(physicalDepth));
 					result.Add(CreateStackFrameInfo(frameId, frame, false));
 				}
-				framesForSyntheticAsyncFrames.Add((physicalDepth, frame));
 				index++;
 			}
 
@@ -422,6 +423,27 @@ public partial class ManagedDebugger
 		}
 
 		return result;
+	}
+
+	/// <summary>
+	/// Runtime plumbing the runtime marks both [DebuggerHidden] and [StackTraceHidden], e.g. since .NET 11 the managed
+	/// exception dispatcher (System.Runtime.EH.DispatchEx, RhThrowEx) at an exception's first chance, and
+	/// System.Environment.CallEntryPoint below Main. Exception.StackTrace omits these frames, and so do we
+	/// </summary>
+	private static bool IsHiddenRuntimeFrame(ICorDebugFrame frame)
+	{
+		if (frame is not ICorDebugILFrame ilFrame) return false;
+		try
+		{
+			var function = ilFrame.Function;
+			var metadataImport = function.Module.GetMetaDataInterface<IMetaDataImport>();
+			return metadataImport.HasAnyAttribute(function.Token, [AttributeConstants.DebuggerHiddenAttributeName])
+				&& metadataImport.HasAnyAttribute(function.Token, [AttributeConstants.StackTraceHiddenAttributeName]);
+		}
+		catch (Exception)
+		{
+			return false;
+		}
 	}
 
 	public StackFrameInfo ResolveStackFrame(int frameId)

@@ -16,7 +16,7 @@ namespace SharpDbg.Infrastructure.Debugger;
 
 public partial class ManagedDebugger
 {
-	private async Task AddLocalVariables(ModuleInfo module, ICorDebugFunction corDebugFunction, List<VariableInfo> result, ThreadId threadId, FrameStackDepth stackDepth, ICorDebugValue? classContainingHoistedLocalsValue)
+	private async Task AddLocalVariables(ModuleInfo module, ICorDebugFunction corDebugFunction, List<VariableInfo> result, ThreadId threadId, FrameStackDepth stackDepth, ICorDebugValue? classContainingHoistedLocalsValue, ICorDebugILFrame? frame = null)
 	{
 		// A closure can be reached more than once, e.g. as the lambda's 'this', and again as the parent of a closure
 		// created in the lambda body, so each is only read once
@@ -30,7 +30,7 @@ public partial class ManagedDebugger
 			// on the lambda method frame and must also be read below.
 			await AddClosureChainMembers(classContainingHoistedLocalsValue, threadId, stackDepth, result, visitedClosures);
 		}
-		var corDebugIlFrame = GetIlFrameForThreadIdAndStackDepth(threadId, stackDepth);
+		var corDebugIlFrame = frame ?? GetIlFrameForThreadIdAndStackDepth(threadId, stackDepth);
 		if (corDebugIlFrame.LocalVariables.Length is 0) return;
 		var currentIlOffset = corDebugIlFrame.IP.pnOffset;
 		foreach (var (index, localVariableCorDebugValue) in corDebugIlFrame.LocalVariables.Index())
@@ -92,9 +92,10 @@ public partial class ManagedDebugger
 	}
 
 	/// Returns classContainingHoistedLocalsValue if applicable
-	private async Task<ICorDebugValue?> AddArguments(ModuleInfo module, ICorDebugFunction corDebugFunction, List<VariableInfo> result, ThreadId threadId, FrameStackDepth stackDepth)
+	/// <param name="frame">The frame to read, when not the physical one at <paramref name="stackDepth"/>, e.g. a runtime-async caller's from its continuation</param>
+	private async Task<ICorDebugValue?> AddArguments(ModuleInfo module, ICorDebugFunction corDebugFunction, List<VariableInfo> result, ThreadId threadId, FrameStackDepth stackDepth, ICorDebugILFrame? frame = null)
 	{
-		var corDebugIlFrame = GetIlFrameForThreadIdAndStackDepth(threadId, stackDepth);
+		var corDebugIlFrame = frame ?? GetIlFrameForThreadIdAndStackDepth(threadId, stackDepth);
 		var arguments = corDebugIlFrame.Arguments;
 		if (arguments.Length is 0) return null;
 		var metadataImport = module.Module.GetMetaDataInterface<IMetaDataImport>();

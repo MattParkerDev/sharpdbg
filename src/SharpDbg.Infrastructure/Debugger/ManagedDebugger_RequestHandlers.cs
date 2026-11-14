@@ -374,9 +374,9 @@ public partial class ManagedDebugger
 			var index = 0;
 
 			// Physical frames come first and are enumerated lazily, so a request for the topmost frames does not
-			// have to walk the entire stack. We store the IL frames so their synthetic async caller frames can be
+			// have to walk the entire stack. We store the frames so their synthetic async caller frames can be
 			// appended after all physical frames, once enumeration reaches past them.
-			var ilFramesForSyntheticAsyncFrames = new List<(int physicalDepth, ICorDebugILFrame frame)>();
+			var framesForSyntheticAsyncFrames = new List<(int physicalDepth, ICorDebugFrame frame)>();
 			var threadId = new ThreadId(threadIdInt);
 			foreach (var (physicalDepth, frame) in EnumerateFramesForThread(thread).AsValueEnumerable().Index())
 			{
@@ -386,14 +386,22 @@ public partial class ManagedDebugger
 					var frameId = _frameReferenceManager.GetOrCreateFrameId(threadId, new FrameStackDepth(physicalDepth));
 					result.Add(CreateStackFrameInfo(frameId, frame, false));
 				}
-				if (frame is ICorDebugILFrame ilFrame) ilFramesForSyntheticAsyncFrames.Add((physicalDepth, ilFrame));
+				framesForSyntheticAsyncFrames.Add((physicalDepth, frame));
 				index++;
 			}
 
-			foreach (var (physicalDepth, ilFrame) in ilFramesForSyntheticAsyncFrames)
+			// What the runtime-async dispatchers on the thread are doing, innermost first, as are their frames
+			using var dispatchers = framesForSyntheticAsyncFrames.Count is 0 ? null : _runtimeAsyncDispatchers.Dispatchers(framesForSyntheticAsyncFrames[0].frame).GetEnumerator();
+			foreach (var (physicalDepth, frame) in framesForSyntheticAsyncFrames)
 			{
 				var physicalFrameStackDepth = new FrameStackDepth(physicalDepth);
-				foreach (var (syntheticFrameIndex, syntheticFrame) in GetSyntheticAsyncCallerFrames(ilFrame).AsValueEnumerable().Index())
+				var syntheticFrames = frame switch
+				{
+					_ when _runtimeAsyncDispatchers.IsDispatcher(frame) => dispatchers!.MoveNext() ? GetRuntimeAsyncCallerFrames(thread.Process, dispatchers.Current) : [],
+					ICorDebugILFrame ilFrame => GetSyntheticAsyncCallerFrames(ilFrame),
+					_ => []
+				};
+				foreach (var (syntheticFrameIndex, syntheticFrame) in syntheticFrames.AsValueEnumerable().Index())
 				{
 					if (index >= endFrame) return result;
 					if (index < startFrame)
@@ -505,7 +513,7 @@ public partial class ManagedDebugger
 		if (syntheticFrame is not null)
 		{
 			var syntheticLocalsReference = _variableManager.CreateReference(new VariablesReference(StoredReferenceKind.SyntheticAsyncScope,
-				syntheticFrame.Value.frame.StateMachine, syntheticFrame.Value.threadId, syntheticFrame.Value.physicalFrameStackDepth, null));
+				syntheticFrame.Value.frame.StateMachine, syntheticFrame.Value.threadId, syntheticFrame.Value.physicalFrameStackDepth, null, Frame: syntheticFrame.Value.frame.RuntimeAsyncFrame));
 			result.Add(new ScopeInfo { Name = "Locals", VariablesReference = syntheticLocalsReference, Expensive = false });
 			return result;
 		}
@@ -551,6 +559,14 @@ public partial class ManagedDebugger
 				await AddCurrentException(result, variablesReference.ThreadId, variablesReference.FrameStackDepth);
 				var classContainingHoistedLocalsValue = await AddArguments(module, corDebugFunction, result, variablesReference.ThreadId, variablesReference.FrameStackDepth);
 				await AddLocalVariables(module, corDebugFunction, result, variablesReference.ThreadId, variablesReference.FrameStackDepth, classContainingHoistedLocalsValue);
+			}
+			else if (variablesReference.ReferenceKind is StoredReferenceKind.SyntheticAsyncScope && variablesReference.Frame is { } runtimeAsyncFrame)
+			{
+				// A runtime-async caller's frame, read from its continuation: its arguments and locals are the frame's own
+				var corDebugFunction = runtimeAsyncFrame.Function;
+				var module = _modules[corDebugFunction.Module.BaseAddress];
+				var classContainingHoistedLocalsValue = await AddArguments(module, corDebugFunction, result, variablesReference.ThreadId, variablesReference.FrameStackDepth, runtimeAsyncFrame);
+				await AddLocalVariables(module, corDebugFunction, result, variablesReference.ThreadId, variablesReference.FrameStackDepth, classContainingHoistedLocalsValue, runtimeAsyncFrame);
 			}
 			else if (variablesReference.ReferenceKind is StoredReferenceKind.SyntheticAsyncScope)
 			{

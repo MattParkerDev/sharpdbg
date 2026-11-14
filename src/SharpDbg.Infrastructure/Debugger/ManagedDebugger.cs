@@ -53,6 +53,7 @@ public partial class ManagedDebugger
 	// The mode that caused each thread's latest exception stop, used by the exceptionInfo response.
 	private readonly Dictionary<ThreadId, SharpDbgExceptionBreakMode> _exceptionBreakModes = [];
 	private readonly AsyncStepper _asyncStepper;
+	private readonly RuntimeAsyncDispatchers _runtimeAsyncDispatchers;
 	private CilExpressionEvaluator _expressionEvaluator = null!;
 
 	public event Action<int, string>? OnStopped;
@@ -90,6 +91,7 @@ public partial class ManagedDebugger
 		_callbacks = new CorDebugManagedCallback();
 		EvalStatus = new EvalStatus(this);
 		_asyncStepper = new AsyncStepper(_modules, this);
+		_runtimeAsyncDispatchers = new RuntimeAsyncDispatchers(_modules);
 		_runtimeEventChannel = Channel.CreateUnbounded<CorDebugManagedCallbackEventArgs>(new UnboundedChannelOptions
 		{
 			SingleReader = false,

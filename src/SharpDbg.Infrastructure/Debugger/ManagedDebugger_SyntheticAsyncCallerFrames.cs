@@ -3,13 +3,20 @@ using ICorDebugSharp;
 namespace SharpDbg.Infrastructure.Debugger;
 
 // After a continuation, async methods are resumed on a different thread, so the caller of the async method is not visible in the physical stack trace
-// This class provides a way to synthesize the caller frames of async methods by inspecting the state machine and its associated task continuation chain
+// This class provides a way to synthesize the caller frames of async methods by inspecting the state machine and its associated task continuation chain,
+// or, for runtime-async methods (.NET 11), which have no state machine, the continuations the runtime's dispatcher goes on with
+/// <param name="StateMachine">The caller's state machine; null for a runtime-async caller</param>
+/// <param name="RuntimeAsyncFrame">
+/// A runtime-async caller's frame, read from its continuation (ICorDebugProcess12.GetAsyncStack): its IP is where it waits, and it holds
+/// its arguments and locals. It lives only until the process next runs, as do the frame references that hold it
+/// </param>
 internal sealed record SyntheticAsyncCallerFrame(
 	ModuleInfo Module,
 	int KickoffMethodToken,
 	int MoveNextToken,
-	ICorDebugValue StateMachine,
-	string Name);
+	ICorDebugValue? StateMachine,
+	string Name,
+	ICorDebugILFrame? RuntimeAsyncFrame = null);
 
 public partial class ManagedDebugger
 {
@@ -55,6 +62,54 @@ public partial class ManagedDebugger
 			var frame = CreateSyntheticAsyncCallerFrame(stateMachine);
 			if (frame is null) yield break;
 			yield return frame;
+		}
+	}
+
+	/// <summary>
+	/// The runtime-async methods waiting, in turn, on what a runtime-async dispatcher on the thread runs (<paramref name="dispatching"/>,
+	/// its AsyncDispatcherInfo): the continuations it goes on with, which call each method again where it waits
+	/// </summary>
+	private IEnumerable<SyntheticAsyncCallerFrame> GetRuntimeAsyncCallerFrames(ICorDebugProcess process, ICorDebugObjectValue dispatching)
+	{
+		IReadOnlyList<ICorDebugILFrame> frames;
+		try
+		{
+			frames = _runtimeAsyncDispatchers.WaitingFrames(process, dispatching);
+		}
+		catch (Exception ex)
+		{
+			_logger?.Invoke($"The runtime-async continuations of a dispatcher could not be read: {ex.Message}");
+			yield break;
+		}
+		foreach (var frame in frames)
+		{
+			if (CreateRuntimeAsyncCallerFrame(frame) is { } syntheticFrame) yield return syntheticFrame;
+		}
+	}
+
+	private SyntheticAsyncCallerFrame? CreateRuntimeAsyncCallerFrame(ICorDebugILFrame frame)
+	{
+		try
+		{
+			var function = frame.Function;
+			if (!_modules.TryGetValue(function.Module.BaseAddress, out var module)) return null;
+			var token = (int)function.Token;
+			ICorDebugType[] typeParameters;
+			try
+			{
+				typeParameters = frame.TypeParameters;
+			}
+			catch
+			{
+				typeParameters = [];
+			}
+			var name = GetMethodFormattedName(module, token, typeParameters);
+			return new SyntheticAsyncCallerFrame(module, token, token, null, name, frame);
+		}
+		catch (Exception ex)
+		{
+			_logger?.Invoke($"A runtime-async caller's frame could not be read: {ex.Message}");
+			return null;
 		}
 	}
 
@@ -121,8 +176,9 @@ public partial class ManagedDebugger
 			}
 		}
 		if (module.MetadataReader.HasSymbols is false) return null;
+		if (frame.RuntimeAsyncFrame is { } runtimeAsyncFrame) return GetSourceInfoAtFrame(runtimeAsyncFrame, decompileIfNeeded);
 
-		var objectValue = frame.StateMachine.UnwrapDebugValueToObjectOrNull();
+		var objectValue = frame.StateMachine?.UnwrapDebugValueToObjectOrNull();
 		if (objectValue is null) return null;
 		var state = ReadInt32Field(objectValue, "<>1__state") ?? ReadInt32Field(objectValue, "$State");
 		var steppingInfo = module.MetadataReader.GetAsyncMethodSteppingInfo(frame.MoveNextToken);

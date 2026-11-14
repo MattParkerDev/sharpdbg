@@ -351,36 +351,14 @@ public partial class AsyncStepper
 		}
 	}
 
+	private RuntimeAsyncDispatchers Dispatchers => _dispatchers ??= new RuntimeAsyncDispatchers(_modules);
+	private RuntimeAsyncDispatchers? _dispatchers;
+
 	/// <summary>Whether a frame is the runtime's dispatcher of a chain of continuations, which calls each method again where it goes on</summary>
-	private bool IsDispatcher(ICorDebugFrame frame)
-	{
-		if (frame.TryGetFunction(out var function) is not Cor.S_OK || function is null) return false;
-		if (CoreLib() is not { } coreLib || function.Module.BaseAddress != coreLib.BaseAddress) return false;
-		return function.Module.GetMetaDataInterface<IMetaDataImport>().GetMethodProps(function.Token).szMethod is "DispatchContinuations" or "InstrumentedDispatchContinuations";
-	}
+	private bool IsDispatcher(ICorDebugFrame frame) => Dispatchers.IsDispatcher(frame);
 
-	private ICorDebugModule? CoreLib() =>
-		_modules.Values.Select(module => module.Module).FirstOrDefault(module => module.Name.EndsWith("System.Private.CoreLib.dll", StringComparison.OrdinalIgnoreCase));
-
-	/// <summary>
-	/// A field of what the thread's innermost dispatcher of continuations is doing (AsyncDispatcherInfo.t_current, read with a frame of the
-	/// thread): the task it runs (CurrentTask), or the continuation it goes on with next (NextContinuation). None with no dispatcher on the
-	/// thread, or a runtime with none
-	/// </summary>
-	private ICorDebugReferenceValue? Dispatching(ICorDebugFrame frame, string field)
-	{
-		if (CoreLib() is not { } coreLib) return null;
-		var metadata = coreLib.GetMetaDataInterface<IMetaDataImport>();
-		if (metadata.FindTypeDefByNameOrNull("System.Runtime.CompilerServices.AsyncDispatcherInfo", mdToken.Nil) is not { } infoType) return null;
-		var current = metadata.EnumFieldsWithName(infoType, "t_current").SingleOrDefault();
-		var wanted = metadata.EnumFieldsWithName(infoType, field).SingleOrDefault();
-		var info = coreLib.GetClassFromToken(infoType);
-		return !current.IsNil && !wanted.IsNil && info.TryGetStaticFieldValue(current, frame, out var pointer) is Cor.S_OK
-			&& pointer is ICorDebugReferenceValue { IsNull: false } dispatcher && dispatcher.Dereference() is ICorDebugObjectValue dispatching
-			&& dispatching.GetFieldValue(info, wanted) is ICorDebugReferenceValue { IsNull: false } value
-				? value
-				: null;
-	}
+	/// <summary>A field of what the thread's innermost dispatcher of continuations is doing (<see cref="RuntimeAsyncDispatchers.Dispatching"/>)</summary>
+	private ICorDebugReferenceValue? Dispatching(ICorDebugFrame frame, string field) => Dispatchers.Dispatching(frame, field);
 
 	/// <summary>
 	/// Where a frame's method goes on after an await (<see cref="ModuleMetadataReader.ResumeAfter"/>): at once when what it awaited was done,

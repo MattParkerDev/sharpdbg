@@ -35,6 +35,7 @@ public partial class ManagedDebugger
 		}
 		if (step is StepState.RuntimeAsyncAwait { Step.Chain: { } chain }) chain.TryDispose();
 		if (step is StepState.RuntimeAsyncAwait { Step.SuspendBreakpoint: { } suspendBreakpoint }) DeactivateIfUnused(suspendBreakpoint);
+		if (step is StepState.AwaitingYield { CompletedBreakpoint: { } completedBreakpoint }) DeactivateIfUnused(completedBreakpoint);
 	}
 
 	/// <summary>
@@ -97,6 +98,16 @@ public partial class ManagedDebugger
 				StartStep(await _asyncStepper.CreateAwaitingResume(frame, awaitingYield));
 				break;
 			}
+			case StepState.AwaitingYield awaitingYield when awaitingYield.CompletedBreakpoint == breakpoint:
+			{
+				// Another activation going on past the await, or the stepping one after it resumed: keep waiting
+				if (thread.Id != awaitingYield.ThreadId || thread.ActiveFrame is not ICorDebugILFrame frame || frame.StackRange != awaitingYield.FrameStackRange) break;
+				// The await was done at once, without yielding: on through the rest of the statement, following any await still to come
+				_logger?.Invoke("The await was done at once: the step goes on");
+				EndStep();
+				await StartStepThroughRestOfStatement(thread, awaitingYield.StepType);
+				break;
+			}
 			case StepState.AwaitingResume awaitingResume when awaitingResume.ResumeBreakpoint == breakpoint:
 			{
 				if (await _asyncStepper.IsResumingSteppingActivation(thread, awaitingResume) is false) break;
@@ -107,7 +118,7 @@ public partial class ManagedDebugger
 					StartStep(new StepState.FinishAwait(CreateStepper(thread, StepType.StepOver, endIlOffset: (int)stopOffset)));
 					break;
 				}
-				SetupStepper(thread, awaitingResume.StepType);
+				await StartStepThroughRestOfStatement(thread, awaitingResume.StepType);
 				break;
 			}
 			case StepState.RuntimeAsyncAwait runtimeAsync when runtimeAsync.Step.ResumeBreakpoint == breakpoint:
@@ -116,9 +127,10 @@ public partial class ManagedDebugger
 				if (resume is AsyncStepper.RuntimeResume.Another) break;
 				if (resume is AsyncStepper.RuntimeResume.DoneAtOnce && runtimeAsync.Step.StopsAtResume is false)
 				{
-					// What it awaited was done at once: the step goes on through the statement as it was
+					// What it awaited was done at once: the step goes on through the rest of the statement, following any await still to come
 					_logger?.Invoke("The await was done at once: the step goes on");
-					EndRuntimeAsyncWait(runtimeAsync);
+					EndStep();
+					await StartStepThroughRestOfStatement(thread, runtimeAsync.Step.Type);
 					break;
 				}
 				EndStep();
@@ -139,7 +151,7 @@ public partial class ManagedDebugger
 					return true;
 				}
 				_logger?.Invoke($"The awaiting method goes on after the await on thread {thread.Id}: the step goes on there");
-				SetupStepper(thread, runtimeAsync.Step.Type is StepType.StepOut ? StepType.StepOver : runtimeAsync.Step.Type);
+				await StartStepThroughRestOfStatement(thread, runtimeAsync.Step.Type is StepType.StepOut ? StepType.StepOver : runtimeAsync.Step.Type);
 				break;
 			}
 			case StepState.RuntimeAsyncAwait runtimeAsync when runtimeAsync.Step.SuspendBreakpoint == breakpoint:
@@ -166,6 +178,13 @@ public partial class ManagedDebugger
 		ContinueWithVariableClear();
 		return true;
 	}
+
+	/// <summary>
+	/// The stepping method has gone on after an await, partway through its statement: step through the rest of it, following any await
+	/// still to come in it (<c>Consume(await FirstAsync(), await SecondAsync())</c>), which may suspend too. Without continuing execution
+	/// </summary>
+	private async Task StartStepThroughRestOfStatement(ICorDebugThread thread, StepType stepType) =>
+		StartStep(await _asyncStepper.TryCreateAsyncStep(thread, stepType) ?? new StepState.Simple(CreateStepper(thread, stepType)));
 
 	/// <summary>
 	/// Start a simple step, without continuing execution

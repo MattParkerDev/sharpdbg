@@ -46,7 +46,14 @@ public closed record StepState
 	/// For a step that goes through the await alone (the end of a step out): the IL offset just after the awaiter's GetResult, where the
 	/// step stops, on the await's line, whether or not the method yields. Null for a step over or into the whole statement
 	/// </param>
-	public sealed record AwaitingYield(ICorDebugStepper Stepper, ICorDebugFunctionBreakpoint YieldBreakpoint, int ThreadId, (CORDB_ADDRESS Start, CORDB_ADDRESS End) FrameStackRange, StepType StepType, uint ResumeOffset, uint? StopOffset = null) : StepState;
+	public sealed record AwaitingYield(ICorDebugStepper Stepper, ICorDebugFunctionBreakpoint YieldBreakpoint, int ThreadId, (CORDB_ADDRESS Start, CORDB_ADDRESS End) FrameStackRange, StepType StepType, uint ResumeOffset, uint? StopOffset = null) : StepState
+	{
+		/// <summary>
+		/// For a step over or into the whole statement: where the await goes on to its awaiter's GetResult whether it yielded or not. Hit
+		/// there without yielding, the await was done at once, and the step goes on to follow any await still to come in the statement
+		/// </summary>
+		public ICorDebugFunctionBreakpoint? CompletedBreakpoint { get; init; }
+	}
 
 	/// <summary>The method has yielded at the await: waiting for it to resume after the await, on any thread</summary>
 	/// <param name="AsyncId">A strong handle to the builder's ObjectIdForDebugger, which tells the stepping activation from other invocations of the method</param>

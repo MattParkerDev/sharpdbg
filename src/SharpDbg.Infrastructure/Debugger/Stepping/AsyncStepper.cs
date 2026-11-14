@@ -66,7 +66,29 @@ public partial class AsyncStepper
 		var yieldBreakpoint = function.ILCode.CreateBreakpoint((int)awaitInfo.YieldOffset);
 		yieldBreakpoint.Activate(true);
 		var stepper = _debugger.CreateStepper(thread, stepType, endIlOffset: (int?)stopOffset);
-		return new StepState.AwaitingYield(stepper, yieldBreakpoint, thread.Id, ilFrame.StackRange, stepType, awaitInfo.ResumeOffset, stopOffset);
+		return new StepState.AwaitingYield(stepper, yieldBreakpoint, thread.Id, ilFrame.StackRange, stepType, awaitInfo.ResumeOffset, stopOffset)
+		{
+			// A step through the await alone stops after its GetResult anyway
+			CompletedBreakpoint = stopOffset is null && AwaitCompletedOffset(ilFrame, moduleInfo.MetadataReader, awaitInfo) is { } completed ? Activated(function.ILCode.CreateBreakpoint(completed)) : null
+		};
+	}
+
+	private static ICorDebugFunctionBreakpoint Activated(ICorDebugFunctionBreakpoint breakpoint)
+	{
+		breakpoint.Activate(true);
+		return breakpoint;
+	}
+
+	/// <summary>
+	/// Where a state machine's await goes on to its awaiter's GetResult, whether it yielded or was done at once: the last IL offset the
+	/// frame's compiled code maps after the resume offset, up to the call, which is where the done-at-once branch joins the resume code.
+	/// Null when it cannot be told
+	/// </summary>
+	private static int? AwaitCompletedOffset(ICorDebugILFrame frame, ModuleMetadataReader metadataReader, ModuleMetadataReader.AsyncAwaitInfo awaitInfo)
+	{
+		if (metadataReader.AwaiterGetResultCallAfter((int)frame.Function.Token, (int)awaitInfo.ResumeOffset) is not { } getResult || MappedOffsets(frame) is not { } mapped) return null;
+		var joined = mapped.Where(offset => offset > awaitInfo.ResumeOffset && offset <= getResult).DefaultIfEmpty(-1).Max();
+		return joined < 0 ? null : joined;
 	}
 
 	/// <summary>

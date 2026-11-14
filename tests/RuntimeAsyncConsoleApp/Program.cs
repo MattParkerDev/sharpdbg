@@ -20,6 +20,7 @@ public static class Program
 			AsyncNestedAwaitClass.TestAsync().GetAwaiter().GetResult();
 			AsyncStackTraceClass.TestAsync().GetAwaiter().GetResult();
 			AsyncFanOutClass.TestAsync().GetAwaiter().GetResult();
+			AsyncMultipleAwaitsClass.TestAsync().GetAwaiter().GetResult();
 			Thread.Sleep(100);
 		}
 	}

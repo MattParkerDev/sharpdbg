@@ -448,4 +448,44 @@ public class AsyncStepTests(ITestOutputHelper testOutputHelper)
 		debugProtocolHost.WithStackTraceRequest(afterAwait.ThreadId!.Value, out var endStack);
 		debugProtocolHost.Evaluate(endStack.StackFrames!.First().Id, "id").Result.Should().Be("1", "the second run goes on after the await first, but is not the step's");
 	}
+
+	// Stepping over a statement with two awaits: after the first goes on, the second can still suspend, and the step must follow it to
+	// the next line. Whether the first suspended or was done at once
+	[Theory]
+	[InlineData(true)]
+	[InlineData(false)]
+	public async Task SharpDbgCli_StepOverRequest_OfStatementWithTwoAwaits_StopsOnTheNextLine(bool justMyCode)
+	{
+		var startSuspended = true;
+		var (debugProtocolHost, adapter, p2) = TestHelper.GetRunningDebugProtocolHost(testOutputHelper, startSuspended);
+		using var _ = adapter;
+		using var __ = new ProcessKiller(p2);
+		using var ___ = debugProtocolHost;
+
+		var filePath = Path.JoinFromGitRoot("tests", "DebuggableConsoleApp", "AsyncMultipleAwaitsClass.cs");
+		await debugProtocolHost
+			.WithInitializeRequest()
+			.WithAttachRequest(p2.Id, justMyCode)
+			.WaitForInitializedEvent();
+		debugProtocolHost
+			.WithBreakpointsRequest(8, filePath)
+			.WithConfigurationDoneRequest()
+			.WithOptionalResumeRuntime(p2.Id, startSuspended);
+
+		var bothSuspend = await debugProtocolHost.WaitForStoppedEvent();
+		bothSuspend.ReadStopInfo().line.Should().Be(8);
+		debugProtocolHost.WithClearBreakpointsRequest(filePath);
+
+		var secondSuspends = await debugProtocolHost.WithStepOverRequest(bothSuspend.ThreadId!.Value).WaitForStoppedEvent();
+		secondSuspends.Reason.Should().Be(StoppedEvent.ReasonValue.Step);
+		var secondSuspendsInfo = secondSuspends.ReadStopInfo();
+		secondSuspendsInfo.filePath.Should().EndWith("AsyncMultipleAwaitsClass.cs");
+		secondSuspendsInfo.line.Should().Be(9);
+
+		var done = await debugProtocolHost.WithStepOverRequest(secondSuspends.ThreadId!.Value).WaitForStoppedEvent();
+		done.Reason.Should().Be(StoppedEvent.ReasonValue.Step);
+		var doneInfo = done.ReadStopInfo();
+		doneInfo.filePath.Should().EndWith("AsyncMultipleAwaitsClass.cs");
+		doneInfo.line.Should().Be(10);
+	}
 }

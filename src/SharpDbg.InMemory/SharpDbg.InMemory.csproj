@@ -29,17 +29,17 @@
 			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 		</PackageReference>
 
-		<PackageReference Include="Microsoft.Diagnostics.DbgShim" Version="9.0.661903" />
+		<PackageReference Include="Microsoft.Diagnostics.DbgShim" Version="10.0.750501" />
 
 		<!-- We must include all package references required by projects that we reference -->
 		<PackageReference Include="Ardalis.GuardClauses" Version="5.0.0" />
 		<PackageReference Include="ICorDebugSharp" Version="0.1.8" />
-		<PackageReference Include="ICSharpCode.Decompiler" Version="11.0.0.9375" />
+		<PackageReference Include="ICSharpCode.Decompiler" Version="11.2.0.10050" />
 		<PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="5.9.0" />
-		<PackageReference Include="Microsoft.Diagnostics.NETCore.Client" Version="0.2.661903" />
+		<PackageReference Include="Microsoft.Diagnostics.NETCore.Client" Version="0.2.750501" />
 		<PackageReference Include="MP.Microsoft.CodeAnalysis.CSharp.ExpressionEvaluator.ExpressionCompiler" Version="5.9.0" />
 		<PackageReference Include="NeoSmart.AsyncLock" Version="3.2.1" />
-		<PackageReference Include="ZLinq" Version="1.5.6" />
+		<PackageReference Include="ZLinq" Version="1.6.1" />
 	</ItemGroup>
 
 	<ItemGroup>

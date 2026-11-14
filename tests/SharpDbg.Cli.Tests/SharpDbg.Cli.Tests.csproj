@@ -23,10 +23,10 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="AwesomeAssertions" Version="9.5.0" />
+    <PackageReference Include="AwesomeAssertions" Version="9.6.0" />
     <PackageReference Include="CliWrap" Version="3.10.4" />
-    <PackageReference Include="Microsoft.Diagnostics.NETCore.Client" Version="0.2.661903" />
-    <PackageReference Include="xunit.v3.mtp-v2" Version="4.0.0" />
+    <PackageReference Include="Microsoft.Diagnostics.NETCore.Client" Version="0.2.750501" />
+    <PackageReference Include="xunit.v3.mtp-v2" Version="4.0.3" />
   </ItemGroup>
 
   <ItemGroup>

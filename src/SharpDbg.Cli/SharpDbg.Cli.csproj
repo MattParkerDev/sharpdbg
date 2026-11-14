@@ -24,7 +24,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.Diagnostics.DbgShim" Version="9.0.661903" />
+    <PackageReference Include="Microsoft.Diagnostics.DbgShim" Version="10.0.750501" />
   </ItemGroup>
 
   <ItemGroup>

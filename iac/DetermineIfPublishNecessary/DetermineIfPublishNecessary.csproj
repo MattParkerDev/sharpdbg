@@ -8,8 +8,10 @@
     </PropertyGroup>
 
 	<ItemGroup>
-		<PackageReference Include="Microsoft.Build" ExcludeAssets="runtime" Version="18.9.6" />
+		<PackageReference Include="Microsoft.Build" ExcludeAssets="runtime" Version="18.12.2" />
 		<PackageReference Include="Microsoft.Build.Locator" Version="1.11.2" />
-		<PackageReference Include="NuGet.Protocol" Version="7.9.0" ExcludeAssets="runtime" PrivateAssets="all" />
+		<PackageReference Include="NuGet.Protocol" Version="8.0.0" ExcludeAssets="runtime" PrivateAssets="all">
+		  <IncludeAssets>compile; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+		</PackageReference>
 	</ItemGroup>
 </Project>

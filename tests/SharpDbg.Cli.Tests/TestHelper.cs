@@ -18,28 +18,28 @@ public enum DebugAdapterMode
 public static partial class TestHelper
 {
 	public const VariableReferenceComparison ReferenceComparison = VariableReferenceComparison.Exact;
-	public static (DebugProtocolHost, IDisposable DebugAdapterDisposable, Process DebuggableProcess) GetRunningDebugProtocolHost(ITestOutputHelper testOutputHelper, bool startSuspended)
+	public static (DebugProtocolHost, IDisposable DebugAdapterDisposable, Process DebuggableProcess) GetRunningDebugProtocolHost(ITestOutputHelper testOutputHelper, bool startSuspended, string debuggee = DebuggableProcessHelper.DebuggableConsoleApp)
 	{
 		var debugAdapterMode = DebugAdapterMode.InProc;
 		var result = debugAdapterMode switch
 		{
-			DebugAdapterMode.InProc => GetRunningDebugProtocolHostInProc(testOutputHelper, startSuspended),
-			DebugAdapterMode.OutOfProc => GetRunningDebugProtocolHostOop(testOutputHelper, startSuspended),
+			DebugAdapterMode.InProc => GetRunningDebugProtocolHostInProc(testOutputHelper, startSuspended, debuggee),
+			DebugAdapterMode.OutOfProc => GetRunningDebugProtocolHostOop(testOutputHelper, startSuspended, debuggee),
 			_ => throw new NotImplementedException($"Debug adapter mode {debugAdapterMode} is not implemented.")
 		};
 		return result;
 	}
 
-	public static (DebugProtocolHost, IDisposable DebugAdapterDisposable, Process DebuggableProcess) GetRunningDebugProtocolHostOop(ITestOutputHelper testOutputHelper, bool startSuspended)
+	public static (DebugProtocolHost, IDisposable DebugAdapterDisposable, Process DebuggableProcess) GetRunningDebugProtocolHostOop(ITestOutputHelper testOutputHelper, bool startSuspended, string debuggee = DebuggableProcessHelper.DebuggableConsoleApp)
 	{
 		var process = DebugAdapterProcessHelper.GetDebugAdapterProcess();
-		return GetRunningDebugProtocolHostCore(testOutputHelper, startSuspended, process.StandardInput.BaseStream, process.StandardOutput.BaseStream, new ProcessKiller(process));
+		return GetRunningDebugProtocolHostCore(testOutputHelper, startSuspended, process.StandardInput.BaseStream, process.StandardOutput.BaseStream, new ProcessKiller(process), debuggee);
 	}
 
-	public static (DebugProtocolHost, IDisposable DebugAdapterDisposable, Process DebuggableProcess) GetRunningDebugProtocolHostInProc(ITestOutputHelper testOutputHelper, bool startSuspended)
+	public static (DebugProtocolHost, IDisposable DebugAdapterDisposable, Process DebuggableProcess) GetRunningDebugProtocolHostInProc(ITestOutputHelper testOutputHelper, bool startSuspended, string debuggee = DebuggableProcessHelper.DebuggableConsoleApp)
 	{
 		var (input, output, debugAdapterDisposable) = SharpDbgInMemory.NewDebugAdapterStreams(Log);
-		return GetRunningDebugProtocolHostCore(testOutputHelper, startSuspended, input, output, debugAdapterDisposable);
+		return GetRunningDebugProtocolHostCore(testOutputHelper, startSuspended, input, output, debugAdapterDisposable, debuggee);
 		void Log(string message)
 		{
 			testOutputHelper.WriteLine($"Log [SharpDbg]: {message}");
@@ -54,9 +54,9 @@ public static partial class TestHelper
 		return (host, adapter);
 	}
 
-	private static (DebugProtocolHost, IDisposable DebugAdapterDisposable, Process DebuggableProcess) GetRunningDebugProtocolHostCore(ITestOutputHelper testOutputHelper, bool startSuspended, Stream input, Stream output, IDisposable debugAdapterDisposable)
+	private static (DebugProtocolHost, IDisposable DebugAdapterDisposable, Process DebuggableProcess) GetRunningDebugProtocolHostCore(ITestOutputHelper testOutputHelper, bool startSuspended, Stream input, Stream output, IDisposable debugAdapterDisposable, string debuggee)
 	{
-		var debuggableProcess = DebuggableProcessHelper.StartDebuggableProcess(startSuspended);
+		var debuggableProcess = DebuggableProcessHelper.StartDebuggableProcess(startSuspended, debuggee);
 		var debugProtocolHost = DebugAdapterProcessHelper.GetDebugProtocolHost(input, output, testOutputHelper);
 		debugProtocolHost.Run();
 		return (debugProtocolHost, debugAdapterDisposable, debuggableProcess);

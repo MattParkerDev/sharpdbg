@@ -17,6 +17,7 @@ public static class Program
 			AsyncUnawaitedTaskClass.TestAsync().GetAwaiter().GetResult();
 			AsyncForeachBreakClass.TestAsync().GetAwaiter().GetResult();
 			AsyncRecursionClass.TestAsync().GetAwaiter().GetResult();
+			AsyncNestedAwaitClass.TestAsync().GetAwaiter().GetResult();
 			Thread.Sleep(100);
 		}
 	}

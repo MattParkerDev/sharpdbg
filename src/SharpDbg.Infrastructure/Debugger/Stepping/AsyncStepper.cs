@@ -24,7 +24,11 @@ public partial class AsyncStepper
 	/// Null when a simple step does the right thing: the method is not async, or there is no await left to step over.
 	/// <see cref="StepState.Idle"/> when the step runs free, out of an async void method that has resumed after an await
 	/// </returns>
-	public async Task<StepState?> TryCreateAsyncStep(ICorDebugThread thread, StepType stepType)
+	/// <param name="stopAfterAwait">
+	/// Whether a step over the next await goes through that await alone, and stops after it on its line: the end of a step out that
+	/// returned to a caller still before its await
+	/// </param>
+	public async Task<StepState?> TryCreateAsyncStep(ICorDebugThread thread, StepType stepType, bool stopAfterAwait = false)
 	{
 		var frame = thread.ActiveFrame;
 		if (frame is null) return null;
@@ -33,7 +37,7 @@ public partial class AsyncStepper
 		var moduleAddress = function.Module.BaseAddress;
 		if (_modules.TryGetValue(moduleAddress, out var moduleInfo) is false || moduleInfo.MetadataReader.HasSymbols is false) return null;
 		// .NET 11's runtime async: no state machine, so no async stepping information either
-		if (frame is ICorDebugILFrame runtimeAsyncFrame && moduleInfo.MetadataReader.IsRuntimeAsync((int)function.Token)) return await TryCreateRuntimeAsyncStep(thread, runtimeAsyncFrame, stepType);
+		if (frame is ICorDebugILFrame runtimeAsyncFrame && moduleInfo.MetadataReader.IsRuntimeAsync((int)function.Token)) return await TryCreateRuntimeAsyncStep(thread, runtimeAsyncFrame, stepType, stopAfterAwait);
 		var asyncInfo = moduleInfo.MetadataReader.GetAsyncMethodSteppingInfo(function.Token);
 		if (asyncInfo is null) return null;
 
@@ -58,10 +62,22 @@ public partial class AsyncStepper
 		var awaitInfo = FindNextAwaitInfo(asyncInfo, (uint)ilFrame.IP.pnOffset);
 		if (awaitInfo is null) return null;
 
+		var stopOffset = stopAfterAwait ? StopOffsetAfterAwait(ilFrame, moduleInfo.MetadataReader, awaitInfo) : null;
 		var yieldBreakpoint = function.ILCode.CreateBreakpoint((int)awaitInfo.YieldOffset);
 		yieldBreakpoint.Activate(true);
-		var stepper = _debugger.CreateStepper(thread, stepType);
-		return new StepState.AwaitingYield(stepper, yieldBreakpoint, thread.Id, ilFrame.StackRange, stepType, awaitInfo.ResumeOffset);
+		var stepper = _debugger.CreateStepper(thread, stepType, endIlOffset: (int?)stopOffset);
+		return new StepState.AwaitingYield(stepper, yieldBreakpoint, thread.Id, ilFrame.StackRange, stepType, awaitInfo.ResumeOffset, stopOffset);
+	}
+
+	/// <summary>
+	/// Where a step through a state machine's await alone stops: the first IL offset after the awaiter's GetResult that the frame's compiled
+	/// code maps, before the rest of the await's statement (e.g. a call it passes the result to). Null when it cannot be told
+	/// </summary>
+	private static uint? StopOffsetAfterAwait(ICorDebugILFrame frame, ModuleMetadataReader metadataReader, ModuleMetadataReader.AsyncAwaitInfo awaitInfo)
+	{
+		if (metadataReader.AwaiterGetResultCallAfter((int)frame.Function.Token, (int)awaitInfo.ResumeOffset) is not { } getResult || MappedOffsets(frame) is not { } mapped) return null;
+		var after = mapped.Where(offset => offset > getResult).DefaultIfEmpty(-1).Min();
+		return after < 0 ? null : (uint)after;
 	}
 
 	private async Task<StepState?> TryCreateAsyncStepOut(ICorDebugThread thread, ICorDebugILFrame? ilFrame, CORDB_ADDRESS moduleAddress, int kickoffMethodToken)
@@ -104,7 +120,7 @@ public partial class AsyncStepper
 
 		var resumeBreakpoint = ilCode.CreateBreakpoint((int)awaitingYield.ResumeOffset);
 		resumeBreakpoint.Activate(true);
-		return new StepState.AwaitingResume(resumeBreakpoint, awaitingYield.ThreadId, awaitingYield.StepType, asyncId);
+		return new StepState.AwaitingResume(resumeBreakpoint, awaitingYield.ThreadId, awaitingYield.StepType, asyncId, awaitingYield.StopOffset);
 	}
 
 	/// <summary>

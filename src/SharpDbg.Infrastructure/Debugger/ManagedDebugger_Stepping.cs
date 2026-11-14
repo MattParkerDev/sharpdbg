@@ -99,6 +99,12 @@ public partial class ManagedDebugger
 			{
 				if (await _asyncStepper.IsResumingSteppingActivation(thread, awaitingResume) is false) break;
 				EndStep();
+				if (awaitingResume.StopOffset is { } stopOffset)
+				{
+					// The step goes through the await alone: on to just after its GetResult, then it stops
+					StartStep(new StepState.FinishAwait(CreateStepper(thread, StepType.StepOver, endIlOffset: (int)stopOffset)));
+					break;
+				}
 				SetupStepper(thread, awaitingResume.StepType);
 				break;
 			}
@@ -106,7 +112,7 @@ public partial class ManagedDebugger
 			{
 				var resume = _asyncStepper.TakeRuntimeResume(thread, runtimeAsync.Step);
 				if (resume is AsyncStepper.RuntimeResume.Another) break;
-				if (resume is AsyncStepper.RuntimeResume.DoneAtOnce)
+				if (resume is AsyncStepper.RuntimeResume.DoneAtOnce && runtimeAsync.Step.StopsAtResume is false)
 				{
 					// What it awaited was done at once: the step goes on through the statement as it was
 					_logger?.Invoke("The await was done at once: the step goes on");
@@ -114,6 +120,14 @@ public partial class ManagedDebugger
 					break;
 				}
 				EndStep();
+				if (runtimeAsync.Step is { StopsAtResume: true, ResumesPast: false })
+				{
+					// As a step out of a synchronous call stops on the call's line: the rest of the await's statement (e.g. a call it
+					// passes the result to) is still to step over or into
+					_logger?.Invoke($"The awaiting method goes on after the await on thread {thread.Id}: the step ends there, on the await's line");
+					ReportStopAtActiveFrame(thread, "step");
+					return true;
+				}
 				var function = thread.ActiveFrame.Function;
 				if (runtimeAsync.Step.ResumesPast && thread.ActiveFrame is ICorDebugILFrame resumed
 				    && _modules[function.Module.BaseAddress].MetadataReader.IsVisibleSequencePointStart((int)function.Token, resumed.IP.pnOffset))
@@ -151,7 +165,8 @@ public partial class ManagedDebugger
 	/// Create and activate a stepper, without continuing execution
 	/// </summary>
 	/// <param name="justMyCode">Whether the stepper steps with Just My Code, when not as the session does</param>
-	internal ICorDebugStepper CreateStepper(ICorDebugThread thread, StepType stepType, bool? justMyCode = null)
+	/// <param name="endIlOffset">Where a step over or into ends, when before the end of the statement: the step goes through that part of it alone</param>
+	internal ICorDebugStepper CreateStepper(ICorDebugThread thread, StepType stepType, bool? justMyCode = null, int? endIlOffset = null)
 	{
 		var frame = thread.ActiveFrame;
 		if (frame is not ICorDebugILFrame ilFrame) throw new InvalidOperationException("Active frame is not an IL frame");
@@ -171,16 +186,16 @@ public partial class ManagedDebugger
 
 			var currentIlOffset = ilFrame.IP.pnOffset;
 			var nullableResult = metadataReader.GetStartAndEndSequencePointIlOffsetsForIlOffset(frame.Function.Token, currentIlOffset);
-			if (nullableResult is var (startIlOffset, endIlOffset))
+			if (nullableResult is var (startIlOffset, statementEndIlOffset))
 			{
-				if (startIlOffset == endIlOffset)
+				if (startIlOffset == statementEndIlOffset)
 				{
-					endIlOffset = frame.Function.ILCode.Size;
+					statementEndIlOffset = frame.Function.ILCode.Size;
 				}
 				var stepRange = new COR_DEBUG_STEP_RANGE
 				{
 					startOffset = checked((uint)startIlOffset),
-					endOffset = checked((uint)endIlOffset)
+					endOffset = checked((uint)(endIlOffset is { } end && end > currentIlOffset && end < statementEndIlOffset ? end : statementEndIlOffset))
 				};
 				var stepIn = stepType is StepType.StepIn;
 				stepper.StepRange(stepIn, [stepRange], 1);
@@ -223,9 +238,9 @@ public partial class ManagedDebugger
 	/// </summary>
 	/// <remarks>
 	/// The step leaves the kick-off method exactly, without Just My Code, so it does not stop in the builder's Start or in the kick-off
-	/// method's hidden code. Once back in the caller: if the caller's statement goes on to await, the step finishes the statement (see
-	/// <see cref="TryFinishAwaitingStatement"/>), so <c>await M()</c> lands after the await as when M has yielded, while
-	/// <c>var task = M();</c> stops on that line; and with Just My Code, a caller that is not user code is stepped out of as usual
+	/// method's hidden code. Once back in the caller: if the caller's statement goes on to await, the step goes through that await alone
+	/// (see <see cref="TryFinishAwaitingStatement"/>), so <c>await M()</c> stops on its line once the await is done, as when M has yielded,
+	/// while <c>var task = M();</c> stops on that line; and with Just My Code, a caller that is not user code is stepped out of as usual
 	/// </remarks>
 	internal StepState? TryCreateStepOutBeforeFirstYield(ICorDebugThread thread, CORDB_ADDRESS moduleAddress, int kickoffMethodToken)
 	{
@@ -329,7 +344,11 @@ public partial class ManagedDebugger
 	/// Back in the caller of an async method that had not yielded, or on a hidden sequence point: if the code before the next visible
 	/// sequence point awaits, step over it, crossing the await, rather than stopping part way through the statement
 	/// </summary>
-	private async Task<bool> TryFinishAwaitingStatement(ICorDebugThread thread)
+	/// <param name="stopAfterAwait">
+	/// Whether the step goes through the await alone, and stops after it on its line, rather than finishing the statement: back from a step
+	/// out, the rest of the statement (e.g. a call it passes the result to) is still to step over or into, as after a synchronous call
+	/// </param>
+	private async Task<bool> TryFinishAwaitingStatement(ICorDebugThread thread, bool stopAfterAwait = false)
 	{
 		if (thread.ActiveFrame is not ICorDebugILFrame ilFrame) return false;
 		var function = ilFrame.Function;
@@ -338,7 +357,7 @@ public partial class ManagedDebugger
 		if (metadataReader.IsRuntimeAsync((int)function.Token))
 		{
 			if (_asyncStepper.HasRuntimeAwaitAhead(ilFrame) is false) return false;
-			if (await _asyncStepper.TryCreateRuntimeAsyncStep(thread, ilFrame, StepType.StepOver) is not { } runtimeAsyncStep) return false;
+			if (await _asyncStepper.TryCreateRuntimeAsyncStep(thread, ilFrame, StepType.StepOver, stopAfterAwait) is not { } runtimeAsyncStep) return false;
 			StartStep(runtimeAsyncStep);
 			return true;
 		}
@@ -348,7 +367,7 @@ public partial class ManagedDebugger
 		if (metadataReader.GetStartAndEndSequencePointIlOffsetsForIlOffset(function.Token, ip) is not var (_, statementEnd)) return false;
 		if (asyncInfo.AwaitInfos.Any(info => info.YieldOffset >= ip && info.YieldOffset < statementEnd) is false) return false;
 
-		StartStep(await _asyncStepper.TryCreateAsyncStep(thread, StepType.StepOver) ?? new StepState.Simple(CreateStepper(thread, StepType.StepOver)));
+		StartStep(await _asyncStepper.TryCreateAsyncStep(thread, StepType.StepOver, stopAfterAwait) ?? new StepState.Simple(CreateStepper(thread, StepType.StepOver)));
 		return true;
 	}
 }

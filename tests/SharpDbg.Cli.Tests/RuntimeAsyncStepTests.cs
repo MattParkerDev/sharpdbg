@@ -67,14 +67,21 @@ public class RuntimeAsyncStepTests(ITestOutputHelper testOutputHelper)
 		stopInfo7.filePath.Should().EndWith("AnotherClass.cs");
 		stopInfo7.line.Should().Be(19);
 
-		// step out of an async await method
+		// step out of an async await method: stops on the await's line once the await is done, as a step out of a synchronous call
+		// stops on the call's line
 		var stoppedEvent8 = await debugProtocolHost.WithStepOutRequest(stoppedEvent7.ThreadId!.Value).WaitForStoppedEvent();
 		var stopInfo8 = stoppedEvent8.ReadStopInfo();
 		stopInfo8.filePath.Should().EndWith("MyAsyncClass.cs");
-		stopInfo8.line.Should().Be(14);
+		stopInfo8.line.Should().Be(13);
+
+		// step over the rest of the await's statement
+		var stoppedEvent9 = await debugProtocolHost.WithStepOverRequest(stoppedEvent8.ThreadId!.Value).WaitForStoppedEvent();
+		var stopInfo9 = stoppedEvent9.ReadStopInfo();
+		stopInfo9.filePath.Should().EndWith("MyAsyncClass.cs");
+		stopInfo9.line.Should().Be(14);
 
 		// step into async void method
-		var stoppedEvent10 = await debugProtocolHost.WithStepInRequest(stoppedEvent8.ThreadId!.Value).WaitForStoppedEvent();
+		var stoppedEvent10 = await debugProtocolHost.WithStepInRequest(stoppedEvent9.ThreadId!.Value).WaitForStoppedEvent();
 		var stopInfo10 = stoppedEvent10.ReadStopInfo();
 		stopInfo10.filePath.Should().EndWith("AnotherClass.cs");
 		stopInfo10.line.Should().Be(25);
@@ -86,8 +93,9 @@ public class RuntimeAsyncStepTests(ITestOutputHelper testOutputHelper)
 		stopInfo11.line.Should().Be(14);
 	}
 
-	// An async step-out waits for the method's task and stops in the awaiting caller, on the statement after the await. Without
-	// Just My Code the step must still land there, not in the builder or the thread pool code that resumes the caller
+	// An async step-out waits for the method's task and stops in the awaiting caller, on the await's line once the await is done, as a
+	// step out of a synchronous call stops on the call's line. Without Just My Code the step must still land there, not in the builder or
+	// the thread pool code that resumes the caller
 	[Theory]
 	[InlineData(true)]
 	[InlineData(false)]
@@ -114,13 +122,13 @@ public class RuntimeAsyncStepTests(ITestOutputHelper testOutputHelper)
 		valueTaskStop.ReadStopInfo().line.Should().Be(18);
 		var afterValueTask = await debugProtocolHost.WithStepOutRequest(valueTaskStop.ThreadId!.Value).WaitForStoppedEvent();
 		afterValueTask.Reason.Should().Be(StoppedEvent.ReasonValue.Step);
-		afterValueTask.ReadStopInfo().line.Should().Be(9);
+		afterValueTask.ReadStopInfo().line.Should().Be(8);
 
 		var taskStop = await debugProtocolHost.WithContinueRequest().WaitForStoppedEvent();
 		taskStop.ReadStopInfo().line.Should().Be(24);
 		var afterTask = await debugProtocolHost.WithStepOutRequest(taskStop.ThreadId!.Value).WaitForStoppedEvent();
 		afterTask.Reason.Should().Be(StoppedEvent.ReasonValue.Step);
-		afterTask.ReadStopInfo().line.Should().Be(10);
+		afterTask.ReadStopInfo().line.Should().Be(9);
 
 		// async void has no task to wait for: before its first await the step returns to the synchronous caller
 		var asyncVoidStop = await debugProtocolHost.WithContinueRequest().WaitForStoppedEvent();
@@ -213,7 +221,8 @@ public class RuntimeAsyncStepTests(ITestOutputHelper testOutputHelper)
 		resumed.ReadStopInfo().line.Should().Be(18);
 		var afterCallerAwait = await debugProtocolHost.WithStepOutRequest(resumed.ThreadId!.Value).WaitForStoppedEvent();
 		afterCallerAwait.Reason.Should().Be(StoppedEvent.ReasonValue.Step);
-		afterCallerAwait.ReadStopInfo().line.Should().Be(11);
+		// On the caller's await of the task, once it is done
+		afterCallerAwait.ReadStopInfo().line.Should().Be(10);
 	}
 
 	// Stepping into an async method lands on its first line. Without Just My Code it must not stop on the way in the state machine's
@@ -318,5 +327,89 @@ public class RuntimeAsyncStepTests(ITestOutputHelper testOutputHelper)
 		afterAwait.ReadStopInfo().line.Should().Be(17);
 		debugProtocolHost.WithStackTraceRequest(afterAwait.ThreadId!.Value, out var endStack);
 		debugProtocolHost.Evaluate(endStack.StackFrames!.First().Id, "n").Result.Should().Be("3");
+	}
+
+	// A step out of an awaited method stops on the await's line once the await is done, as a step out of a synchronous call stops on the
+	// call's line, so the rest of the statement can still be stepped into: here the call the result is passed to. Whether the awaited
+	// method completed at once or suspended
+	[Theory]
+	[InlineData(true)]
+	[InlineData(false)]
+	public async Task SharpDbgCli_StepOutRequest_OfAwaitedMethod_StopsOnTheAwaitLine_ThenStepsIntoTheRestOfTheStatement(bool justMyCode)
+	{
+		var startSuspended = true;
+		var (debugProtocolHost, adapter, p2) = TestHelper.GetRunningDebugProtocolHost(testOutputHelper, startSuspended, DebuggableProcessHelper.RuntimeAsyncConsoleApp);
+		using var _ = adapter;
+		using var __ = new ProcessKiller(p2);
+		using var ___ = debugProtocolHost;
+
+		var filePath = Path.JoinFromGitRoot("tests", "RuntimeAsyncConsoleApp", "AsyncNestedAwaitClass.cs");
+		await debugProtocolHost
+			.WithInitializeRequest()
+			.WithAttachRequest(p2.Id, justMyCode)
+			.WaitForInitializedEvent();
+		debugProtocolHost
+			.WithBreakpointsRequest([21, 28], filePath)
+			.WithConfigurationDoneRequest()
+			.WithOptionalResumeRuntime(p2.Id, startSuspended);
+
+		// Done at once: the caller never left the stack
+		var doneAtOnceStop = await debugProtocolHost.WaitForStoppedEvent();
+		doneAtOnceStop.ReadStopInfo().line.Should().Be(21);
+		var onAwaitLine = await debugProtocolHost.WithStepOutRequest(doneAtOnceStop.ThreadId!.Value).WaitForStoppedEvent();
+		onAwaitLine.Reason.Should().Be(StoppedEvent.ReasonValue.Step);
+		onAwaitLine.ThreadId.Should().Be(doneAtOnceStop.ThreadId);
+		onAwaitLine.ReadStopInfo().line.Should().Be(9);
+		var inProcess = await debugProtocolHost.WithStepInRequest(onAwaitLine.ThreadId!.Value).WaitForStoppedEvent();
+		inProcess.Reason.Should().Be(StoppedEvent.ReasonValue.Step);
+		var inProcessInfo = inProcess.ReadStopInfo();
+		inProcessInfo.filePath.Should().EndWith("AsyncNestedAwaitClass.cs");
+		inProcessInfo.line.Should().Be(15);
+
+		// Suspended: the caller goes on after the await once the delay is done, on whichever thread
+		var suspendsStop = await debugProtocolHost.WithContinueRequest().WaitForStoppedEvent();
+		suspendsStop.ReadStopInfo().line.Should().Be(28);
+		var onResumedAwaitLine = await debugProtocolHost.WithStepOutRequest(suspendsStop.ThreadId!.Value).WaitForStoppedEvent();
+		onResumedAwaitLine.Reason.Should().Be(StoppedEvent.ReasonValue.Step);
+		onResumedAwaitLine.ReadStopInfo().line.Should().Be(10);
+		var inProcessAgain = await debugProtocolHost.WithStepInRequest(onResumedAwaitLine.ThreadId!.Value).WaitForStoppedEvent();
+		inProcessAgain.Reason.Should().Be(StoppedEvent.ReasonValue.Step);
+		var inProcessAgainInfo = inProcessAgain.ReadStopInfo();
+		inProcessAgainInfo.filePath.Should().EndWith("AsyncNestedAwaitClass.cs");
+		inProcessAgainInfo.line.Should().Be(15);
+	}
+
+	// A step out of an awaited method that has resumed after its own await: on the caller's await line, then a step over runs the rest
+	// of the statement and stops on the next line
+	[Theory]
+	[InlineData(true)]
+	[InlineData(false)]
+	public async Task SharpDbgCli_StepOutRequest_OfResumedAwaitedMethod_StopsOnTheAwaitLine_ThenStepsOverTheRestOfTheStatement(bool justMyCode)
+	{
+		var startSuspended = true;
+		var (debugProtocolHost, adapter, p2) = TestHelper.GetRunningDebugProtocolHost(testOutputHelper, startSuspended, DebuggableProcessHelper.RuntimeAsyncConsoleApp);
+		using var _ = adapter;
+		using var __ = new ProcessKiller(p2);
+		using var ___ = debugProtocolHost;
+
+		var filePath = Path.JoinFromGitRoot("tests", "RuntimeAsyncConsoleApp", "AsyncNestedAwaitClass.cs");
+		await debugProtocolHost
+			.WithInitializeRequest()
+			.WithAttachRequest(p2.Id, justMyCode)
+			.WaitForInitializedEvent();
+		debugProtocolHost
+			.WithBreakpointsRequest(30, filePath)
+			.WithConfigurationDoneRequest()
+			.WithOptionalResumeRuntime(p2.Id, startSuspended);
+
+		var resumedStop = await debugProtocolHost.WaitForStoppedEvent();
+		resumedStop.ReadStopInfo().line.Should().Be(30);
+		debugProtocolHost.WithClearBreakpointsRequest(filePath);
+		var onAwaitLine = await debugProtocolHost.WithStepOutRequest(resumedStop.ThreadId!.Value).WaitForStoppedEvent();
+		onAwaitLine.Reason.Should().Be(StoppedEvent.ReasonValue.Step);
+		onAwaitLine.ReadStopInfo().line.Should().Be(10);
+		var nextLine = await debugProtocolHost.WithStepOverRequest(onAwaitLine.ThreadId!.Value).WaitForStoppedEvent();
+		nextLine.Reason.Should().Be(StoppedEvent.ReasonValue.Step);
+		nextLine.ReadStopInfo().line.Should().Be(11);
 	}
 }

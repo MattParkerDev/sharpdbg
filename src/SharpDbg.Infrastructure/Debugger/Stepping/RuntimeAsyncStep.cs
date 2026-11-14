@@ -39,6 +39,15 @@ public sealed record RuntimeAsyncStep(
 	public bool Left { get; init; }
 
 	/// <summary>
+	/// Whether the step goes through the await alone, and stops where the awaiting method goes on after it, on the await's line, as a step out
+	/// of a synchronous call stops on the call's line: a step out, or the end of one that returned to a caller still before its await
+	/// </summary>
+	public bool StopAfterAwait { get; init; }
+
+	/// <summary>Whether the step stops where the awaiting method goes on after the await, rather than stepping on from there</summary>
+	public bool StopsAtResume => Type is StepType.StepOut || StopAfterAwait;
+
+	/// <summary>
 	/// Whether a frame is the step's: at its place on the stack and of its method, as another method's frame can take that place once
 	/// the step's has gone (on x64 a frame's place is a single stack address)
 	/// </summary>

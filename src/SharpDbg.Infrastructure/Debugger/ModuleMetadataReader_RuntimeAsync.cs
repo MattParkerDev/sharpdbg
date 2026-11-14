@@ -90,6 +90,17 @@ public partial class ModuleMetadataReader
 		return null;
 	}
 
+	/// <summary>
+	/// The IL offset of the call to the awaiter's GetResult that a state machine's await goes on with, the first at or after its resume
+	/// offset: both the resumed run and one whose await was done at once (which branches past the resume code) make that call
+	/// </summary>
+	public int? AwaiterGetResultCallAfter(int methodToken, int resumeOffset)
+	{
+		if (Instructions(methodToken) is not { } instructions) return null;
+		return instructions.FirstOrDefault(instruction => instruction.Offset >= resumeOffset && IsCall(instruction.OpCode) && instruction.Operand is int token
+			&& CalledMethodName(token) is "GetResult") is { } call ? call.Offset : null;
+	}
+
 	/// <summary>Whether no visible sequence point of a method comes at or after an IL offset: a step from before it leaves the method</summary>
 	public bool HasNoVisibleSequencePointFrom(int methodToken, int ilOffset)
 	{
@@ -130,6 +141,19 @@ public partial class ModuleMetadataReader
 	private bool IsRuntimeAwait(CilInstruction instruction) =>
 		instruction.OpCode == OpCodes.Call && instruction.Operand is int token && DescribeCall(token) is ("AsyncHelpers", var name)
 		&& (name.StartsWith("Await", StringComparison.Ordinal) || name.StartsWith("UnsafeAwait", StringComparison.Ordinal));
+
+	/// <summary>A called method's name, whatever declares it (e.g. a generic awaiter, through a type specification)</summary>
+	private string? CalledMethodName(int token)
+	{
+		var handle = MetadataTokens.EntityHandle(token);
+		return handle.Kind switch
+		{
+			HandleKind.MethodSpecification => CalledMethodName(MetadataTokens.GetToken(_peMetadataReader.GetMethodSpecification((MethodSpecificationHandle)handle).Method)),
+			HandleKind.MethodDefinition => _peMetadataReader.GetString(_peMetadataReader.GetMethodDefinition((MethodDefinitionHandle)handle).Name),
+			HandleKind.MemberReference => _peMetadataReader.GetString(_peMetadataReader.GetMemberReference((MemberReferenceHandle)handle).Name),
+			_ => null
+		};
+	}
 
 	/// <summary>The name of the type declaring a called method, and the method's name</summary>
 	private (string DeclaringType, string Name)? DescribeCall(int token)

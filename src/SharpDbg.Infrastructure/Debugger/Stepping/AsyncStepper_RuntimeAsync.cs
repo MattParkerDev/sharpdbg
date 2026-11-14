@@ -12,7 +12,11 @@ public partial class AsyncStepper
 	/// of the frame's method (a step out, a step past its end, or over an await it returns right after) to the await its caller waits at.
 	/// Null when the step goes through no such await
 	/// </summary>
-	public async Task<StepState?> TryCreateRuntimeAsyncStep(ICorDebugThread thread, ICorDebugILFrame frame, StepType type)
+	/// <param name="stopAfterAwait">
+	/// Whether a step over the frame's own await goes through that await alone, and stops after it on its line: the end of a step out that
+	/// returned to a caller still before its await
+	/// </param>
+	public async Task<StepState?> TryCreateRuntimeAsyncStep(ICorDebugThread thread, ICorDebugILFrame frame, StepType type, bool stopAfterAwait = false)
 	{
 		try
 		{
@@ -22,7 +26,8 @@ public partial class AsyncStepper
 				if (ResumeOf(frame, awaited) is not { } resume) return null;
 				if (resume != ModuleMetadataReader.Returns)
 				{
-					return Wait(thread, type, type, frame, frame, awaited, resume, frameAwaits: true, Waiters(thread, frame));
+					var ownAwait = Wait(thread, type, type, frame, frame, awaited, resume, frameAwaits: true, Waiters(thread, frame));
+					return stopAfterAwait && ownAwait is not null ? ownAwait with { Step = ownAwait.Step with { StopAfterAwait = true } } : ownAwait;
 				}
 			}
 			else if (type is not StepType.StepOut && LeavesMethod(frame) is false)
@@ -387,7 +392,7 @@ public partial class AsyncStepper
 			: null;
 
 	/// <summary>The IL offsets a frame's compiled code maps, where a breakpoint binds; the prolog's, the epilog's and code of no IL left out</summary>
-	private static HashSet<int>? MappedOffsets(ICorDebugILFrame frame)
+	internal static HashSet<int>? MappedOffsets(ICorDebugILFrame frame)
 	{
 		ICorDebugCode? code = null;
 		if ((frame is not ICorDebugNativeFrame native || native.TryGetCode(out code) is not Cor.S_OK) && frame.Function.TryGetNativeCode(out code) is not Cor.S_OK) return null;

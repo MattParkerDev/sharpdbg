@@ -340,17 +340,18 @@ public partial class ManagedDebugger
 		var ilFrame = (ICorDebugILFrame)corThread.ActiveFrame;
 		// A step waiting for an await's yield breakpoint did not reach it, so the step over the await ends here too
 		EndStep();
-		if (step is StepState.StepOutToAwaitingUserFrame)
+		if (step is StepState.StepOutToAwaitingUserFrame or StepState.FinishAwait or StepState.AwaitingYield { StopOffset: not null })
 		{
-			// Back in the awaiting caller, just after the awaiter's GetResult: the step ends on the statement after the await
-			SetupStepper(corThread, StepType.StepOver);
-			ContinueWithVariableClear();
+			// Back in the awaiting caller, just after the awaiter's GetResult: the step ends there, on the await's line, as a step out of a
+			// synchronous call stops on the call's line. The rest of the statement (e.g. a call it passes the result to) is still to step
+			// over or into. The code there is hidden, so the stop is reported at the await's statement
+			ReportStopAtActiveFrame(corThread, "step");
 			return;
 		}
 		if (step is StepState.StepOutToKickoffCaller)
 		{
-			// Returned from an async method's kick-off method, which had not yielded
-			if (await TryFinishAwaitingStatement(corThread))
+			// Returned from an async method's kick-off method, which had not yielded: through the caller's await, if it awaits the method
+			if (await TryFinishAwaitingStatement(corThread, stopAfterAwait: true))
 			{
 				ContinueWithVariableClear();
 				return;

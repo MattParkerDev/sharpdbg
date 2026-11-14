@@ -34,6 +34,7 @@ public partial class ManagedDebugger
 			}
 		}
 		if (step is StepState.RuntimeAsyncAwait { Step.Chain: { } chain }) chain.TryDispose();
+		if (step is StepState.RuntimeAsyncAwait { Step.SuspendBreakpoint: { } suspendBreakpoint }) DeactivateIfUnused(suspendBreakpoint);
 	}
 
 	/// <summary>
@@ -48,6 +49,7 @@ public partial class ManagedDebugger
 		}
 		_step = new StepState.Simple(stepper);
 		DeactivateIfUnused(runtimeAsync.Step.ResumeBreakpoint);
+		if (runtimeAsync.Step.SuspendBreakpoint is { } suspendBreakpoint) DeactivateIfUnused(suspendBreakpoint);
 		runtimeAsync.Step.Chain?.TryDispose();
 	}
 
@@ -138,6 +140,15 @@ public partial class ManagedDebugger
 				}
 				_logger?.Invoke($"The awaiting method goes on after the await on thread {thread.Id}: the step goes on there");
 				SetupStepper(thread, runtimeAsync.Step.Type is StepType.StepOut ? StepType.StepOver : runtimeAsync.Step.Type);
+				break;
+			}
+			case StepState.RuntimeAsyncAwait runtimeAsync when runtimeAsync.Step.SuspendBreakpoint == breakpoint:
+			{
+				// A chain was given its task when it first suspended: when the step's run's, the step waits where that chain goes on
+				if (_asyncStepper.TakeSuspendedChain(thread, runtimeAsync) is not { } waiting) break;
+				runtimeAsync.Stepper?.TryDeactivate();
+				DeactivateIfUnused(breakpoint);
+				_step = waiting;
 				break;
 			}
 			case StepState.AwaitingTaskCompletion awaitingTaskCompletion when awaitingTaskCompletion.NotifyBreakpoint == breakpoint:

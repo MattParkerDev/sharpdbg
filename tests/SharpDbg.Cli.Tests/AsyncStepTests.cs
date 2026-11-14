@@ -412,4 +412,40 @@ public class AsyncStepTests(ITestOutputHelper testOutputHelper)
 		nextLine.Reason.Should().Be(StoppedEvent.ReasonValue.Step);
 		nextLine.ReadStopInfo().line.Should().Be(11);
 	}
+
+	// Stepping over an await in one of two runs of the same method started side by side: the other run, which suspended for less time,
+	// goes on after the await first, and the step must let it run on and end in the run it started in
+	[Theory]
+	[InlineData(true)]
+	[InlineData(false)]
+	public async Task SharpDbgCli_StepOverRequest_OfAwaitInConcurrentRuns_StaysInTheSameRun(bool justMyCode)
+	{
+		var startSuspended = true;
+		var (debugProtocolHost, adapter, p2) = TestHelper.GetRunningDebugProtocolHost(testOutputHelper, startSuspended);
+		using var _ = adapter;
+		using var __ = new ProcessKiller(p2);
+		using var ___ = debugProtocolHost;
+
+		var filePath = Path.JoinFromGitRoot("tests", "DebuggableConsoleApp", "AsyncFanOutClass.cs");
+		await debugProtocolHost
+			.WithInitializeRequest()
+			.WithAttachRequest(p2.Id, justMyCode)
+			.WaitForInitializedEvent();
+		debugProtocolHost
+			.WithBreakpointsRequest(15, filePath)
+			.WithConfigurationDoneRequest()
+			.WithOptionalResumeRuntime(p2.Id, startSuspended);
+
+		var awaitStop = await debugProtocolHost.WaitForStoppedEvent();
+		awaitStop.ReadStopInfo().line.Should().Be(15);
+		debugProtocolHost.WithStackTraceRequest(awaitStop.ThreadId!.Value, out var startStack);
+		debugProtocolHost.Evaluate(startStack.StackFrames!.First().Id, "id").Result.Should().Be("1", "the first run reaches the await first");
+		debugProtocolHost.WithClearBreakpointsRequest(filePath);
+
+		var afterAwait = await debugProtocolHost.WithStepOverRequest(awaitStop.ThreadId!.Value).WaitForStoppedEvent();
+		afterAwait.Reason.Should().Be(StoppedEvent.ReasonValue.Step);
+		afterAwait.ReadStopInfo().line.Should().Be(16);
+		debugProtocolHost.WithStackTraceRequest(afterAwait.ThreadId!.Value, out var endStack);
+		debugProtocolHost.Evaluate(endStack.StackFrames!.First().Id, "id").Result.Should().Be("1", "the second run goes on after the await first, but is not the step's");
+	}
 }

@@ -121,7 +121,11 @@ public partial class AsyncStepper
 		var past = StepRangeOf(awaiting, awaited.Call) is var (start, end) && (resume < start || resume >= end);
 		var resumeBreakpoint = function.ILCode.CreateBreakpoint(resume);
 		resumeBreakpoint.Activate(true);
-		var step = new RuntimeAsyncStep(thread.Id, type, frame.StackRange, frame.Function.Module.BaseAddress, (int)frame.Function.Token, frameAwaits, resumeBreakpoint, past, chain, waiters);
+		var step = new RuntimeAsyncStep(thread.Id, type, frame.StackRange, frame.Function.Module.BaseAddress, (int)frame.Function.Token, frameAwaits, resumeBreakpoint, past, chain, waiters)
+		{
+			// Waiters alone do not tell the run from another of the method started alongside it, e.g. passed to Task.WhenAll
+			SuspendBreakpoint = frameAwaits && chain is null ? TryCreateChainSuspendBreakpoint(frame) : null
+		};
 
 		// Stepping over an await that suspends, the step sees the frame leave wherever it returns to, Just My Code or not: Just My Code, the
 		// stepper would run on through the code that called it, and, should that thread call the method again where it goes on, pass the
@@ -129,7 +133,7 @@ public partial class AsyncStepper
 		var stepper = frameAwaits ? _debugger.CreateStepper(thread, userType, justMyCode: type is StepType.StepOver ? false : null) : null;
 		_debugger.Log($"{type} through the runtime-async await at IL_{awaited.Call:X4} of method 0x{(int)function.Token:X} on thread {thread.Id}: "
 			+ $"its run goes on at IL_{resume:X4}{(past ? ", past the await's statement" : "")}{(frameAwaits ? "" : ", its caller waiting in a continuation")}"
-			+ (chain is null ? "" : ", its chain's task told") + (waiters is { } count ? $", {count} waiting for it" : ""));
+			+ (chain is null ? step.SuspendBreakpoint is null ? "" : ", its chain told once it suspends" : ", its chain's task told") + (waiters is { } count ? $", {count} waiting for it" : ""));
 		return new StepState.RuntimeAsyncAwait(stepper, step);
 	}
 

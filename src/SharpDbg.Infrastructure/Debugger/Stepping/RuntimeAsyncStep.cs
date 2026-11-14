@@ -39,6 +39,12 @@ public sealed record RuntimeAsyncStep(
 	public bool Left { get; init; }
 
 	/// <summary>
+	/// For a step whose run's chain has no task yet (<paramref name="Chain"/> null): where the chain is given its task when it first
+	/// suspends, which tells the step its run's chain as its frame leaves at the await. Null once it has, or without the runtime's hook
+	/// </summary>
+	public ICorDebugFunctionBreakpoint? SuspendBreakpoint { get; init; }
+
+	/// <summary>
 	/// Whether the step goes through the await alone, and stops where the awaiting method goes on after it, on the await's line, as a step out
 	/// of a synchronous call stops on the call's line: a step out, or the end of one that returned to a caller still before its await
 	/// </summary>

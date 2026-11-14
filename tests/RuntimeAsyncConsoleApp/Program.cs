@@ -19,6 +19,7 @@ public static class Program
 			AsyncRecursionClass.TestAsync().GetAwaiter().GetResult();
 			AsyncNestedAwaitClass.TestAsync().GetAwaiter().GetResult();
 			AsyncStackTraceClass.TestAsync().GetAwaiter().GetResult();
+			AsyncFanOutClass.TestAsync().GetAwaiter().GetResult();
 			Thread.Sleep(100);
 		}
 	}

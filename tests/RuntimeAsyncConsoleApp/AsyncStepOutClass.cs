@@ -11,7 +11,7 @@ public static class AsyncStepOutClass
 		Console.WriteLine(fromValueTask + fromTask);
 	}
 
-	// AsyncValueTaskMethodBuilder has no SetNotificationForWaitCompletion of its own
+	// ValueTask must have the same step-out destination as Task, even without a compiler-generated builder
 	private static async ValueTask<int> ValueTaskAsync()
 	{
 		await Task.Delay(10);
@@ -24,7 +24,7 @@ public static class AsyncStepOutClass
 		return 3;
 	}
 
-	// Left before its first await, while AsyncVoidMethodBuilder.Start is on the stack, and after it, once the thread pool resumed it
+	// async void still uses a state machine: after suspension there is no awaiting caller to step out to
 	private static async void FireAndForget()
 	{
 		var pending = 1;

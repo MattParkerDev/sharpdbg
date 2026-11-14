@@ -7,7 +7,7 @@
 		<Features>runtime-async=on</Features>
 		<ImplicitUsings>enable</ImplicitUsings>
 		<Nullable>enable</Nullable>
-		<NoWarn>$(NoWarn);CS0168;CS0219;CS0414</NoWarn> <!-- Disable unused variable warnings -->
+		<NoWarn>$(NoWarn);CS0168;CS0219;CS0414</NoWarn> <!-- Unused locals and fields are inspected by debugger tests -->
 	</PropertyGroup>
 
 </Project>

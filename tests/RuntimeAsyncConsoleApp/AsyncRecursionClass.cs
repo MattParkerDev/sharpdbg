@@ -1,7 +1,7 @@
 namespace RuntimeAsyncConsoleApp;
 
-// A recursive async method runs its inner activations synchronously up to their first await, on the same thread and deeper in the
-// stack: they reach the same await, in the same MoveNext, before the outer activation does
+// Recursive calls share the method's resume breakpoint and continuation chain, so stepping must also distinguish their depth
+// Inner calls resume first; the step must wait for the activation it started in
 public static class AsyncRecursionClass
 {
 	public static async Task TestAsync()

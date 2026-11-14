@@ -1,7 +1,7 @@
 namespace RuntimeAsyncConsoleApp;
 
-// The async classes of DebuggableConsoleApp, line for line, built for .NET 11, where async methods are compiled with runtime async:
-// no state machine, the runtime suspends and resumes the method itself (async void methods and async iterators keep their state machines)
+// Shared debuggee methods keep the same line numbers as DebuggableConsoleApp so both suites can check the same stepping locations
+// Runtime async exercises the .NET 11 path; async void methods and async iterators still exercise state-machine stepping
 public static class Program
 {
 	public static void Main(string[] args)

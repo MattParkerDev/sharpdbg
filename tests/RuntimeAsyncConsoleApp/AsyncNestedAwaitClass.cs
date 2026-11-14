@@ -1,7 +1,7 @@
 namespace RuntimeAsyncConsoleApp;
 
-// A step out of an awaited method stops on the await's line, as a step out of a synchronous call stops on the call's line, so the rest
-// of the statement, here the call the result is passed to, can still be stepped into
+// Process must remain available to step into after stepping out of either awaited method
+// This checks the same destination with and without suspension
 public static class AsyncNestedAwaitClass
 {
 	public static async Task TestAsync()

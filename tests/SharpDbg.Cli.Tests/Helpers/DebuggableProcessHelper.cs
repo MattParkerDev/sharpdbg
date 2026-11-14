@@ -5,7 +5,6 @@ namespace SharpDbg.Cli.Tests.Helpers;
 public static class DebuggableProcessHelper
 {
 	public const string DebuggableConsoleApp = "DebuggableConsoleApp";
-	/// <summary>The async classes of DebuggableConsoleApp, line for line, on .NET 11 with runtime async</summary>
 	public const string RuntimeAsyncConsoleApp = "RuntimeAsyncConsoleApp";
 
 	public static Process StartDebuggableProcess(bool startSuspended = false, string debuggee = DebuggableConsoleApp)

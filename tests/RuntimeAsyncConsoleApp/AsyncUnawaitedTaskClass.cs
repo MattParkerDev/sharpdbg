@@ -1,6 +1,6 @@
 namespace RuntimeAsyncConsoleApp;
 
-// An async method whose task is kept in a variable and only awaited later
+// Awaiting the task separately gives WorkAsync its own continuation chain, so a step out must find the caller through the task
 public static class AsyncUnawaitedTaskClass
 {
 	public static async Task TestAsync()

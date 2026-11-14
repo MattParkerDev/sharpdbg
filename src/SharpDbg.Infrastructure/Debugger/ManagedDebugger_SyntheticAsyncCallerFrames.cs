@@ -3,8 +3,7 @@ using ICorDebugSharp;
 namespace SharpDbg.Infrastructure.Debugger;
 
 // After a continuation, async methods are resumed on a different thread, so the caller of the async method is not visible in the physical stack trace
-// This class provides a way to synthesize the caller frames of async methods by inspecting the state machine and its associated task continuation chain,
-// or, for runtime-async methods (.NET 11), which have no state machine, the continuations the runtime's dispatcher goes on with
+// Recover callers from the state machine's task continuations, or the runtime dispatcher's chain for runtime-async methods
 /// <param name="StateMachine">The caller's state machine; null for a runtime-async caller</param>
 /// <param name="RuntimeAsyncFrame">
 /// A runtime-async caller's frame, read from its continuation (ICorDebugProcess12.GetAsyncStack): its IP is where it waits, and it holds
@@ -65,10 +64,6 @@ public partial class ManagedDebugger
 		}
 	}
 
-	/// <summary>
-	/// The runtime-async methods waiting, in turn, on what a runtime-async dispatcher on the thread runs (<paramref name="dispatching"/>,
-	/// its AsyncDispatcherInfo): the continuations it goes on with, which call each method again where it waits
-	/// </summary>
 	private IEnumerable<SyntheticAsyncCallerFrame> GetRuntimeAsyncCallerFrames(ICorDebugProcess process, ICorDebugObjectValue dispatching)
 	{
 		IReadOnlyList<ICorDebugILFrame> frames;

@@ -25,8 +25,7 @@ public partial class AsyncStepper
 	/// <see cref="StepState.Idle"/> when the step runs free, out of an async void method that has resumed after an await
 	/// </returns>
 	/// <param name="stopAfterAwait">
-	/// Whether a step over the next await goes through that await alone, and stops after it on its line: the end of a step out that
-	/// returned to a caller still before its await
+	/// A step out can return before the caller's await; finish that await while leaving the rest of the statement available to step into
 	/// </param>
 	public async Task<StepState?> TryCreateAsyncStep(ICorDebugThread thread, StepType stepType, bool stopAfterAwait = false)
 	{
@@ -80,9 +79,8 @@ public partial class AsyncStepper
 	}
 
 	/// <summary>
-	/// Where a state machine's await goes on to its awaiter's GetResult, whether it yielded or was done at once: the last IL offset the
-	/// frame's compiled code maps after the resume offset, up to the call, which is where the done-at-once branch joins the resume code.
-	/// Null when it cannot be told
+	/// A synchronous completion skips the resume code but still reaches GetResult. Break where those paths join so the step can
+	/// re-arm for another await in the statement. Null when no mapped offset can be found
 	/// </summary>
 	private static int? AwaitCompletedOffset(ICorDebugILFrame frame, ModuleMetadataReader metadataReader, ModuleMetadataReader.AsyncAwaitInfo awaitInfo)
 	{
@@ -92,8 +90,8 @@ public partial class AsyncStepper
 	}
 
 	/// <summary>
-	/// Where a step through a state machine's await alone stops: the first IL offset after the awaiter's GetResult that the frame's compiled
-	/// code maps, before the rest of the await's statement (e.g. a call it passes the result to). Null when it cannot be told
+	/// A step out must finish GetResult but leave the rest of the caller's statement available to step into.
+	/// Use the first mapped offset after the call; null when none can be found
 	/// </summary>
 	private static uint? StopOffsetAfterAwait(ICorDebugILFrame frame, ModuleMetadataReader metadataReader, ModuleMetadataReader.AsyncAwaitInfo awaitInfo)
 	{

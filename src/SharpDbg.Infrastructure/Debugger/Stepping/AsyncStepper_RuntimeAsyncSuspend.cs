@@ -3,21 +3,20 @@ using ICorDebugSharp;
 namespace SharpDbg.Infrastructure.Debugger.Stepping;
 
 /// <summary>
-/// Tells which run a runtime-async step is in when the run's chain has not suspended yet, so has no task: a run its caller does not await,
-/// or one under a caller that is not runtime-async. When such a chain first suspends, the task-returning thunk at its bottom gives it a task
-/// (AsyncHelpers.CreateRuntimeAsyncTask), and, with async debugging on, calls the task's NotifyDebuggerOfRuntimeAsyncState for the debugger.
-/// The step's frame has left by then, and nothing else has run on the thread: the task there is the run's, and its chain's
+/// A new runtime-async chain has no task until it first suspends. The thunk then calls NotifyDebuggerOfRuntimeAsyncState,
+/// with async debugging enabled, before returning to its caller. This lets us capture the chain's task after the stepping frame
+/// leaves, before unrelated work can run on that thread
 /// </summary>
 public partial class AsyncStepper
 {
 	private const string CoreLibName = "System.Private.CoreLib.dll";
 
-	/// <summary>Whether async debugging is on in the debuggee, which it stays once on</summary>
+	// Async debugging stays enabled, so it only needs to be set once
 	private bool _asyncDebuggingEnabled;
 
 	/// <summary>
-	/// A breakpoint where a chain that has first suspended is given its task, for a step whose run's chain has none yet. Null when the
-	/// runtime has no such hook, or async debugging could not be turned on for it to be called
+	/// Capture the task when the chain first suspends, so concurrent calls can be told apart at the resume breakpoint.
+	/// Null when the runtime hook is unavailable or async debugging cannot be enabled
 	/// </summary>
 	private ICorDebugFunctionBreakpoint? TryCreateChainSuspendBreakpoint(ICorDebugFrame frame)
 	{
@@ -42,8 +41,8 @@ public partial class AsyncStepper
 	}
 
 	/// <summary>
-	/// Turn async debugging on in the debuggee, for the runtime to call its debugger hooks: Task.s_asyncDebuggingEnabled, then the
-	/// Synchronize bit of AsyncInstrumentation's active flags, for the next of its checkpoints to read it again
+	/// The runtime only calls the debugger hooks with async debugging enabled. The Synchronize bit makes the next instrumentation
+	/// checkpoint reread Task.s_asyncDebuggingEnabled
 	/// </summary>
 	private bool EnableAsyncDebugging(ICorDebugModule coreLib, ICorDebugFrame frame)
 	{
@@ -52,7 +51,7 @@ public partial class AsyncStepper
 		if (StaticField(coreLib, metadata, "System.Threading.Tasks.Task", "s_asyncDebuggingEnabled", frame) is not { } enabled) return false;
 		Write(enabled, [1]);
 
-		// Until AsyncInstrumentation is first used, its flags start with the Synchronize bit set, which reads the field anyway
+		// If AsyncInstrumentation is not initialized yet, its initial Synchronize bit will make it read the field anyway
 		if (StaticField(coreLib, metadata, "System.Runtime.CompilerServices.AsyncInstrumentation", "s_activeFlags", frame) is { } flags)
 		{
 			const uint synchronize = 0x80000000;
@@ -77,9 +76,8 @@ public partial class AsyncStepper
 	}
 
 	/// <summary>
-	/// A chain has first suspended on a thread and been given its task (the chain-suspend breakpoint): when it is the step's run's, its frame
-	/// having left at the await, the state the step goes on with, waiting for that chain's task to go on. Null when it is another chain, one
-	/// that a call in the step's statement started, with the step's frame still on the stack
+	/// A nested call can suspend its own chain while the stepping frame is still on the stack. Only capture the task after that frame
+	/// has left on the stepping thread; otherwise this notification belongs to another chain
 	/// </summary>
 	public StepState.RuntimeAsyncAwait? TakeSuspendedChain(ICorDebugThread thread, StepState.RuntimeAsyncAwait state)
 	{

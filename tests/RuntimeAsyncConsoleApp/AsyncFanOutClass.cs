@@ -1,7 +1,7 @@
 namespace RuntimeAsyncConsoleApp;
 
-// Two runs of the same method at once, neither awaited where it is called: the first to reach the await suspends longest, so the second
-// goes on after the await first
+// The shorter second delay makes the other activation hit the shared resume breakpoint before the stepping activation
+// Awaiting both tasks separately also tests calls with independent continuation chains
 public static class AsyncFanOutClass
 {
 	public static async Task TestAsync()

@@ -73,7 +73,7 @@ public class RuntimeAsyncVariablesTests(ITestOutputHelper testOutputHelper)
 			.WithStackTraceRequest(stoppedEvent3.ThreadId!.Value, out var stackTraceResponse3)
 			.WithScopesRequest(stackTraceResponse3.StackFrames!.First().Id, out var scopesResponse3)
 			.WithVariablesRequest(scopesResponse3.Scopes.Single().VariablesReference, out var variables3);
-		// Assert the variables reference count resets on continue, by asserting the variables are the same as the first time (code is in a while loop)
+		// The debuggee loops back here; variable references must reset on continue, so the same IDs should be assigned again
 		variables3.ShouldBeEquivalentToDebuggerVariables(expectedVariables);
 	}
 }

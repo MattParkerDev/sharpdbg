@@ -100,9 +100,8 @@ public partial class ManagedDebugger
 			}
 			case StepState.AwaitingYield awaitingYield when awaitingYield.CompletedBreakpoint == breakpoint:
 			{
-				// Another activation going on past the await, or the stepping one after it resumed: keep waiting
+				// The breakpoint is shared by all activations; only a hit in the original frame means synchronous completion
 				if (thread.Id != awaitingYield.ThreadId || thread.ActiveFrame is not ICorDebugILFrame frame || frame.StackRange != awaitingYield.FrameStackRange) break;
-				// The await was done at once, without yielding: on through the rest of the statement, following any await still to come
 				_logger?.Invoke("The await was done at once: the step goes on");
 				EndStep();
 				await StartStepThroughRestOfStatement(thread, awaitingYield.StepType);
@@ -114,7 +113,6 @@ public partial class ManagedDebugger
 				EndStep();
 				if (awaitingResume.StopOffset is { } stopOffset)
 				{
-					// The step goes through the await alone: on to just after its GetResult, then it stops
 					StartStep(new StepState.FinishAwait(CreateStepper(thread, StepType.StepOver, endIlOffset: (int)stopOffset)));
 					break;
 				}
@@ -127,7 +125,6 @@ public partial class ManagedDebugger
 				if (resume is AsyncStepper.RuntimeResume.Another) break;
 				if (resume is AsyncStepper.RuntimeResume.DoneAtOnce && runtimeAsync.Step.StopsAtResume is false)
 				{
-					// What it awaited was done at once: the step goes on through the rest of the statement, following any await still to come
 					_logger?.Invoke("The await was done at once: the step goes on");
 					EndStep();
 					await StartStepThroughRestOfStatement(thread, runtimeAsync.Step.Type);
@@ -156,7 +153,6 @@ public partial class ManagedDebugger
 			}
 			case StepState.RuntimeAsyncAwait runtimeAsync when runtimeAsync.Step.SuspendBreakpoint == breakpoint:
 			{
-				// A chain was given its task when it first suspended: when the step's run's, the step waits where that chain goes on
 				if (_asyncStepper.TakeSuspendedChain(thread, runtimeAsync) is not { } waiting) break;
 				runtimeAsync.Stepper?.TryDeactivate();
 				DeactivateIfUnused(breakpoint);
@@ -166,9 +162,8 @@ public partial class ManagedDebugger
 			case StepState.AwaitingTaskCompletion awaitingTaskCompletion when awaitingTaskCompletion.NotifyBreakpoint == breakpoint:
 			{
 				EndStep();
-				// The task-completion hook runs inside the awaiting caller's GetResult: step out to that caller, then finish its
-				// await statement. Stepping is exact here so it lands in the same place whether or not Just My Code is enabled. A
-				// runtime-async caller's GetResult is the dispatcher's, called before the caller itself: wait where the caller goes on
+				// A state machine calls GetResult itself, so we can step out to it. A runtime-async caller is still suspended
+				// while the dispatcher calls GetResult, so we need its resume breakpoint instead
 				StartStep(_asyncStepper.TryWaitForResumingCaller(thread) ?? TryCreateStepOutToAwaitingUserFrame(thread) ?? new StepState.Simple(CreateStepper(thread, StepType.StepIn)));
 				break;
 			}
@@ -180,8 +175,8 @@ public partial class ManagedDebugger
 	}
 
 	/// <summary>
-	/// The stepping method has gone on after an await, partway through its statement: step through the rest of it, following any await
-	/// still to come in it (<c>Consume(await FirstAsync(), await SecondAsync())</c>), which may suspend too. Without continuing execution
+	/// The same statement can suspend again, e.g. Consume(await FirstAsync(), await SecondAsync()), so a plain stepper is not enough.
+	/// Set up the next async step without continuing execution
 	/// </summary>
 	private async Task StartStepThroughRestOfStatement(ICorDebugThread thread, StepType stepType) =>
 		StartStep(await _asyncStepper.TryCreateAsyncStep(thread, stepType) ?? new StepState.Simple(CreateStepper(thread, stepType)));
@@ -194,8 +189,8 @@ public partial class ManagedDebugger
 	/// <summary>
 	/// Create and activate a stepper, without continuing execution
 	/// </summary>
-	/// <param name="justMyCode">Whether the stepper steps with Just My Code, when not as the session does</param>
-	/// <param name="endIlOffset">Where a step over or into ends, when before the end of the statement: the step goes through that part of it alone</param>
+	/// <param name="justMyCode">Overrides the session setting when a step must observe a return into runtime code</param>
+	/// <param name="endIlOffset">Limits the step range so a step out can finish an await without executing the rest of its statement</param>
 	internal ICorDebugStepper CreateStepper(ICorDebugThread thread, StepType stepType, bool? justMyCode = null, int? endIlOffset = null)
 	{
 		var frame = thread.ActiveFrame;

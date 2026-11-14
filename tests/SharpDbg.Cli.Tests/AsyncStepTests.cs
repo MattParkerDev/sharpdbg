@@ -67,14 +67,12 @@ public class AsyncStepTests(ITestOutputHelper testOutputHelper)
 		stopInfo7.filePath.Should().EndWith("AnotherClass.cs");
 		stopInfo7.line.Should().Be(19);
 
-		// step out of an async await method: stops on the await's line once the await is done, as a step out of a synchronous call
-		// stops on the call's line
+		// As with a synchronous call, step out leaves the rest of the caller's statement available to step into
 		var stoppedEvent8 = await debugProtocolHost.WithStepOutRequest(stoppedEvent7.ThreadId!.Value).WaitForStoppedEvent();
 		var stopInfo8 = stoppedEvent8.ReadStopInfo();
 		stopInfo8.filePath.Should().EndWith("MyAsyncClass.cs");
 		stopInfo8.line.Should().Be(13);
 
-		// step over the rest of the await's statement
 		var stoppedEvent9 = await debugProtocolHost.WithStepOverRequest(stoppedEvent8.ThreadId!.Value).WaitForStoppedEvent();
 		var stopInfo9 = stoppedEvent9.ReadStopInfo();
 		stopInfo9.filePath.Should().EndWith("MyAsyncClass.cs");
@@ -93,9 +91,7 @@ public class AsyncStepTests(ITestOutputHelper testOutputHelper)
 		stopInfo11.line.Should().Be(14);
 	}
 
-	// An async step-out waits for the method's task and stops in the awaiting caller, on the await's line once the await is done, as a
-	// step out of a synchronous call stops on the call's line. Without Just My Code the step must still land there, not in the builder or
-	// the thread pool code that resumes the caller
+	// Disabling Just My Code must not make an async step out stop in the builder or thread pool before reaching the awaiting caller
 	[Theory]
 	[InlineData(true)]
 	[InlineData(false)]
@@ -221,7 +217,6 @@ public class AsyncStepTests(ITestOutputHelper testOutputHelper)
 		resumed.ReadStopInfo().line.Should().Be(18);
 		var afterCallerAwait = await debugProtocolHost.WithStepOutRequest(resumed.ThreadId!.Value).WaitForStoppedEvent();
 		afterCallerAwait.Reason.Should().Be(StoppedEvent.ReasonValue.Step);
-		// On the caller's await of the task, once it is done
 		afterCallerAwait.ReadStopInfo().line.Should().Be(10);
 	}
 
@@ -329,9 +324,7 @@ public class AsyncStepTests(ITestOutputHelper testOutputHelper)
 		debugProtocolHost.Evaluate(endStack.StackFrames!.First().Id, "n").Result.Should().Be("3");
 	}
 
-	// A step out of an awaited method stops on the await's line once the await is done, as a step out of a synchronous call stops on the
-	// call's line, so the rest of the statement can still be stepped into: here the call the result is passed to. Whether the awaited
-	// method completed at once or suspended
+	// Step out must leave Process available to step into, whether the awaited method completed synchronously or suspended
 	[Theory]
 	[InlineData(true)]
 	[InlineData(false)]
@@ -353,7 +346,6 @@ public class AsyncStepTests(ITestOutputHelper testOutputHelper)
 			.WithConfigurationDoneRequest()
 			.WithOptionalResumeRuntime(p2.Id, startSuspended);
 
-		// Done at once: the caller never left the stack
 		var doneAtOnceStop = await debugProtocolHost.WaitForStoppedEvent();
 		doneAtOnceStop.ReadStopInfo().line.Should().Be(21);
 		var onAwaitLine = await debugProtocolHost.WithStepOutRequest(doneAtOnceStop.ThreadId!.Value).WaitForStoppedEvent();
@@ -366,7 +358,6 @@ public class AsyncStepTests(ITestOutputHelper testOutputHelper)
 		inProcessInfo.filePath.Should().EndWith("AsyncNestedAwaitClass.cs");
 		inProcessInfo.line.Should().Be(15);
 
-		// Suspended: the caller goes on after the await once the delay is done, on whichever thread
 		var suspendsStop = await debugProtocolHost.WithContinueRequest().WaitForStoppedEvent();
 		suspendsStop.ReadStopInfo().line.Should().Be(28);
 		var onResumedAwaitLine = await debugProtocolHost.WithStepOutRequest(suspendsStop.ThreadId!.Value).WaitForStoppedEvent();
@@ -379,8 +370,7 @@ public class AsyncStepTests(ITestOutputHelper testOutputHelper)
 		inProcessAgainInfo.line.Should().Be(15);
 	}
 
-	// A step out of an awaited method that has resumed after its own await: on the caller's await line, then a step over runs the rest
-	// of the statement and stops on the next line
+	// The resumed callee no longer has its caller on the stack, but step out must still leave the caller's statement unfinished
 	[Theory]
 	[InlineData(true)]
 	[InlineData(false)]
@@ -413,8 +403,7 @@ public class AsyncStepTests(ITestOutputHelper testOutputHelper)
 		nextLine.ReadStopInfo().line.Should().Be(11);
 	}
 
-	// Stepping over an await in one of two runs of the same method started side by side: the other run, which suspended for less time,
-	// goes on after the await first, and the step must let it run on and end in the run it started in
+	// Both calls share the resume breakpoint. The shorter delay makes the other call resume first, which must not end this step
 	[Theory]
 	[InlineData(true)]
 	[InlineData(false)]
@@ -449,8 +438,7 @@ public class AsyncStepTests(ITestOutputHelper testOutputHelper)
 		debugProtocolHost.Evaluate(endStack.StackFrames!.First().Id, "id").Result.Should().Be("1", "the second run goes on after the await first, but is not the step's");
 	}
 
-	// Stepping over a statement with two awaits: after the first goes on, the second can still suspend, and the step must follow it to
-	// the next line. Whether the first suspended or was done at once
+	// The second await can suspend even if the first completed synchronously, so the step must re-arm within the same statement
 	[Theory]
 	[InlineData(true)]
 	[InlineData(false)]

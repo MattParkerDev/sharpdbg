@@ -390,7 +390,7 @@ public partial class ManagedDebugger
 				index++;
 			}
 
-			// What the runtime-async dispatchers on the thread are doing, innermost first, as are their frames
+			// Dispatcher info and physical frames have the same order, so advance them together to attach each chain to its frame
 			using var dispatchers = framesForSyntheticAsyncFrames.Count is 0 ? null : _runtimeAsyncDispatchers.Dispatchers(framesForSyntheticAsyncFrames[0].frame).GetEnumerator();
 			foreach (var (physicalDepth, frame) in framesForSyntheticAsyncFrames)
 			{
@@ -562,7 +562,7 @@ public partial class ManagedDebugger
 			}
 			else if (variablesReference.ReferenceKind is StoredReferenceKind.SyntheticAsyncScope && variablesReference.Frame is { } runtimeAsyncFrame)
 			{
-				// A runtime-async caller's frame, read from its continuation: its arguments and locals are the frame's own
+				// The continuation exposes locals and arguments directly, so no state-machine field lookup is needed
 				var corDebugFunction = runtimeAsyncFrame.Function;
 				var module = _modules[corDebugFunction.Module.BaseAddress];
 				var classContainingHoistedLocalsValue = await AddArguments(module, corDebugFunction, result, variablesReference.ThreadId, variablesReference.FrameStackDepth, runtimeAsyncFrame);

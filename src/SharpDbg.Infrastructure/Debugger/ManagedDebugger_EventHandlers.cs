@@ -330,7 +330,6 @@ public partial class ManagedDebugger
 		{
 			if (_asyncStepper.WaitAtAwait(corThread, runtimeAsync) is { } waiting)
 			{
-				// The step's runtime-async method left at an await that suspended: the step goes on where its run does
 				runtimeAsync.Stepper?.TryDeactivate();
 				_step = waiting;
 				ContinueWithVariableClear();
@@ -342,15 +341,14 @@ public partial class ManagedDebugger
 		EndStep();
 		if (step is StepState.StepOutToAwaitingUserFrame or StepState.FinishAwait or StepState.AwaitingYield { StopOffset: not null })
 		{
-			// Back in the awaiting caller, just after the awaiter's GetResult: the step ends there, on the await's line, as a step out of a
-			// synchronous call stops on the call's line. The rest of the statement (e.g. a call it passes the result to) is still to step
-			// over or into. The code there is hidden, so the stop is reported at the await's statement
+			// Leave the rest of the caller's statement available to step into, as after a synchronous call.
+			// The code after GetResult is hidden, so report the stop on the await's line
 			ReportStopAtActiveFrame(corThread, "step");
 			return;
 		}
 		if (step is StepState.StepOutToKickoffCaller)
 		{
-			// Returned from an async method's kick-off method, which had not yielded: through the caller's await, if it awaits the method
+			// The callee returned before yielding, but the caller's await must still finish before the step out ends
 			if (await TryFinishAwaitingStatement(corThread, stopAfterAwait: true))
 			{
 				ContinueWithVariableClear();

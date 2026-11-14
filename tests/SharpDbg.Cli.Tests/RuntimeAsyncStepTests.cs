@@ -31,71 +31,60 @@ public class RuntimeAsyncStepTests(ITestOutputHelper testOutputHelper)
 
 		debugProtocolHost.WithClearBreakpointsRequest(Path.JoinFromGitRoot("tests", "RuntimeAsyncConsoleApp", "MyAsyncClass.cs"));
 
-		// step over sync
 		var stoppedEvent2 = await debugProtocolHost.WithStepOverRequest(stoppedEvent.ThreadId!.Value).WaitForStoppedEvent();
 		var stopInfo2 = stoppedEvent2.ReadStopInfo();
 		stopInfo2.filePath.Should().EndWith("MyAsyncClass.cs");
 		stopInfo2.line.Should().Be(10);
 
-		// step over sync, arrives at await line
 		var stoppedEvent3 = await debugProtocolHost.WithStepOverRequest(stoppedEvent2.ThreadId!.Value).WaitForStoppedEvent();
 		var stopInfo3 = stoppedEvent3.ReadStopInfo();
 		stopInfo3.filePath.Should().EndWith("MyAsyncClass.cs");
 		stopInfo3.line.Should().Be(11);
 
-		// step over await
 		var stoppedEvent4 = await debugProtocolHost.WithStepOverRequest(stoppedEvent3.ThreadId!.Value).WaitForStoppedEvent();
 		var stopInfo4 = stoppedEvent4.ReadStopInfo();
 		stopInfo4.filePath.Should().EndWith("MyAsyncClass.cs");
 		stopInfo4.line.Should().Be(12);
 
-		// step over another await, note we must use stoppedEvent4's ThreadId, as the thread may have changed after the await
+		// The await may resume on another thread, so use the latest stop's ThreadId
 		var stoppedEvent5 = await debugProtocolHost.WithStepOverRequest(stoppedEvent4.ThreadId!.Value).WaitForStoppedEvent();
 		var stopInfo5 = stoppedEvent5.ReadStopInfo();
 		stopInfo5.filePath.Should().EndWith("MyAsyncClass.cs");
 		stopInfo5.line.Should().Be(13);
 
-		// step into an await method
 		var stoppedEvent6 = await debugProtocolHost.WithStepInRequest(stoppedEvent5.ThreadId!.Value).WaitForStoppedEvent();
 		var stopInfo6 = stoppedEvent6.ReadStopInfo();
 		stopInfo6.filePath.Should().EndWith("AnotherClass.cs");
 		stopInfo6.line.Should().Be(18);
 
-		// step over
 		var stoppedEvent7 = await debugProtocolHost.WithStepInRequest(stoppedEvent6.ThreadId!.Value).WaitForStoppedEvent();
 		var stopInfo7 = stoppedEvent7.ReadStopInfo();
 		stopInfo7.filePath.Should().EndWith("AnotherClass.cs");
 		stopInfo7.line.Should().Be(19);
 
-		// step out of an async await method: stops on the await's line once the await is done, as a step out of a synchronous call
-		// stops on the call's line
+		// As with a synchronous call, step out leaves the rest of the caller's statement available to step into
 		var stoppedEvent8 = await debugProtocolHost.WithStepOutRequest(stoppedEvent7.ThreadId!.Value).WaitForStoppedEvent();
 		var stopInfo8 = stoppedEvent8.ReadStopInfo();
 		stopInfo8.filePath.Should().EndWith("MyAsyncClass.cs");
 		stopInfo8.line.Should().Be(13);
 
-		// step over the rest of the await's statement
 		var stoppedEvent9 = await debugProtocolHost.WithStepOverRequest(stoppedEvent8.ThreadId!.Value).WaitForStoppedEvent();
 		var stopInfo9 = stoppedEvent9.ReadStopInfo();
 		stopInfo9.filePath.Should().EndWith("MyAsyncClass.cs");
 		stopInfo9.line.Should().Be(14);
 
-		// step into async void method
 		var stoppedEvent10 = await debugProtocolHost.WithStepInRequest(stoppedEvent9.ThreadId!.Value).WaitForStoppedEvent();
 		var stopInfo10 = stoppedEvent10.ReadStopInfo();
 		stopInfo10.filePath.Should().EndWith("AnotherClass.cs");
 		stopInfo10.line.Should().Be(25);
 
-		// step out of async void method
 		var stoppedEvent11 = await debugProtocolHost.WithStepOutRequest(stoppedEvent10.ThreadId!.Value).WaitForStoppedEvent();
 		var stopInfo11 = stoppedEvent11.ReadStopInfo();
 		stopInfo11.filePath.Should().EndWith("MyAsyncClass.cs");
 		stopInfo11.line.Should().Be(14);
 	}
 
-	// An async step-out waits for the method's task and stops in the awaiting caller, on the await's line once the await is done, as a
-	// step out of a synchronous call stops on the call's line. Without Just My Code the step must still land there, not in the builder or
-	// the thread pool code that resumes the caller
+	// Disabling Just My Code must not make an async step out stop in the runtime before reaching the awaiting caller
 	[Theory]
 	[InlineData(true)]
 	[InlineData(false)]
@@ -117,7 +106,6 @@ public class RuntimeAsyncStepTests(ITestOutputHelper testOutputHelper)
 			.WithConfigurationDoneRequest()
 			.WithOptionalResumeRuntime(p2.Id, startSuspended);
 
-		// ValueTask: AsyncValueTaskMethodBuilder's task is reached through ObjectIdForDebugger
 		var valueTaskStop = await debugProtocolHost.WaitForStoppedEvent();
 		valueTaskStop.ReadStopInfo().line.Should().Be(18);
 		var afterValueTask = await debugProtocolHost.WithStepOutRequest(valueTaskStop.ThreadId!.Value).WaitForStoppedEvent();
@@ -221,12 +209,11 @@ public class RuntimeAsyncStepTests(ITestOutputHelper testOutputHelper)
 		resumed.ReadStopInfo().line.Should().Be(18);
 		var afterCallerAwait = await debugProtocolHost.WithStepOutRequest(resumed.ThreadId!.Value).WaitForStoppedEvent();
 		afterCallerAwait.Reason.Should().Be(StoppedEvent.ReasonValue.Step);
-		// On the caller's await of the task, once it is done
 		afterCallerAwait.ReadStopInfo().line.Should().Be(10);
 	}
 
-	// Stepping into an async method lands on its first line. Without Just My Code it must not stop on the way in the state machine's
-	// constructor (Object..ctor) or the builder's Create and Start, which have decompiled source
+	// A call whose task is awaited later goes through a runtime thunk. Without Just My Code, its AsyncHelpers calls could end the step
+	// before it reaches the method's own code
 	[Theory]
 	[InlineData(true)]
 	[InlineData(false)]
@@ -294,7 +281,7 @@ public class RuntimeAsyncStepTests(ITestOutputHelper testOutputHelper)
 		afterLoopInfo.line.Should().Be(13);
 	}
 
-	// Stepping over a recursive await: the inner activations hit the same await first, the step must end in the one it started in
+	// Inner recursive calls hit the same resume breakpoint first, so matching only the method or chain would end the step too early
 	[Theory]
 	[InlineData(true)]
 	[InlineData(false)]
@@ -329,9 +316,7 @@ public class RuntimeAsyncStepTests(ITestOutputHelper testOutputHelper)
 		debugProtocolHost.Evaluate(endStack.StackFrames!.First().Id, "n").Result.Should().Be("3");
 	}
 
-	// A step out of an awaited method stops on the await's line once the await is done, as a step out of a synchronous call stops on the
-	// call's line, so the rest of the statement can still be stepped into: here the call the result is passed to. Whether the awaited
-	// method completed at once or suspended
+	// Step out must leave Process available to step into, whether the awaited method completed synchronously or suspended
 	[Theory]
 	[InlineData(true)]
 	[InlineData(false)]
@@ -353,7 +338,6 @@ public class RuntimeAsyncStepTests(ITestOutputHelper testOutputHelper)
 			.WithConfigurationDoneRequest()
 			.WithOptionalResumeRuntime(p2.Id, startSuspended);
 
-		// Done at once: the caller never left the stack
 		var doneAtOnceStop = await debugProtocolHost.WaitForStoppedEvent();
 		doneAtOnceStop.ReadStopInfo().line.Should().Be(21);
 		var onAwaitLine = await debugProtocolHost.WithStepOutRequest(doneAtOnceStop.ThreadId!.Value).WaitForStoppedEvent();
@@ -366,7 +350,6 @@ public class RuntimeAsyncStepTests(ITestOutputHelper testOutputHelper)
 		inProcessInfo.filePath.Should().EndWith("AsyncNestedAwaitClass.cs");
 		inProcessInfo.line.Should().Be(15);
 
-		// Suspended: the caller goes on after the await once the delay is done, on whichever thread
 		var suspendsStop = await debugProtocolHost.WithContinueRequest().WaitForStoppedEvent();
 		suspendsStop.ReadStopInfo().line.Should().Be(28);
 		var onResumedAwaitLine = await debugProtocolHost.WithStepOutRequest(suspendsStop.ThreadId!.Value).WaitForStoppedEvent();
@@ -379,8 +362,7 @@ public class RuntimeAsyncStepTests(ITestOutputHelper testOutputHelper)
 		inProcessAgainInfo.line.Should().Be(15);
 	}
 
-	// A step out of an awaited method that has resumed after its own await: on the caller's await line, then a step over runs the rest
-	// of the statement and stops on the next line
+	// The resumed callee no longer has its caller on the stack, but step out must still leave the caller's statement unfinished
 	[Theory]
 	[InlineData(true)]
 	[InlineData(false)]
@@ -413,8 +395,7 @@ public class RuntimeAsyncStepTests(ITestOutputHelper testOutputHelper)
 		nextLine.ReadStopInfo().line.Should().Be(11);
 	}
 
-	// Stepping over an await in one of two runs of the same method started side by side: the other run, which suspended for less time,
-	// goes on after the await first, and the step must let it run on and end in the run it started in
+	// Both calls share the resume breakpoint. The shorter delay makes the other call resume first, which must not end this step
 	[Theory]
 	[InlineData(true)]
 	[InlineData(false)]
@@ -449,8 +430,7 @@ public class RuntimeAsyncStepTests(ITestOutputHelper testOutputHelper)
 		debugProtocolHost.Evaluate(endStack.StackFrames!.First().Id, "id").Result.Should().Be("1", "the second run goes on after the await first, but is not the step's");
 	}
 
-	// Stepping over a statement with two awaits: after the first goes on, the second can still suspend, and the step must follow it to
-	// the next line. Whether the first suspended or was done at once
+	// The second await can suspend even if the first completed synchronously, so the step must re-arm within the same statement
 	[Theory]
 	[InlineData(true)]
 	[InlineData(false)]

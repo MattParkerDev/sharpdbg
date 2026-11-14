@@ -10,11 +10,10 @@ namespace SharpDbg.Infrastructure.Debugger.Stepping;
 /// breakpoint, an exception or a pause. Most steps are one <see cref="Simple"/> step after another, until one lands on a line.
 /// Stepping over an await goes <see cref="AwaitingYield"/>, <see cref="AwaitingResume"/>, then <see cref="Simple"/>. Stepping out
 /// of an async method that has resumed after an await goes <see cref="AwaitingTaskCompletion"/>,
-/// <see cref="StepOutToAwaitingUserFrame"/>, then stops on the awaiting caller's await line, as a step out of a synchronous call stops on
-/// the call's line. Stepping out of an async method that has not yielded yet, to a caller whose statement awaits it, goes
-/// <see cref="StepOutToKickoffCaller"/>, then through that await alone: <see cref="AwaitingYield"/>, <see cref="AwaitingResume"/> and
-/// <see cref="FinishAwait"/> with a stop offset. A step through an await of a runtime-async method (.NET 11) is a
-/// <see cref="RuntimeAsyncAwait"/>, with its stepper until the stepping frame leaves at the await, then without, then <see cref="Simple"/>
+/// <see cref="StepOutToAwaitingUserFrame"/>, then stops on the caller's await line to leave the rest of the statement available to step into.
+/// Before the first yield, <see cref="StepOutToKickoffCaller"/> returns to a caller whose await may still need to finish, using
+/// <see cref="AwaitingYield"/>, <see cref="AwaitingResume"/> and <see cref="FinishAwait"/> as needed.
+/// <see cref="RuntimeAsyncAwait"/> drops its stepper when the frame leaves, since that thread may then run unrelated code
 /// </remarks>
 public closed record StepState
 {
@@ -43,14 +42,13 @@ public closed record StepState
 	/// </param>
 	/// <param name="StepType">The step to take once the method resumes after the await</param>
 	/// <param name="StopOffset">
-	/// For a step that goes through the await alone (the end of a step out): the IL offset just after the awaiter's GetResult, where the
-	/// step stops, on the await's line, whether or not the method yields. Null for a step over or into the whole statement
+	/// Ends a step out just after GetResult, leaving the rest of the caller's statement available to step into.
+	/// Null for a step over or into the whole statement
 	/// </param>
 	public sealed record AwaitingYield(ICorDebugStepper Stepper, ICorDebugFunctionBreakpoint YieldBreakpoint, int ThreadId, (CORDB_ADDRESS Start, CORDB_ADDRESS End) FrameStackRange, StepType StepType, uint ResumeOffset, uint? StopOffset = null) : StepState
 	{
 		/// <summary>
-		/// For a step over or into the whole statement: where the await goes on to its awaiter's GetResult whether it yielded or not. Hit
-		/// there without yielding, the await was done at once, and the step goes on to follow any await still to come in the statement
+		/// Synchronous completion skips the yield breakpoint. This breakpoint lets the step re-arm for another await in the same statement
 		/// </summary>
 		public ICorDebugFunctionBreakpoint? CompletedBreakpoint { get; init; }
 	}
@@ -61,8 +59,7 @@ public closed record StepState
 	public sealed record AwaitingResume(ICorDebugFunctionBreakpoint ResumeBreakpoint, int ThreadId, StepType StepType, ICorDebugHandleValue AsyncId, uint? StopOffset = null) : StepState;
 
 	/// <summary>
-	/// The method has resumed after the await of a step that goes through the await alone: stepping to just after the awaiter's GetResult,
-	/// where the step stops, on the await's line
+	/// The resume breakpoint is before GetResult; finish that call before reporting the step out on the caller's await line
 	/// </summary>
 	public sealed record FinishAwait(ICorDebugStepper Stepper) : StepState;
 
@@ -70,8 +67,8 @@ public closed record StepState
 	public sealed record AwaitingTaskCompletion(ICorDebugFunctionBreakpoint NotifyBreakpoint) : StepState;
 
 	/// <summary>
-	/// A step through an await of a runtime-async method, waiting for the awaiting method to go on after it: its stepper runs until the
-	/// stepping frame leaves at the await (null once it has, or for a step out of a resumed run, which runs free to the waiting caller)
+	/// The stepper is only useful while the stepping frame is on the stack. Once it leaves, the resume breakpoint tracks the activation
+	/// across threads; a step out to a suspended caller needs only that breakpoint from the start
 	/// </summary>
 	public sealed record RuntimeAsyncAwait(ICorDebugStepper? Stepper, RuntimeAsyncStep Step) : StepState;
 

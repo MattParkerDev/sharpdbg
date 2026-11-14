@@ -1,6 +1,6 @@
 namespace RuntimeAsyncConsoleApp;
 
-// Statements with more than one await: a step over goes on to the next line whichever of them suspend
+// A second await in the same statement can suspend even when the first completed synchronously, so stepping must re-arm
 public static class AsyncMultipleAwaitsClass
 {
 	public static async Task TestAsync()

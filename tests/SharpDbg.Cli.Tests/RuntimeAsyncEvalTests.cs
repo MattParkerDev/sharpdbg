@@ -42,7 +42,7 @@ public class RuntimeAsyncEvalTests(ITestOutputHelper testOutputHelper)
 
 		TestVariablesEval(stackTraceResponse.StackFrames!.First().Id);
 
-		// Continue, so we hit the breakpoint after the async suspension point
+		// Evaluation must still find this and the local after the runtime restores the suspended frame
 		debugProtocolHost.WithContinueRequest();
 
 		var stoppedEvent2 = await debugProtocolHost.WaitForStoppedEvent();

@@ -3,15 +3,13 @@ using ICorDebugSharp;
 namespace SharpDbg.Infrastructure.Debugger;
 
 /// <summary>
-/// Reads the runtime's dispatchers of runtime-async continuations (.NET 11): AsyncHelpers.RuntimeAsyncTask's DispatchContinuations, which
-/// calls each runtime-async method again where it goes on after an await that suspended. While one runs on a thread, the thread's
-/// AsyncDispatcherInfo.t_current points at what it is doing, and its Next at what the dispatcher below it on the stack is doing
+/// Suspended runtime-async callers are absent from the physical stack. AsyncDispatcherInfo exposes their continuation chains,
+/// starting at the thread's t_current and linking nested dispatchers through Next
 /// </summary>
 internal sealed class RuntimeAsyncDispatchers(Dictionary<CORDB_ADDRESS, ModuleInfo> modules)
 {
 	private const string CoreLibName = "System.Private.CoreLib.dll";
 
-	/// <summary>Whether a frame is the runtime's dispatcher of a chain of continuations</summary>
 	public bool IsDispatcher(ICorDebugFrame frame)
 	{
 		if (frame.TryGetFunction(out var function) is not Cor.S_OK || function is null) return false;
@@ -20,14 +18,12 @@ internal sealed class RuntimeAsyncDispatchers(Dictionary<CORDB_ADDRESS, ModuleIn
 	}
 
 	/// <summary>
-	/// A field of what the thread's innermost dispatcher is doing, read with a frame of the thread: the task it runs (CurrentTask), or the
-	/// continuation it goes on with next (NextContinuation). None with no dispatcher on the thread, or a runtime with none
+	/// The frame selects the thread, not a dispatcher: this always reads the innermost dispatcher's CurrentTask or NextContinuation
 	/// </summary>
 	public ICorDebugReferenceValue? Dispatching(ICorDebugFrame frame, string field) => Dispatchers(frame).FirstOrDefault() is { } innermost ? Field(innermost, field) : null;
 
 	/// <summary>
-	/// What each dispatcher on a frame's thread is doing, innermost (the one nearest the top of the stack) first, as the runtime chains them
-	/// through AsyncDispatcherInfo.Next: one for each dispatcher frame on the stack, in the same order
+	/// Next links dispatchers in physical stack order, so callers can pair each entry with its dispatcher frame
 	/// </summary>
 	public IEnumerable<ICorDebugObjectValue> Dispatchers(ICorDebugFrame frame)
 	{
@@ -40,8 +36,8 @@ internal sealed class RuntimeAsyncDispatchers(Dictionary<CORDB_ADDRESS, ModuleIn
 	}
 
 	/// <summary>
-	/// The frames of the runtime-async methods waiting, in turn, on what a dispatcher runs: the continuations it goes on with after the one it
-	/// runs, read with ICorDebugProcess12.GetAsyncStack. They live only until the process next runs
+	/// GetAsyncStack exposes suspended callers as frames with their own locals and arguments.
+	/// These frames become invalid when the process continues
 	/// </summary>
 	public IReadOnlyList<ICorDebugILFrame> WaitingFrames(ICorDebugProcess process, ICorDebugObjectValue dispatching)
 	{

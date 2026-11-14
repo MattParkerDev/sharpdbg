@@ -6,9 +6,8 @@ using SharpDbg.Infrastructure.Debugger.ExpressionEvaluator.Cil;
 namespace SharpDbg.Infrastructure.Debugger;
 
 /// <summary>
-/// .NET 11's runtime async: an async method compiled with no state machine (MethodImplAttributes.Async), whose awaits are calls to the
-/// runtime's AsyncHelpers.Await methods. An await that suspends returns from the method's frame, and the runtime later calls the method
-/// again where it goes on, on whichever thread. Roslyn writes no async stepping information for such a method, so its awaits are read from its IL
+/// Roslyn writes no async stepping information for runtime-async methods (.NET 11), so we find their awaits from calls to
+/// AsyncHelpers.Await in the IL
 /// </summary>
 public partial class ModuleMetadataReader
 {
@@ -18,7 +17,7 @@ public partial class ModuleMetadataReader
 	/// </summary>
 	public readonly record struct RuntimeAwait(int Before, int Call, int After);
 
-	/// <summary>What <see cref="ResumeAfter"/> answers for an await its method returns right after</summary>
+	/// <summary>Distinguishes a return after the await from an unknown resume offset in <see cref="ResumeAfter"/></summary>
 	public const int Returns = -1;
 
 	/// <summary>MethodImplAttributes.Async, which the metadata reader's enum does not name</summary>
@@ -26,7 +25,6 @@ public partial class ModuleMetadataReader
 
 	private readonly Dictionary<int, IReadOnlyList<CilInstruction>?> _decodedMethods = new();
 
-	/// <summary>Whether a method is compiled with runtime async</summary>
 	public bool IsRuntimeAsync(int methodToken) =>
 		MetadataTokens.EntityHandle(methodToken).Kind == HandleKind.MethodDefinition
 		&& ((int)_peMetadataReader.GetMethodDefinition(MetadataTokens.MethodDefinitionHandle(methodToken)).ImplAttributes & RuntimeAsyncFlag) != 0;
@@ -47,9 +45,8 @@ public partial class ModuleMetadataReader
 	}
 
 	/// <summary>
-	/// The await of the call a runtime-async method's frame is in, its IP at or before that call: the first call from there awaited at once,
-	/// or an await itself. None when the first call is not awaited at once, made through its callee's task-returning thunk, which starts a
-	/// chain of continuations of its own
+	/// A call awaited directly shares the caller's continuation chain. A call through a task-returning thunk starts its own chain,
+	/// so an intervening call means the next await cannot identify the current callee's caller
 	/// </summary>
 	public RuntimeAwait? AwaitOfCallAt(int methodToken, int ip)
 	{
@@ -59,9 +56,8 @@ public partial class ModuleMetadataReader
 	}
 
 	/// <summary>
-	/// Where a runtime-async method goes on after an await: the first IL offset its compiled code maps (<paramref name="mapped"/>) on the way
-	/// on from the await, straight on or through an unconditional branch or leave. <see cref="Returns"/> when the method returns first; null
-	/// when the way on branches or throws first
+	/// A breakpoint needs a mapped IL offset, which may be past the await's statement in optimized code. Follow unconditional branches
+	/// to find one; return <see cref="Returns"/> if the method ends first, or null if the resume location cannot be determined
 	/// </summary>
 	public int? ResumeAfter(int methodToken, RuntimeAwait awaited, IReadOnlySet<int> mapped)
 	{
@@ -91,8 +87,7 @@ public partial class ModuleMetadataReader
 	}
 
 	/// <summary>
-	/// The IL offset of the call to the awaiter's GetResult that a state machine's await goes on with, the first at or after its resume
-	/// offset: both the resumed run and one whose await was done at once (which branches past the resume code) make that call
+	/// Both a resumed await and one that completed synchronously call GetResult, so it identifies where their paths rejoin
 	/// </summary>
 	public int? AwaiterGetResultCallAfter(int methodToken, int resumeOffset)
 	{
@@ -101,7 +96,7 @@ public partial class ModuleMetadataReader
 			&& CalledMethodName(token) is "GetResult") is { } call ? call.Offset : null;
 	}
 
-	/// <summary>Whether no visible sequence point of a method comes at or after an IL offset: a step from before it leaves the method</summary>
+	/// <summary>With no visible sequence point left, stepping over or into must be treated as stepping out</summary>
 	public bool HasNoVisibleSequencePointFrom(int methodToken, int ilOffset)
 	{
 		if (_pdbMetadataReader is null) return false;
@@ -110,7 +105,6 @@ public partial class ModuleMetadataReader
 		return debugInfo.GetSequencePoints().Any(point => point.IsHidden is false && point.StartLine != 0 && point.Offset >= ilOffset) is false;
 	}
 
-	/// <summary>Whether a visible sequence point of a method starts at an IL offset</summary>
 	public bool IsVisibleSequencePointStart(int methodToken, int ilOffset)
 	{
 		if (_pdbMetadataReader is null) return false;
@@ -137,12 +131,11 @@ public partial class ModuleMetadataReader
 
 	private static bool IsCall(OpCode opCode) => opCode == OpCodes.Call || opCode == OpCodes.Callvirt || opCode == OpCodes.Calli || opCode == OpCodes.Newobj;
 
-	/// <summary>Whether an instruction calls one of AsyncHelpers' Await methods, through which a runtime-async method awaits</summary>
 	private bool IsRuntimeAwait(CilInstruction instruction) =>
 		instruction.OpCode == OpCodes.Call && instruction.Operand is int token && DescribeCall(token) is ("AsyncHelpers", var name)
 		&& (name.StartsWith("Await", StringComparison.Ordinal) || name.StartsWith("UnsafeAwait", StringComparison.Ordinal));
 
-	/// <summary>A called method's name, whatever declares it (e.g. a generic awaiter, through a type specification)</summary>
+	/// <summary>GetResult may belong to a generic awaiter whose declaring type is a type specification; only its name is needed</summary>
 	private string? CalledMethodName(int token)
 	{
 		var handle = MetadataTokens.EntityHandle(token);
@@ -155,7 +148,6 @@ public partial class ModuleMetadataReader
 		};
 	}
 
-	/// <summary>The name of the type declaring a called method, and the method's name</summary>
 	private (string DeclaringType, string Name)? DescribeCall(int token)
 	{
 		var handle = MetadataTokens.EntityHandle(token);

@@ -8,9 +8,8 @@ namespace SharpDbg.Infrastructure.Debugger.Stepping;
 public partial class AsyncStepper
 {
 	/// <summary>
-	/// The state to start a step through an await of a runtime-async method with: over or into the frame's statement when it awaits, or out
-	/// of the frame's method (a step out, a step past its end, or over an await it returns right after) to the await its caller waits at.
-	/// Null when the step goes through no such await
+	/// An await can remove the stepping frame, so the step needs a breakpoint where the awaiting method resumes.
+	/// At the end of the method, use the caller's await instead. Null when a plain step is sufficient
 	/// </summary>
 	/// <param name="stopAfterAwait">
 	/// Whether a step over the frame's own await goes through that await alone, and stops after it on its line: the end of a step out that
@@ -56,9 +55,8 @@ public partial class AsyncStepper
 	}
 
 	/// <summary>
-	/// A resumed run that ends its chain, whose task its caller awaits apart from the call (<c>var task = WorkAsync(); …; await task;</c>):
-	/// wait for that task's awaiter to see it complete, as for a state machine's task. None for a run not under the runtime's dispatcher,
-	/// which has its caller on the stack
+	/// A task awaited separately (<c>var task = WorkAsync(); …; await task;</c>) has no caller in its continuation chain.
+	/// Wait for its awaiter to observe completion, as for a state machine's task
 	/// </summary>
 	private async Task<StepState?> TryWaitForChainsTask(ICorDebugThread thread, ICorDebugILFrame frame)
 	{
@@ -79,9 +77,8 @@ public partial class AsyncStepper
 	}
 
 	/// <summary>
-	/// A task's awaiter has seen it complete (Task.NotifyDebuggerOfWaitCompletion), for a step out waiting for it: when the awaiter is
-	/// the runtime's dispatcher, about to call the runtime-async method that awaits the task again, wait where that method goes on. Null
-	/// when user code awaits the task on the stack, as a state machine does
+	/// The runtime's dispatcher calls GetResult before resuming the awaiting method, so stepping out of GetResult cannot reach that
+	/// caller. Wait at its resume offset instead. Null when the awaiting caller is already on the stack
 	/// </summary>
 	public StepState? TryWaitForResumingCaller(ICorDebugThread thread)
 	{
@@ -95,7 +92,7 @@ public partial class AsyncStepper
 				if (WaitingCallerOf(thread, top) is not { } waiting || IsRuntimeAsync(waiting) is false || AwaitIn(waiting) is not { } waited
 				    || ResumeOf(waiting, waited) is not { } resumes || resumes < 0) return null;
 				var chain = Dispatching(top, "CurrentTask")?.Dereference() is ICorDebugHeapValue2 task ? task.CreateHandle(CorDebugHandleType.HANDLE_STRONG) : null;
-				// The continuations after the one the dispatcher goes on with are what wait for the awaiting caller
+				// Exclude the awaiting caller itself from its waiter count
 				return Wait(thread, StepType.StepOut, StepType.StepOut, top, waiting, waited, resumes, frameAwaits: false, ContinuationsAfter(thread, frame) - 1, chain);
 			}
 			return null;
@@ -108,11 +105,10 @@ public partial class AsyncStepper
 	}
 
 	/// <summary>
-	/// Arms the step's breakpoint where the awaiting frame's method goes on after its await, and, while the stepping frame awaits, the stepper
-	/// that runs until it leaves there
+	/// Keep a stepper until the frame leaves, so a synchronous completion or a step into a call still behaves as an ordinary step
 	/// </summary>
 	/// <param name="userType">The step the user asked for, which the stepper takes</param>
-	/// <param name="type">The step the step is: a step out of the frame to its caller's await, or over or into the frame's own</param>
+	/// <param name="type">May be StepOut even for a user step over, when the method has no statement left</param>
 	private StepState.RuntimeAsyncAwait? Wait(ICorDebugThread thread, StepType userType, StepType type, ICorDebugFrame frame, ICorDebugILFrame awaiting,
 		ModuleMetadataReader.RuntimeAwait awaited, int resume, bool frameAwaits, int? waiters, ICorDebugHandleValue? chain = null)
 	{
@@ -127,9 +123,8 @@ public partial class AsyncStepper
 			SuspendBreakpoint = frameAwaits && chain is null ? TryCreateChainSuspendBreakpoint(frame) : null
 		};
 
-		// Stepping over an await that suspends, the step sees the frame leave wherever it returns to, Just My Code or not: Just My Code, the
-		// stepper would run on through the code that called it, and, should that thread call the method again where it goes on, pass the
-		// step's breakpoint by
+		// With Just My Code, the stepper may keep running through the runtime after the frame leaves and skip the resume breakpoint
+		// if the method resumes on that thread. Disable it so we observe the frame leaving
 		var stepper = frameAwaits ? _debugger.CreateStepper(thread, userType, justMyCode: type is StepType.StepOver ? false : null) : null;
 		_debugger.Log($"{type} through the runtime-async await at IL_{awaited.Call:X4} of method 0x{(int)function.Token:X} on thread {thread.Id}: "
 			+ $"its run goes on at IL_{resume:X4}{(past ? ", past the await's statement" : "")}{(frameAwaits ? "" : ", its caller waiting in a continuation")}"
@@ -138,8 +133,8 @@ public partial class AsyncStepper
 	}
 
 	/// <summary>
-	/// The step's stepper has stopped on the stepping thread: the state the step goes on with, waiting where its run goes on, when the
-	/// awaiting frame has left at its await (or, for a step out, the awaiting caller has been reached). Null when the step ends as a plain one
+	/// Once the frame leaves at an await, its thread may run unrelated code: discard the stepper and wait for the resume breakpoint.
+	/// A step out also waits once it reaches the awaiting caller. Null when the step should continue as a plain step
 	/// </summary>
 	public StepState.RuntimeAsyncAwait? WaitAtAwait(ICorDebugThread thread, StepState.RuntimeAsyncAwait state)
 	{
@@ -152,11 +147,10 @@ public partial class AsyncStepper
 				: $"Thread {thread.Id} leaves the method at the await: the step waits where its run goes on");
 			return new StepState.RuntimeAsyncAwait(null, step with { Left = held is false });
 		}
-		// Stopped in the awaiting frame, or in a call it made: the await is not the step's to wait for
 		return null;
 	}
 
-	/// <summary>Whether the resume breakpoint's hit on a thread is the step's own run going on after the await</summary>
+	/// <summary>The breakpoint is shared by all activations, including those whose await completed synchronously</summary>
 	public RuntimeResume TakeRuntimeResume(ICorDebugThread thread, RuntimeAsyncStep step)
 	{
 		var sameFrame = step is { FrameAwaits: true, Left: false } && thread.Id == step.ThreadId && step.IsFrame(thread.ActiveFrame);
@@ -175,7 +169,7 @@ public partial class AsyncStepper
 		Another,
 		/// <summary>What the awaiting frame awaited was done at once: a step over or into goes on as it was</summary>
 		DoneAtOnce,
-		/// <summary>The step's run goes on after the await: the step goes on from there</summary>
+		/// <summary>The stepping activation resumed, or a step out reached its caller after the await</summary>
 		GoesOn
 	}
 
@@ -189,7 +183,7 @@ public partial class AsyncStepper
 		return stepping >= 0 && frames.FindIndex(frame => frame.StackRange == caught) > stepping;
 	}
 
-	/// <summary>Whether the step's run goes on at the active frame, telling it apart from other runs of its method by its chain and its waiters</summary>
+	/// <summary>The chain distinguishes concurrent calls; the waiter count distinguishes recursive calls within that chain</summary>
 	private bool IsStepsRun(RuntimeAsyncStep step, ICorDebugThread thread)
 	{
 		try
@@ -219,7 +213,6 @@ public partial class AsyncStepper
 		}
 	}
 
-	/// <summary>Whether a runtime-async frame's statement has an await yet to go through</summary>
 	public bool HasRuntimeAwaitAhead(ICorDebugILFrame frame) => AwaitIn(frame) is not null;
 
 	/// <summary>The await a runtime-async frame's statement has yet to go through</summary>
@@ -234,11 +227,9 @@ public partial class AsyncStepper
 		return null;
 	}
 
-	/// <summary>The await of the call a runtime-async frame is in, which its callee's run returns to</summary>
 	private ModuleMetadataReader.RuntimeAwait? AwaitOfCall(ICorDebugILFrame frame) =>
 		MetadataReaderOf(frame)?.AwaitOfCallAt((int)frame.Function.Token, frame.IP.pnOffset);
 
-	/// <summary>Whether a step from a frame's statement leaves its method: no line of it comes after the statement</summary>
 	private bool LeavesMethod(ICorDebugILFrame frame) =>
 		MetadataReaderOf(frame) is { } reader && StepRangeOf(frame, frame.IP.pnOffset) is var (_, end)
 		&& reader.HasNoVisibleSequencePointFrom((int)frame.Function.Token, end);
@@ -246,8 +237,8 @@ public partial class AsyncStepper
 	private bool IsRuntimeAsync(ICorDebugILFrame frame) => MetadataReaderOf(frame)?.IsRuntimeAsync((int)frame.Function.Token) is true;
 
 	/// <summary>
-	/// Whether a frame runs a runtime-async method's own code: not its task-returning thunk, which shares the method's token, with none of
-	/// the method's IL mapped at its IP
+	/// The task-returning thunk shares the method's token, so the token alone cannot identify the method's own code.
+	/// The thunk has none of the method's IL mapped at its IP
 	/// </summary>
 	private bool IsRuntimeAsyncCode(ICorDebugILFrame frame) =>
 		IsRuntimeAsync(frame) && frame.IP.pMappingResult is not (CorDebugMappingResult.MAPPING_UNMAPPED_ADDRESS or CorDebugMappingResult.MAPPING_NO_INFO);
@@ -255,7 +246,6 @@ public partial class AsyncStepper
 	private ModuleMetadataReader? MetadataReaderOf(ICorDebugFrame frame) =>
 		_modules.TryGetValue(frame.Function.Module.BaseAddress, out var module) && module.MetadataReader.HasSymbols ? module.MetadataReader : null;
 
-	/// <summary>The IL range of the statement at an IL offset, as a step over or into steps through it</summary>
 	private (int Start, int End)? StepRangeOf(ICorDebugILFrame frame, int ilOffset)
 	{
 		if (MetadataReaderOf(frame)?.GetStartAndEndSequencePointIlOffsetsForIlOffset((int)frame.Function.Token, ilOffset) is not var (start, end)) return null;
@@ -263,8 +253,7 @@ public partial class AsyncStepper
 	}
 
 	/// <summary>
-	/// The frame of the method that waits for a resumed run to end: the first of the continuations the thread's dispatcher goes on with, as
-	/// the runtime reads them. None for a run that ends its chain
+	/// A resumed method's caller is no longer on the physical stack; it is the dispatcher's next continuation, if the chain has one
 	/// </summary>
 	private ICorDebugILFrame? WaitingCallerOf(ICorDebugThread thread, ICorDebugFrame frame)
 	{
@@ -284,8 +273,8 @@ public partial class AsyncStepper
 	}
 
 	/// <summary>
-	/// How many runs wait for a runtime-async frame's run: the runtime-async frames below it on the stack that await the call above them, and,
-	/// below those, the continuations the dispatcher goes on with. Null when they could not be counted
+	/// Count both physical callers and suspended continuations so the count stays the same across suspension.
+	/// This distinguishes recursive activations in the same chain. Null when the count cannot be read
 	/// </summary>
 	private int? Waiters(ICorDebugThread thread, ICorDebugFrame frame)
 	{
@@ -312,7 +301,6 @@ public partial class AsyncStepper
 		}
 	}
 
-	/// <summary>How many continuations the dispatcher on a thread goes on with after the one it runs</summary>
 	private int ContinuationsAfter(ICorDebugThread thread, ICorDebugFrame frame)
 	{
 		if (thread.Process is not ICorDebugProcess12 asyncStacks || Dispatching(frame, "NextContinuation") is not { } continuation) return 0;
@@ -327,8 +315,8 @@ public partial class AsyncStepper
 	}
 
 	/// <summary>
-	/// The task whose chain of continuations a frame's run is in, by a strong handle: the one the dispatcher below it on the stack runs, when
-	/// only runtime-async frames awaiting the call above them lie between. None below any other, which started the chain on this run
+	/// Only directly awaiting runtime-async callers share the dispatcher's chain. Any other caller starts a separate chain,
+	/// whose task cannot be read from that dispatcher
 	/// </summary>
 	private ICorDebugHandleValue? ChainOf(ICorDebugThread thread, ICorDebugFrame frame)
 	{
@@ -358,22 +346,16 @@ public partial class AsyncStepper
 	private RuntimeAsyncDispatchers Dispatchers => _dispatchers ??= new RuntimeAsyncDispatchers(_modules);
 	private RuntimeAsyncDispatchers? _dispatchers;
 
-	/// <summary>Whether a frame is the runtime's dispatcher of a chain of continuations, which calls each method again where it goes on</summary>
 	private bool IsDispatcher(ICorDebugFrame frame) => Dispatchers.IsDispatcher(frame);
 
-	/// <summary>A field of what the thread's innermost dispatcher of continuations is doing (<see cref="RuntimeAsyncDispatchers.Dispatching"/>)</summary>
 	private ICorDebugReferenceValue? Dispatching(ICorDebugFrame frame, string field) => Dispatchers.Dispatching(frame, field);
 
-	/// <summary>
-	/// Where a frame's method goes on after an await (<see cref="ModuleMetadataReader.ResumeAfter"/>): at once when what it awaited was done,
-	/// else once the runtime calls it again there
-	/// </summary>
 	private int? ResumeOf(ICorDebugILFrame frame, ModuleMetadataReader.RuntimeAwait awaited) =>
 		MetadataReaderOf(frame) is { } reader && MappedOffsets(frame) is { } mapped
 			? reader.ResumeAfter((int)frame.Function.Token, awaited, mapped)
 			: null;
 
-	/// <summary>The IL offsets a frame's compiled code maps, where a breakpoint binds; the prolog's, the epilog's and code of no IL left out</summary>
+	/// <summary>Breakpoints need mapped IL offsets; negative entries describe the prolog, epilog or code with no IL</summary>
 	internal static HashSet<int>? MappedOffsets(ICorDebugILFrame frame)
 	{
 		ICorDebugCode? code = null;

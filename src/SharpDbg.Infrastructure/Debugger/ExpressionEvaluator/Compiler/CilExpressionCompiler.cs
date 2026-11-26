@@ -112,23 +112,19 @@ internal sealed class CilExpressionCompiler(ManagedDebugger debugger)
 	{
 		errorMessage = null;
 		hasUnresolvedSymbol = false;
-		if (DeclaresPatternVariable(expression))
-		{
-			// The expression evaluator has no storage for a pattern's variable, Roslyn's code generation fails on it
-			errorMessage = "Declaring a variable in a pattern is not supported";
-			return null;
-		}
-		if (context.RootValue is not null)
-		{
-			var syntax = SyntaxFactory.ParseExpression(expression);
-			expression = new RemoveFormatSpecifierAlignmentRewriter().Visit(syntax)!.ToFullString();
-		}
 		var frame = debugger.GetIlFrameForThreadIdAndStackDepth(context.ThreadId, context.StackDepth);
 		var preferredModule = context.RootValue is not null ? context.RootValue.ExactType.Class.Module : frame.Function.Module;
 		var hasException = debugger.GetCurrentException(context.ThreadId) is not null;
 		EnsureModuleVersion();
 		var key = CreateCacheKey(expression, context, frame, preferredModule, hasException);
 		if (TryGetCachedCompiled(key, out var cached)) return cached;
+		// Checked after the cache lookup, as it parses the expression
+		if (DeclaresPatternVariable(expression))
+		{
+			// The expression evaluator has no storage for a pattern's variable, Roslyn's code generation fails on it
+			errorMessage = "Declaring a variable in a pattern is not supported";
+			return null;
+		}
 
 		var blocks = GetMetadataBlocks(preferredModule);
 		var evaluationContext = context.RootValue is null
@@ -414,19 +410,5 @@ internal sealed class CilExpressionCompiler(ManagedDebugger debugger)
 			throw new InvalidOperationException(string.Join("; ", result.Diagnostics.Select(diagnostic => diagnostic.GetMessage())));
 		}
 		return ImmutableArray.Create(stream.ToArray());
-	}
-
-	// To allow us to evaluate DebuggerDisplay attributes that contain nq
-	private sealed class RemoveFormatSpecifierAlignmentRewriter : CSharpSyntaxRewriter
-	{
-		public override SyntaxNode? VisitInterpolation(InterpolationSyntax node)
-		{
-			var result = (InterpolationSyntax)base.VisitInterpolation(node)!;
-			if (result.AlignmentClause is not null && result.AlignmentClause.Value is not LiteralExpressionSyntax { RawKind: (int)SyntaxKind.NumericLiteralExpression })
-			{
-				result = result.WithAlignmentClause(null);
-			}
-			return result;
-		}
 	}
 }

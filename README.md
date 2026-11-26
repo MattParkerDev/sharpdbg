@@ -66,7 +66,7 @@ SharpDbg is organized into three main components:
 
 ## Building From Source
 
-1. Ensure .NET 10 SDK is installed
+1. Ensure .NET 11 SDK is installed
 2. git clone
 3. `dotnet build`
 4. Done!

@@ -1,4 +1,5 @@
 using System.Buffers;
+using System.Diagnostics.CodeAnalysis;
 using System.Text;
 using ICorDebugSharp;
 using SharpDbg.Infrastructure.Debugger.ExpressionEvaluator;
@@ -34,6 +35,21 @@ public partial class ManagedDebugger
 				builder.Append(debuggerDisplay.AsSpan(segment.Literal));
 				continue;
 			}
+			if (IsIdentifier(segment.Expression) && TryReadInstanceMemberWithoutEval(value, segment.Expression, out var memberValue))
+			{
+				// Fast path for the common '{Count}', as the expression evaluator is far slower than reading the member
+				try
+				{
+					var formattedMember = await FormatCorDebugValueAsync(ResolveCorDebugValue(memberValue), threadId, frameStackDepth, escapeStringValue: segment.NoQuotes is false, debuggerDisplayDepth + 1);
+					builder.Append(formattedMember.Value);
+					resultIsError |= formattedMember.ResultIsError;
+				}
+				finally
+				{
+					if (memberValue is ICorDebugHandleValue handle) handle.TryDispose();
+				}
+				continue;
+			}
 			var evalContext = new CompiledExpressionEvaluationContext(thread, threadId, frameStackDepth, value);
 			using var result = await _expressionEvaluator!.Evaluate(segment.Expression, evalContext);
 			if (result.Error is not null)
@@ -48,6 +64,91 @@ public partial class ManagedDebugger
 			resultIsError |= formatted.ResultIsError;
 		}
 		return (builder.ToString(), resultIsError);
+	}
+
+	private static bool IsIdentifier(string expression)
+	{
+		if (expression.Length is 0 || (char.IsAsciiLetter(expression[0]) is false && expression[0] is not '_')) return false;
+		foreach (var c in expression)
+		{
+			if (char.IsAsciiLetterOrDigit(c) is false && c is not '_') return false;
+		}
+		return true;
+	}
+
+	/// Reads the instance field, or the field a <see cref="TrivialGetter"/> property returns, that C# name lookup finds for <paramref name="memberName"/>
+	/// from inside the type of <paramref name="value"/>. Returns false for anything else, e.g. a method, a static member, a property whose getter
+	/// does more, or a field ICorDebug cannot read, which the expression evaluator handles. A reference read, other than a string, is in a strong handle that the caller owns
+	private bool TryReadInstanceMemberWithoutEval(ICorDebugValue value, string memberName, [NotNullWhen(true)] out ICorDebugValue? result)
+	{
+		result = null;
+		if (value.UnwrapDebugValue() is not ICorDebugObjectValue objectValue || objectValue is ICorDebugStringValue) return false;
+		try
+		{
+			if (FindDebuggerDisplayMember(objectValue, memberName) is not { } member) return false;
+			ICorDebugValue memberValue;
+			if (member.Getter is null) memberValue = objectValue.GetFieldValue(member.DeclaringClass, member.Field);
+			else if (TryReadTrivialGetter(member.Getter, value, out var getterValue)) memberValue = getterValue;
+			else return false;
+			// A string is formatted without running code in the debuggee, so nothing neuters it first, and a handle costs two round trips to the debuggee
+			result = memberValue is ICorDebugReferenceValue { IsNull: false } reference && reference.Dereference() is ICorDebugStringValue
+				? memberValue
+				: InStrongHandleIfReference(memberValue);
+			return true;
+		}
+		catch (Exception ex)
+		{
+			// e.g. a field added by Edit and Continue, which ICorDebug cannot read: the expression evaluator reports the segment's error
+			_logger?.Invoke($"Reading '{memberName}' for a DebuggerDisplay failed, falling back to the expression evaluator: {ex.Message}");
+			return false;
+		}
+	}
+
+	/// What C# name lookup finds for a member name from inside a type, when it may be read without the expression evaluator:
+	/// an instance field (<see cref="Getter"/> is null), or the getter of a property, read only if it is a <see cref="TrivialGetter"/>
+	private readonly record struct DebuggerDisplayMember(ICorDebugClass DeclaringClass, mdFieldDef Field, ICorDebugFunction? Getter);
+
+	// By type definition, as name lookup does not depend on a generic type's arguments. Cleared when a module loads or unloads, which can change the
+	// lookup and invalidate the classes and functions held
+	private readonly Dictionary<(CORDB_ADDRESS Module, mdTypeDef Type, string Name), DebuggerDisplayMember?> _debuggerDisplayMembers = new();
+	private int _debuggerDisplayMembersModuleVersion = -1;
+
+	private DebuggerDisplayMember? FindDebuggerDisplayMember(ICorDebugObjectValue objectValue, string memberName)
+	{
+		if (_debuggerDisplayMembersModuleVersion != ModuleSet_Version)
+		{
+			_debuggerDisplayMembers.Clear();
+			_debuggerDisplayMembersModuleVersion = ModuleSet_Version;
+		}
+		var corClass = objectValue.Class;
+		var key = (corClass.Module.BaseAddress, corClass.Token, memberName);
+		if (_debuggerDisplayMembers.TryGetValue(key, out var member)) return member;
+		member = LookUpDebuggerDisplayMember(objectValue.ExactType, memberName);
+		_debuggerDisplayMembers[key] = member;
+		return member;
+	}
+
+	private static DebuggerDisplayMember? LookUpDebuggerDisplayMember(ICorDebugType exactType, string memberName)
+	{
+		for (var type = exactType; type is not null; type = type.Base)
+		{
+			if (type.Type is not (CorElementType.CLASS or CorElementType.VALUETYPE)) return null;
+			var corClass = type.Class;
+			var metadataImport = corClass.Module.GetMetaDataInterface<IMetaDataImport>();
+			// Fields and methods: a method of the name in a derived type hides a field or property of a base, so it ends the lookup too
+			foreach (var member in metadataImport.EnumMembersWithName(corClass.Token, memberName))
+			{
+				if (member.Type is not CorTokenType.mdtFieldDef) return null;
+				var field = new mdFieldDef(member.Value);
+				return metadataImport.GetFieldProps(field).pdwAttr.IsFdStatic() ? null : new DebuggerDisplayMember(corClass, field, null);
+			}
+			if (metadataImport.GetPropertyWithName(corClass.Token, memberName) is { IsNil: false } property)
+			{
+				var getter = metadataImport.GetPropertyProps(property).pmdGetter;
+				return getter == mdMethodDef.Nil ? null : new DebuggerDisplayMember(corClass, default, corClass.Module.GetFunctionFromToken(getter));
+			}
+		}
+		return null;
 	}
 
 	private static DebuggerDisplaySegment[] ParseDebuggerDisplay(string debuggerDisplay)

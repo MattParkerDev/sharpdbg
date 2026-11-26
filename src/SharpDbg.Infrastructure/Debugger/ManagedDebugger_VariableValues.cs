@@ -22,18 +22,22 @@ public enum CorDebugValueFormatKind
 public readonly record struct CorDebugValueValueResult(string FriendlyTypeName, string Value, CorDebugValueFormatKind FormatKind, string? DebuggerProxyTypeName);
 public partial class ManagedDebugger
 {
-	public async Task<(string friendlyTypeName, string value, ICorDebugValue? debuggerProxyInstance, bool resultIsError)> GetValueForCorDebugValueAsync(ICorDebugValue corDebugValue, ThreadId threadId, FrameStackDepth frameStackDepth, bool escapeStringValue)
+	/// The debugger proxy type is only named, as creating an instance needs a func eval, so that is left until the value is expanded
+	public async Task<(string friendlyTypeName, string value, string? debuggerProxyTypeName, bool resultIsError)> GetValueForCorDebugValueAsync(ICorDebugValue corDebugValue, ThreadId threadId, FrameStackDepth frameStackDepth, bool escapeStringValue)
 	{
 		Guard.Against.Null(corDebugValue);
 		var resolvedValue = ResolveCorDebugValue(corDebugValue);
 		var (friendlyTypeName, value, debuggerProxyTypeName, resultIsError) = await FormatCorDebugValueAsync(resolvedValue, threadId, frameStackDepth, escapeStringValue);
-		ICorDebugValue? proxyInstance = null;
-		if (resolvedValue.Value is { } valueToProxy && debuggerProxyTypeName is not null)
-		{
-			var module = valueToProxy.ExactType.Class.Module;
-			proxyInstance = await CreateDebuggerProxyInstance(valueToProxy, threadId, module, debuggerProxyTypeName, valueToProxy.ExactType.TypeParameters);
-		}
-		return (friendlyTypeName, value, proxyInstance, resultIsError);
+		return (friendlyTypeName, value, resolvedValue.Value is null ? null : debuggerProxyTypeName, resultIsError);
+	}
+
+	/// Creates an instance of the debugger proxy type for <paramref name="value"/>, which the variable manager disposes of on its next clear
+	private async Task<ICorDebugValue?> CreateRetainedDebuggerProxyInstance(ICorDebugValue value, ThreadId threadId, string proxyTypeName)
+	{
+		if (ResolveCorDebugValue(value).Value is not { } valueToProxy) return null;
+		var proxyInstance = await CreateDebuggerProxyInstance(valueToProxy, threadId, valueToProxy.ExactType.Class.Module, proxyTypeName, valueToProxy.ExactType.TypeParameters);
+		if (proxyInstance is ICorDebugHandleValue handle) _variableManager.RetainHandle(handle);
+		return proxyInstance;
 	}
 
 	private async Task<(string FriendlyTypeName, string Value, string? DebuggerProxyTypeName, bool ResultIsError)> FormatCorDebugValueAsync(ResolvedCorDebugValue resolvedValue, ThreadId threadId, FrameStackDepth frameStackDepth, bool escapeStringValue, int debuggerDisplayDepth = 0)

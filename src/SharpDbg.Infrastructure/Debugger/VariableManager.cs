@@ -33,7 +33,7 @@ public readonly record struct FrameStackDepth
 		Value = value;
 	}
 };
-public record struct VariablesReference(StoredReferenceKind ReferenceKind, ICorDebugValue? ObjectValue, ThreadId ThreadId, FrameStackDepth FrameStackDepth, ICorDebugValue? DebuggerProxyInstance, uint[]? ArrayIndices = null, uint? ArrayStartOffset = null, uint? ArrayCount = null, ICorDebugILFrame? Frame = null);
+public record struct VariablesReference(StoredReferenceKind ReferenceKind, ICorDebugValue? ObjectValue, ThreadId ThreadId, FrameStackDepth FrameStackDepth, string? DebuggerProxyTypeName, uint[]? ArrayIndices = null, uint? ArrayStartOffset = null, uint? ArrayCount = null, ICorDebugILFrame? Frame = null);
 /// <summary>
 /// Manages variable references for scopes and variables
 /// </summary>
@@ -41,6 +41,8 @@ public class VariableManager
 {
 	private int _nextReference = 1;
 	private readonly Dictionary<int, VariablesReference> _references = new();
+	// Handles no reference holds that must live as long as the references do, e.g. a debugger proxy whose members were listed
+	private readonly List<ICorDebugHandleValue> _retainedHandles = [];
 	private readonly Lock _lock = new();
 
 	/// <summary>
@@ -53,6 +55,14 @@ public class VariableManager
 			var reference = _nextReference++;
 			_references[reference] = obj;
 			return reference;
+		}
+	}
+
+	public void RetainHandle(ICorDebugHandleValue handle)
+	{
+		lock (_lock)
+		{
+			_retainedHandles.Add(handle);
 		}
 	}
 
@@ -80,9 +90,10 @@ public class VariableManager
 		{
 			// Distinct because if an ICorDebugHandleValue (result of property or eval) has static members, we store the same ICorDebugHandleValue as a 'Static Members' alias variable.
 			// Meaning that without distinct, we would attempt to dispose the same ICorDebugHandleValue twice.
-			var handleReferences = _references.Values.SelectMany(GetHandleValues).Distinct().ToList();
+			var handleReferences = _references.Values.SelectMany(GetHandleValues).Concat(_retainedHandles).Distinct().ToList();
 			handleReferences.ForEach(h => h.Dispose());
 			_references.Clear();
+			_retainedHandles.Clear();
 			_nextReference = 1;
 		}
 	}
@@ -93,9 +104,10 @@ public class VariableManager
 		{
 			// Distinct because if an ICorDebugHandleValue (result of property or eval) has static members, we store the same ICorDebugHandleValue as a 'Static Members' alias variable.
 			// Meaning that without distinct, we would attempt to dispose the same ICorDebugHandleValue twice.
-			var handleReferences = _references.Values.SelectMany(GetHandleValues).Distinct().ToList();
+			var handleReferences = _references.Values.SelectMany(GetHandleValues).Concat(_retainedHandles).Distinct().ToList();
 			handleReferences.ForEach(h => h.TryDispose());
 			_references.Clear();
+			_retainedHandles.Clear();
 			_nextReference = 1;
 		}
 	}
@@ -104,8 +116,5 @@ public class VariableManager
 	{
 		if (r.ObjectValue is ICorDebugHandleValue ov)
 			yield return ov;
-
-		if (r.DebuggerProxyInstance is ICorDebugHandleValue dp)
-			yield return dp;
 	}
 }

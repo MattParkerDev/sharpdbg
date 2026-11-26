@@ -44,7 +44,7 @@ public partial class ManagedDebugger
 			}
 			await WithFailureHandling(result, localVariableName, async () =>
 			{
-				var (friendlyTypeName, value, debuggerProxyInstance, resultIsError) = await GetValueForCorDebugValueAsync(localVariableCorDebugValue, threadId, stackDepth, true);
+				var (friendlyTypeName, value, debuggerProxyTypeName, resultIsError) = await GetValueForCorDebugValueAsync(localVariableCorDebugValue, threadId, stackDepth, true);
 				VariablePresentationHint? variablePresentationHint = resultIsError ? new VariablePresentationHint { Attributes = AttributesValue.FailedEvaluation } : null;
 				result.Add(new VariableInfo
 				{
@@ -52,7 +52,7 @@ public partial class ManagedDebugger
 					Value = value,
 					Type = friendlyTypeName,
 					PresentationHint = variablePresentationHint,
-					VariablesReference = GetVariablesReference(localVariableCorDebugValue, friendlyTypeName, threadId, stackDepth, debuggerProxyInstance)
+					VariablesReference = GetVariablesReference(localVariableCorDebugValue, friendlyTypeName, threadId, stackDepth, debuggerProxyTypeName)
 				});
 			});
 		}
@@ -129,7 +129,7 @@ public partial class ManagedDebugger
 			{
 				await WithFailureHandling(result, "this", async () =>
 				{
-					var (friendlyTypeName, value, debuggerProxyInstance, resultIsError) = await GetValueForCorDebugValueAsync(implicitThisValue, threadId, stackDepth, true);
+					var (friendlyTypeName, value, debuggerProxyTypeName, resultIsError) = await GetValueForCorDebugValueAsync(implicitThisValue, threadId, stackDepth, true);
 					VariablePresentationHint? variablePresentationHint = resultIsError ? new VariablePresentationHint { Attributes = AttributesValue.FailedEvaluation } : null;
 					result.Add(new VariableInfo
 					{
@@ -137,7 +137,7 @@ public partial class ManagedDebugger
 						Value = value,
 						Type = friendlyTypeName,
 						PresentationHint = variablePresentationHint,
-						VariablesReference = GetVariablesReference(implicitThisValue, friendlyTypeName, threadId, stackDepth, debuggerProxyInstance)
+						VariablesReference = GetVariablesReference(implicitThisValue, friendlyTypeName, threadId, stackDepth, debuggerProxyTypeName)
 					});
 				});
 			}
@@ -157,7 +157,7 @@ public partial class ManagedDebugger
 			if (hoistedArgumentNames.Contains(argumentName)) continue;
 			await WithFailureHandling(result, argumentName, async () =>
 			{
-				var (friendlyTypeName, value, debuggerProxyInstance, resultIsError) = await GetValueForCorDebugValueAsync(argumentCorDebugValue, threadId, stackDepth, true);
+				var (friendlyTypeName, value, debuggerProxyTypeName, resultIsError) = await GetValueForCorDebugValueAsync(argumentCorDebugValue, threadId, stackDepth, true);
 				VariablePresentationHint? variablePresentationHint = resultIsError ? new VariablePresentationHint { Attributes = AttributesValue.FailedEvaluation } : null;
 				result.Add(new VariableInfo
 				{
@@ -165,7 +165,7 @@ public partial class ManagedDebugger
 					Value = value,
 					Type = friendlyTypeName,
 					PresentationHint = variablePresentationHint,
-					VariablesReference = GetVariablesReference(argumentCorDebugValue, friendlyTypeName, threadId, stackDepth, debuggerProxyInstance)
+					VariablesReference = GetVariablesReference(argumentCorDebugValue, friendlyTypeName, threadId, stackDepth, debuggerProxyTypeName)
 				});
 			});
 		}
@@ -201,7 +201,7 @@ public partial class ManagedDebugger
 		{
 			await WithFailureHandling(result, "$exception", async () =>
 			{
-				var (friendlyTypeName, value, debuggerProxyInstance, resultIsError) = await GetValueForCorDebugValueAsync(currentException, threadId, stackDepth, true);
+				var (friendlyTypeName, value, debuggerProxyTypeName, resultIsError) = await GetValueForCorDebugValueAsync(currentException, threadId, stackDepth, true);
 				VariablePresentationHint? presentationHint = resultIsError ? new VariablePresentationHint { Attributes = AttributesValue.FailedEvaluation } : null;
 				result.Add(new VariableInfo
 				{
@@ -209,15 +209,15 @@ public partial class ManagedDebugger
 					Value = value,
 					Type = friendlyTypeName,
 					PresentationHint = presentationHint,
-					VariablesReference = GetVariablesReference(currentException, friendlyTypeName, threadId, stackDepth, debuggerProxyInstance)
+					VariablesReference = GetVariablesReference(currentException, friendlyTypeName, threadId, stackDepth, debuggerProxyTypeName)
 				});
 			});
 		}
 	}
 
-	private int GetVariablesReference(ICorDebugValue corDebugValue, string friendlyTypeName, ThreadId threadId, FrameStackDepth stackDepth, ICorDebugValue? debuggerProxyInstance)
+	private int GetVariablesReference(ICorDebugValue corDebugValue, string friendlyTypeName, ThreadId threadId, FrameStackDepth stackDepth, string? debuggerProxyTypeName)
 	{
-		return HasChildren(corDebugValue, friendlyTypeName) ? GenerateUniqueVariableReference(corDebugValue, threadId, stackDepth, debuggerProxyInstance) : 0;
+		return HasChildren(corDebugValue, friendlyTypeName) ? GenerateUniqueVariableReference(corDebugValue, threadId, stackDepth, debuggerProxyTypeName) : 0;
 	}
 
 	private bool HasChildren(ICorDebugValue corDebugValue, string friendlyTypeName)
@@ -248,20 +248,20 @@ public partial class ManagedDebugger
 		return false;
 	}
 
-	private int GenerateUniqueVariableReference(ICorDebugValue value, ThreadId threadId, FrameStackDepth stackDepth, ICorDebugValue? debuggerProxyInstance)
+	private int GenerateUniqueVariableReference(ICorDebugValue value, ThreadId threadId, FrameStackDepth stackDepth, string? debuggerProxyTypeName)
 	{
-		var variablesReference = new VariablesReference(StoredReferenceKind.StackVariable, value, threadId, stackDepth, debuggerProxyInstance);
+		var variablesReference = new VariablesReference(StoredReferenceKind.StackVariable, value, threadId, stackDepth, debuggerProxyTypeName);
 		var reference = _variableManager.CreateReference(variablesReference);
 		return reference;
 	}
 
 	private async Task AddStackVariableChildren(VariablesReference variablesReference, List<VariableInfo> result)
 	{
-		if (variablesReference.DebuggerProxyInstance is not null)
+		if (variablesReference.DebuggerProxyTypeName is not null && await CreateRetainedDebuggerProxyInstance(variablesReference.ObjectValue!, variablesReference.ThreadId, variablesReference.DebuggerProxyTypeName) is { } proxyInstance)
 		{
 			// get the public members of the debugger proxy instance instead
-			var proxyObjectValue = variablesReference.DebuggerProxyInstance.UnwrapDebugValueToObject();
-			await AddMembersAndStaticPseudoVariable(variablesReference.DebuggerProxyInstance, proxyObjectValue.ExactType, variablesReference.ThreadId, variablesReference.FrameStackDepth, result, false);
+			var proxyObjectValue = proxyInstance.UnwrapDebugValueToObject();
+			await AddMembersAndStaticPseudoVariable(proxyInstance, proxyObjectValue.ExactType, variablesReference.ThreadId, variablesReference.FrameStackDepth, result, false);
 			var rawValueVariablesReference = _variableManager.CreateReference(new VariablesReference(StoredReferenceKind.RawView, variablesReference.ObjectValue, variablesReference.ThreadId, variablesReference.FrameStackDepth, null));
 			var rawValuePseudoVariable = new VariableInfo
 			{
@@ -308,11 +308,10 @@ public partial class ManagedDebugger
 		var resolvedValue = ResolveCorDebugValue(value);
 		if (resolvedValue.Value is not { } valueToExpand) return (true, false);
 		var (friendlyTypeName, _, _, debuggerProxyTypeName) = GetValueForCorDebugValue(valueToExpand, true);
-		var debuggerProxyInstance = debuggerProxyTypeName is null ? null : await CreateDebuggerProxyInstance(valueToExpand, threadId, valueToExpand.ExactType.Class.Module, debuggerProxyTypeName, valueToExpand.ExactType.TypeParameters);
 		if (HasChildren(value, resolvedValue.FriendlyTypeNameOverride ?? friendlyTypeName) is false) return (true, false);
 		// AsyncLocal, so the increment is seen by the nested calls below and undone when this method returns
 		_rootHiddenDepth.Value++;
-		await AddStackVariableChildren(new VariablesReference(StoredReferenceKind.StackVariable, value, threadId, stackDepth, debuggerProxyInstance), result);
+		await AddStackVariableChildren(new VariablesReference(StoredReferenceKind.StackVariable, value, threadId, stackDepth, debuggerProxyTypeName), result);
 		return (true, true);
 	}
 
@@ -510,7 +509,7 @@ public partial class ManagedDebugger
 				var objectValue = corDebugValue.UnwrapDebugValueToObject();
 				var fieldCorDebugValue = isStatic ? await GetStaticFieldValueAsync(corDebugType, mdFieldDef, threadId, stackDepth) : objectValue.GetFieldValue(corDebugClass, mdFieldDef);
 				if (debuggerBrowsableRootHidden && (await TryAddRootHiddenChildren(fieldCorDebugValue, threadId, stackDepth, result)).Handled) return;
-				var (friendlyTypeName, value, debuggerProxyInstance, resultIsError) = await GetValueForCorDebugValueAsync(fieldCorDebugValue, threadId, stackDepth, true);
+				var (friendlyTypeName, value, debuggerProxyTypeName, resultIsError) = await GetValueForCorDebugValueAsync(fieldCorDebugValue, threadId, stackDepth, true);
 				VariablePresentationHint? variablePresentationHint = resultIsError ? new VariablePresentationHint { Attributes = AttributesValue.FailedEvaluation } : null;
 				var variableInfo = new VariableInfo
 				{
@@ -518,7 +517,7 @@ public partial class ManagedDebugger
 					Value = value,
 					Type = friendlyTypeName,
 					PresentationHint = variablePresentationHint,
-					VariablesReference = GetVariablesReference(fieldCorDebugValue, friendlyTypeName, threadId, stackDepth, debuggerProxyInstance)
+					VariablesReference = GetVariablesReference(fieldCorDebugValue, friendlyTypeName, threadId, stackDepth, debuggerProxyTypeName)
 				};
 				result.Add(variableInfo);
 			});
@@ -592,9 +591,9 @@ public partial class ManagedDebugger
 						retainReturnValue = valueRetained;
 						if (handled) return;
 					}
-					var (friendlyTypeName, value, debuggerProxyInstance, resultIsError) = await GetValueForCorDebugValueAsync(returnValue, threadId, stackDepth, true);
+					var (friendlyTypeName, value, debuggerProxyTypeName, resultIsError) = await GetValueForCorDebugValueAsync(returnValue, threadId, stackDepth, true);
 					VariablePresentationHint? variablePresentationHint = resultIsError ? new VariablePresentationHint { Attributes = AttributesValue.FailedEvaluation } : null;
-					var variablesReference = GetVariablesReference(returnValue, friendlyTypeName, threadId, stackDepth, debuggerProxyInstance);
+					var variablesReference = GetVariablesReference(returnValue, friendlyTypeName, threadId, stackDepth, debuggerProxyTypeName);
 					var variableInfo = new VariableInfo
 					{
 						Name = propertyName,
@@ -677,9 +676,9 @@ public partial class ManagedDebugger
 			var name = $"[{string.Join(", ", indices)}]";
 			await WithFailureHandling(result, name, async () =>
 			{
-				var (friendlyTypeName, value, debuggerProxyInstance, resultIsError) = await GetValueForCorDebugValueAsync(element, threadId, stackDepth, true);
+				var (friendlyTypeName, value, debuggerProxyTypeName, resultIsError) = await GetValueForCorDebugValueAsync(element, threadId, stackDepth, true);
 				VariablePresentationHint? variablePresentationHint = resultIsError ? new VariablePresentationHint { Attributes = AttributesValue.FailedEvaluation } : new VariablePresentationHint { Kind = PresentationHintKind.Data };
-				var variableReference = GetVariablesReference(element, friendlyTypeName, threadId, stackDepth, debuggerProxyInstance);
+				var variableReference = GetVariablesReference(element, friendlyTypeName, threadId, stackDepth, debuggerProxyTypeName);
 				var variableInfo = new VariableInfo
 				{
 					Name = name,

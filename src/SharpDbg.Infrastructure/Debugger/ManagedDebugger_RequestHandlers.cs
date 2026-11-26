@@ -659,9 +659,9 @@ public partial class ManagedDebugger
 				VariablesReference = 0
 			};
 		}
-		var (friendlyTypeName, value, debuggerProxyInstance, resultIsError) = await GetValueForCorDebugValueAsync(result.Value!, threadId, frameStackDepth, true);
+		var (friendlyTypeName, value, debuggerProxyTypeName, resultIsError) = await GetValueForCorDebugValueAsync(result.Value!, threadId, frameStackDepth, true);
 		VariablePresentationHint? variablePresentationHint = resultIsError ? new VariablePresentationHint { Attributes = AttributesValue.FailedEvaluation } : null;
-		var variablesReference = GetVariablesReference(result.Value!, friendlyTypeName, threadId, frameStackDepth, debuggerProxyInstance);
+		var variablesReference = GetVariablesReference(result.Value!, friendlyTypeName, threadId, frameStackDepth, debuggerProxyTypeName);
 		var variableInfo = new VariableInfo
 		{
 			Name = null!,

@@ -631,6 +631,14 @@ internal sealed class CilInterpreter(ManagedDebugger debugger, RuntimeAssemblyPr
 							: await MaterializeReceiverAsync(receiver, context, callConstrainedType, resolver, handles);
 					}
 
+					// A getter that only returns a field of its own type is read directly, as a func eval is far slower
+					if (!method.IsStatic && callArguments.Length is 1 && temporaryByRefArguments.Count is 0
+						&& !method.Signature.ReturnType.EndsWith('&') && debugger.TryReadTrivialGetter(method.Function, callArguments[0], out var trivialGetterResult))
+					{
+						stack.Push(handles.Root(CilValue.FromCorValue(trivialGetterResult)));
+						continue;
+					}
+
 					var declaringTypeArity = resolver.GetRuntimeTypeGenericArity(method.DeclaringType);
 					var declaringTypeArguments = !method.IsStatic && declaringTypeArity > 0 && callArguments[0].ExactType is { } receiverType
 						? (FindInstantiationOf(receiverType, method.DeclaringType) ?? receiverType).TypeParameters.Take(declaringTypeArity).ToArray()

@@ -571,15 +571,24 @@ public partial class ManagedDebugger
 				}
 
 				var getMethod = corDebugClass.Module.GetFunctionFromToken(getMethodDef);
-				var eval = variablesReferenceIlFrame.Chain.Thread.CreateEval();
+				ICorDebugValue? returnValue;
+				if (isStatic is false && TryReadTrivialGetter(getMethod, corDebugValue, out var fieldValue))
+				{
+					// Rooted like a func eval's result, as later properties' func evals would neuter it
+					returnValue = InStrongHandleIfReference(fieldValue);
+				}
+				else
+				{
+					var eval = variablesReferenceIlFrame.Chain.Thread.CreateEval();
 
-				// A getter declared on a generic base takes the base's instantiation, not the value's own type arguments
-				var typeParameterTypes = declaringType.TypeParameters;
+					// A getter declared on a generic base takes the base's instantiation, not the value's own type arguments
+					var typeParameterTypes = declaringType.TypeParameters;
 
-				// For instance properties, pass the object; for static, pass nothing
-				ICorDebugValue[] corDebugValues = isStatic ? [] : [corDebugValue];
+					// For instance properties, pass the object; for static, pass nothing
+					ICorDebugValue[] corDebugValues = isStatic ? [] : [corDebugValue];
 
-				var returnValue = await eval.CallParameterizedFunctionAsync(ProcessRuntimeEventsUntilEvalEvent, EvalStatus, getMethod, typeParameterTypes.Length, typeParameterTypes, corDebugValues.Length, corDebugValues);
+					returnValue = await eval.CallParameterizedFunctionAsync(ProcessRuntimeEventsUntilEvalEvent, EvalStatus, getMethod, typeParameterTypes.Length, typeParameterTypes, corDebugValues.Length, corDebugValues);
+				}
 
 				if (returnValue is null) return;
 				var retainReturnValue = false;

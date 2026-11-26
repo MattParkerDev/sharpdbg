@@ -497,11 +497,17 @@ public partial class ManagedDebugger
 		return ilFrame;
 	}
 
+	// Walking the stack is slow for a deep frame, and one request can need the same frame many times
+	private readonly Dictionary<(ThreadId ThreadId, FrameStackDepth StackDepth), ICorDebugFrame> _frames = [];
+
 	internal ICorDebugFrame GetFrameForThreadIdAndStackDepth(ThreadId threadId, FrameStackDepth stackDepth)
 	{
-		// We need to re-obtain the frame in case it has been neutered
+		// A frame is neutered whenever the process continues, func evals included, so a frame from an earlier walk is only used while it is not
+		// An internal frame can return CORDBG_E_CODE_NOT_AVAILABLE instead of S_OK, so check != CORDBG_E_OBJECT_NEUTERED instead of == S_OK
+		if (_frames.TryGetValue((threadId, stackDepth), out var cachedFrame) && cachedFrame.TryGetFunctionToken(out _) is not Cor.CORDBG_E_OBJECT_NEUTERED) return cachedFrame;
 		var thread = CorProcess!.GetThread(threadId.Value);
 		var frame = EnumerateFramesForThread(thread).ElementAt(stackDepth.Value);
+		_frames[(threadId, stackDepth)] = frame;
 		return frame;
 	}
 

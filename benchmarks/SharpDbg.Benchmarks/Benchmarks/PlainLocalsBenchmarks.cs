@@ -6,7 +6,7 @@ namespace SharpDbg.Benchmarks.Benchmarks;
 
 /// <summary>
 /// <see cref="InspectBenchmarks.Locals"/> for locals whose values a debugger can show without running code in the debuggee,
-/// at Program.cs:91 in PlainLocals: an int, a string, a class and a struct, none with [DebuggerDisplay] or a ToString override.
+/// at Program.cs:92 in PlainLocals: an int, a string, a class and a struct, none with [DebuggerDisplay] or a ToString override.
 /// A debugger that evaluates display values and one that only prints type names should then cost about the same.
 /// </summary>
 [Group("Inspect")]

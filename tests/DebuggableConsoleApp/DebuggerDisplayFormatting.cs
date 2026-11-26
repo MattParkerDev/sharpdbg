@@ -23,6 +23,9 @@ public class DebuggerDisplayFormatting
 		var braced = new DebuggerDisplayFormattingBraced();
 		var linkTail = new DebuggerDisplayFormattingLink("tail", null);
 		var derived = new DebuggerDisplayFormattingDerived();
+		var hiding = new DebuggerDisplayFormattingHiding();
+		var overriding = new DebuggerDisplayFormattingOverriding();
+		var holder = new DebuggerDisplayFormattingHolder();
 		;
 	}
 }
@@ -58,4 +61,41 @@ public class DebuggerDisplayFormattingBase
 public class DebuggerDisplayFormattingDerived : DebuggerDisplayFormattingBase
 {
 	public int Extra = 9;
+}
+
+[DebuggerDisplay("{Label,nq}")]
+public class DebuggerDisplayFormattingHidingBase
+{
+	public string Label { get; } = "base";
+}
+
+// Name lookup stops at the derived property, so the base's auto-property is not read
+public class DebuggerDisplayFormattingHiding : DebuggerDisplayFormattingHidingBase
+{
+	public new string Label => "hiding";
+}
+
+[DebuggerDisplay("{Kind,nq}")]
+public class DebuggerDisplayFormattingVirtual
+{
+	public virtual string Kind { get; } = "virtual";
+}
+
+public class DebuggerDisplayFormattingOverriding : DebuggerDisplayFormattingVirtual
+{
+	public override string Kind => "overriding";
+}
+
+// Inner is read through a trivial getter, then formatted with a display that runs a func eval before it reads a field
+[DebuggerDisplay("{Inner}")]
+public class DebuggerDisplayFormattingHolder
+{
+	public DebuggerDisplayFormattingInner Inner { get; } = new();
+}
+
+[DebuggerDisplay("{Describe(),nq} {Value}")]
+public class DebuggerDisplayFormattingInner
+{
+	public int Value = 5;
+	public string Describe() => "inner";
 }

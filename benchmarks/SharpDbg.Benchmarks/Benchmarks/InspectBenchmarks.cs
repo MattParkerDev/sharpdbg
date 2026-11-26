@@ -5,7 +5,7 @@ using SharpDbg.Benchmarks.Reporting;
 namespace SharpDbg.Benchmarks.Benchmarks;
 
 /// <summary>
-/// What an IDE asks for after a stop, at Program.cs:64 in Recurse, 21 calls deep.
+/// What an IDE asks for after a stop, at Program.cs:65 in Recurse, 21 calls deep.
 /// Each iteration starts from a new stop, so nothing an adapter caches for a stop carries over.
 /// </summary>
 public class InspectBenchmarks : StoppedSessionBenchmark

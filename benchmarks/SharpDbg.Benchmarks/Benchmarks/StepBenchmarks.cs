@@ -18,7 +18,7 @@ public class StepBenchmarks : StoppedSessionBenchmark
 	[IterationSetup]
 	public void StopAtBreakpoint() => ReturnToBreakpoint();
 
-	/// <summary>Program.cs:34 to 35, over a call to Add.</summary>
+	/// <summary>Program.cs:35 to 36, over a call to Add.</summary>
 	[Benchmark]
 	[Measures("Step over a call → the new stop's top frame read")]
 	public void StepOver()
@@ -27,7 +27,7 @@ public class StepBenchmarks : StoppedSessionBenchmark
 		Session.ExpectStoppedAt(Session.WaitForStop(), DebuggeeSource.StepOverTarget);
 	}
 
-	/// <summary>Program.cs:34 into Add (42-45).</summary>
+	/// <summary>Program.cs:35 into Add (43-46).</summary>
 	[Benchmark]
 	[Measures("Step into a call → the new stop's top frame read")]
 	public void StepIn()
@@ -36,7 +36,7 @@ public class StepBenchmarks : StoppedSessionBenchmark
 		Session.ExpectStoppedIn(Session.WaitForStop(), DebuggeeSource.AddBody);
 	}
 
-	/// <summary>Program.cs:43 in Add, out to StepLoop (33-37).</summary>
+	/// <summary>Program.cs:44 in Add, out to StepLoop (34-38).</summary>
 	[Benchmark]
 	[Measures("Step out to the caller → the new stop's top frame read")]
 	public void StepOut()

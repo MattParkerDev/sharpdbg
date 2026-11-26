@@ -23,6 +23,7 @@ Every benchmark also checks where the debugger stopped, so a debugger that stops
 | `LocalsPlain` | the same, in a frame whose locals need no code run in the debuggee to show (no `[DebuggerDisplay]`, `ToString` override or collection) |
 | `ExpandObject` / `ExpandList` | expanding an object with 26 members / a `List<int>` of 1000 |
 | `Evaluate` | five watch expressions |
+| `ExpandDisplayIdentifiers` / `ExpandDisplayExpressions` | expanding an array of 100 objects whose `[DebuggerDisplay]` uses member names (`{Name,nq} = {Value}`) / expressions (`{Name + "!",nq} = {Value + 1}`) |
 
 Apart from `LaunchToFirstBreakpoint`, each benchmark uses one debug session. Each iteration starts from a new stop, so nothing an adapter caches for a stop carries over to the next iteration.
 

@@ -13,6 +13,7 @@ switch (args.Length > 0 ? args[0] : "")
 	case "inspect": Scenarios.Inspect(); break;
 	case "conditional": Scenarios.Conditional(); break;
 	case "inspect-plain": Scenarios.InspectPlain(); break;
+	case "inspect-display": DisplayScenario.Run(); break;
 	default: throw new ArgumentException($"Unknown scenario '{(args.Length > 0 ? args[0] : "")}'");
 }
 
@@ -115,4 +116,34 @@ class WideObject
 	public List<string> Tags { get; } = ["a", "b", "c"];
 	public Dictionary<string, int> Lookup { get; } = new() { ["one"] = 1, ["two"] = 2 };
 	public WideObject? Child => null;
+}
+
+static class DisplayScenario
+{
+	public static void Run()
+	{
+		var identifiers = Enumerable.Range(0, 100).Select(i => new IdentifierDisplay(i)).ToArray();
+		var expressions = Enumerable.Range(0, 100).Select(i => new ExpressionDisplay(i)).ToArray();
+		while (true) Stop(identifiers, expressions);
+	}
+
+	[MethodImpl(MethodImplOptions.NoInlining)]
+	private static void Stop(IdentifierDisplay[] identifiers, ExpressionDisplay[] expressions)
+	{
+		Scenarios.Sink = identifiers.Length + expressions.Length; // display breakpoint
+	}
+}
+
+[System.Diagnostics.DebuggerDisplay("{Name,nq} = {Value}")]
+class IdentifierDisplay(int value)
+{
+	public string Name { get; } = "item " + value;
+	public int Value = value;
+}
+
+[System.Diagnostics.DebuggerDisplay("{Name + \"!\",nq} = {Value + 1}")]
+class ExpressionDisplay(int value)
+{
+	public string Name { get; } = "item " + value;
+	public int Value = value;
 }

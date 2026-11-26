@@ -19,7 +19,7 @@ public class DebuggerDisplayTests(ITestOutputHelper testOutputHelper)
 			.WithAttachRequest(p2.Id)
 			.WaitForInitializedEvent();
 		debugProtocolHost
-			.WithBreakpointsRequest(27,Path.JoinFromGitRoot("tests", "DebuggableConsoleApp", "DebuggerDisplayFormatting.cs"))
+			.WithBreakpointsRequest(30,Path.JoinFromGitRoot("tests", "DebuggableConsoleApp", "DebuggerDisplayFormatting.cs"))
 			.WithConfigurationDoneRequest()
 			.WithOptionalResumeRuntime(p2.Id, startSuspended);
 
@@ -35,5 +35,8 @@ public class DebuggerDisplayTests(ITestOutputHelper testOutputHelper)
 		variables.Single(v => v.Name == "braced").Value.Should().Be("{3}");
 		variables.Single(v => v.Name == "linkTail").Value.Should().Be("tail -> error: Evaluation threw System.NullReferenceException");
 		variables.Single(v => v.Name == "derived").Value.Should().Be("base b");
+		variables.Single(v => v.Name == "hiding").Value.Should().Be("hiding");
+		variables.Single(v => v.Name == "overriding").Value.Should().Be("overriding");
+		variables.Single(v => v.Name == "holder").Value.Should().Be("inner 5");
 	}
 }

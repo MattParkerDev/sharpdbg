@@ -22,7 +22,7 @@ public class BreakpointBenchmarks : StoppedSessionBenchmark
 		_everyLine = Enumerable.Range(1, lineCount).Select(line => new SourceBreakpoint { Line = line }).ToArray();
 	}
 
-	/// <summary>Continue from Program.cs:33 round StepLoop's loop to the same breakpoint: the cost of a stop and a resume.</summary>
+	/// <summary>Continue from Program.cs:34 round StepLoop's loop to the same breakpoint: the cost of a stop and a resume.</summary>
 	[Benchmark]
 	[Measures("Continue → stopped at the same breakpoint, once round a loop")]
 	public void ContinueToBreakpoint()
@@ -30,7 +30,7 @@ public class BreakpointBenchmarks : StoppedSessionBenchmark
 		Session.ExpectStoppedAt(Session.ContinueToStop(ThreadId), DebuggeeSource.StepStart);
 	}
 
-	/// <summary>Continue to Program.cs:72 with the condition <c>i == 999</c>, which is evaluated 1000 times on the way.</summary>
+	/// <summary>Continue to Program.cs:73 with the condition <c>i == 999</c>, which is evaluated 1000 times on the way.</summary>
 	[Benchmark]
 	[Measures("Continue → stopped at a breakpoint whose condition is evaluated 1000 times on the way")]
 	public void ConditionalBreakpoint()

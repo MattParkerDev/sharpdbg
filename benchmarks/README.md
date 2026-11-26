@@ -20,6 +20,7 @@ Every benchmark also checks where the debugger stopped, so a debugger that stops
 | `SetBreakpointOnEveryLine` | one `setBreakpoints` request for every line of `Program.cs` |
 | `StackTrace` | all 23 frames of the stopped thread |
 | `Locals` | `scopes` and the first scope's `variables` |
+| `LocalsPlain` | the same, in a frame whose locals need no code run in the debuggee to show (no `[DebuggerDisplay]`, `ToString` override or collection) |
 | `ExpandObject` / `ExpandList` | expanding an object with 26 members / a `List<int>` of 1000 |
 | `Evaluate` | five watch expressions |
 

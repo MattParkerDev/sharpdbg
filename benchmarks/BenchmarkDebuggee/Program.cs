@@ -12,6 +12,7 @@ switch (args.Length > 0 ? args[0] : "")
 	case "step": Scenarios.StepLoop(); break;
 	case "inspect": Scenarios.Inspect(); break;
 	case "conditional": Scenarios.Conditional(); break;
+	case "inspect-plain": Scenarios.InspectPlain(); break;
 	default: throw new ArgumentException($"Unknown scenario '{(args.Length > 0 ? args[0] : "")}'");
 }
 
@@ -73,6 +74,35 @@ static class Scenarios
 			}
 		}
 	}
+
+	public static void InspectPlain()
+	{
+		var plain = new PlainObject();
+		var point = new PlainPoint { X = 3, Y = 4 };
+		while (true) PlainLocals(42, plain, point);
+	}
+
+	// Locals whose values need no code run in the debuggee: no [DebuggerDisplay], no ToString override, no collection
+	[MethodImpl(MethodImplOptions.NoInlining)]
+	private static void PlainLocals(int count, PlainObject plain, PlainPoint point)
+	{
+		var text = "hello world";
+		var total = count + plain.Value + point.X;
+		Sink = total + text.Length; // plain inspect breakpoint
+	}
+}
+
+class PlainObject
+{
+	public int Value = 7;
+	public string Name = "plain object";
+	public PlainObject? Next = null;
+}
+
+struct PlainPoint
+{
+	public int X;
+	public int Y;
 }
 
 class WideObject

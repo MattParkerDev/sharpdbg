@@ -11,6 +11,13 @@ public sealed class MeasuresAttribute(string description) : Attribute
 	public string Description { get; } = description;
 }
 
+/// <summary>The group a benchmark class's rows are shown under, instead of its name without "Benchmarks".</summary>
+[AttributeUsage(AttributeTargets.Class)]
+public sealed class GroupAttribute(string name) : Attribute
+{
+	public string Name { get; } = name;
+}
+
 /// <summary>Times in milliseconds. A null median means the benchmark failed for that adapter.</summary>
 public sealed record ResultCell(double? Median, double? Mean, double? Min, double? Q1, double? Q3, double? P95, double? Max, int N, string? Failure);
 
@@ -42,7 +49,7 @@ public sealed record ResultsModel(
 		var rows = summary.Reports
 			.GroupBy(r => (Type: r.BenchmarkCase.Descriptor.Type, Method: r.BenchmarkCase.Descriptor.WorkloadMethod))
 			.Select(g => new ResultRow(
-				Group: g.Key.Type.Name.Replace("Benchmarks", ""),
+				Group: g.Key.Type.GetCustomAttribute<GroupAttribute>()?.Name ?? g.Key.Type.Name.Replace("Benchmarks", ""),
 				Name: g.Key.Method.Name,
 				Measures: g.Key.Method.GetCustomAttribute<MeasuresAttribute>()?.Description ?? "",
 				Cells: g.ToDictionary(r => AdapterOf(r.BenchmarkCase), Cell)))

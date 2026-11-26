@@ -362,11 +362,7 @@ public partial class ManagedDebugger
 	{
 		var result = new List<StackFrameInfo>();
 
-		if (!_threads.TryGetValue(threadIdInt, out var threadInfo))
-		{
-			return result;
-		}
-		var thread = threadInfo.Thread;
+		if (TryGetThread(threadIdInt) is not { } thread) return result;
 
 		try
 		{
@@ -546,8 +542,7 @@ public partial class ManagedDebugger
 
 		var localVariables = ilFrame.LocalVariables;
 		var arguments = ilFrame.Arguments;
-		var thread = _threads.GetValueOrDefault(threadId.Value)?.Thread;
-		Guard.Against.Null(thread);
+		var thread = GetThread(threadId);
 		var hasCurrentException = thread.TryGetCurrentException(out _) is Cor.S_OK;
 		if (localVariables.Length is 0 && arguments.Length is 0 && !hasCurrentException) return result;
 
@@ -640,8 +635,7 @@ public partial class ManagedDebugger
 
 		var frameInfo = _frameReferenceManager.GetFrameInfoById(frameId.Value);
 		if (frameInfo is not var (threadId, frameStackDepth)) throw new InvalidOperationException("Frame ID does not exist");
-		var thread = _threads.GetValueOrDefault(threadId.Value)?.Thread;
-		Guard.Against.Null(thread);
+		var thread = GetThread(threadId);
 
 		var evalContext = new CompiledExpressionEvaluationContext(thread, threadId, frameStackDepth);
 		ArgumentNullException.ThrowIfNull(_expressionEvaluator);
@@ -725,7 +719,7 @@ public partial class ManagedDebugger
 	public async Task<ExceptionInfo> ExceptionInfo(ThreadId threadId)
 	{
 		_logger?.Invoke($"ExceptionInfo for thread {threadId.Value}");
-		var thread = CorProcess!.GetThread(threadId.Value);
+		var thread = GetThread(threadId);
 		if (thread.TryGetCurrentException(out var currentException) is not Cor.S_OK)
 		{
 			_logger?.Invoke("No current exception");

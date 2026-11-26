@@ -505,7 +505,7 @@ public partial class ManagedDebugger
 		// A frame is neutered whenever the process continues, func evals included, so a frame from an earlier walk is only used while it is not
 		// An internal frame can return CORDBG_E_CODE_NOT_AVAILABLE instead of S_OK, so check != CORDBG_E_OBJECT_NEUTERED instead of == S_OK
 		if (_frames.TryGetValue((threadId, stackDepth), out var cachedFrame) && cachedFrame.TryGetFunctionToken(out _) is not Cor.CORDBG_E_OBJECT_NEUTERED) return cachedFrame;
-		var thread = CorProcess!.GetThread(threadId.Value);
+		var thread = GetThread(threadId);
 		var frame = EnumerateFramesForThread(thread).ElementAt(stackDepth.Value);
 		_frames[(threadId, stackDepth)] = frame;
 		return frame;
@@ -514,6 +514,7 @@ public partial class ManagedDebugger
 	internal void Log(string message) => _logger?.Invoke(message);
 
 	internal ICorDebugThread? TryGetThread(int threadId) => _threads.TryGetValue(threadId, out var threadInfo) ? threadInfo.Thread : null;
+	internal ICorDebugThread GetThread(ThreadId threadId) => TryGetThread(threadId.Value) ?? throw new InvalidOperationException($"Thread {threadId.Value} is not a known managed thread");
 
 	internal static IEnumerable<ICorDebugFrame> EnumerateFramesForThread(ICorDebugThread thread)
 	{
@@ -532,7 +533,7 @@ public partial class ManagedDebugger
 
 	internal ICorDebugValue? GetCurrentException(ThreadId threadId)
 	{
-		var thread = CorProcess?.GetThread(threadId.Value);
+		var thread = TryGetThread(threadId.Value);
 		if (thread is null) return null;
 		thread.TryGetCurrentException(out var currentException);
 		return currentException;

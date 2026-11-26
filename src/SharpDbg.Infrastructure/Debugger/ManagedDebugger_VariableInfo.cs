@@ -4,7 +4,6 @@ using System.Reflection.Metadata;
 using System.Reflection.Metadata.Ecma335;
 using System.Runtime.InteropServices;
 using System.Runtime.InteropServices.Marshalling;
-using Ardalis.GuardClauses;
 using ICorDebugSharp;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Symbols;
@@ -194,8 +193,7 @@ public partial class ManagedDebugger
 
 	private async Task AddCurrentException(List<VariableInfo> result, ThreadId threadId, FrameStackDepth stackDepth)
 	{
-		var thread = _threads.GetValueOrDefault(threadId.Value)?.Thread;
-		Guard.Against.Null(thread);
+		var thread = GetThread(threadId);
 		thread.TryGetCurrentException(out var currentException);
 		if (currentException is not null)
 		{
@@ -577,7 +575,7 @@ public partial class ManagedDebugger
 				}
 				else
 				{
-					var eval = CorProcess!.GetThread(threadId.Value).CreateEval();
+					var eval = GetThread(threadId).CreateEval();
 
 					// A getter declared on a generic base takes the base's instantiation, not the value's own type arguments
 					var typeParameterTypes = declaringType.TypeParameters;

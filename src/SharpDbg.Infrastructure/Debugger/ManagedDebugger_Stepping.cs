@@ -64,8 +64,7 @@ public partial class ManagedDebugger
 			_logger?.Invoke("Ignoring the step, as the debuggee is not stopped");
 			return;
 		}
-		if (_threads.TryGetValue(threadId, out var threadInfo) is false) return;
-		var thread = threadInfo.Thread;
+		if (TryGetThread(threadId) is not { } thread) return;
 		if (thread.ActiveFrame is not ICorDebugILFrame) throw new InvalidOperationException("Active frame is not an IL frame");
 		if (_step is not StepState.Idle) throw new InvalidOperationException("A step operation is already in progress");
 

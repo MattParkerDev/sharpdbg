@@ -6,6 +6,7 @@ public class MyAsyncClass
 {
 	public async Task<int> MyMethodAsync(int myParam)
 	{
+		var list = new List<int> { 1, 2, 3 }; // hoisted, and needs a func-eval ([DebuggerDisplay]) to display
 		var intVar = 10;
 		intVar = 10;
 		var result = await AnotherClass.AnotherMethodAsync();

@@ -21,7 +21,7 @@ public class AsyncVariablesTests(ITestOutputHelper testOutputHelper)
 			.WithAttachRequest(p2.Id)
 			.WaitForInitializedEvent();
 		debugProtocolHost
-			.WithBreakpointsRequest(11, Path.JoinFromGitRoot("tests", "DebuggableConsoleApp", "MyAsyncClass.cs"))
+			.WithBreakpointsRequest(12, Path.JoinFromGitRoot("tests", "DebuggableConsoleApp", "MyAsyncClass.cs"))
 			.WithConfigurationDoneRequest()
 			.WithOptionalResumeRuntime(p2.Id, startSuspended);
 
@@ -37,6 +37,7 @@ public class AsyncVariablesTests(ITestOutputHelper testOutputHelper)
 		[
 			new() {Name = "this", Value = "{DebuggableConsoleApp.MyAsyncClass}", Type = "DebuggableConsoleApp.MyAsyncClass", EvaluateName = "this", VariablesReference = 2 },
 			new() {Name = "myParam", Value = "4", Type = "int", EvaluateName = "myParam" },
+			new() {Name = "list", Value = "Count = 3", Type = "System.Collections.Generic.List<int>", EvaluateName = "list", VariablesReference = 3 },
 			new() {Name = "intVar", Value = "10", Type = "int", EvaluateName = "intVar" },
 			new() {Name = "result", Value = "0", Type = "int", EvaluateName = "result" },
 			new() {Name = "result2", Value = "0", Type = "int", EvaluateName = "result2" },
@@ -46,7 +47,7 @@ public class AsyncVariablesTests(ITestOutputHelper testOutputHelper)
 
 		debugProtocolHost.WithVariablesRequest(scope.VariablesReference, out var variables);
 
-		variables.Should().HaveCount(6);
+		variables.Should().HaveCount(7);
 		variables.ShouldBeEquivalentToDebuggerVariables(expectedVariables);
 
 		var stoppedEvent2 = await debugProtocolHost.WithStepInRequest(stoppedEvent.ThreadId!.Value).WaitForStoppedEvent();

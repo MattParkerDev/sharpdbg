@@ -64,7 +64,8 @@ public class MyLambdaClass
 		Func<int, int> outerLambda = x =>
 		{
 			var outerLocal = x + value;
-			Func<int> innerLambda = () => outerLocal + x + value;
+			var outerLocal2 = new List<int> { x }; // needs a func-eval ([DebuggerDisplay]) to display
+			Func<int> innerLambda = () => outerLocal + outerLocal2.Count + x + value;
 			return innerLambda(); // set breakpoint here
 		};
 		return outerLambda(10);

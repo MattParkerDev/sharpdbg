@@ -74,17 +74,19 @@ public partial class ManagedDebugger
 	{
 		var objectValue = closureValue.UnwrapDebugValueToObject();
 		if (visitedClosures.Add(objectValue.Address) is false) return;
+		// AddMembers may run func-evals (ToString, DebuggerDisplay, type proxies) which neuter objectValue, so get the class and metadata import before AddMembers
+		var closureClass = objectValue.Class;
+		var metadataImport = closureClass.Module.GetMetaDataInterface<IMetaDataImport>();
 		await AddMembers(closureValue, closureValue.ExactType, threadId, stackDepth, result);
 
 		// Follow the DisplayClassLocalOrField link to the parent closure, if any
-		var metadataImport = objectValue.Class.Module.GetMetaDataInterface<IMetaDataImport>();
-		var fields = metadataImport.EnumFields(objectValue.Class.Token);
+		var fields = metadataImport.EnumFields(closureClass.Token);
 		foreach (var field in fields)
 		{
 			var fieldProps = metadataImport.GetFieldProps(field);
 			if (GeneratedNameParser.GetKind(fieldProps.szField) is GeneratedNameKind.DisplayClassLocalOrField)
 			{
-				var parentClosureValue = objectValue.GetFieldValue(objectValue.Class, field);
+				var parentClosureValue = closureValue.UnwrapDebugValueToObject().GetFieldValue(closureClass, field);
 				await AddClosureChainMembers(parentClosureValue, threadId, stackDepth, result, visitedClosures);
 				break; // only one parent link per closure class
 			}

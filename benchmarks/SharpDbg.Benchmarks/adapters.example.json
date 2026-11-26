@@ -1,0 +1,10 @@
+// Copy to adapters.json (git ignored) and point at the debuggers on your machine.
+// "path": "built" is the sharpdbg built from this repository, in the configuration the benchmarks were built in.
+{
+	"adapters": [
+		{ "name": "sharpdbg", "path": "built" },
+		{ "name": "netcoredbg", "path": "C:/tools/netcoredbg/netcoredbg.exe", "args": ["--interpreter=vscode"] },
+		{ "name": "dncdbg", "path": "C:/tools/dncdbg/dncdbg.exe", "args": ["--interpreter=vscode"] },
+		{ "name": "clrdbg", "path": "C:/tools/clrdbg/clrdbg.exe" }
+	]
+}

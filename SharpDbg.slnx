@@ -3,6 +3,10 @@
   <Folder Name="/.github/workflows/">
     <File Path=".github/workflows/publish-nuget-package.yml" />
   </Folder>
+  <Folder Name="/benchmarks/">
+    <Project Path="benchmarks/BenchmarkDebuggee/BenchmarkDebuggee.csproj" />
+    <Project Path="benchmarks/SharpDbg.Benchmarks/SharpDbg.Benchmarks.csproj" />
+  </Folder>
   <Folder Name="/iac/">
     <File Path="iac/publish-tool-to-nuget.cs" />
     <Project Path="iac/DetermineIfPublishNecessary/DetermineIfPublishNecessary.csproj" />

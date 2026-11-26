@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<OutputType>Exe</OutputType>
+		<TargetFramework>net11.0</TargetFramework>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<PackageReference Include="BenchmarkDotNet" Version="0.15.8" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\..\src\SharpDbg.DapProtocol\SharpDbg.DapProtocol.csproj" />
+		<!-- Build the adapter being measured (in this project's configuration, so Release when benchmarking) -->
+		<ProjectReference Include="..\..\src\SharpDbg.Cli\SharpDbg.Cli.csproj" ReferenceOutputAssembly="false" />
+		<!-- The debuggee is always a Debug build, as it would be when someone is debugging it -->
+		<ProjectReference Include="..\BenchmarkDebuggee\BenchmarkDebuggee.csproj" ReferenceOutputAssembly="false" SetConfiguration="Configuration=Debug" />
+	</ItemGroup>
+
+</Project>

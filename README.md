@@ -73,6 +73,10 @@ SharpDbg is organized into three main components:
 
 This will produce the debug adapter executable at `artifacts/bin/SharpDbg.Cli/Debug/net10.0/SharpDbg.Cli.exe`, equivalent to `netcoredbg.exe`
 
+## Benchmarks
+
+`benchmarks/` measures the speed of launching, stepping, breakpoints and inspecting variables over DAP, for sharpdbg and any other .NET debugger you point it at. See [benchmarks/README.md](benchmarks/README.md).
+
 ## Screenshots
 
 ### DebuggerDisplay attribute

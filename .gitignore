@@ -372,3 +372,6 @@ FodyWeavers.xsd
 .git/
 /.config/dotnet-tools.json
 .DS_Store
+
+# Local paths to the debuggers to benchmark
+benchmarks/SharpDbg.Benchmarks/adapters.json

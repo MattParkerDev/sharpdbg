@@ -547,8 +547,6 @@ public partial class ManagedDebugger
 			if (propertyName is null) continue;
 			await WithFailureHandling(result, propertyName, async () =>
 			{
-				var variablesReferenceIlFrame = GetIlFrameForThreadIdAndStackDepth(threadId, stackDepth);
-
 				// Get the get method for the property
 				var getMethodDef = propertyProps.pmdGetter;
 				if (getMethodDef == 0) return; // No get method
@@ -579,7 +577,7 @@ public partial class ManagedDebugger
 				}
 				else
 				{
-					var eval = variablesReferenceIlFrame.Chain.Thread.CreateEval();
+					var eval = CorProcess!.GetThread(threadId.Value).CreateEval();
 
 					// A getter declared on a generic base takes the base's instantiation, not the value's own type arguments
 					var typeParameterTypes = declaringType.TypeParameters;

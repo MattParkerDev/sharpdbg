@@ -47,7 +47,7 @@ public readonly record struct SourceLine(int Line, string ExpectedText);
 public readonly record struct LineRange(int First, int Last)
 {
 	public bool Contains(int line) => line >= First && line <= Last;
-	public override string ToString() => $"{First}-{Last}";
+	public override string ToString() => First == Last ? $"{First}" : $"{First}-{Last}";
 }
 
 public static class RepoPaths

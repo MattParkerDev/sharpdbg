@@ -1,5 +1,6 @@
 using BenchmarkDotNet.Attributes;
 using SharpDbg.DapProtocol;
+using SharpDbg.Benchmarks.Reporting;
 
 namespace SharpDbg.Benchmarks.Benchmarks;
 
@@ -23,6 +24,7 @@ public class BreakpointBenchmarks : StoppedSessionBenchmark
 
 	/// <summary>Continue from Program.cs:33 round StepLoop's loop to the same breakpoint: the cost of a stop and a resume.</summary>
 	[Benchmark]
+	[Measures("Continue → stopped at the same breakpoint, once round a loop")]
 	public void ContinueToBreakpoint()
 	{
 		Session.ExpectStoppedAt(Session.ContinueToStop(ThreadId), DebuggeeSource.StepStart);
@@ -30,6 +32,7 @@ public class BreakpointBenchmarks : StoppedSessionBenchmark
 
 	/// <summary>Continue to Program.cs:72 with the condition <c>i == 999</c>, which is evaluated 1000 times on the way.</summary>
 	[Benchmark]
+	[Measures("Continue → stopped at a breakpoint whose condition is evaluated 1000 times on the way")]
 	public void ConditionalBreakpoint()
 	{
 		Session.ExpectStoppedAt(Session.ContinueToStop(ThreadId), DebuggeeSource.ConditionalBreakpoint);
@@ -37,6 +40,7 @@ public class BreakpointBenchmarks : StoppedSessionBenchmark
 
 	/// <summary>One setBreakpoints request for every line of Program.cs (code or not), while stopped.</summary>
 	[Benchmark]
+	[Measures("One setBreakpoints request for every line of the debuggee's Program.cs")]
 	public void SetBreakpointOnEveryLine()
 	{
 		var response = Session.SetBreakpoints(_everyLine);

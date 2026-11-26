@@ -1,0 +1,404 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Debugger benchmarks</title>
+<style>
+	:root {
+		color-scheme: light;
+		--page: #f9f9f7;
+		--surface: #fcfcfb;
+		--ink: #0b0b0b;
+		--ink-2: #52514e;
+		--muted: #898781;
+		--grid: #e1e0d9;
+		--axis: #c3c2b7;
+		--border: rgba(11, 11, 11, 0.10);
+		--baseline-bar: #2a78d6;
+		--other-bar: #b4b2aa;
+		--whisker: #52514e;
+		--critical: #d03b3b;
+		--hatch: #e1e0d9;
+		/* Sequential blue, by how many times slower than the fastest: the fastest recedes towards the surface */
+		--heat-0: #cde2fb; --heat-1: #9ec5f4; --heat-2: #6da7ec; --heat-3: #3987e5; --heat-4: #256abf; --heat-5: #104281;
+		--heat-ink-0: #0b0b0b; --heat-ink-1: #0b0b0b; --heat-ink-2: #0b0b0b; --heat-ink-3: #ffffff; --heat-ink-4: #ffffff; --heat-ink-5: #ffffff;
+	}
+	@media (prefers-color-scheme: dark) {
+		:root {
+			color-scheme: dark;
+			--page: #0d0d0d;
+			--surface: #1a1a19;
+			--ink: #f0efec;
+			--ink-2: #c3c2b7;
+			--muted: #898781;
+			--grid: #2c2c2a;
+			--axis: #383835;
+			--border: rgba(255, 255, 255, 0.10);
+			--baseline-bar: #3987e5;
+			--other-bar: #5d5c57;
+			--whisker: #c3c2b7;
+			--critical: #e66767;
+			--hatch: #2c2c2a;
+			--heat-0: #0d366b; --heat-1: #184f95; --heat-2: #256abf; --heat-3: #3987e5; --heat-4: #6da7ec; --heat-5: #9ec5f4;
+			--heat-ink-0: #ffffff; --heat-ink-1: #ffffff; --heat-ink-2: #ffffff; --heat-ink-3: #ffffff; --heat-ink-4: #0b0b0b; --heat-ink-5: #0b0b0b;
+		}
+	}
+	* { box-sizing: border-box; }
+	body { margin: 0; background: var(--page); color: var(--ink); font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+	main { max-width: 1280px; margin: 0 auto; padding: 32px 24px 64px; }
+	h1 { font-size: 24px; margin: 0 0 4px; font-weight: 600; }
+	h2 { font-size: 16px; margin: 40px 0 4px; font-weight: 600; }
+	.sub { color: var(--ink-2); margin: 0 0 12px; }
+	.meta { color: var(--muted); font-size: 12px; }
+	.meta pre { font: 12px/1.5 ui-monospace, "Cascadia Mono", Consolas, monospace; margin: 4px 0 0; white-space: pre-wrap; }
+	.panel { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 16px; }
+
+	/* Overview heatmap */
+	.heat-wrap { overflow-x: auto; }
+	table.heat { border-collapse: separate; border-spacing: 2px; width: 100%; font-variant-numeric: tabular-nums; }
+	.heat th { font-weight: 600; text-align: right; padding: 4px 6px; white-space: nowrap; }
+	.heat th.row { text-align: left; font-weight: 400; }
+	.heat th .version { display: block; color: var(--muted); font-weight: 400; font-size: 11px; }
+	.heat th.baseline { color: var(--ink); }
+	.heat th.baseline::before { content: ""; display: inline-block; width: 8px; height: 8px; border-radius: 2px; background: var(--baseline-bar); margin-right: 6px; vertical-align: 1px; }
+	.heat tr.group th { text-align: left; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; padding-top: 14px; }
+	.heat td { text-align: right; padding: 6px; border-radius: 4px; white-space: nowrap; min-width: 72px; cursor: default; }
+	.heat td.fastest { font-weight: 700; }
+	.heat td.failed { background: repeating-linear-gradient(135deg, var(--hatch) 0 4px, transparent 4px 8px); color: var(--critical); font-weight: 600; }
+	.heat td.missing { color: var(--muted); }
+	.legend { display: flex; flex-wrap: wrap; align-items: center; gap: 2px; margin-top: 12px; font-size: 12px; color: var(--ink-2); }
+	.legend .label { margin-right: 8px; }
+	.legend .swatch { padding: 2px 8px; border-radius: 4px; font-variant-numeric: tabular-nums; }
+	.legend .swatch.failed { background: repeating-linear-gradient(135deg, var(--hatch) 0 4px, transparent 4px 8px); color: var(--critical); margin-left: 12px; }
+
+	/* Detail charts */
+	.toolbar { display: flex; align-items: center; gap: 12px; margin: 8px 0 12px; color: var(--ink-2); font-size: 13px; }
+	.segmented { display: inline-flex; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+	.segmented button { font: inherit; background: none; color: var(--ink-2); border: 0; padding: 4px 12px; cursor: pointer; }
+	.segmented button[aria-pressed="true"] { background: var(--ink); color: var(--surface); }
+	.charts { display: grid; grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); gap: 12px; }
+	.chart h3 { font-size: 14px; margin: 0; font-weight: 600; }
+	.chart .group { color: var(--muted); font-weight: 400; }
+	.chart p { margin: 2px 0 8px; color: var(--ink-2); font-size: 12px; }
+	.chart svg { display: block; width: 100%; height: auto; overflow: visible; }
+	.chart svg text { font: 12px system-ui, -apple-system, "Segoe UI", sans-serif; fill: var(--ink-2); font-variant-numeric: tabular-nums; }
+	.chart svg text.name { fill: var(--ink); }
+	.chart svg text.fail { fill: var(--critical); }
+	.chart svg text.tick { fill: var(--muted); font-size: 11px; }
+	.chart svg .hit { fill: transparent; }
+	.chart svg .row:hover .hit { fill: var(--grid); opacity: 0.5; }
+	.key { font-size: 12px; color: var(--ink-2); display: flex; gap: 16px; flex-wrap: wrap; align-items: center; }
+	.key i { display: inline-block; vertical-align: middle; margin-right: 6px; }
+
+	ol.failures { margin: 8px 0 0; padding-left: 20px; }
+	ol.failures li { margin: 4px 0; }
+	ol.failures code { font: 12px ui-monospace, "Cascadia Mono", Consolas, monospace; color: var(--ink-2); white-space: pre-wrap; word-break: break-word; }
+
+	details { margin-top: 40px; }
+	summary { cursor: pointer; font-weight: 600; }
+	table.stats { border-collapse: collapse; width: 100%; margin-top: 12px; font-variant-numeric: tabular-nums; font-size: 13px; }
+	.stats th, .stats td { padding: 4px 10px; border-bottom: 1px solid var(--grid); text-align: right; white-space: nowrap; }
+	.stats th:nth-child(-n+3), .stats td:nth-child(-n+3) { text-align: left; }
+
+	#tooltip { position: fixed; pointer-events: none; z-index: 10; background: var(--surface); color: var(--ink); border: 1px solid var(--border); border-radius: 6px; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15); padding: 8px 10px; font-size: 12px; max-width: 420px; display: none; }
+	#tooltip .title { font-weight: 600; margin-bottom: 4px; }
+	#tooltip table { border-collapse: collapse; font-variant-numeric: tabular-nums; }
+	#tooltip td { padding: 1px 0; }
+	#tooltip td:first-child { color: var(--ink-2); padding-right: 12px; }
+	#tooltip td:last-child { text-align: right; }
+	#tooltip .error { color: var(--critical); white-space: pre-wrap; }
+</style>
+</head>
+<body>
+<main>
+	<h1>Debugger benchmarks</h1>
+	<p class="sub" id="subtitle"></p>
+	<div class="meta" id="meta"></div>
+
+	<h2>Overview</h2>
+	<p class="sub">Median time of each operation. The darker the cell, the more times slower than the fastest adapter for that benchmark; the fastest is bold.</p>
+	<div class="panel heat-wrap"><table class="heat" id="heat"></table><div class="legend" id="heat-legend"></div></div>
+
+	<h2>Each benchmark</h2>
+	<div class="toolbar">
+		<span>Scale</span>
+		<span class="segmented" role="group" aria-label="Scale">
+			<button type="button" data-scale="linear" aria-pressed="true">Linear</button>
+			<button type="button" data-scale="log" aria-pressed="false">Log</button>
+		</span>
+		<span class="key" id="key"></span>
+	</div>
+	<div class="charts" id="charts"></div>
+
+	<section id="failures-section" hidden>
+		<h2>Failures</h2>
+		<p class="sub">A benchmark fails when the adapter returns an error, times out, or stops somewhere other than where the benchmark expects.</p>
+		<div class="panel"><ol class="failures" id="failures"></ol></div>
+	</section>
+
+	<details>
+		<summary>All statistics</summary>
+		<div class="panel" style="margin-top: 12px; overflow-x: auto;"><table class="stats" id="stats"></table></div>
+	</details>
+</main>
+<div id="tooltip" role="tooltip"></div>
+
+<script id="data" type="application/json">/*DATA*/</script>
+<script>
+"use strict";
+const data = JSON.parse(document.getElementById("data").textContent);
+const adapters = data.adapters;
+const svgNs = "http://www.w3.org/2000/svg";
+
+function el(tag, attrs = {}, ...children) {
+	const node = tag.startsWith("svg:") ? document.createElementNS(svgNs, tag.slice(4)) : document.createElement(tag);
+	for (const [key, value] of Object.entries(attrs)) {
+		if (value === undefined || value === null || value === false) continue;
+		if (key === "class") node.setAttribute("class", value);
+		else if (key === "text") node.textContent = value;
+		else node.setAttribute(key, value);
+	}
+	for (const child of children.flat()) if (child !== null && child !== undefined) node.append(child);
+	return node;
+}
+
+function duration(ms) {
+	if (ms >= 1000) return (ms / 1000).toFixed(2) + " s";
+	if (ms >= 100) return ms.toFixed(0) + " ms";
+	if (ms >= 10) return ms.toFixed(1) + " ms";
+	if (ms >= 1) return ms.toFixed(2) + " ms";
+	return ms.toFixed(3) + " ms";
+}
+const ratio = r => r >= 10 ? r.toFixed(0) + "×" : r.toFixed(2).replace(/0$/, "") + "×";
+
+// Bins of "times slower than the fastest", one per step of the sequential ramp
+const heatBins = [1.1, 1.5, 2.5, 5, 20];
+const heatLabels = ["≤1.1×", "≤1.5×", "≤2.5×", "≤5×", "≤20×", ">20×"];
+const heatBin = r => { const i = heatBins.findIndex(limit => r <= limit); return i === -1 ? heatBins.length : i; };
+
+// Header
+const n = Math.max(0, ...data.rows.flatMap(r => Object.values(r.cells).map(c => c.n || 0)));
+document.getElementById("subtitle").textContent =
+	`${data.rows.length} benchmarks × ${adapters.length} adapters · ${n} measured iterations each · lower is better`;
+document.getElementById("meta").append(
+	el("div", { text: `${data.date} · sharpdbg ${data.commit}` }),
+	el("pre", { text: data.environment.join("\n") }));
+
+// Tooltip
+const tooltip = document.getElementById("tooltip");
+function showTooltip(event, row, adapterName) {
+	const cell = row.cells[adapterName];
+	tooltip.replaceChildren(el("div", { class: "title", text: `${adapterName} · ${row.name}` }));
+	if (!cell) tooltip.append(el("div", { text: "Not run" }));
+	else if (cell.median === null) tooltip.append(el("div", { class: "error", text: cell.failure || "Failed" }));
+	else {
+		const lines = [["Median", duration(cell.median)], ["Mean", duration(cell.mean)], ["Min", duration(cell.min)], ["Q1 – Q3", `${duration(cell.q1)} – ${duration(cell.q3)}`], ["P95", duration(cell.p95)], ["Max", duration(cell.max)], ["Iterations", String(cell.n)]];
+		const fastest = fastestOf(row);
+		if (fastest && cell.median !== fastest) lines.push(["vs fastest", ratio(cell.median / fastest) + " slower"]);
+		const baseline = row.cells[data.baseline];
+		if (adapterName !== data.baseline && baseline && baseline.median) lines.push([`vs ${data.baseline}`, ratio(cell.median / baseline.median)]);
+		tooltip.append(el("table", {}, lines.map(([k, v]) => el("tr", {}, el("td", { text: k }), el("td", { text: v })))));
+	}
+	tooltip.style.display = "block";
+	moveTooltip(event);
+}
+function moveTooltip(event) {
+	const pad = 14, rect = tooltip.getBoundingClientRect();
+	let x = event.clientX + pad, y = event.clientY + pad;
+	if (x + rect.width > window.innerWidth - 8) x = event.clientX - rect.width - pad;
+	if (y + rect.height > window.innerHeight - 8) y = event.clientY - rect.height - pad;
+	tooltip.style.left = x + "px";
+	tooltip.style.top = y + "px";
+}
+const hideTooltip = () => { tooltip.style.display = "none"; };
+function hover(node, row, adapterName) {
+	node.addEventListener("mouseenter", e => showTooltip(e, row, adapterName));
+	node.addEventListener("mousemove", moveTooltip);
+	node.addEventListener("mouseleave", hideTooltip);
+}
+
+function fastestOf(row) {
+	const medians = Object.values(row.cells).map(c => c.median).filter(m => m !== null);
+	return medians.length ? Math.min(...medians) : null;
+}
+
+// Failures are numbered once, in table order, and referenced from every view
+const failures = [];
+for (const row of data.rows) for (const a of adapters) {
+	const cell = row.cells[a.name];
+	if (cell && cell.median === null) failures.push({ row, adapter: a.name, failure: cell.failure || "Failed", number: failures.length + 1 });
+}
+const failureNumber = (row, adapter) => failures.find(f => f.row === row && f.adapter === adapter)?.number;
+
+// Overview heatmap
+(function renderHeatmap() {
+	const table = document.getElementById("heat");
+	table.append(el("thead", {}, el("tr", {},
+		el("th", { class: "row", scope: "col", text: "Benchmark" }),
+		adapters.map(a => el("th", { scope: "col", class: a.name === data.baseline ? "baseline" : null }, a.name, a.version ? el("span", { class: "version", text: a.version }) : null)))));
+	const body = el("tbody");
+	let group = null;
+	for (const row of data.rows) {
+		if (row.group !== group) {
+			group = row.group;
+			body.append(el("tr", { class: "group" }, el("th", { colspan: adapters.length + 1, text: group })));
+		}
+		const fastest = fastestOf(row);
+		const tr = el("tr", {}, el("th", { class: "row", scope: "row", title: row.measures, text: row.name }));
+		for (const a of adapters) {
+			const cell = row.cells[a.name];
+			let td;
+			if (!cell) td = el("td", { class: "missing", text: "–" });
+			else if (cell.median === null) td = el("td", { class: "failed", text: `✗ failed ${failureNumber(row, a.name)}` });
+			else {
+				const bin = heatBin(cell.median / fastest);
+				td = el("td", { class: cell.median === fastest ? "fastest" : null, text: duration(cell.median) });
+				td.style.background = `var(--heat-${bin})`;
+				td.style.color = `var(--heat-ink-${bin})`;
+			}
+			hover(td, row, a.name);
+			tr.append(td);
+		}
+		body.append(tr);
+	}
+	table.append(body);
+
+	const legend = document.getElementById("heat-legend");
+	legend.append(el("span", { class: "label", text: "Times slower than the fastest" }));
+	heatLabels.forEach((label, i) => {
+		const swatch = el("span", { class: "swatch", text: label });
+		swatch.style.background = `var(--heat-${i})`;
+		swatch.style.color = `var(--heat-ink-${i})`;
+		legend.append(swatch);
+	});
+	if (failures.length) legend.append(el("span", { class: "swatch failed", text: "✗ failed" }));
+})();
+
+// Per-benchmark bar charts: median bars, with a whisker over the middle half of the runs (Q1 to Q3)
+function niceTicks(max, count = 4) {
+	const raw = max / count, magnitude = Math.pow(10, Math.floor(Math.log10(raw)));
+	const step = [1, 2, 2.5, 5, 10].map(m => m * magnitude).find(s => s >= raw);
+	const ticks = [];
+	for (let t = 0; t <= max + step * 0.001; t += step) ticks.push(t);
+	return ticks;
+}
+function logTicks(min, max) {
+	const ticks = [];
+	// Over more than two powers of ten, 1-2-5 ticks crowd together, so only the powers of ten are labelled
+	const mantissas = Math.log10(max / min) > 2 ? [1] : [1, 2, 5];
+	for (let p = Math.floor(Math.log10(min)); p <= Math.ceil(Math.log10(max)); p++) {
+		for (const m of mantissas) { const t = m * Math.pow(10, p); if (t >= min && t <= max) ticks.push(t); }
+	}
+	return ticks;
+}
+const tickLabel = ms => ms >= 1000 ? (ms / 1000) + " s" : (ms >= 1 || ms === 0 ? String(+ms.toPrecision(3)) : String(+ms.toPrecision(2))) + " ms";
+
+function renderChart(row, scale) {
+	const width = 560, left = 96, right = 76, rowHeight = 28, bar = 14, top = 6, axisHeight = 22;
+	const plot = width - left - right;
+	const height = top + adapters.length * rowHeight + axisHeight;
+	const cells = adapters.map(a => row.cells[a.name]).filter(c => c && c.median !== null);
+	const maxValue = Math.max(...cells.map(c => c.q3), ...cells.map(c => c.median));
+	const minValue = Math.min(...cells.map(c => c.q1), ...cells.map(c => c.median));
+
+	let x, ticks;
+	if (scale === "log") {
+		const lo = Math.pow(10, Math.floor(Math.log10(minValue * 0.9))), hi = maxValue * 1.15;
+		x = v => left + (Math.log10(Math.max(v, lo)) - Math.log10(lo)) / (Math.log10(hi) - Math.log10(lo)) * plot;
+		ticks = logTicks(lo, hi);
+		x.origin = lo;
+	} else {
+		ticks = niceTicks(maxValue);
+		const hi = Math.max(ticks[ticks.length - 1], maxValue);
+		x = v => left + v / hi * plot;
+		x.origin = 0;
+	}
+
+	const svg = el("svg:svg", { viewBox: `0 0 ${width} ${height}`, role: "img", "aria-label": `${row.name}, median time per adapter` });
+	const baseY = top + adapters.length * rowHeight;
+	for (const t of ticks) {
+		svg.append(el("svg:line", { x1: x(t), x2: x(t), y1: top, y2: baseY, stroke: "var(--grid)", "stroke-width": 1 }));
+		svg.append(el("svg:text", { class: "tick", x: x(t), y: baseY + 15, "text-anchor": "middle", text: tickLabel(t) }));
+	}
+	svg.append(el("svg:line", { x1: left, x2: left, y1: top, y2: baseY, stroke: "var(--axis)", "stroke-width": 1 }));
+
+	const fastest = fastestOf(row);
+	adapters.forEach((a, i) => {
+		const cell = row.cells[a.name];
+		const cy = top + i * rowHeight + rowHeight / 2;
+		const group = el("svg:g", { class: "row" });
+		group.append(el("svg:rect", { class: "hit", x: 0, y: cy - rowHeight / 2, width, height: rowHeight, rx: 4 }));
+		group.append(el("svg:text", { class: "name", x: left - 8, y: cy + 4, "text-anchor": "end", text: a.name }));
+		if (!cell) {
+			group.append(el("svg:text", { x: left + 6, y: cy + 4, text: "not run" }));
+		} else if (cell.median === null) {
+			group.append(el("svg:text", { class: "fail", x: left + 6, y: cy + 4, text: `✗ failed (${failureNumber(row, a.name)})` }));
+		} else {
+			const x0 = x(x.origin), x1 = Math.max(x(cell.median), x0 + 2), r = Math.min(4, (x1 - x0) / 2);
+			// Rounded at the data end, square at the baseline
+			const path = `M${x0},${cy - bar / 2} H${x1 - r} Q${x1},${cy - bar / 2} ${x1},${cy - bar / 2 + r} V${cy + bar / 2 - r} Q${x1},${cy + bar / 2} ${x1 - r},${cy + bar / 2} H${x0} Z`;
+			group.append(el("svg:path", { d: path, fill: a.name === data.baseline ? "var(--baseline-bar)" : "var(--other-bar)" }));
+			const w0 = x(cell.q1), w1 = x(cell.q3);
+			group.append(el("svg:line", { x1: w0, x2: w1, y1: cy, y2: cy, stroke: "var(--whisker)", "stroke-width": 1.5 }));
+			for (const wx of [w0, w1]) group.append(el("svg:line", { x1: wx, x2: wx, y1: cy - 4, y2: cy + 4, stroke: "var(--whisker)", "stroke-width": 1.5 }));
+			const labelX = Math.max(x1, w1) + 6;
+			const label = el("svg:text", { x: labelX, y: cy + 4, text: duration(cell.median) });
+			if (cell.median === fastest) label.setAttribute("font-weight", "700");
+			group.append(label);
+		}
+		hover(group, row, a.name);
+		svg.append(group);
+	});
+	return svg;
+}
+
+let scale = "linear";
+function renderCharts() {
+	const container = document.getElementById("charts");
+	container.replaceChildren(...data.rows.map(row => el("div", { class: "panel chart" },
+		el("h3", {}, row.name, el("span", { class: "group", text: ` · ${row.group}` })),
+		el("p", { text: row.measures }),
+		renderChart(row, scale))));
+}
+renderCharts();
+document.querySelectorAll("[data-scale]").forEach(button => button.addEventListener("click", () => {
+	scale = button.dataset.scale;
+	document.querySelectorAll("[data-scale]").forEach(b => b.setAttribute("aria-pressed", String(b === button)));
+	renderCharts();
+}));
+
+const key = document.getElementById("key");
+const swatch = color => { const i = el("i"); Object.assign(i.style, { width: "12px", height: "10px", borderRadius: "2px", background: color }); return i; };
+const whiskerKey = () => { const i = el("i"); Object.assign(i.style, { width: "18px", height: "8px", borderLeft: "1.5px solid var(--whisker)", borderRight: "1.5px solid var(--whisker)", background: "linear-gradient(var(--whisker), var(--whisker)) center / 100% 1.5px no-repeat" }); return i; };
+key.append(
+	el("span", {}, swatch("var(--baseline-bar)"), `${data.baseline} (median)`),
+	el("span", {}, swatch("var(--other-bar)"), "other adapters (median)"),
+	el("span", {}, whiskerKey(), "middle half of runs (Q1 to Q3)"));
+
+// Failures
+if (failures.length) {
+	document.getElementById("failures-section").hidden = false;
+	document.getElementById("failures").append(...failures.map(f => el("li", {},
+		el("strong", { text: `${f.adapter}, ${f.row.name}: ` }), el("code", { text: f.failure }))));
+}
+
+// Table view of everything
+(function renderStats() {
+	const table = document.getElementById("stats");
+	const headers = ["Group", "Benchmark", "Adapter", "Median", "Mean", "Min", "P95", "Max", "Iterations"];
+	table.append(el("thead", {}, el("tr", {}, headers.map(h => el("th", { text: h })))));
+	const body = el("tbody");
+	for (const row of data.rows) for (const a of adapters) {
+		const cell = row.cells[a.name];
+		if (!cell) continue;
+		const values = cell.median === null
+			? [el("td", { colspan: 6, text: `failed (${failureNumber(row, a.name)})` })]
+			: [cell.median, cell.mean, cell.min, cell.p95, cell.max].map(v => el("td", { text: duration(v) })).concat(el("td", { text: String(cell.n) }));
+		body.append(el("tr", {}, el("td", { text: row.group }), el("td", { text: row.name }), el("td", { text: a.name }), values));
+	}
+	table.append(body);
+})();
+</script>
+</body>
+</html>

@@ -4,6 +4,9 @@
     <File Path=".github/workflows/publish-nuget-package.yml" />
   </Folder>
   <Folder Name="/benchmarks/">
+    <File Path="benchmarks/README.md" />
+    <File Path="benchmarks/Report/render.cs" />
+    <File Path="benchmarks/Report/template.html" />
     <Project Path="benchmarks/BenchmarkDebuggee/BenchmarkDebuggee.csproj" />
     <Project Path="benchmarks/SharpDbg.Benchmarks/SharpDbg.Benchmarks.csproj" />
   </Folder>

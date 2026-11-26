@@ -1,4 +1,5 @@
 using BenchmarkDotNet.Attributes;
+using SharpDbg.Benchmarks.Reporting;
 
 namespace SharpDbg.Benchmarks.Benchmarks;
 
@@ -19,6 +20,7 @@ public class StepBenchmarks : StoppedSessionBenchmark
 
 	/// <summary>Program.cs:33 to 34, over a call to Add.</summary>
 	[Benchmark]
+	[Measures("Step over a call → the new stop's top frame read")]
 	public void StepOver()
 	{
 		Session.Send(new SharpDbg.DapProtocol.NextArguments { ThreadId = ThreadId });
@@ -27,6 +29,7 @@ public class StepBenchmarks : StoppedSessionBenchmark
 
 	/// <summary>Program.cs:33 into Add (41-44).</summary>
 	[Benchmark]
+	[Measures("Step into a call → the new stop's top frame read")]
 	public void StepIn()
 	{
 		Session.Send(new SharpDbg.DapProtocol.StepInArguments { ThreadId = ThreadId });
@@ -35,6 +38,7 @@ public class StepBenchmarks : StoppedSessionBenchmark
 
 	/// <summary>Program.cs:42 in Add, out to StepLoop (32-36).</summary>
 	[Benchmark]
+	[Measures("Step out to the caller → the new stop's top frame read")]
 	public void StepOut()
 	{
 		Session.Send(new SharpDbg.DapProtocol.StepOutArguments { ThreadId = ThreadId });

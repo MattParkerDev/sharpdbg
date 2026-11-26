@@ -4,6 +4,7 @@ Speed benchmarks for sharpdbg and other .NET debuggers, measured through the Deb
 [BenchmarkDotNet](https://benchmarkdotnet.org) runs them with the Monitoring strategy: each iteration is a single, separately timed run.
 
 - `SharpDbg.Benchmarks` - the benchmarks, and a small synchronous DAP client that drives each adapter over stdio.
+- `Report` - turns a run's results into markdown and HTML reports.
 - `BenchmarkDebuggee` - the program being debugged. The benchmarks use fixed lines in its `Program.cs` (listed in `SharpDbg.Benchmarks/DebuggeeSource.cs`), and check the text of each line before running, so if `Program.cs` is edited, update those line numbers.
 
 ## What is measured
@@ -35,7 +36,22 @@ dotnet run -c Release --project benchmarks/SharpDbg.Benchmarks -- --filter '*'
 - `--adapters sharpdbg,netcoredbg` - run only these adapters.
 - `--filter '*Step*'` - run only these benchmarks. Any other [BenchmarkDotNet option](https://benchmarkdotnet.org/articles/guides/console-args.html) works too, e.g. `--iterationCount 5 --warmupCount 1` for a quicker run.
 
-Results (markdown, CSV and HTML) go to `artifacts/benchmarks/results`.
+## Results
+
+A run writes its results to `artifacts/benchmarks/results` as data only: `<run>-results.json`, also copied to `latest-results.json`. It holds every benchmark's median and spread for each adapter, why each failure failed, and the adapter versions and commit. Alongside are BenchmarkDotNet's own `*-report.csv` and `*-report-full.json` (every measurement).
+
+Turn results into reports with `Report/render.cs`, a file-based app. It needs no benchmark run, so the reports can be changed and re-rendered at any time:
+
+```powershell
+dotnet run benchmarks/Report/render.cs
+```
+
+That renders the latest run. To render another, pass its results (`dotnet run benchmarks/Report/render.cs -- <results.json>`). `--baseline <adapter>` picks the adapter the others are compared with (sharpdbg by default), and `--out <directory>` where the reports go (beside the results by default). It writes:
+
+- `latest-report.html` - open it in a browser. An overview heatmap (a row per benchmark, a column per adapter, darker the more times slower than the fastest), a bar chart per benchmark (the median, with a whisker over the middle half of the runs, linear or log scale), the reason for each failure, and a table of every statistic. Hover over a cell or bar for its numbers. It is `Report/template.html` with the results embedded: a single file with no external dependencies.
+- `latest-summary.md` - the same medians as a markdown table, each relative to the baseline, with failures as footnotes. Paste it into an issue or pull request.
+
+The description under each benchmark's name comes from its `[Measures]` attribute.
 
 ## Adapters
 
@@ -50,9 +66,7 @@ Without configuration, only the sharpdbg built from this repository is benchmark
 }
 ```
 
-`"path": "built"` is the sharpdbg in `artifacts/bin/SharpDbg.Cli/release`. Any adapter that speaks DAP over stdio and accepts a `coreclr`-style launch request (`program`, `args`, `cwd`, `justMyCode`) can be added: netcoredbg, dncdbg and clrdbg work as they are. vsdbg needs a proxy that answers its handshake.
-
-Some debuggers' licences restrict how they may be used, or whether benchmark results can be published (vsdbg may only be used with Microsoft's own tools, for example). Check a debugger's licence before publishing its numbers.
+`"path": "built"` is the sharpdbg in `artifacts/bin/SharpDbg.Cli/release`. An optional `"version"` is shown in the reports; without it, the executable's product version is used. Any adapter that speaks DAP over stdio and accepts a `coreclr`-style launch request (`program`, `args`, `cwd`, `justMyCode`) can be added: netcoredbg, dncdbg and clrdbg work as they are.
 
 ## Getting stable numbers
 

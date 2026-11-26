@@ -1,14 +1,19 @@
 using BenchmarkDotNet.Analysers;
 using BenchmarkDotNet.Columns;
-using BenchmarkDotNet.Order;
 using BenchmarkDotNet.Configs;
 using BenchmarkDotNet.Engines;
+using BenchmarkDotNet.Exporters.Csv;
+using BenchmarkDotNet.Exporters.Json;
 using BenchmarkDotNet.Jobs;
+using BenchmarkDotNet.Order;
 using BenchmarkDotNet.Reports;
 using BenchmarkDotNet.Running;
 using BenchmarkDotNet.Toolchains.InProcess.Emit;
 using Perfolizer.Horology;
 using SharpDbg.Benchmarks;
+using SharpDbg.Benchmarks.Reporting;
+
+FailureLog.CaptureConsole();
 
 // Our own option, the rest go to BenchmarkDotNet: --adapters sharpdbg,netcoredbg
 var benchmarkArgs = new List<string>();
@@ -35,7 +40,8 @@ var job = Job.Default
 var defaults = DefaultConfig.Instance;
 var config = ManualConfig.CreateEmpty()
 	.AddLogger(defaults.GetLoggers().ToArray())
-	.AddExporter(defaults.GetExporters().ToArray())
+	// Our results JSON (for benchmarks/Report/render.cs), plus BenchmarkDotNet's own CSV, and JSON with every measurement for comparing runs later
+	.AddExporter(ResultsExporter.Instance, CsvExporter.Default, JsonExporter.Full)
 	.AddColumnProvider(defaults.GetColumnProviders().ToArray())
 	.AddValidator(defaults.GetValidators().ToArray())
 	// A step taking a millisecond is the result, not a measurement too short to trust

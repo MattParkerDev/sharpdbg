@@ -1,5 +1,6 @@
 using BenchmarkDotNet.Attributes;
 using SharpDbg.DapProtocol;
+using SharpDbg.Benchmarks.Reporting;
 
 namespace SharpDbg.Benchmarks.Benchmarks;
 
@@ -32,6 +33,7 @@ public class InspectBenchmarks : StoppedSessionBenchmark
 
 	/// <summary>Every frame of the stopped thread (23 of them).</summary>
 	[Benchmark]
+	[Measures("All 23 frames of the stopped thread")]
 	public void StackTrace()
 	{
 		var frames = Session.Send(new StackTraceArguments { ThreadId = ThreadId, StartFrame = 0 }).StackFrames;
@@ -40,6 +42,7 @@ public class InspectBenchmarks : StoppedSessionBenchmark
 
 	/// <summary>The scopes of the top frame and the variables of its first scope, as shown when a stop opens the Variables view.</summary>
 	[Benchmark]
+	[Measures("scopes, then the first scope's variables")]
 	public void Locals()
 	{
 		var scope = Session.Send(new ScopesArguments { FrameId = _frameId }).Scopes.First();
@@ -49,6 +52,7 @@ public class InspectBenchmarks : StoppedSessionBenchmark
 
 	/// <summary>Expanding <c>wide</c>, an object with 20 fields and 6 properties.</summary>
 	[Benchmark]
+	[Measures("Expanding an object with 26 members")]
 	public void ExpandObject()
 	{
 		var members = Session.Send(new VariablesArguments { VariablesReference = _wideReference }).Variables;
@@ -57,6 +61,7 @@ public class InspectBenchmarks : StoppedSessionBenchmark
 
 	/// <summary>Expanding <c>numbers</c>, a <c>List&lt;int&gt;</c> of 1000.</summary>
 	[Benchmark]
+	[Measures("Expanding a List<int> of 1000")]
 	public void ExpandList()
 	{
 		var items = Session.Send(new VariablesArguments { VariablesReference = _numbersReference }).Variables;
@@ -65,6 +70,7 @@ public class InspectBenchmarks : StoppedSessionBenchmark
 
 	/// <summary>Five evaluations in the top frame: arithmetic, a string property, a field, an auto-property and a List property.</summary>
 	[Benchmark]
+	[Measures("Five watch expressions: arithmetic, a field, properties of a string, an object and a List")]
 	public void Evaluate()
 	{
 		List<string>? failures = null;

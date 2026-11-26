@@ -1,9 +1,10 @@
 // Copy to adapters.json (git ignored) and point at the debuggers on your machine.
+// "version" is optional: shown in the reports, it defaults to the executable's product version.
 // "path": "built" is the sharpdbg built from this repository, in the configuration the benchmarks were built in.
 {
 	"adapters": [
 		{ "name": "sharpdbg", "path": "built" },
-		{ "name": "netcoredbg", "path": "C:/tools/netcoredbg/netcoredbg.exe", "args": ["--interpreter=vscode"] },
+		{ "name": "netcoredbg", "path": "C:/tools/netcoredbg/netcoredbg.exe", "args": ["--interpreter=vscode"], "version": "3.2.0" },
 		{ "name": "dncdbg", "path": "C:/tools/dncdbg/dncdbg.exe", "args": ["--interpreter=vscode"] },
 		{ "name": "clrdbg", "path": "C:/tools/clrdbg/clrdbg.exe" }
 	]

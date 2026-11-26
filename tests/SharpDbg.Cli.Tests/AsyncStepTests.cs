@@ -20,14 +20,14 @@ public class AsyncStepTests(ITestOutputHelper testOutputHelper)
 			.WithAttachRequest(p2.Id)
 			.WaitForInitializedEvent();
 		debugProtocolHost
-			.WithBreakpointsRequest(9, Path.JoinFromGitRoot("tests", "DebuggableConsoleApp", "MyAsyncClass.cs"))
+			.WithBreakpointsRequest(10, Path.JoinFromGitRoot("tests", "DebuggableConsoleApp", "MyAsyncClass.cs"))
 			.WithConfigurationDoneRequest()
 			.WithOptionalResumeRuntime(p2.Id, startSuspended);
 
 		var stoppedEvent = await debugProtocolHost.WaitForStoppedEvent();
 		var stopInfo = stoppedEvent.ReadStopInfo();
 		stopInfo.filePath.Should().EndWith("MyAsyncClass.cs");
-		stopInfo.line.Should().Be(9);
+		stopInfo.line.Should().Be(10);
 
 		debugProtocolHost.WithClearBreakpointsRequest(Path.JoinFromGitRoot("tests", "DebuggableConsoleApp", "MyAsyncClass.cs"));
 
@@ -35,25 +35,25 @@ public class AsyncStepTests(ITestOutputHelper testOutputHelper)
 		var stoppedEvent2 = await debugProtocolHost.WithStepOverRequest(stoppedEvent.ThreadId!.Value).WaitForStoppedEvent();
 		var stopInfo2 = stoppedEvent2.ReadStopInfo();
 		stopInfo2.filePath.Should().EndWith("MyAsyncClass.cs");
-		stopInfo2.line.Should().Be(10);
+		stopInfo2.line.Should().Be(11);
 
 		// step over sync, arrives at await line
 		var stoppedEvent3 = await debugProtocolHost.WithStepOverRequest(stoppedEvent2.ThreadId!.Value).WaitForStoppedEvent();
 		var stopInfo3 = stoppedEvent3.ReadStopInfo();
 		stopInfo3.filePath.Should().EndWith("MyAsyncClass.cs");
-		stopInfo3.line.Should().Be(11);
+		stopInfo3.line.Should().Be(12);
 
 		// step over await
 		var stoppedEvent4 = await debugProtocolHost.WithStepOverRequest(stoppedEvent3.ThreadId!.Value).WaitForStoppedEvent();
 		var stopInfo4 = stoppedEvent4.ReadStopInfo();
 		stopInfo4.filePath.Should().EndWith("MyAsyncClass.cs");
-		stopInfo4.line.Should().Be(12);
+		stopInfo4.line.Should().Be(13);
 
 		// step over another await, note we must use stoppedEvent4's ThreadId, as the thread may have changed after the await
 		var stoppedEvent5 = await debugProtocolHost.WithStepOverRequest(stoppedEvent4.ThreadId!.Value).WaitForStoppedEvent();
 		var stopInfo5 = stoppedEvent5.ReadStopInfo();
 		stopInfo5.filePath.Should().EndWith("MyAsyncClass.cs");
-		stopInfo5.line.Should().Be(13);
+		stopInfo5.line.Should().Be(14);
 
 		// step into an await method
 		var stoppedEvent6 = await debugProtocolHost.WithStepInRequest(stoppedEvent5.ThreadId!.Value).WaitForStoppedEvent();
@@ -71,12 +71,12 @@ public class AsyncStepTests(ITestOutputHelper testOutputHelper)
 		var stoppedEvent8 = await debugProtocolHost.WithStepOutRequest(stoppedEvent7.ThreadId!.Value).WaitForStoppedEvent();
 		var stopInfo8 = stoppedEvent8.ReadStopInfo();
 		stopInfo8.filePath.Should().EndWith("MyAsyncClass.cs");
-		stopInfo8.line.Should().Be(13);
+		stopInfo8.line.Should().Be(14);
 
 		var stoppedEvent9 = await debugProtocolHost.WithStepOverRequest(stoppedEvent8.ThreadId!.Value).WaitForStoppedEvent();
 		var stopInfo9 = stoppedEvent9.ReadStopInfo();
 		stopInfo9.filePath.Should().EndWith("MyAsyncClass.cs");
-		stopInfo9.line.Should().Be(14);
+		stopInfo9.line.Should().Be(15);
 
 		// step into async void method
 		var stoppedEvent10 = await debugProtocolHost.WithStepInRequest(stoppedEvent9.ThreadId!.Value).WaitForStoppedEvent();
@@ -88,7 +88,7 @@ public class AsyncStepTests(ITestOutputHelper testOutputHelper)
 		var stoppedEvent11 = await debugProtocolHost.WithStepOutRequest(stoppedEvent10.ThreadId!.Value).WaitForStoppedEvent();
 		var stopInfo11 = stoppedEvent11.ReadStopInfo();
 		stopInfo11.filePath.Should().EndWith("MyAsyncClass.cs");
-		stopInfo11.line.Should().Be(14);
+		stopInfo11.line.Should().Be(15);
 	}
 
 	// Disabling Just My Code must not make an async step out stop in the builder or thread pool before reaching the awaiting caller

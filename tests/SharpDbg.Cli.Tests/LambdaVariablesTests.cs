@@ -60,6 +60,7 @@ public class LambdaVariablesTests(ITestOutputHelper testOutputHelper)
 	}
 
 	// https://github.com/MattParkerDev/sharpdbg/issues/58
+	// https://github.com/MattParkerDev/sharpdbg/issues/62 - a closure member needing a func-eval must not zombie the closure walk
 	[Fact]
 	public async Task SharpDbgCli_CapturedParameter_VariablesRequest_ListsClosureCopyOnce()
 	{
@@ -75,7 +76,7 @@ public class LambdaVariablesTests(ITestOutputHelper testOutputHelper)
 			.WaitForInitializedEvent();
 		var filePath = Path.JoinFromGitRoot("tests", "DebuggableConsoleApp", "Lambdas", "MyLambdaClass.cs");
 		debugProtocolHost
-			.WithBreakpointsRequest([59, 68], filePath)
+			.WithBreakpointsRequest([59, 69], filePath)
 			.WithConfigurationDoneRequest()
 			.WithOptionalResumeRuntime(p2.Id, startSuspended);
 
@@ -85,11 +86,12 @@ public class LambdaVariablesTests(ITestOutputHelper testOutputHelper)
 		var variables = GetTopFrameVariables(stoppedEvent.ThreadId!.Value);
 		variables.Select(v => (v.Name, v.Value)).Should().BeEquivalentTo([("captured", "7"), ("f", "{System.Func<int>}")]);
 
-		// In a lambda whose own parameter is captured by a nested lambda, which also captures from the enclosing closure
+		// In a lambda whose own parameter is captured by a nested lambda, which also captures from the enclosing closure.
+		// outerLocal2's display func-evals before the link to the enclosing closure is followed
 		var stoppedEvent2 = await debugProtocolHost.WithContinueRequest().WaitForStoppedEvent();
-		stoppedEvent2.ReadStopInfo().line.Should().Be(68);
+		stoppedEvent2.ReadStopInfo().line.Should().Be(69);
 		var variables2 = GetTopFrameVariables(stoppedEvent2.ThreadId!.Value);
-		variables2.Select(v => (v.Name, v.Value)).Should().BeEquivalentTo([("x", "10"), ("value", "3"), ("outerLocal", "13"), ("innerLambda", "{System.Func<int>}")]);
+		variables2.Select(v => (v.Name, v.Value)).Should().BeEquivalentTo([("x", "10"), ("value", "3"), ("outerLocal", "13"), ("outerLocal2", "Count = 1"), ("innerLambda", "{System.Func<int>}")]);
 
 		List<Variable> GetTopFrameVariables(int threadId)
 		{

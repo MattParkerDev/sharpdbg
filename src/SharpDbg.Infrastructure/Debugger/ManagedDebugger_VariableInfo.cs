@@ -74,7 +74,7 @@ public partial class ManagedDebugger
 	{
 		var objectValue = closureValue.UnwrapDebugValueToObject();
 		if (visitedClosures.Add(objectValue.Address) is false) return;
-		// AddMembers func-evals (ToString, DebuggerDisplay, type proxies), which neuters objectValue: read what's needed first
+		// AddMembers may run func-evals (ToString, DebuggerDisplay, type proxies) which neuter objectValue, so get the class and metadata import before AddMembers
 		var closureClass = objectValue.Class;
 		var metadataImport = closureClass.Module.GetMetaDataInterface<IMetaDataImport>();
 		await AddMembers(closureValue, closureValue.ExactType, threadId, stackDepth, result);

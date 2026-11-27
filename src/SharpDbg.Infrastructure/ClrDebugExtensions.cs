@@ -1,6 +1,4 @@
-using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
-using System.Runtime.InteropServices.Marshalling;
 using Ardalis.GuardClauses;
 using ICorDebugSharp;
 using Microsoft.Diagnostics.NETCore.Client;
@@ -11,15 +9,6 @@ namespace SharpDbg.Infrastructure;
 // Originally based on https://github.com/lordmilko/ClrDebug/blob/5f46218f4b840ab8a94920623dc263b5f2334138/Samples/NetCore/Program.cs
 public static class ClrDebugExtensions
 {
-	[UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
-	public static unsafe void OnRuntimeStartup(void* pCorDebug, void* parameter, int hr)
-	{
-		var corDebug = ComInterfaceMarshaller<ICorDebug>.ConvertToManaged(pCorDebug);
-		var runtimeStartupTcs = GCHandle.FromIntPtr((IntPtr)parameter).Target as TaskCompletionSource<(ICorDebug? CorDebug, int Hr)>;
-		Guard.Against.Null(runtimeStartupTcs);
-		runtimeStartupTcs.SetResult((corDebug, hr));
-	}
-
 	public static ICorDebug Mobile(RemoteAttachInfo remoteAttachInfo)
 	{
 		var result = DbgShim.RegisterForRuntimeStartupRemotePort(
@@ -35,61 +24,10 @@ public static class ClrDebugExtensions
 		return corDebug;
 	}
 
-	/// pass resumeDiagnosticSuspension true if the process was launched with the DOTNET_DefaultDiagnosticPortSuspend environment variable, and you wish for it to be resumed after RegisterForRuntimeStartup
-	public static async Task<ICorDebug> Automatic(int pid, bool resumeDiagnosticSuspension = false)
-	{
-		using var registration = RegisterForRuntimeStartup(pid);
-		if (resumeDiagnosticSuspension) await DiagnosticClientHelper.DiagnosticClientResumeRuntime(pid);
-		return await registration.WaitForCorDebug().ConfigureAwait(false);
-	}
-
 	/// <summary>
-	/// Registers for the runtime in <paramref name="pid"/> starting, returning once dbgshim is listening for it
+	/// The runtime's <see cref="ICorDebug"/>, failing if the runtime has not started within 5 seconds
 	/// </summary>
-	/// <remarks>
-	/// A process started with DOTNET_DefaultDiagnosticPortSuspend must only be resumed after this returns. If the runtime gets past its
-	/// startup notification while dbgshim is still registering, dbgshim can wait for a startup event that is never signalled
-	/// </remarks>
-	public static RuntimeStartupRegistration RegisterForRuntimeStartup(int pid)
-	{
-		var runtimeStartupTcs = new TaskCompletionSource<(ICorDebug? CorDebug, int Hr)>(TaskCreationOptions.RunContinuationsAsynchronously);
-		var runtimeStartupTcsHandle = GCHandle.Alloc(runtimeStartupTcs);
-		try
-		{
-			IntPtr unregisterToken;
-			unsafe
-			{
-				var registerHr = DbgShim.RegisterForRuntimeStartup(checked((uint)pid), &OnRuntimeStartup, GCHandle.ToIntPtr(runtimeStartupTcsHandle), out unregisterToken);
-				Marshal.ThrowExceptionForHR(registerHr);
-			}
-			return new RuntimeStartupRegistration(runtimeStartupTcs.Task, unregisterToken, runtimeStartupTcsHandle);
-		}
-		catch
-		{
-			runtimeStartupTcsHandle.Free();
-			throw;
-		}
-	}
-
-	public sealed class RuntimeStartupRegistration(Task<(ICorDebug? CorDebug, int Hr)> runtimeStartup, IntPtr unregisterToken, GCHandle runtimeStartupTcsHandle) : IDisposable
-	{
-		private GCHandle _runtimeStartupTcsHandle = runtimeStartupTcsHandle;
-
-		public async Task<ICorDebug> WaitForCorDebug()
-		{
-			var (cordebug, hr) = await runtimeStartup.WaitAsync(TimeSpan.FromSeconds(5)).ConfigureAwait(false);
-			//if callbackHR was not S_OK, an error occurred while attempting to register for runtime startup
-			if (cordebug is null) throw new InvalidOperationException($"Attempting to register for runtime startup failed: {hr}");
-			return cordebug;
-		}
-
-		public void Dispose()
-		{
-			if (_runtimeStartupTcsHandle.IsAllocated is false) return;
-			if (unregisterToken != IntPtr.Zero) DbgShim.UnregisterForRuntimeStartup(unregisterToken);
-			_runtimeStartupTcsHandle.Free();
-		}
-	}
+	public static Task<ICorDebug> WaitForCorDebug(this RuntimeStartupRegistration registration) => registration.CorDebug.WaitAsync(TimeSpan.FromSeconds(5));
 
 	// public static ICorDebug Manual(int pid)
 	// {

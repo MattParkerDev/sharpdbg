@@ -79,8 +79,15 @@ public partial class ManagedDebugger
 
 		_logger?.Invoke($"Process created suspended with PID: {processId}");
 
-		var corDebug = await ClrDebugExtensions.Automatic(processId, resumeDiagnosticSuspension: true);
-		AttachToProcess(corDebug, processId, process);
+		// Register before resuming the diagnostic port suspension, so dbgshim is listening when the runtime reaches its startup notification.
+		// dbgshim then holds the runtime there until the registration is continued or disposed, so attach before user code runs
+		using (var registration = DbgShim.RegisterForRuntimeStartup(checked((uint)processId)))
+		{
+			await DiagnosticClientHelper.DiagnosticClientResumeRuntime(processId);
+			var corDebug = await registration.WaitForCorDebug();
+			AttachToProcess(corDebug, processId, process);
+			registration.ContinueStartup();
+		}
 		OnProcessStarted?.Invoke(processId, launchInfo.Program);
 		return;
 

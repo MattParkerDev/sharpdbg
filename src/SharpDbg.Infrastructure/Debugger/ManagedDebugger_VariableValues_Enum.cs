@@ -2,7 +2,6 @@ using System.Collections.Immutable;
 using System.Reflection.Metadata;
 using System.Reflection.Metadata.Ecma335;
 using System.Runtime.InteropServices;
-using System.Runtime.InteropServices.Marshalling;
 using ICorDebugSharp;
 using EntityHandle = System.Reflection.Metadata.EntityHandle;
 
@@ -89,9 +88,8 @@ public partial class ManagedDebugger
 		if (fieldType.Handle.IsNil) return false;
 
 		var metadataImport = fieldType.Module.Module.GetMetaDataInterface<IMetaDataImport>();
-		IMetaDataImport? enumMetadataImport;
+		IMetaDataImport enumMetadataImport;
 		mdTypeDef enumTypeDef;
-		nint resolvedScope = 0;
 		if (fieldType.Handle.Kind is HandleKind.TypeDefinition)
 		{
 			enumMetadataImport = metadataImport;
@@ -100,33 +98,18 @@ public partial class ManagedDebugger
 		else if (fieldType.Handle.Kind is HandleKind.TypeReference)
 		{
 			var iid = Cor.IID_IMetaDataImport;
-			var hr = metadataImport.TryResolveTypeRef((mdTypeRef)MetadataTokens.GetToken(fieldType.Handle), ref iid, out resolvedScope, out enumTypeDef);
-			if (hr < 0 || resolvedScope is 0) return false;
-			unsafe
-			{
-				// TODO: update ICorDebugSharp to return resolvedScope as a COM interface
-				enumMetadataImport = ComInterfaceMarshaller<IMetaDataImport>.ConvertToManaged((void*)resolvedScope);
-			}
-			if (enumMetadataImport is null) return false;
+			var hr = metadataImport.TryResolveTypeRef((mdTypeRef)MetadataTokens.GetToken(fieldType.Handle), ref iid, out var resolvedScope, out enumTypeDef);
+			if (hr < 0 || resolvedScope is not IMetaDataImport resolvedMetadataImport) return false;
+			enumMetadataImport = resolvedMetadataImport;
 		}
 		else
 		{
 			return false;
 		}
 
-		try
-		{
-			if (IsEnumType(enumMetadataImport, enumTypeDef) is false) return false;
-			displayValue = GetEnumDisplayValue(enumMetadataImport, enumTypeDef, value);
-			return true;
-		}
-		finally
-		{
-			unsafe
-			{
-				if (resolvedScope != 0) ComInterfaceMarshaller<IMetaDataImport>.Free((void*)resolvedScope);
-			}
-		}
+		if (IsEnumType(enumMetadataImport, enumTypeDef) is false) return false;
+		displayValue = GetEnumDisplayValue(enumMetadataImport, enumTypeDef, value);
+		return true;
 	}
 
 	private static bool IsEnumType(IMetaDataImport metadataImport, mdTypeDef typeDef)

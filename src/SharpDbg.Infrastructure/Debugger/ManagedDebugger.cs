@@ -214,10 +214,10 @@ public partial class ManagedDebugger
 		_logger?.Invoke($"Attaching to process: {processId}");
 		_session = new SessionState.Attaching(processId);
 		// Register before returning, so a client that resumes the runtime once ConfigurationDone returns cannot do so before dbgshim is listening
-		ClrDebugExtensions.RuntimeStartupRegistration registration;
+		RuntimeStartupRegistration registration;
 		try
 		{
-			registration = ClrDebugExtensions.RegisterForRuntimeStartup(processId);
+			registration = DbgShim.RegisterForRuntimeStartup(checked((uint)processId));
 		}
 		catch (Exception ex)
 		{
@@ -233,23 +233,25 @@ public partial class ManagedDebugger
 		}
 	}
 
-	private async Task FinishAttach(int processId, ClrDebugExtensions.RuntimeStartupRegistration registration)
+	private async Task FinishAttach(int processId, RuntimeStartupRegistration registration)
 	{
 		try
 		{
-			ICorDebug corDebug;
+			// dbgshim holds the runtime at its startup notification until the registration is continued or disposed, so attach first.
+			// Otherwise the runtime runs on unattached, and on Windows code before the attach completes (e.g. the start of Main) is missed
 			using (registration)
 			{
-				corDebug = await registration.WaitForCorDebug();
-			}
-			using (await DapRequestAndRuntimeEventLock.LockAsync())
-			{
-				if (_session is not SessionState.Attaching)
+				var corDebug = await registration.WaitForCorDebug();
+				using (await DapRequestAndRuntimeEventLock.LockAsync())
 				{
-					_logger?.Invoke($"The session ended before the attach to process {processId} completed");
-					return;
+					if (_session is not SessionState.Attaching)
+					{
+						_logger?.Invoke($"The session ended before the attach to process {processId} completed");
+						return;
+					}
+					AttachToProcess(corDebug, processId, debuggeeProcess: null);
 				}
-				AttachToProcess(corDebug, processId, debuggeeProcess: null);
+				registration.ContinueStartup();
 			}
 		}
 		catch (Exception ex)

@@ -8,6 +8,8 @@ public partial class ManagedDebugger
 	/// Reads the field that <paramref name="getter"/> returns when it is a <see cref="TrivialGetter"/>, instead of calling it with a func eval, which is far slower.
 	/// The field's value is returned as read, so it is neutered by the next func eval: a caller that holds it across one roots it first.
 	/// Returns false when the getter has to be called, e.g. for a null receiver, so the func eval raises the NullReferenceException
+	/// <param name="receiver">The receiver, as a reference or already unwrapped: a reference is only dereferenced once the getter is known to be trivial,
+	/// and an object already unwrapped is used as it is, without copying it out of the debuggee again</param>
 	internal bool TryReadTrivialGetter(ICorDebugFunction getter, ICorDebugValue receiver, [NotNullWhen(true)] out ICorDebugValue? value)
 	{
 		value = null;

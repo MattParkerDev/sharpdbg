@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Runtime.InteropServices;
 using System.Text;
 using Ardalis.GuardClauses;
 using ICorDebugSharp;
@@ -540,11 +541,12 @@ public partial class ManagedDebugger
 		var frame = GetFrameForThreadIdAndStackDepth(threadId, frameStackDepth);
 		if (frame is not ICorDebugILFrame ilFrame) return result;
 
-		var localVariables = ilFrame.LocalVariables;
-		var arguments = ilFrame.Arguments;
+		// Only whether there are any is needed, so they are counted rather than read
+		Marshal.ThrowExceptionForHR(ilFrame.TryEnumerateLocalVariables(out var localVariables));
+		Marshal.ThrowExceptionForHR(ilFrame.TryEnumerateArguments(out var arguments));
 		var thread = GetThread(threadId);
 		var hasCurrentException = thread.TryGetCurrentException(out _) is Cor.S_OK;
-		if (localVariables.Length is 0 && arguments.Length is 0 && !hasCurrentException) return result;
+		if (localVariables.Count is 0 && arguments.Count is 0 && !hasCurrentException) return result;
 
 		// can this just be the same reference?
 		var localsRef = _variableManager.CreateReference(new VariablesReference(StoredReferenceKind.Scope, null, threadId, frameStackDepth, null));

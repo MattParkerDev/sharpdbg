@@ -54,6 +54,9 @@ public class BreakpointInfo
 	/// <summary>Hit count condition (e.g., ">=10", "==5", "%3")</summary>
 	public string? HitCondition { get; set; }
 
+	/// <summary>Logpoint message: interpolated and written to the output, then the breakpoint continues instead of stopping</summary>
+	public string? LogMessage { get; set; }
+
 	/// <summary>Current hit count for this breakpoint</summary>
 	public int HitCount { get; set; }
 }

@@ -122,7 +122,8 @@ public static class DebugAdapterProcessHelper
 				Line = s.Line,
 				Column = s.Column,
 				Condition = s.Condition,
-				HitCondition = s.HitCondition
+				HitCondition = s.HitCondition,
+				LogMessage = s.LogMessage
 			}).ToList()
 		};
 		return setBreakpointsRequest;

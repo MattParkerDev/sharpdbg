@@ -16,7 +16,7 @@ using SharpDbg.Infrastructure.Debugger.Stepping;
 
 namespace SharpDbg.Infrastructure.Debugger;
 
-public record SharpDbgBreakpointRequest(int Line, string? Condition = null, string? HitCondition = null, int? Column = null);
+public record SharpDbgBreakpointRequest(int Line, string? Condition = null, string? HitCondition = null, int? Column = null, string? LogMessage = null);
 public record SharpDbgFunctionBreakpointRequest(string Name, string? Condition = null, string? HitCondition = null);
 public record SharpDbgExceptionBreakpointRequest(SharpDbgExceptionBreakpointFilter Filter, string? Condition = null);
 public enum SharpDbgExceptionBreakpointFilter { All, UserUnhandled }
@@ -275,7 +275,7 @@ public partial class ManagedDebugger
 		var result = new List<BreakpointInfo>();
 		foreach (var request in breakpoints)
 		{
-			var bp = _breakpointManager.CreateBreakpoint(filePath, request.Line, request.Column, request.Condition, request.HitCondition);
+			var bp = _breakpointManager.CreateBreakpoint(filePath, request.Line, request.Column, request.Condition, request.HitCondition, request.LogMessage);
 			if (ConditionContainsLambda(request.Condition))
 			{
 				bp.Binding = new BreakpointBinding.Rejected(LambdaConditionNotSupportedMessage);

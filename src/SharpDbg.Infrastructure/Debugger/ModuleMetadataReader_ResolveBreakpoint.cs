@@ -125,6 +125,37 @@ public partial class ModuleMetadataReader
 	}
 	private static ResolvedBreakpoint NewResolvedBreakpoint(int token, SequencePoint sp, string docPath) =>
 		new(token, sp.Offset, sp.StartLine, sp.EndLine, sp.StartColumn, sp.EndColumn, docPath);
+
+	/// <summary>Valid breakpoint positions for a source range within this module's PDB.</summary>
+	public IReadOnlyList<(int Line, int Column, int EndLine, int EndColumn)> GetBreakpointLocations(
+		string sourceFilePath, int startLine, int? startColumn, int? endLine, int? endColumn)
+	{
+		var reader = _pdbMetadataReader;
+		if (reader is null) return [];
+		if (FindDocument(sourceFilePath) is not { } document) return [];
+		var documentHandle = document.Handle;
+
+		var results = new List<(int Line, int Column, int EndLine, int EndColumn)>();
+		var seen = new HashSet<(int, int, int, int)>();
+		foreach (var handle in reader.MethodDebugInformation)
+		{
+			var info = reader.GetMethodDebugInformation(handle);
+			if (info.SequencePointsBlob.IsNil) continue;
+			foreach (var sp in info.GetSequencePoints())
+			{
+				if (sp.IsHidden) continue;
+				var spDoc = sp.Document.IsNil ? info.Document : sp.Document;
+				if (spDoc != documentHandle) continue;
+				if (sp.StartLine < startLine) continue;
+				if (endLine is { } lastLine && sp.StartLine > lastLine) continue;
+				if (startColumn is { } firstColumn && sp.StartLine == startLine && sp.StartColumn < firstColumn) continue;
+				if (endColumn is { } lastColumn && sp.StartLine == (endLine ?? startLine) && sp.EndColumn > lastColumn) continue;
+				if (!seen.Add((sp.StartLine, sp.StartColumn, sp.EndLine, sp.EndColumn))) continue;
+				results.Add((sp.StartLine, sp.StartColumn, sp.EndLine, sp.EndColumn));
+			}
+		}
+		return results.OrderBy(r => r.Line).ThenBy(r => r.Column).ToList();
+	}
 }
 
 /// How well a PDB document matches the path a breakpoint was set with. The exact path wins; otherwise the document whose

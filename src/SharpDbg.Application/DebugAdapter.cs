@@ -85,6 +85,7 @@ public class DebugAdapter : IDapRequestHandler
 		AttachArguments args => Respond(args, HandleAttachAsync),
 		ConfigurationDoneArguments args => Respond(args, HandleConfigurationDoneAsync),
 		SetBreakpointsArguments args => Respond(args, HandleSetBreakpointsAsync),
+		BreakpointLocationsArguments args => Respond(args, HandleBreakpointLocationsAsync),
 		SetFunctionBreakpointsArguments args => Respond(args, HandleSetFunctionBreakpointsAsync),
 		SetExceptionBreakpointsArguments args => Respond(args, HandleSetExceptionBreakpointsAsync),
 		ThreadsArguments args => Respond(args, HandleThreadsAsync),
@@ -356,6 +357,7 @@ public class DebugAdapter : IDapRequestHandler
 			SupportsExceptionFilterOptions = true,
 			SupportsStepInTargetsRequest = false,
 			SupportsGotoTargetsRequest = false,
+			SupportsBreakpointLocationsRequest = true,
 			ExceptionBreakpointFilters =
 			[
 				new ExceptionBreakpointsFilter { Filter = "all", Label = "All Exceptions", Default = false },
@@ -456,6 +458,34 @@ public class DebugAdapter : IDapRequestHandler
 		{
 			await _debugger.ConfigurationDone();
 			return new ConfigurationDoneResponse();
+		});
+	}
+
+	private ValueTask<DapResult<BreakpointLocationsResponse>> HandleBreakpointLocationsAsync(BreakpointLocationsArguments arguments)
+	{
+		if (arguments.Source.Path is not { } sourcePath)
+		{
+			return ValueTask.FromResult<DapResult<BreakpointLocationsResponse>>(new DapError("Failed to get breakpoint locations: Missing source path"));
+		}
+
+		var startLine = ConvertClientLineToDebugger(arguments.Line);
+		var endLine = arguments.EndLine is int lastLine ? ConvertClientLineToDebugger(lastLine) : (int?)null;
+		var startColumn = arguments.Column is int c ? ConvertClientColumnToDebugger(c) : (int?)null;
+		var endColumn = arguments.EndColumn is int ec ? ConvertClientColumnToDebugger(ec) : (int?)null;
+
+		return RunLocked<BreakpointLocationsResponse>("Failed to get breakpoint locations", () =>
+		{
+			var locations = _debugger.GetBreakpointLocations(sourcePath, startLine, startColumn, endLine, endColumn);
+			return new BreakpointLocationsResponse
+			{
+				Breakpoints = locations.Select(l => new BreakpointLocation
+				{
+					Line = ConvertDebuggerLineToClient(l.Line),
+					Column = ConvertDebuggerColumnToClient(l.Column),
+					EndLine = ConvertDebuggerLineToClient(l.EndLine),
+					EndColumn = ConvertDebuggerColumnToClient(l.EndColumn)
+				}).ToList()
+			};
 		});
 	}
 

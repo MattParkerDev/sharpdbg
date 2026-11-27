@@ -1,5 +1,5 @@
 using System.Buffers;
-using System.Diagnostics.CodeAnalysis;
+using System.Runtime.InteropServices;
 using System.Text;
 using ICorDebugSharp;
 using SharpDbg.Infrastructure.Debugger.ExpressionEvaluator;
@@ -35,7 +35,7 @@ public partial class ManagedDebugger
 				builder.Append(debuggerDisplay.AsSpan(segment.Literal));
 				continue;
 			}
-			if (IsIdentifier(segment.Expression) && TryReadInstanceMemberWithoutEval(value, segment.Expression, out var memberValue))
+			if (IsIdentifier(segment.Expression) && await TryReadInstanceMemberAsync(value, segment.Expression, threadId) is { } memberValue)
 			{
 				// Fast path for the common '{Count}', as the expression evaluator is far slower than reading the member
 				try
@@ -76,36 +76,49 @@ public partial class ManagedDebugger
 		return true;
 	}
 
-	/// Reads the instance field, or the field a <see cref="TrivialGetter"/> property returns, that C# name lookup finds for <paramref name="memberName"/>
-	/// from inside the type of <paramref name="value"/>. Returns false for anything else, e.g. a method, a static member, a property whose getter
-	/// does more, or a field ICorDebug cannot read, which the expression evaluator handles. A reference read, other than a string, is in a strong handle that the caller owns
-	private bool TryReadInstanceMemberWithoutEval(ICorDebugValue value, string memberName, [NotNullWhen(true)] out ICorDebugValue? result)
+	/// Reads the instance field, or instance property, that C# name lookup finds for <paramref name="memberName"/> from inside the type of
+	/// <paramref name="value"/>: the field directly, a <see cref="TrivialGetter"/> property's field directly, and any other property by calling its
+	/// getter, which is what the expression evaluator would compile it to. Returns null for anything else, e.g. a method, a static member, a getter
+	/// that throws, or a field ICorDebug cannot read, which the expression evaluator handles. A reference read, other than a string, is in a strong handle that the caller owns
+	private async Task<ICorDebugValue?> TryReadInstanceMemberAsync(ICorDebugValue value, string memberName, ThreadId threadId)
 	{
-		result = null;
-		if (value.UnwrapDebugValue() is not ICorDebugObjectValue objectValue || objectValue is ICorDebugStringValue) return false;
+		if (value.UnwrapDebugValue() is not ICorDebugObjectValue objectValue || objectValue is ICorDebugStringValue) return null;
 		try
 		{
-			if (FindDebuggerDisplayMember(objectValue, memberName) is not { } member) return false;
+			if (FindDebuggerDisplayMember(objectValue, memberName) is not { } member) return null;
 			ICorDebugValue memberValue;
 			if (member.Getter is null) memberValue = objectValue.GetFieldValue(member.DeclaringClass, member.Field);
 			else if (TryReadTrivialGetter(member.Getter, value, out var getterValue)) memberValue = getterValue;
-			else return false;
+			// A func eval's result is already in a handle the caller owns
+			else return await CallDebuggerDisplayGetterAsync(member.Getter, member.DeclaringClass, value, objectValue.ExactType, threadId);
 			// A string is formatted without running code in the debuggee, so nothing neuters it first, and a handle costs two round trips to the debuggee
-			result = memberValue is ICorDebugReferenceValue { IsNull: false } reference && reference.Dereference() is ICorDebugStringValue
+			return memberValue is ICorDebugReferenceValue { IsNull: false } reference && reference.Dereference() is ICorDebugStringValue
 				? memberValue
 				: InStrongHandleIfReference(memberValue);
-			return true;
 		}
 		catch (Exception ex)
 		{
-			// e.g. a field added by Edit and Continue, which ICorDebug cannot read: the expression evaluator reports the segment's error
+			// e.g. a field added by Edit and Continue, which ICorDebug cannot read, or a getter that throws: the expression evaluator reports the segment's error
 			_logger?.Invoke($"Reading '{memberName}' for a DebuggerDisplay failed, falling back to the expression evaluator: {ex.Message}");
-			return false;
+			return null;
 		}
 	}
 
+	private async Task<ICorDebugValue?> CallDebuggerDisplayGetterAsync(ICorDebugFunction getter, ICorDebugClass declaringClass, ICorDebugValue receiver, ICorDebugType receiverType, ThreadId threadId)
+	{
+		// A getter declared on a generic base takes the base's instantiation, not the receiver's own type arguments
+		var declaringType = receiverType;
+		while (declaringType is not null && (declaringType.Class.Token != declaringClass.Token || declaringType.Class.Module.BaseAddress != declaringClass.Module.BaseAddress))
+		{
+			declaringType = declaringType.Base;
+		}
+		if (declaringType is null) return null;
+		var typeArguments = declaringType.TypeParameters;
+		return await GetThread(threadId).CreateEval().CallParameterizedFunctionAsync(ProcessRuntimeEventsUntilEvalEvent, EvalStatus, getter, typeArguments.Length, typeArguments, 1, [receiver], throwOnException: true);
+	}
+
 	/// What C# name lookup finds for a member name from inside a type, when it may be read without the expression evaluator:
-	/// an instance field (<see cref="Getter"/> is null), or the getter of a property, read only if it is a <see cref="TrivialGetter"/>
+	/// an instance field (<see cref="Getter"/> is null), or the getter of a parameterless instance property
 	private readonly record struct DebuggerDisplayMember(ICorDebugClass DeclaringClass, mdFieldDef Field, ICorDebugFunction? Getter);
 
 	// By type definition, as name lookup does not depend on a generic type's arguments. Cleared when a module loads or unloads, which can change the
@@ -145,7 +158,11 @@ public partial class ManagedDebugger
 			if (metadataImport.GetPropertyWithName(corClass.Token, memberName) is { IsNil: false } property)
 			{
 				var getter = metadataImport.GetPropertyProps(property).pmdGetter;
-				return getter == mdMethodDef.Nil ? null : new DebuggerDisplayMember(corClass, default, corClass.Module.GetFunctionFromToken(getter));
+				if (getter == mdMethodDef.Nil) return null;
+				// A static property, or an indexer, which needs arguments, is left to the expression evaluator
+				var getterProps = metadataImport.GetMethodProps(getter);
+				if (getterProps.pdwAttr.IsMdStatic() || Marshal.ReadByte(getterProps.ppvSigBlob, 1) is not 0) return null;
+				return new DebuggerDisplayMember(corClass, default, corClass.Module.GetFunctionFromToken(getter));
 			}
 		}
 		return null;

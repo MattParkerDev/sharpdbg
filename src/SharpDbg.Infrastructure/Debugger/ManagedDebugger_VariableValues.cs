@@ -149,21 +149,24 @@ public partial class ManagedDebugger
 
 	public static CorDebugValueValueResult GetCorDebugObjectValue_Value_AsString(ICorDebugObjectValue corDebugObjectValue, bool escapeStringValue)
 	{
-		var module = corDebugObjectValue.Class.Module;
-		var metaDataImport = module.GetMetaDataInterface<IMetaDataImport>();
-		var baseTypeName = corDebugObjectValue.ExactType.Base is {} baseType ? GetCorDebugTypeFriendlyName(baseType) : null; // ExactType.Base is null when ExactType is System.Object
-		if (baseTypeName is "System.Enum")
+		// Each read of these is a call into ICorDebug that wraps a new object, so they are read once
+		var corDebugClass = corDebugObjectValue.Class;
+		var classToken = corDebugClass.Token;
+		var exactType = corDebugObjectValue.ExactType;
+		var metaDataImport = corDebugClass.Module.GetMetaDataInterface<IMetaDataImport>();
+		// Only a value type can be an enum. ExactType.Base is null when ExactType is System.Object
+		if (exactType.Type is CorElementType.VALUETYPE && exactType.Base is { } baseType && IsTypeDefNamed(baseType.Class, "System.Enum"))
 		{
-			var valueFieldDef = metaDataImport.FindField(corDebugObjectValue.Class.Token, "value__", 0, 0);
-			var valueField = corDebugObjectValue.GetFieldValue(corDebugObjectValue.Class, valueFieldDef);
+			var valueFieldDef = metaDataImport.FindField(classToken, "value__", 0, 0);
+			var valueField = corDebugObjectValue.GetFieldValue(corDebugClass, valueFieldDef);
 			var value = GetValueForCorDebugValue(valueField, escapeStringValue);
 
-			var enumDisplayValue = GetEnumDisplayValue(metaDataImport, corDebugObjectValue.Class.Token, value.Value);
-			return new(GetCorDebugTypeFriendlyName(corDebugObjectValue.ExactType), enumDisplayValue, CorDebugValueFormatKind.None, null);
+			var enumDisplayValue = GetEnumDisplayValue(metaDataImport, classToken, value.Value);
+			return new(GetCorDebugTypeFriendlyName(exactType), enumDisplayValue, CorDebugValueFormatKind.None, null);
 		}
-		var typeName = GetCorDebugTypeFriendlyName(corDebugObjectValue.ExactType);
-		var hasDebuggerTypeProxyAttribute = metaDataImport.TryGetCustomAttributeByName(corDebugObjectValue.Class.Token, "System.Diagnostics.DebuggerTypeProxyAttribute", out var debuggerTypeProxyAttributePointer, out var debuggerTypeProxyAttributeSize) is Cor.S_OK;
-		var hasDebuggerDisplayAttribute = TryGetInheritedDebuggerDisplayAttribute(corDebugObjectValue.ExactType, out var debuggerDisplayAttributePointer, out var debuggerDisplayAttributeSize);
+		var typeName = GetCorDebugTypeFriendlyName(exactType);
+		var hasDebuggerTypeProxyAttribute = metaDataImport.TryGetCustomAttributeByName(classToken, "System.Diagnostics.DebuggerTypeProxyAttribute", out var debuggerTypeProxyAttributePointer, out var debuggerTypeProxyAttributeSize) is Cor.S_OK;
+		var hasDebuggerDisplayAttribute = TryGetInheritedDebuggerDisplayAttribute(exactType, out var debuggerDisplayAttributePointer, out var debuggerDisplayAttributeSize);
 
 		var debugProxyTypeName = hasDebuggerTypeProxyAttribute ? GetCustomAttributeResultString(debuggerTypeProxyAttributePointer, debuggerTypeProxyAttributeSize) : null;
 		if (IsTupleType(typeName))
@@ -181,7 +184,7 @@ public partial class ManagedDebugger
 			if (debuggerDisplayName is not null) debuggerDisplayValue = $"{debuggerDisplayName} = {debuggerDisplayValue}";
 			return new(typeName, debuggerDisplayValue, CorDebugValueFormatKind.DebuggerDisplay, debugProxyTypeName);
 		}
-		if (corDebugObjectValue.ExactType.IsExceptionType())
+		if (exactType.IsExceptionType())
 		{
 			return new(typeName, "", CorDebugValueFormatKind.ToString, debugProxyTypeName);
 		}
@@ -191,12 +194,17 @@ public partial class ManagedDebugger
 			var decimalString = GetDecimalValueString(corDebugObjectValue);
 			return new(typeName, decimalString, CorDebugValueFormatKind.None, null);
 		}
-		if (TypeOverridesToString(corDebugObjectValue.ExactType))
+		if (TypeOverridesToString(exactType))
 		{
 			return new(typeName, "", CorDebugValueFormatKind.ToString, debugProxyTypeName);
 		}
 
 		return new(typeName, $"{{{typeName}}}", CorDebugValueFormatKind.None, debugProxyTypeName);
+	}
+
+	private static bool IsTypeDefNamed(ICorDebugClass corDebugClass, string name)
+	{
+		return corDebugClass.Module.GetMetaDataInterface<IMetaDataImport>().GetTypeDefProps(corDebugClass.Token).szTypeDef == name;
 	}
 
 	private static bool IsPrimitiveElementType(CorElementType elementType) => elementType is CorElementType.BOOLEAN or CorElementType.CHAR

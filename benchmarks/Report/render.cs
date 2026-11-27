@@ -133,6 +133,13 @@ static class Markdown
 			for (var i = 0; i < failures.Count; i++) md.AppendLine($"{i + 1}. {failures[i]}");
 		}
 
+		var reused = Reused(results);
+		if (reused.Count > 0)
+		{
+			md.AppendLine();
+			md.AppendLine($"Reused from earlier runs, as the adapter, benchmark and machine are unchanged: {string.Join("; ", reused)}.");
+		}
+
 		md.AppendLine();
 		var n = results.Rows.SelectMany(r => r.Cells.Values).Select(c => c.N).DefaultIfEmpty().Max();
 		md.AppendLine($"{results.Date:yyyy-MM-dd HH:mm} · sharpdbg {results.Commit} · {n} measured iterations each");
@@ -142,6 +149,19 @@ static class Markdown
 		md.AppendLine("```");
 		return md.ToString();
 	}
+
+	/// <summary>Per adapter with reused results: "dncdbg, 12 of 15 from 2026-11-27 11:59".</summary>
+	private static List<string> Reused(Results results) => results.Adapters
+		.Select(adapter => (adapter.Name, Cells: results.Rows.Select(r => r.Cells.GetValueOrDefault(adapter.Name)).OfType<Cell>().ToList()))
+		.Select(a => (a.Name, a.Cells.Count, Reused: a.Cells.Where(c => c.Reused).ToList()))
+		.Where(a => a.Reused.Count > 0)
+		.Select(a =>
+		{
+			var times = a.Reused.Select(c => c.Ran).OfType<DateTime>().Select(t => t.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture)).Distinct().Order().ToList();
+			var when = times.Count switch { 0 => "", 1 => $" from {times[0]}", _ => $" from {times[0]} to {times[^1]}" };
+			return $"{a.Name}, {(a.Reused.Count == a.Count ? "all" : $"{a.Reused.Count} of {a.Count}")}{when}";
+		})
+		.ToList();
 
 	// A failure is one line in a list item, and must not end the table or start formatting
 	private static string Escape(string text) => string.Join(" ", text.Split('\n', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
@@ -169,4 +189,5 @@ static class Format
 record Results(string Title, DateTime Date, List<string> Environment, string Commit, List<Adapter> Adapters, List<Row> Rows);
 record Adapter(string Name, string? Version);
 record Row(string Group, string Name, string Measures, Dictionary<string, Cell> Cells);
-record Cell(double? Median, double? Mean, double? Min, double? Q1, double? Q3, double? P95, double? Max, int N, string? Failure);
+// Ran and Reused are absent from results written before --only-changed; Reused is true for a result measured in an earlier run
+record Cell(double? Median, double? Mean, double? Min, double? Q1, double? Q3, double? P95, double? Max, int N, string? Failure, DateTime? Ran, bool Reused);

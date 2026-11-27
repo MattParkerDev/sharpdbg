@@ -67,6 +67,9 @@
 	.heat td.fastest { font-weight: 700; }
 	.heat td.failed { background: repeating-linear-gradient(135deg, var(--hatch) 0 4px, transparent 4px 8px); color: var(--critical); font-weight: 600; }
 	.heat td.missing { color: var(--muted); }
+	.heat td.reused::after, .legend .reused::before { content: "↺"; margin-left: 4px; font-weight: 400; opacity: 0.75; }
+	.legend .reused { margin-left: 12px; }
+	.legend .reused::before { margin: 0 4px 0 0; }
 	.legend { display: flex; flex-wrap: wrap; align-items: center; gap: 2px; margin-top: 12px; font-size: 12px; color: var(--ink-2); }
 	.legend .label { margin-right: 8px; }
 	.legend .swatch { padding: 2px 8px; border-radius: 4px; font-variant-numeric: tabular-nums; }
@@ -108,6 +111,7 @@
 	#tooltip td:first-child { color: var(--ink-2); padding-right: 12px; }
 	#tooltip td:last-child { text-align: right; }
 	#tooltip .error { color: var(--critical); white-space: pre-wrap; }
+	#tooltip .when { color: var(--muted); margin-top: 4px; }
 </style>
 </head>
 <body>
@@ -177,12 +181,27 @@ const heatBins = [1.1, 1.5, 2.5, 5, 20];
 const heatLabels = ["≤1.1×", "≤1.5×", "≤2.5×", "≤5×", "≤20×", ">20×"];
 const heatBin = r => { const i = heatBins.findIndex(limit => r <= limit); return i === -1 ? heatBins.length : i; };
 
+// Per adapter with reused results: "dncdbg, 12 of 15 from 2026-11-27 11:59"
+function reusedSummary() {
+	return adapters.map(a => {
+		const cells = data.rows.map(r => r.cells[a.name]).filter(c => c);
+		const reused = cells.filter(c => c.reused);
+		if (!reused.length) return null;
+		const times = [...new Set(reused.filter(c => c.ran).map(c => when(c.ran)))].sort();
+		const from = times.length === 0 ? "" : times.length === 1 ? ` from ${times[0]}` : ` from ${times[0]} to ${times[times.length - 1]}`;
+		return `${a.name}, ${reused.length === cells.length ? "all" : `${reused.length} of ${cells.length}`}${from}`;
+	}).filter(s => s).join("; ");
+}
+// "2026-11-27T11:59:27.123" as "2026-11-27 11:59"
+const when = ran => ran.slice(0, 16).replace("T", " ");
+
 // Header
-const n = Math.max(0, ...data.rows.flatMap(r => Object.values(r.cells).map(c => c.n || 0)));
+const n =Math.max(0, ...data.rows.flatMap(r => Object.values(r.cells).map(c => c.n || 0)));
 document.getElementById("subtitle").textContent =
 	`${data.rows.length} benchmarks × ${adapters.length} adapters · ${n} measured iterations each · lower is better`;
 document.getElementById("meta").append(
 	el("div", { text: `${data.date} · sharpdbg ${data.commit}` }),
+	reusedSummary() ? el("div", { text: `↺ Reused from earlier runs, as the adapter, benchmark and machine are unchanged: ${reusedSummary()}` }) : null,
 	el("pre", { text: data.environment.join("\n") }));
 
 // Tooltip
@@ -200,6 +219,7 @@ function showTooltip(event, row, adapterName) {
 		if (adapterName !== data.baseline && baseline && baseline.median) lines.push([`vs ${data.baseline}`, ratio(cell.median / baseline.median)]);
 		tooltip.append(el("table", {}, lines.map(([k, v]) => el("tr", {}, el("td", { text: k }), el("td", { text: v })))));
 	}
+	if (cell && cell.ran) tooltip.append(el("div", { class: "when", text: cell.reused ? `↺ Measured ${when(cell.ran)}, in an earlier run` : `Measured ${when(cell.ran)}` }));
 	tooltip.style.display = "block";
 	moveTooltip(event);
 }
@@ -257,6 +277,7 @@ const failureNumber = (row, adapter) => failures.find(f => f.row === row && f.ad
 				td.style.background = `var(--heat-${bin})`;
 				td.style.color = `var(--heat-ink-${bin})`;
 			}
+			if (cell && cell.reused) td.classList.add("reused");
 			hover(td, row, a.name);
 			tr.append(td);
 		}
@@ -273,6 +294,7 @@ const failureNumber = (row, adapter) => failures.find(f => f.row === row && f.ad
 		legend.append(swatch);
 	});
 	if (failures.length) legend.append(el("span", { class: "swatch failed", text: "✗ failed" }));
+	if (data.rows.some(r => Object.values(r.cells).some(c => c.reused))) legend.append(el("span", { class: "reused", text: "reused from an earlier run" }));
 })();
 
 // Per-benchmark bar charts: median bars, with a whisker over the middle half of the runs (Q1 to Q3)

@@ -1,6 +1,8 @@
 // Copy to adapters.json (git ignored) and point at the debuggers on your machine.
 // "version" is optional: shown in the reports, it defaults to the executable's product version.
 // "path": "built" is the sharpdbg built from this repository, in the configuration the benchmarks were built in.
+// "fingerprint" is optional: files or folders that, besides the executable's own folder, tell --only-changed the adapter changed,
+// e.g. files the adapter loads from another folder.
 {
 	"adapters": [
 		{ "name": "sharpdbg", "path": "built" },

@@ -37,6 +37,19 @@ dotnet run -c Release --project benchmarks/SharpDbg.Benchmarks -- --filter '*'
 
 - `--adapters sharpdbg,netcoredbg` - run only these adapters.
 - `--filter '*Step*'` - run only these benchmarks. Any other [BenchmarkDotNet option](https://benchmarkdotnet.org/articles/guides/console-args.html) works too, e.g. `--iterationCount 5 --warmupCount 1` for a quicker run.
+- `--only-changed` - run sharpdbg, and the other adapters only where their earlier results are out of date (see below).
+- `--rerun dncdbg,clrdbg` - with `--only-changed` (which it turns on), run these adapters regardless.
+- `--max-age 3` - with `--only-changed`, reuse results up to this many days old. The default, 0, reuses only today's.
+
+### Only what changed
+
+Most of a full run is the other debuggers, which give the same results until they or the benchmarks change. With `--only-changed`, sharpdbg always runs, and another adapter's result for a benchmark is reused from an earlier run when all of these are unchanged since:
+
+- **The benchmark**: its class's file in `Benchmarks/`, and what every benchmark shares (`AdapterBenchmark.cs`, `DebugSession.cs`, `DebuggeeSource.cs`, `Program.cs`, and the debuggee's `Program.cs` and project). A new benchmark has no earlier result, so it runs. `SharpDbg.DapProtocol` is left out, though the client uses it: it changes with sharpdbg, and would rerun every adapter.
+- **The adapter**: the name, size and modified time of every file in the executable's folder, and in its `fingerprint` paths (below), plus its arguments and `version`. Moving the folder keeps its results.
+- **The machine**: the environment lines BenchmarkDotNet reports (its version, OS build, CPU, .NET SDK).
+
+and it is recent enough (`--max-age`). At the end, the console lists for each benchmark and adapter whether it ran and why, or which run its result is from. Earlier results are every `*-results.json` in the results directory, so a run of a few benchmarks still counts, and the reports mark each reused result ↺ with when it was measured. Failures are reused too: run a fixed adapter again with `--rerun`.
 
 ## Results
 
@@ -68,7 +81,7 @@ Without configuration, only the sharpdbg built from this repository is benchmark
 }
 ```
 
-`"path": "built"` is the sharpdbg in `artifacts/bin/SharpDbg.Cli/release`. An optional `"version"` is shown in the reports; without it, the executable's product version is used. Any adapter that speaks DAP over stdio and accepts a `coreclr`-style launch request (`program`, `args`, `cwd`, `justMyCode`) can be added: netcoredbg, dncdbg and clrdbg work as they are.
+`"path": "built"` is the sharpdbg in `artifacts/bin/SharpDbg.Cli/release`. An optional `"version"` is shown in the reports; without it, the executable's product version is used. An optional `"fingerprint"` lists more files or folders whose changes make `--only-changed` rerun the adapter, e.g. files it loads from another folder. Any adapter that speaks DAP over stdio and accepts a `coreclr`-style launch request (`program`, `args`, `cwd`, `justMyCode`) can be added: netcoredbg, dncdbg and clrdbg work as they are.
 
 ## Getting stable numbers
 

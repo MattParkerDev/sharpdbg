@@ -22,12 +22,20 @@ public sealed class ResultsExporter : IExporter
 
 	public IEnumerable<string> ExportToFiles(Summary summary, ILogger consoleLogger)
 	{
-		var json = JsonSerializer.Serialize(ResultsModel.From(summary), JsonOptions);
+		var model = ResultsModel.From(summary);
+		var json = JsonSerializer.Serialize(model, JsonOptions);
 		Directory.CreateDirectory(summary.ResultsDirectoryPath);
 		var run = Path.Join(summary.ResultsDirectoryPath, $"{summary.Title}-results.json");
 		var latest = Path.Join(summary.ResultsDirectoryPath, "latest-results.json");
 		File.WriteAllText(run, json);
 		File.WriteAllText(latest, json);
+
+		if (Reuse.Enabled)
+		{
+			consoleLogger.WriteLine();
+			consoleLogger.WriteLineHeader("// * --only-changed *");
+			foreach (var line in Reuse.Explain(model.Rows.Select(r => r.Id!))) consoleLogger.WriteLineInfo("  " + line);
+		}
 
 		consoleLogger.WriteLine();
 		consoleLogger.WriteLineInfo("Render the markdown and HTML reports with: dotnet run benchmarks/Report/render.cs");

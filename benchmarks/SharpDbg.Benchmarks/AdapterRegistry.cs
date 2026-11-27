@@ -5,8 +5,12 @@ namespace SharpDbg.Benchmarks;
 /// <param name="Name">Shown in the results' Adapter column.</param>
 /// <param name="Path">The adapter executable, which speaks DAP over stdio.</param>
 /// <param name="Args">Command line arguments, usually <c>--interpreter=vscode</c>.</param>
-/// <param name="Version">Shown in the reports. When not given, the executable's product version is used (a proxy's version, for a proxy).</param>
-public sealed record AdapterDefinition(string Name, string Path, string[] Args, string? Version = null);
+/// <param name="Version">Shown in the reports. When not given, the executable's product version is used.</param>
+/// <param name="Fingerprint">
+/// Files or folders that, with the executable's own folder, tell whether the adapter changed since an earlier run (see <c>--only-changed</c>),
+/// e.g. files the adapter loads from another folder.
+/// </param>
+public sealed record AdapterDefinition(string Name, string Path, string[] Args, string? Version = null, string[]? Fingerprint = null);
 
 /// <summary>
 /// The adapters to benchmark, read from <c>adapters.json</c> next to this project (see <c>adapters.example.json</c>).
@@ -42,7 +46,9 @@ public static class AdapterRegistry
 		var config = JsonSerializer.Deserialize<AdapterConfig>(File.ReadAllText(ConfigPath), new JsonSerializerOptions { PropertyNameCaseInsensitive = true, ReadCommentHandling = JsonCommentHandling.Skip, AllowTrailingCommas = true })
 			?? throw new InvalidOperationException($"{ConfigPath} is empty");
 		return config.Adapters
-			.Select(a => a.Path is "built" ? BuiltSharpDbg with { Name = a.Name, Args = a.Args ?? BuiltSharpDbg.Args, Version = a.Version } : new AdapterDefinition(a.Name, a.Path, a.Args ?? [], a.Version))
+			.Select(a => a.Path is "built"
+				? BuiltSharpDbg with { Name = a.Name, Args = a.Args ?? BuiltSharpDbg.Args, Version = a.Version, Fingerprint = a.Fingerprint }
+				: new AdapterDefinition(a.Name, a.Path, a.Args ?? [], a.Version, a.Fingerprint))
 			.ToList();
 	}
 
@@ -57,5 +63,5 @@ public static class AdapterRegistry
 	}
 
 	private sealed record AdapterConfig(List<AdapterConfigEntry> Adapters);
-	private sealed record AdapterConfigEntry(string Name, string Path, string[]? Args, string? Version);
+	private sealed record AdapterConfigEntry(string Name, string Path, string[]? Args, string? Version, string[]? Fingerprint);
 }

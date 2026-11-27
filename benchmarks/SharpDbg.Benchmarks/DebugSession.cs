@@ -181,7 +181,7 @@ public sealed class DebugSession : IDisposable
 		_connection.Stop();
 		try
 		{
-			// Some adapters are proxies that start the real debugger as a child, and the debuggee is a child too
+			// Some adapters run the debugger in a child process, and the debuggee is a child too
 			if (_process.HasExited is false) _process.Kill(entireProcessTree: true);
 			_process.WaitForExit(5000);
 		}

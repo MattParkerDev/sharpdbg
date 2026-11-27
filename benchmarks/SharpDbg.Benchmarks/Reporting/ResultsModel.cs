@@ -18,10 +18,16 @@ public sealed class GroupAttribute(string name) : Attribute
 	public string Name { get; } = name;
 }
 
-/// <summary>Times in milliseconds. A null median means the benchmark failed for that adapter.</summary>
-public sealed record ResultCell(double? Median, double? Mean, double? Min, double? Q1, double? Q3, double? P95, double? Max, int N, string? Failure);
+/// <summary>
+/// Times in milliseconds. A null median means the benchmark failed for that adapter.
+/// <paramref name="Ran"/> and <paramref name="Fingerprint"/> say when it was measured and on what, for <see cref="Reuse"/>;
+/// <paramref name="Reused"/> is true when it was measured in an earlier run.
+/// </summary>
+public sealed record ResultCell(double? Median, double? Mean, double? Min, double? Q1, double? Q3, double? P95, double? Max, int N, string? Failure,
+	DateTime? Ran = null, Fingerprint? Fingerprint = null, bool Reused = false);
 
-public sealed record ResultRow(string Group, string Name, string Measures, IReadOnlyDictionary<string, ResultCell> Cells);
+/// <param name="Id">The benchmark's class and method, e.g. <c>StepBenchmarks.StepOver</c>.</param>
+public sealed record ResultRow(string? Id, string Group, string Name, string Measures, IReadOnlyDictionary<string, ResultCell> Cells);
 
 public sealed record ResultAdapter(string Name, string? Version);
 
@@ -42,31 +48,43 @@ public sealed record ResultsModel(
 
 	public static ResultsModel From(Summary summary)
 	{
-		var adapterNames = summary.BenchmarksCases.Select(AdapterOf).Distinct().ToList();
-		// Keep the order of adapters.json, so each adapter keeps its column (and colour) from run to run
-		var ordered = AdapterRegistry.All.Select(a => a.Name).Where(adapterNames.Contains).Concat(adapterNames.Except(AdapterRegistry.All.Select(a => a.Name))).ToList();
-
+		var ran = DateTime.Now;
 		var rows = summary.Reports
 			.GroupBy(r => (Type: r.BenchmarkCase.Descriptor.Type, Method: r.BenchmarkCase.Descriptor.WorkloadMethod))
-			.Select(g => new ResultRow(
-				Group: g.Key.Type.GetCustomAttribute<GroupAttribute>()?.Name ?? g.Key.Type.Name.Replace("Benchmarks", ""),
-				Name: g.Key.Method.Name,
-				Measures: g.Key.Method.GetCustomAttribute<MeasuresAttribute>()?.Description ?? "",
-				Cells: g.ToDictionary(r => AdapterOf(r.BenchmarkCase), Cell)))
+			.Select(g =>
+			{
+				var id = Reuse.Id(g.Key.Type, g.Key.Method.Name);
+				var cells = g.ToDictionary(r => AdapterOf(r.BenchmarkCase), r => Cell(r) with { Ran = ran, Fingerprint = Reuse.FingerprintOf(g.Key.Type, AdapterOf(r.BenchmarkCase)) });
+				// With --only-changed, the adapters that did not run this benchmark carry over their earlier result
+				foreach (var adapter in AdapterRegistry.SelectedNames)
+				{
+					if (cells.ContainsKey(adapter) is false && Reuse.ReusedCell(id, adapter) is { } reused) cells[adapter] = reused;
+				}
+				return new ResultRow(
+					Id: id,
+					Group: g.Key.Type.GetCustomAttribute<GroupAttribute>()?.Name ?? g.Key.Type.Name.Replace("Benchmarks", ""),
+					Name: g.Key.Method.Name,
+					Measures: g.Key.Method.GetCustomAttribute<MeasuresAttribute>()?.Description ?? "",
+					Cells: cells);
+			})
 			// Stable sort: the order an IDE session goes through, then the order the methods are declared in
 			.OrderBy(row => GroupOrder.IndexOf(row.Group) is var i and >= 0 ? i : GroupOrder.Count)
 			.ToList();
 
+		var adapterNames = rows.SelectMany(r => r.Cells.Keys).Distinct().ToList();
+		// Keep the order of adapters.json, so each adapter keeps its column (and colour) from run to run
+		var ordered = AdapterRegistry.All.Select(a => a.Name).Where(adapterNames.Contains).Concat(adapterNames.Except(AdapterRegistry.All.Select(a => a.Name))).ToList();
+
 		return new ResultsModel(
 			summary.Title,
-			DateTime.Now,
-			summary.HostEnvironmentInfo.ToFormattedString().Where(line => string.IsNullOrWhiteSpace(line) is false).Select(line => line.Trim()).ToList(),
+			ran,
+			Reuse.EnvironmentLines(summary.HostEnvironmentInfo),
 			GitCommit(),
 			ordered.Select(name => new ResultAdapter(name, AdapterVersion(name))).ToList(),
 			rows);
 	}
 
-	private static string AdapterOf(BenchmarkDotNet.Running.BenchmarkCase benchmarkCase) => benchmarkCase.Parameters["Adapter"]?.ToString() ?? "";
+	private static string AdapterOf(BenchmarkDotNet.Running.BenchmarkCase benchmarkCase) => Reuse.AdapterOf(benchmarkCase);
 
 	private static ResultCell Cell(BenchmarkReport report)
 	{

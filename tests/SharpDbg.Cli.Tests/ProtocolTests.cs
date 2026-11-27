@@ -15,8 +15,8 @@ public class ProtocolTests(ITestOutputHelper testOutputHelper)
 		using var host = DebugAdapterProcessHelper.GetDebugProtocolHost(input, output, testOutputHelper);
 		host.Run();
 
-		var unimplementedResult = host.SendRequest(new SetVariableArguments { VariablesReference = 0, Name = "value", Value = "1" });
-		unimplementedResult.Value.Should().BeOfType<DapError>().Which.Message.Should().Be("Request 'setVariable' is not supported.");
+		var unimplementedResult = host.SendRequest(new StepBackArguments { ThreadId = 1 });
+		unimplementedResult.Value.Should().BeOfType<DapError>().Which.Message.Should().Be("Request 'stepBack' is not supported.");
 
 		var unknownResult = host.SendRequest(new UnknownArguments());
 		unknownResult.Value.Should().BeOfType<DapError>().Which.Message.Should().Be("Request 'unknownRequest' is not supported.");

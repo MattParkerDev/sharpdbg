@@ -222,6 +222,8 @@ public partial class ManagedDebugger
 
 	private bool HasChildren(ICorDebugValue corDebugValue, string friendlyTypeName)
 	{
+		// Strings, decimals and primitives, maybe nullable, are displayed as primitives. Checked first, as it saves unwrapping the value
+		if (friendlyTypeName is "string" || IsPrimitiveOrDecimalFriendlyName(friendlyTypeName.AsSpan().TrimEnd('?'))) return false;
 		var unwrappedDebugValue = corDebugValue.UnwrapDebugValue();
 		if (unwrappedDebugValue is ICorDebugArrayValue arrayValue)
 		{
@@ -247,6 +249,9 @@ public partial class ManagedDebugger
 		}
 		return false;
 	}
+
+	private static bool IsPrimitiveOrDecimalFriendlyName(ReadOnlySpan<char> friendlyTypeName) => friendlyTypeName is "decimal" or "bool" or "byte" or "sbyte" or "char"
+		or "short" or "ushort" or "int" or "uint" or "long" or "ulong" or "float" or "double" or "nint" or "nuint";
 
 	private int GenerateUniqueVariableReference(ICorDebugValue value, ThreadId threadId, FrameStackDepth stackDepth, string? debuggerProxyTypeName)
 	{

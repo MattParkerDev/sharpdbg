@@ -93,6 +93,13 @@ public partial class ManagedDebugger
 
 	private static CorDebugValueValueResult GetValueForCorDebugValue(ICorDebugValue corDebugValue, bool escapeStringValue)
 	{
+		// The element type is checked first, as each failed interface cast below is a call into ICorDebug, and most values are a primitive or a reference
+		switch (corDebugValue.Type)
+		{
+			case var elementType when IsPrimitiveElementType(elementType) && corDebugValue is ICorDebugGenericValue genericValue: return GetCorDebugGenericValue_Value_AsString(genericValue);
+			case CorElementType.STRING when corDebugValue is ICorDebugStringValue stringValue: return Get_CorDebugStringValue_AsString(stringValue, escapeStringValue);
+			case CorElementType.CLASS or CorElementType.OBJECT or CorElementType.STRING or CorElementType.SZARRAY or CorElementType.ARRAY when corDebugValue is ICorDebugReferenceValue referenceValue: return GetCorDebugReferenceValue_Value_AsString(referenceValue, escapeStringValue);
+		}
 		return corDebugValue switch
 		{
 			ICorDebugBoxValue corDebugBoxValue => GetCorDebugBoxValue_Value_AsString(corDebugBoxValue, escapeStringValue),
@@ -192,6 +199,10 @@ public partial class ManagedDebugger
 		return new(typeName, $"{{{typeName}}}", CorDebugValueFormatKind.None, debugProxyTypeName);
 	}
 
+	private static bool IsPrimitiveElementType(CorElementType elementType) => elementType is CorElementType.BOOLEAN or CorElementType.CHAR
+		or CorElementType.I1 or CorElementType.U1 or CorElementType.I2 or CorElementType.U2 or CorElementType.I4 or CorElementType.U4
+		or CorElementType.I8 or CorElementType.U8 or CorElementType.R4 or CorElementType.R8 or CorElementType.I or CorElementType.U;
+
 	/// DebuggerDisplayAttribute is Inherited = true, so the nearest one on <paramref name="corDebugType"/> or its base types applies
 	private static bool TryGetInheritedDebuggerDisplayAttribute(ICorDebugType corDebugType, out IntPtr attributePointer, out uint attributeSize)
 	{
@@ -248,6 +259,10 @@ public partial class ManagedDebugger
 	{
 		nullableTypeName = "";
 		underlyingValue = null;
+		// A primitive or a string is never a Nullable<T>, and checking saves unwrapping them. A reference may be, though, as a func eval
+		// returns a Nullable<T> in a handle whose element type is CLASS
+		var elementType = corDebugValue.Type;
+		if (IsPrimitiveElementType(elementType) || elementType is CorElementType.STRING) return false;
 		if (corDebugValue.UnwrapDebugValue() is not ICorDebugObjectValue objectValue) return false;
 
 		var metadata = objectValue.Class.Module.GetMetaDataInterface<IMetaDataImport>();

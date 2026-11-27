@@ -9,6 +9,8 @@ public class StackFrameInfo
 	public required int Column { get; set; }
 	public required int? EndColumn { get; set; }
 	public required string? Source { get; set; }
+	/// <summary>The sourceReference the source request must use for an embedded source, or 0.</summary>
+	public int SourceReference { get; set; }
 	public required bool IsUserCode { get; set; }
 	public required bool IsResolved { get; set; }
 	public required DecompiledSourceInfo? DecompiledSourceInfo { get; set; }

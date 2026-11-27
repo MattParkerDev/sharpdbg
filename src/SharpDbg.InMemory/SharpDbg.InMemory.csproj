@@ -33,7 +33,7 @@
 
 		<!-- We must include all package references required by projects that we reference -->
 		<PackageReference Include="Ardalis.GuardClauses" Version="5.0.0" />
-		<PackageReference Include="ICorDebugSharp" Version="0.1.9" />
+		<PackageReference Include="ICorDebugSharp" Version="0.1.10" />
 		<PackageReference Include="ICSharpCode.Decompiler" Version="11.2.0.10050" />
 		<PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="5.12.0" />
 		<PackageReference Include="Microsoft.Diagnostics.NETCore.Client" Version="0.2.750501" />

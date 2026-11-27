@@ -36,4 +36,21 @@ public partial class ManagedDebugger
 			? heapValue.CreateHandle(CorDebugHandleType.HANDLE_STRONG)
 			: value;
 	}
+
+	/// <see cref="InStrongHandleIfReference"/>, except a string, which is formatted without running code in the debuggee, so is not neutered while it is
+	/// formatted, and has no children to keep it for. A handle costs two round trips to the debuggee
+	private static ICorDebugValue InStrongHandleUnlessString(ICorDebugValue value)
+	{
+		if (value is not ICorDebugReferenceValue { IsNull: false } reference) return value;
+		return reference.Type switch
+		{
+			CorElementType.STRING or CorElementType.BYREF => value,
+			_ => reference.Dereference() switch
+			{
+				ICorDebugStringValue => value,
+				ICorDebugHeapValue2 heapValue => heapValue.CreateHandle(CorDebugHandleType.HANDLE_STRONG),
+				_ => value
+			}
+		};
+	}
 }

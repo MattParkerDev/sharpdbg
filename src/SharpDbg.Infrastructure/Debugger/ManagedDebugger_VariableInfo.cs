@@ -572,7 +572,7 @@ public partial class ManagedDebugger
 				if (receiver is not null && TryReadTrivialGetter(getMethod, receiver, out var fieldValue))
 				{
 					// Rooted like a func eval's result, as later properties' func evals would neuter it
-					returnValue = InStrongHandleIfReference(fieldValue);
+					returnValue = InStrongHandleUnlessString(fieldValue);
 				}
 				else
 				{

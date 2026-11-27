@@ -91,10 +91,7 @@ public partial class ManagedDebugger
 			else if (TryReadTrivialGetter(member.Getter, objectValue, out var getterValue)) memberValue = getterValue;
 			// A func eval's result is already in a handle the caller owns
 			else return await CallDebuggerDisplayGetterAsync(member.Getter, member.DeclaringClass, value, objectValue.ExactType, threadId);
-			// A string is formatted without running code in the debuggee, so nothing neuters it first, and a handle costs two round trips to the debuggee
-			return memberValue is ICorDebugReferenceValue { IsNull: false } reference && reference.Dereference() is ICorDebugStringValue
-				? memberValue
-				: InStrongHandleIfReference(memberValue);
+			return InStrongHandleUnlessString(memberValue);
 		}
 		catch (Exception ex)
 		{

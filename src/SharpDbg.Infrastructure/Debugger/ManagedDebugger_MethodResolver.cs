@@ -18,11 +18,9 @@ public partial class ManagedDebugger
 		var module = typeClass.Module;
 		var metadataImport = module.GetMetaDataInterface<IMetaDataImport>();
 
-		foreach (var methodToken in metadataImport.EnumMethods(typeClass.Token))
+		foreach (var methodToken in metadataImport.EnumMethodsWithName(typeClass.Token, methodName))
 		{
 			var methodProps = metadataImport.GetMethodProps(methodToken);
-			if (methodProps.szMethod != methodName) continue;
-
 			var isStatic = methodProps.pdwAttr.IsMdStatic();
 			if ((searchStatic && !isStatic) || (!searchStatic && isStatic && !idsEmpty)) continue;
 

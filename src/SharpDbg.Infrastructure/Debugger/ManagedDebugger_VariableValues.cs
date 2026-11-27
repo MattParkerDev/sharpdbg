@@ -218,11 +218,11 @@ public partial class ManagedDebugger
 			var typeName = metaDataImport.GetTypeDefProps(cls.Token).szTypeDef;
 			if (typeName is "System.Object" or "System.ValueType") return false;
 
-			foreach (var methodToken in metaDataImport.EnumMethods(cls.Token))
+			foreach (var methodToken in metaDataImport.EnumMethodsWithName(cls.Token, "ToString"))
 			{
 				var methodProps = metaDataImport.GetMethodProps(methodToken);
 				var methodAttr = methodProps.pdwAttr;
-				if (methodProps.szMethod is "ToString" && methodAttr.IsMdStatic() is false && methodAttr.IsMdVirtual() && methodAttr.IsMdNewSlot() is false && Marshal.ReadByte(methodProps.ppvSigBlob, 1) is var parameterCount && parameterCount is 0)
+				if (methodAttr.IsMdStatic() is false && methodAttr.IsMdVirtual() && methodAttr.IsMdNewSlot() is false && Marshal.ReadByte(methodProps.ppvSigBlob, 1) is var parameterCount && parameterCount is 0)
 					return true;
 			}
 			type = type.Base;

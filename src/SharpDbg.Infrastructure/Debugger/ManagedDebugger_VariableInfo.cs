@@ -402,9 +402,9 @@ public partial class ManagedDebugger
 	private async Task<bool> AddMembers(ICorDebugValue corDebugValue, ICorDebugType corDebugType, ThreadId threadId, FrameStackDepth stackDepth, List<VariableInfo> result, bool includeNonPublicMembers = true)
 	{
 		var metadataImport = corDebugType.Class.Module.GetMetaDataInterface<IMetaDataImport>();
-		var hasStaticMembers = await AddFields(metadataImport, corDebugType, includeNonPublicMembers, staticMembers: false, corDebugValue, result, threadId, stackDepth);
+		var hasStaticMembers = await AddFields(metadataImport, corDebugType, includeNonPublicMembers, corDebugValue, result, threadId, stackDepth);
 		// We need to pass the un-unwrapped reference value here, as we need to invoke CallParameterizedFunction with the correct parameters
-		hasStaticMembers |= await AddProperties(metadataImport, corDebugType, includeNonPublicMembers, staticMembers: false, threadId, stackDepth, corDebugValue, result);
+		hasStaticMembers |= await AddProperties(metadataImport, corDebugType, includeNonPublicMembers, corDebugValue, threadId, stackDepth, result);
 
 		// Handle members on base types recursively
 		if (GetBaseTypeWithMembers(corDebugType) is not { } baseType) return hasStaticMembers;
@@ -420,21 +420,22 @@ public partial class ManagedDebugger
 		return baseTypeName is "System.Object" or "System.ValueType" or "System.Enum" ? null : baseType;
 	}
 
-	private async Task AddStaticMembers(ICorDebugValue corDebugValue, ICorDebugType corDebugType, ThreadId threadId, FrameStackDepth stackDepth, List<VariableInfo> result)
+	private async Task AddStaticMembers(ICorDebugType corDebugType, ThreadId threadId, FrameStackDepth stackDepth, List<VariableInfo> result)
 	{
 		var metadataImport = corDebugType.Class.Module.GetMetaDataInterface<IMetaDataImport>();
-		await AddFields(metadataImport, corDebugType, includeNonPublicMembers: true, staticMembers: true, corDebugValue, result, threadId, stackDepth);
-		// We need to pass the un-unwrapped reference value here, as we need to invoke CallParameterizedFunction with the correct parameters
-		await AddProperties(metadataImport, corDebugType, includeNonPublicMembers: true, staticMembers: true, threadId, stackDepth, corDebugValue, result);
+		await AddFields(metadataImport, corDebugType, includeNonPublicMembers: true, receiver: null, result, threadId, stackDepth);
+		await AddProperties(metadataImport, corDebugType, includeNonPublicMembers: true, receiver: null, threadId, stackDepth, result);
 
 		// Handle members on base types recursively
 		if (GetBaseTypeWithMembers(corDebugType) is not { } baseType) return;
-		await AddStaticMembers(corDebugValue, baseType, threadId, stackDepth, result);
+		await AddStaticMembers(baseType, threadId, stackDepth, result);
 	}
 
+	/// Lists static fields when <paramref name="receiver"/> is null, else that receiver's instance fields
 	/// Returns whether any members of the other kind (static or instance) were skipped
-	private async Task<bool> AddFields(IMetaDataImport metadataImport, ICorDebugType corDebugType, bool includeNonPublicMembers, bool staticMembers, ICorDebugValue corDebugValue, List<VariableInfo> result, ThreadId threadId, FrameStackDepth stackDepth)
+	private async Task<bool> AddFields(IMetaDataImport metadataImport, ICorDebugType corDebugType, bool includeNonPublicMembers, ICorDebugValue? receiver, List<VariableInfo> result, ThreadId threadId, FrameStackDepth stackDepth)
 	{
+		var staticMembers = receiver is null;
 		var corDebugClass = corDebugType.Class;
 		var skippedOtherKind = false;
 		foreach (var mdFieldDef in metadataImport.EnumFields(corDebugClass.Token))
@@ -500,8 +501,7 @@ public partial class ManagedDebugger
 					return;
 				}
 
-				var objectValue = corDebugValue.UnwrapDebugValueToObject();
-				var fieldCorDebugValue = staticMembers ? await GetStaticFieldValueAsync(corDebugType, mdFieldDef, threadId, stackDepth) : objectValue.GetFieldValue(corDebugClass, mdFieldDef);
+				var fieldCorDebugValue = receiver is null ? await GetStaticFieldValueAsync(corDebugType, mdFieldDef, threadId, stackDepth) : receiver.UnwrapDebugValueToObject().GetFieldValue(corDebugClass, mdFieldDef);
 				if (debuggerBrowsableRootHidden && (await TryAddRootHiddenChildren(fieldCorDebugValue, threadId, stackDepth, result)).Handled) return;
 				var (friendlyTypeName, value, debuggerProxyTypeName, resultIsError) = await GetValueForCorDebugValueAsync(fieldCorDebugValue, threadId, stackDepth, true);
 				VariablePresentationHint? variablePresentationHint = resultIsError ? new VariablePresentationHint { Attributes = AttributesValue.FailedEvaluation } : null;
@@ -532,9 +532,11 @@ public partial class ManagedDebugger
 	}
 
 	internal class EvalException(string message) : Exception(message);
+	/// Lists static properties when <paramref name="receiver"/> is null, else that receiver's instance properties
 	/// Returns whether any members of the other kind (static or instance) were skipped
-	private async Task<bool> AddProperties(IMetaDataImport metadataImport, ICorDebugType declaringType, bool includeNonPublicMembers, bool staticMembers, ThreadId threadId, FrameStackDepth stackDepth, ICorDebugValue corDebugValue, List<VariableInfo> result)
+	private async Task<bool> AddProperties(IMetaDataImport metadataImport, ICorDebugType declaringType, bool includeNonPublicMembers, ICorDebugValue? receiver, ThreadId threadId, FrameStackDepth stackDepth, List<VariableInfo> result)
 	{
+		var staticMembers = receiver is null;
 		var corDebugClass = declaringType.Class;
 		var skippedOtherKind = false;
 		foreach (var mdProperty in metadataImport.EnumProperties(corDebugClass.Token))
@@ -567,7 +569,7 @@ public partial class ManagedDebugger
 
 				var getMethod = corDebugClass.Module.GetFunctionFromToken(getMethodDef);
 				ICorDebugValue? returnValue;
-				if (staticMembers is false && TryReadTrivialGetter(getMethod, corDebugValue, out var fieldValue))
+				if (receiver is not null && TryReadTrivialGetter(getMethod, receiver, out var fieldValue))
 				{
 					// Rooted like a func eval's result, as later properties' func evals would neuter it
 					returnValue = InStrongHandleIfReference(fieldValue);
@@ -580,7 +582,7 @@ public partial class ManagedDebugger
 					var typeParameterTypes = declaringType.TypeParameters;
 
 					// For instance properties, pass the object; for static, pass nothing
-					ICorDebugValue[] corDebugValues = staticMembers ? [] : [corDebugValue];
+					ICorDebugValue[] corDebugValues = receiver is null ? [] : [receiver];
 
 					returnValue = await eval.CallParameterizedFunctionAsync(ProcessRuntimeEventsUntilEvalEvent, EvalStatus, getMethod, typeParameterTypes.Length, typeParameterTypes, corDebugValues.Length, corDebugValues);
 				}

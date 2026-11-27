@@ -75,6 +75,7 @@ public class DebugAdapter : IDapRequestHandler
 	{
 		Connection = new DapConnection(input, output, this, new DapConnectionOptions { Log = _logger });
 		Connection.RegisterRequest<ResolveStackFrameArguments>();
+		Connection.RegisterRequest<SourceLinkArguments>();
 		Connection.RegisterRequest<VsCustomMessageArguments>();
 	}
 
@@ -90,6 +91,7 @@ public class DebugAdapter : IDapRequestHandler
 		ThreadsArguments args => Respond(args, HandleThreadsAsync),
 		StackTraceArguments args => Respond(args, HandleStackTraceAsync),
 		ResolveStackFrameArguments args => Respond(args, HandleResolveStackFrameAsync),
+		SourceLinkArguments args => Respond(args, HandleSourceLink),
 		ScopesArguments args => Respond(args, HandleScopesAsync),
 		VariablesArguments args => Respond(args, HandleVariablesAsync),
 		EvaluateArguments args => Respond(args, HandleEvaluateAsync),
@@ -578,6 +580,12 @@ public class DebugAdapter : IDapRequestHandler
 			var frame = _debugger.ResolveStackFrame(arguments.StackFrameId);
 			return new ResolveStackFrameResponse { StackFrame = ToProtocolStackFrame(frame) };
 		});
+	}
+
+	private ValueTask<DapResult<SourceLinkResponse>> HandleSourceLink(SourceLinkArguments arguments)
+	{
+		return RunLocked<SourceLinkResponse>("Failed to get the SourceLink URL", () =>
+			new SourceLinkResponse { Url = _debugger.GetSourceLinkUrl(arguments.Path) });
 	}
 
 	private DapStackFrame ToProtocolStackFrame(StackFrameInfo frame)

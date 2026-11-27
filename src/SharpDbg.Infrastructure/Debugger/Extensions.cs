@@ -227,19 +227,29 @@ public static class Extensions
 	// completion event is consumed here, so it is not mistaken for the result of a later evaluation
 	private static async Task<CorDebugManagedCallbackEventArgs> WaitForEvalEventOrAbortAsync(ICorDebugEval eval, Task<CorDebugManagedCallbackEventArgs> evalEventTask)
 	{
-		if (await Task.WhenAny(evalEventTask, Task.Delay(EvalTimeout)) == evalEventTask) return await evalEventTask;
+		if (await CompletesWithinAsync(evalEventTask, EvalTimeout)) return await evalEventTask;
 
 		eval.TryAbort();
-		if (await Task.WhenAny(evalEventTask, Task.Delay(EvalAbortTimeout)) != evalEventTask)
+		if (await CompletesWithinAsync(evalEventTask, EvalAbortTimeout) is false)
 		{
 			eval.TryRudeAbort();
-			if (await Task.WhenAny(evalEventTask, Task.Delay(EvalAbortTimeout)) != evalEventTask)
+			if (await CompletesWithinAsync(evalEventTask, EvalAbortTimeout) is false)
 			{
 				throw new ManagedDebugger.EvalException($"Evaluation timed out after {EvalTimeout.TotalSeconds:0} seconds and could not be aborted");
 			}
 		}
 		await evalEventTask;
 		throw new ManagedDebugger.EvalException($"Evaluation timed out after {EvalTimeout.TotalSeconds:0} seconds");
+	}
+
+	/// Whether <paramref name="task"/> completes, successfully or not, within <paramref name="timeout"/>. Unlike Task.WhenAny with a Task.Delay,
+	/// the timer is stopped once the task completes, rather than left running for the whole timeout after every evaluation
+	private static async Task<bool> CompletesWithinAsync(Task task, TimeSpan timeout)
+	{
+		if (task.IsCompleted) return true;
+		// Suppresses the TimeoutException too, so a timeout is seen as the task not having completed
+		await task.WaitAsync(timeout).ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing | ConfigureAwaitOptions.ContinueOnCapturedContext);
+		return task.IsCompleted;
 	}
 
 	public static ICorDebugValue NewBooleanValue(this ICorDebugEval eval, bool value)

@@ -401,61 +401,51 @@ public partial class ManagedDebugger
 	/// Returns a bool indicating if a Static Members pseudo variable is required
 	private async Task<bool> AddMembers(ICorDebugValue corDebugValue, ICorDebugType corDebugType, ThreadId threadId, FrameStackDepth stackDepth, List<VariableInfo> result, bool includeNonPublicMembers = true)
 	{
-		var hasStaticMembers = false;
-		var corDebugClass = corDebugType.Class;
-		var module = corDebugClass.Module;
-		var mdTypeDef = corDebugClass.Token;
-		var metadataImport = module.GetMetaDataInterface<IMetaDataImport>();
-		var mdFieldDefs = includeNonPublicMembers ? metadataImport.EnumFields(mdTypeDef) : metadataImport.EnumFields(mdTypeDef).AsValueEnumerable().Where(s => s.IsPublic(metadataImport)).ToArray();
-		var mdProperties = includeNonPublicMembers ? metadataImport.EnumProperties(mdTypeDef) : metadataImport.EnumProperties(mdTypeDef).AsValueEnumerable().Where(s => s.IsPublic(metadataImport)).ToArray();
-		var staticFieldDefs = mdFieldDefs.AsValueEnumerable().Where(s => s.IsStatic(metadataImport)).ToArray();
-		var nonStaticFieldDefs = mdFieldDefs.AsValueEnumerable().Except(staticFieldDefs).ToArray();
-		var staticProperties = mdProperties.AsValueEnumerable().Where(p => p.IsStatic(metadataImport)).ToArray();
-		var nonStaticProperties = mdProperties.AsValueEnumerable().Except(staticProperties).ToArray();
-		if (staticFieldDefs.Length > 0 || staticProperties.Length > 0)
-		{
-			hasStaticMembers = true;
-		}
-
-		await AddFields(nonStaticFieldDefs, metadataImport, corDebugType, corDebugValue, result, threadId, stackDepth);
+		var metadataImport = corDebugType.Class.Module.GetMetaDataInterface<IMetaDataImport>();
+		var hasStaticMembers = await AddFields(metadataImport, corDebugType, includeNonPublicMembers, staticMembers: false, corDebugValue, result, threadId, stackDepth);
 		// We need to pass the un-unwrapped reference value here, as we need to invoke CallParameterizedFunction with the correct parameters
-		await AddProperties(nonStaticProperties, metadataImport, corDebugType, threadId, stackDepth, corDebugValue, result);
+		hasStaticMembers |= await AddProperties(metadataImport, corDebugType, includeNonPublicMembers, staticMembers: false, threadId, stackDepth, corDebugValue, result);
 
 		// Handle members on base types recursively
-		var baseType = corDebugType.Base;
-		if (baseType is null) return hasStaticMembers;
-		var baseTypeName = GetCorDebugTypeFriendlyName(baseType);
-		if (baseTypeName is "System.Object" or "System.ValueType" or "System.Enum") return hasStaticMembers;
+		if (GetBaseTypeWithMembers(corDebugType) is not { } baseType) return hasStaticMembers;
 		return hasStaticMembers | await AddMembers(corDebugValue, baseType, threadId, stackDepth, result);
+	}
+
+	private static ICorDebugType? GetBaseTypeWithMembers(ICorDebugType corDebugType)
+	{
+		var baseType = corDebugType.Base;
+		if (baseType is null) return null;
+		var baseClass = baseType.Class;
+		var baseTypeName = baseClass.Module.GetMetaDataInterface<IMetaDataImport>().GetTypeDefProps(baseClass.Token).szTypeDef;
+		return baseTypeName is "System.Object" or "System.ValueType" or "System.Enum" ? null : baseType;
 	}
 
 	private async Task AddStaticMembers(ICorDebugValue corDebugValue, ICorDebugType corDebugType, ThreadId threadId, FrameStackDepth stackDepth, List<VariableInfo> result)
 	{
-		var corDebugClass = corDebugType.Class;
-		var module = corDebugClass.Module;
-		var mdTypeDef = corDebugClass.Token;
-		var metadataImport = module.GetMetaDataInterface<IMetaDataImport>();
-		var staticFieldDefs = metadataImport.EnumFields(mdTypeDef).AsValueEnumerable().Where(s => s.IsStatic(metadataImport)).ToArray();
-		var staticProperties = metadataImport.EnumProperties(mdTypeDef).AsValueEnumerable().Where(s => s.IsStatic(metadataImport)).ToArray();
-
-		await AddFields(staticFieldDefs, metadataImport, corDebugType, corDebugValue, result, threadId, stackDepth);
+		var metadataImport = corDebugType.Class.Module.GetMetaDataInterface<IMetaDataImport>();
+		await AddFields(metadataImport, corDebugType, includeNonPublicMembers: true, staticMembers: true, corDebugValue, result, threadId, stackDepth);
 		// We need to pass the un-unwrapped reference value here, as we need to invoke CallParameterizedFunction with the correct parameters
-		await AddProperties(staticProperties, metadataImport, corDebugType, threadId, stackDepth, corDebugValue, result);
+		await AddProperties(metadataImport, corDebugType, includeNonPublicMembers: true, staticMembers: true, threadId, stackDepth, corDebugValue, result);
 
 		// Handle members on base types recursively
-		var baseType = corDebugType.Base;
-		if (baseType is null) return;
-		var baseTypeName = GetCorDebugTypeFriendlyName(baseType);
-		if (baseTypeName is "System.Object" or "System.ValueType" or "System.Enum") return;
+		if (GetBaseTypeWithMembers(corDebugType) is not { } baseType) return;
 		await AddStaticMembers(corDebugValue, baseType, threadId, stackDepth, result);
 	}
 
-	private async Task AddFields(mdFieldDef[] mdFieldDefs, IMetaDataImport metadataImport, ICorDebugType corDebugType, ICorDebugValue corDebugValue, List<VariableInfo> result, ThreadId threadId, FrameStackDepth stackDepth)
+	/// Returns whether any members of the other kind (static or instance) were skipped
+	private async Task<bool> AddFields(IMetaDataImport metadataImport, ICorDebugType corDebugType, bool includeNonPublicMembers, bool staticMembers, ICorDebugValue corDebugValue, List<VariableInfo> result, ThreadId threadId, FrameStackDepth stackDepth)
 	{
 		var corDebugClass = corDebugType.Class;
-		foreach (var mdFieldDef in mdFieldDefs)
+		var skippedOtherKind = false;
+		foreach (var mdFieldDef in metadataImport.EnumFields(corDebugClass.Token))
 		{
 			var fieldProps = metadataImport.GetFieldProps(mdFieldDef);
+			if (includeNonPublicMembers is false && fieldProps.pdwAttr.IsFdPublic() is false) continue;
+			if (fieldProps.pdwAttr.IsFdStatic() != staticMembers)
+			{
+				skippedOtherKind = true;
+				continue;
+			}
 			var fieldName = fieldProps.szField;
 			if (fieldName is null) continue;
 			await WithFailureHandling(result, fieldName, async () =>
@@ -472,7 +462,6 @@ public partial class ManagedDebugger
 				{
 					return;
 				}
-				var isStatic = fieldProps.pdwAttr.IsFdStatic();
 				var isLiteral = fieldProps.pdwAttr.IsFdLiteral();
 				var debuggerBrowsableRootHidden = false;
 				var hasDebuggerBrowsableAttribute = metadataImport.TryGetCustomAttributeByName(mdFieldDef, "System.Diagnostics.DebuggerBrowsableAttribute", out var debuggerBrowsableAttributePointer, out var debuggerBrowsableAttributeSize) is Cor.S_OK;
@@ -512,7 +501,7 @@ public partial class ManagedDebugger
 				}
 
 				var objectValue = corDebugValue.UnwrapDebugValueToObject();
-				var fieldCorDebugValue = isStatic ? await GetStaticFieldValueAsync(corDebugType, mdFieldDef, threadId, stackDepth) : objectValue.GetFieldValue(corDebugClass, mdFieldDef);
+				var fieldCorDebugValue = staticMembers ? await GetStaticFieldValueAsync(corDebugType, mdFieldDef, threadId, stackDepth) : objectValue.GetFieldValue(corDebugClass, mdFieldDef);
 				if (debuggerBrowsableRootHidden && (await TryAddRootHiddenChildren(fieldCorDebugValue, threadId, stackDepth, result)).Handled) return;
 				var (friendlyTypeName, value, debuggerProxyTypeName, resultIsError) = await GetValueForCorDebugValueAsync(fieldCorDebugValue, threadId, stackDepth, true);
 				VariablePresentationHint? variablePresentationHint = resultIsError ? new VariablePresentationHint { Attributes = AttributesValue.FailedEvaluation } : null;
@@ -527,6 +516,7 @@ public partial class ManagedDebugger
 				result.Add(variableInfo);
 			});
 		}
+		return skippedOtherKind;
 	}
 
 	private (string FriendlyName, ModuleInfo Module, EntityHandle Handle)? GetFieldType(ICorDebugClass corDebugClass, mdFieldDef mdFieldDef)
@@ -542,26 +532,28 @@ public partial class ManagedDebugger
 	}
 
 	internal class EvalException(string message) : Exception(message);
-	private async Task AddProperties(mdProperty[] mdProperties, IMetaDataImport metadataImport, ICorDebugType declaringType, ThreadId threadId, FrameStackDepth stackDepth, ICorDebugValue corDebugValue, List<VariableInfo> result)
+	/// Returns whether any members of the other kind (static or instance) were skipped
+	private async Task<bool> AddProperties(IMetaDataImport metadataImport, ICorDebugType declaringType, bool includeNonPublicMembers, bool staticMembers, ThreadId threadId, FrameStackDepth stackDepth, ICorDebugValue corDebugValue, List<VariableInfo> result)
 	{
 		var corDebugClass = declaringType.Class;
-		foreach (var mdProperty in mdProperties)
+		var skippedOtherKind = false;
+		foreach (var mdProperty in metadataImport.EnumProperties(corDebugClass.Token))
 		{
 			var propertyProps = metadataImport.GetPropertyProps(mdProperty);
+			var getMethodDef = propertyProps.pmdGetter;
+			if (getMethodDef == mdMethodDef.Nil) continue;
+			var getterProps = metadataImport.GetMethodProps(getMethodDef);
+			if (includeNonPublicMembers is false && getterProps.pdwAttr.IsMdPublic() is false) continue;
+			if (getterProps.pdwAttr.IsMdStatic() != staticMembers)
+			{
+				skippedOtherKind = true;
+				continue;
+			}
 			var propertyName = propertyProps.szProperty;
 			if (propertyName is null) continue;
 			await WithFailureHandling(result, propertyName, async () =>
 			{
-				// Get the get method for the property
-				var getMethodDef = propertyProps.pmdGetter;
-				if (getMethodDef == 0) return; // No get method
-
-				// Get method attributes to check if it's static
-				var getterMethodProps = metadataImport.GetMethodProps(getMethodDef);
-				if (Marshal.ReadByte(getterMethodProps.ppvSigBlob, 1) is not 0) return; // Indexers need arguments, so are not listed
-				var getterAttr = getterMethodProps.pdwAttr;
-
-				var isStatic = getterAttr.IsMdStatic();
+				if (Marshal.ReadByte(getterProps.ppvSigBlob, 1) is not 0) return; // Indexers need arguments, so are not listed
 
 				var debuggerBrowsableRootHidden = false;
 				var hasDebuggerBrowsableAttribute = metadataImport.TryGetCustomAttributeByName(mdProperty, "System.Diagnostics.DebuggerBrowsableAttribute", out var debuggerBrowsableAttributePointer, out var debuggerBrowsableAttributeSize) is Cor.S_OK;
@@ -575,7 +567,7 @@ public partial class ManagedDebugger
 
 				var getMethod = corDebugClass.Module.GetFunctionFromToken(getMethodDef);
 				ICorDebugValue? returnValue;
-				if (isStatic is false && TryReadTrivialGetter(getMethod, corDebugValue, out var fieldValue))
+				if (staticMembers is false && TryReadTrivialGetter(getMethod, corDebugValue, out var fieldValue))
 				{
 					// Rooted like a func eval's result, as later properties' func evals would neuter it
 					returnValue = InStrongHandleIfReference(fieldValue);
@@ -588,7 +580,7 @@ public partial class ManagedDebugger
 					var typeParameterTypes = declaringType.TypeParameters;
 
 					// For instance properties, pass the object; for static, pass nothing
-					ICorDebugValue[] corDebugValues = isStatic ? [] : [corDebugValue];
+					ICorDebugValue[] corDebugValues = staticMembers ? [] : [corDebugValue];
 
 					returnValue = await eval.CallParameterizedFunctionAsync(ProcessRuntimeEventsUntilEvalEvent, EvalStatus, getMethod, typeParameterTypes.Length, typeParameterTypes, corDebugValues.Length, corDebugValues);
 				}
@@ -623,6 +615,7 @@ public partial class ManagedDebugger
 				}
 			});
 		}
+		return skippedOtherKind;
 	}
 
 	private async Task<bool> AddArrayElements(ICorDebugArrayValue arrayValue, ThreadId threadId, FrameStackDepth stackDepth, List<VariableInfo> result, uint[]? indexPrefix = null, uint? startOffset = null, uint? count = null, ICorDebugValue? referenceValue = null)

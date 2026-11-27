@@ -214,14 +214,18 @@ public partial class ManagedDebugger
 		_logger?.Invoke($"Attaching to process: {processId}");
 		_session = new SessionState.Attaching(processId);
 		// Register before returning, so a client that resumes the runtime once ConfigurationDone returns cannot do so before dbgshim is listening
-		ClrDebugExtensions.RuntimeStartupRegistration registration;
+		ClrDebugExtensions.RuntimeStartupRegistration? registration = null;
 		try
 		{
 			registration = ClrDebugExtensions.RegisterForRuntimeStartup(processId);
 		}
 		catch (Exception ex)
 		{
+			registration?.Dispose();
+			_session = SessionState.Ended.Instance;
 			_logger?.Invoke($"Error attaching to process {processId}: {ex}");
+			OnOutput?.Invoke($"Attach to process {processId} failed: {ex.Message}\n", true);
+			OnTerminated?.Invoke();
 			return;
 		}
 		// FinishAttach takes DapRequestAndRuntimeEventLock once attaching via dbgshim is complete. AsyncLock stores its re-entrant lock
@@ -229,7 +233,7 @@ public partial class ManagedDebugger
 		// FinishAttach cannot re-entrantly enter the lock this request holds
 		using (ExecutionContext.SuppressFlow())
 		{
-			_ = Task.Run(() => FinishAttach(processId, registration));
+			_ = Task.Run(() => FinishAttach(processId, registration!));
 		}
 	}
 

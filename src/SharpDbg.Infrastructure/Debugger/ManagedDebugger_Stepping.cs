@@ -57,7 +57,7 @@ public partial class ManagedDebugger
 	/// <summary>
 	/// Start a step requested by the user, and continue
 	/// </summary>
-	private async Task StartUserStep(int threadId, StepType stepType)
+	private async Task StartUserStep(int threadId, StepType stepType, bool singleThread = false)
 	{
 		if (_run is not RunState.Stopped)
 		{
@@ -69,6 +69,7 @@ public partial class ManagedDebugger
 		if (_step is not StepState.Idle) throw new InvalidOperationException("A step operation is already in progress");
 
 		StartStep(await _asyncStepper.TryCreateAsyncStep(thread, stepType) ?? new StepState.Simple(CreateStepper(thread, stepType)));
+		SetSingleThreadExecution(threadId, singleThread);
 		ContinueFromStop(threadId);
 	}
 

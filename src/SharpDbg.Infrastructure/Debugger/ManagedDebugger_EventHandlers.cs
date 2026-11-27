@@ -37,6 +37,7 @@ public partial class ManagedDebugger
 		var corThread = createThreadCorDebugManagedCallbackEventArgs.Thread;
 		if (IsMainThreadCandidate(corThread.Id)) _mainThreadId = corThread.Id;
 		_threads[corThread.Id] = new ThreadInfo(corThread);
+		SuspendThreadForSingleThreadExecution(corThread);
 		OnThreadStarted?.Invoke(corThread.Id);
 		Continue();
 	}
@@ -77,6 +78,8 @@ public partial class ManagedDebugger
 		var corThread = exitThreadCorDebugManagedCallbackEventArgs.Thread;
 		var threadId = new ThreadId(corThread.Id);
 		_threads.Remove(corThread.Id);
+		// The thread the client asked to run alone is gone: release the others, or the process stays frozen.
+		if (_singleThreadExecutionThreadId == corThread.Id) EndSingleThreadExecution();
 		_exceptionStates.Remove(threadId);
 		_exceptionBreakModes.Remove(threadId);
 		OnThreadExited?.Invoke(corThread.Id);

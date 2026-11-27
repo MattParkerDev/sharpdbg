@@ -356,6 +356,7 @@ public class DebugAdapter : IDapRequestHandler
 			SupportsExceptionFilterOptions = true,
 			SupportsStepInTargetsRequest = false,
 			SupportsGotoTargetsRequest = false,
+			SupportsSingleThreadExecutionRequests = true,
 			ExceptionBreakpointFilters =
 			[
 				new ExceptionBreakpointsFilter { Filter = "all", Label = "All Exceptions", Default = false },
@@ -650,8 +651,8 @@ public class DebugAdapter : IDapRequestHandler
 	{
 		return RunLocked<ContinueResponse>("Failed to continue", () =>
 		{
-			_debugger.HandleContinueRequest(arguments.ThreadId);
-			return new ContinueResponse { AllThreadsContinued = true };
+			var allThreadsContinued = _debugger.HandleContinueRequest(arguments.ThreadId, arguments.SingleThread ?? false);
+			return new ContinueResponse { AllThreadsContinued = allThreadsContinued };
 		});
 	}
 
@@ -659,7 +660,7 @@ public class DebugAdapter : IDapRequestHandler
 	{
 		return RunLocked<NextResponse>("Failed to step", async () =>
 		{
-			await _debugger.StepNext(arguments.ThreadId);
+			await _debugger.StepNext(arguments.ThreadId, arguments.SingleThread ?? false);
 			return new NextResponse();
 		});
 	}
@@ -668,7 +669,7 @@ public class DebugAdapter : IDapRequestHandler
 	{
 		return RunLocked<StepInResponse>("Failed to step in", async () =>
 		{
-			await _debugger.StepIn(arguments.ThreadId);
+			await _debugger.StepIn(arguments.ThreadId, arguments.SingleThread ?? false);
 			return new StepInResponse();
 		});
 	}
@@ -677,7 +678,7 @@ public class DebugAdapter : IDapRequestHandler
 	{
 		return RunLocked<StepOutResponse>("Failed to step out", async () =>
 		{
-			await _debugger.StepOut(arguments.ThreadId);
+			await _debugger.StepOut(arguments.ThreadId, arguments.SingleThread ?? false);
 			return new StepOutResponse();
 		});
 	}

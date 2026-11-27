@@ -307,6 +307,7 @@ public partial class ManagedDebugger
 	/// <param name="location">Where the thread stopped, when known</param>
 	private void ReportStop(int threadId, string reason, (string FilePath, int Line, int Column)? location = null, List<int>? hitBreakpointIds = null)
 	{
+		EndSingleThreadExecution();
 		_run = new RunState.Stopped(threadId, reason);
 		if (location is var (filePath, line, column)) OnStopped2?.Invoke(threadId, filePath, line, column, reason, hitBreakpointIds);
 		else OnStopped?.Invoke(threadId, reason);

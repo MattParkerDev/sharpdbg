@@ -30,9 +30,11 @@ public partial class ManagedDebugger
 			await AddClosureChainMembers(classContainingHoistedLocalsValue, threadId, stackDepth, result, visitedClosures);
 		}
 		var corDebugIlFrame = frame ?? GetIlFrameForThreadIdAndStackDepth(threadId, stackDepth);
-		if (corDebugIlFrame.LocalVariables.Length is 0) return;
+		// Each read of LocalVariables enumerates them again, wrapping each value anew
+		var localVariables = corDebugIlFrame.LocalVariables;
+		if (localVariables.Length is 0) return;
 		var currentIlOffset = corDebugIlFrame.IP.pnOffset;
-		foreach (var (index, localVariableCorDebugValue) in corDebugIlFrame.LocalVariables.Index())
+		foreach (var (index, localVariableCorDebugValue) in localVariables.Index())
 		{
 			var localVariableName = module.MetadataReader.GetLocalVariableName(corDebugFunction.Token, index, currentIlOffset);
 			if (localVariableName is null) continue; // Compiler generated locals will not be found. E.g. DefaultInterpolatedStringHandler

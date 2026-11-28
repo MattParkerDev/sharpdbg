@@ -221,7 +221,10 @@ public partial class ManagedDebugger
 		}
 		catch (Exception ex)
 		{
+			_session = SessionState.Ended.Instance;
 			_logger?.Invoke($"Error attaching to process {processId}: {ex}");
+			OnOutput?.Invoke($"Attach to process {processId} failed: {ex.Message}\n", true);
+			OnTerminated?.Invoke();
 			return;
 		}
 		// FinishAttach takes DapRequestAndRuntimeEventLock once attaching via dbgshim is complete. AsyncLock stores its re-entrant lock

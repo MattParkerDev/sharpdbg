@@ -183,16 +183,17 @@ public partial class ManagedDebugger
 	/// <summary>
 	/// Continue execution
 	/// </summary>
-	/// <param name="threadId">The thread the client asked to continue. All threads are continued</param>
-	public void HandleContinueRequest(int threadId)
+	/// <returns>Whether all threads are running, which is false only when the other threads are left suspended</returns>
+	public bool HandleContinueRequest(int threadId, bool singleThread = false)
 	{
 		_logger?.Invoke("Continue");
 		if (_run is not RunState.Stopped)
 		{
 			_logger?.Invoke("Ignoring the continue, as the debuggee is not stopped");
-			return;
+			return OtherThreadsSuspended is false;
 		}
-		ContinueFromStop(threadId);
+		ContinueFromStop(threadId, singleThread);
+		return OtherThreadsSuspended is false;
 	}
 
 	private void ContinueWithVariableClear()
@@ -230,28 +231,28 @@ public partial class ManagedDebugger
 	/// <summary>
 	/// Step to the next line
 	/// </summary>
-	public async Task StepNext(int threadId)
+	public async Task StepNext(int threadId, bool singleThread = false)
 	{
-		_logger?.Invoke($"StepNext on thread {threadId}");
-		await StartUserStep(threadId, StepType.StepOver);
+		_logger?.Invoke($"StepNext on thread {threadId}{(singleThread ? " (single thread)" : null)}");
+		await StartUserStep(threadId, StepType.StepOver, singleThread);
 	}
 
 	/// <summary>
 	/// Step into
 	/// </summary>
-	public async Task StepIn(int threadId)
+	public async Task StepIn(int threadId, bool singleThread = false)
 	{
-		_logger?.Invoke($"StepIn on thread {threadId}");
-		await StartUserStep(threadId, StepType.StepIn);
+		_logger?.Invoke($"StepIn on thread {threadId}{(singleThread ? " (single thread)" : null)}");
+		await StartUserStep(threadId, StepType.StepIn, singleThread);
 	}
 
 	/// <summary>
 	/// Step out
 	/// </summary>
-	public async Task StepOut(int threadId)
+	public async Task StepOut(int threadId, bool singleThread = false)
 	{
-		_logger?.Invoke($"StepOut on thread {threadId}");
-		await StartUserStep(threadId, StepType.StepOut);
+		_logger?.Invoke($"StepOut on thread {threadId}{(singleThread ? " (single thread)" : null)}");
+		await StartUserStep(threadId, StepType.StepOut, singleThread);
 	}
 
 	/// <summary>

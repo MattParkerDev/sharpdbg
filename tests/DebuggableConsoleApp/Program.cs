@@ -57,6 +57,9 @@ public static class Program
 			AsyncNestedAwaitClass.TestAsync().GetAwaiter().GetResult();
 			AsyncFanOutClass.TestAsync().GetAwaiter().GetResult();
 			AsyncMultipleAwaitsClass.TestAsync().GetAwaiter().GetResult();
+			SingleThreadExecutionClass.Test();
+			SingleThreadExecutionClass.TestAwaitAsync().GetAwaiter().GetResult();
+			SingleThreadExecutionClass.TestThreadExit();
 			Thread.Sleep(100);
 			//await Task.Delay(500);
 		}

@@ -203,12 +203,12 @@ public class DebugAdapter : IDapRequestHandler
 			});
 		};
 
-		_debugger.OnContinued += (threadId) =>
+		_debugger.OnContinued += (threadId, allThreadsContinued) =>
 		{
 			Connection.SendEvent(new ContinuedEvent
 			{
 				ThreadId = threadId,
-				AllThreadsContinued = true
+				AllThreadsContinued = allThreadsContinued
 			});
 		};
 
@@ -351,6 +351,7 @@ public class DebugAdapter : IDapRequestHandler
 			SupportsEvaluateForHovers = true,
 			SupportsStepBack = false,
 			SupportsSetVariable = true,
+			SupportsSingleThreadExecutionRequests = true,
 			SupportsRestartFrame = false,
 			SupportsTerminateRequest = true,
 			SupportsExceptionInfoRequest = true,
@@ -665,8 +666,8 @@ public class DebugAdapter : IDapRequestHandler
 	{
 		return RunLocked<ContinueResponse>("Failed to continue", () =>
 		{
-			_debugger.HandleContinueRequest(arguments.ThreadId);
-			return new ContinueResponse { AllThreadsContinued = true };
+			var allThreadsContinued = _debugger.HandleContinueRequest(arguments.ThreadId, arguments.SingleThread is true);
+			return new ContinueResponse { AllThreadsContinued = allThreadsContinued };
 		});
 	}
 
@@ -674,7 +675,7 @@ public class DebugAdapter : IDapRequestHandler
 	{
 		return RunLocked<NextResponse>("Failed to step", async () =>
 		{
-			await _debugger.StepNext(arguments.ThreadId);
+			await _debugger.StepNext(arguments.ThreadId, arguments.SingleThread is true);
 			return new NextResponse();
 		});
 	}
@@ -683,7 +684,7 @@ public class DebugAdapter : IDapRequestHandler
 	{
 		return RunLocked<StepInResponse>("Failed to step in", async () =>
 		{
-			await _debugger.StepIn(arguments.ThreadId);
+			await _debugger.StepIn(arguments.ThreadId, arguments.SingleThread is true);
 			return new StepInResponse();
 		});
 	}
@@ -692,7 +693,7 @@ public class DebugAdapter : IDapRequestHandler
 	{
 		return RunLocked<StepOutResponse>("Failed to step out", async () =>
 		{
-			await _debugger.StepOut(arguments.ThreadId);
+			await _debugger.StepOut(arguments.ThreadId, arguments.SingleThread is true);
 			return new StepOutResponse();
 		});
 	}

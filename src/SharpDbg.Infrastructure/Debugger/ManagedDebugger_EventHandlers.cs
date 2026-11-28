@@ -79,6 +79,8 @@ public partial class ManagedDebugger
 		_threads.Remove(corThread.Id);
 		_exceptionStates.Remove(threadId);
 		_exceptionBreakModes.Remove(threadId);
+		// The thread running alone is gone, so nothing could ever stop the debuggee: the other threads run again
+		if (_singleThreadRunThreadId == corThread.Id) EndSingleThreadRun($"thread {corThread.Id} exited");
 		OnThreadExited?.Invoke(corThread.Id);
 		Continue();
 	}
@@ -332,6 +334,7 @@ public partial class ManagedDebugger
 			{
 				runtimeAsync.Stepper?.TryDeactivate();
 				_step = waiting;
+				EndSingleThreadRunIfStepNeedsOtherThreads();
 				ContinueWithVariableClear();
 				return;
 			}

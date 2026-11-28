@@ -169,27 +169,27 @@ public static partial class TestHelper
 		return debugProtocolHost;
 	}
 
-	public static DebugProtocolHost WithContinueRequest(this DebugProtocolHost debugProtocolHost, int threadId = 0)
+	public static DebugProtocolHost WithContinueRequest(this DebugProtocolHost debugProtocolHost, int threadId = 0, bool singleThread = false)
 	{
-		debugProtocolHost.SendRequestSync(new ContinueArguments { ThreadId = threadId });
+		debugProtocolHost.SendRequestSync(new ContinueArguments { ThreadId = threadId, SingleThread = singleThread ? true : null });
 		return debugProtocolHost;
 	}
 
-	public static DebugProtocolHost WithStepInRequest(this DebugProtocolHost debugProtocolHost, int threadId)
+	public static DebugProtocolHost WithStepInRequest(this DebugProtocolHost debugProtocolHost, int threadId, bool singleThread = false)
 	{
-		debugProtocolHost.SendRequestSync(new StepInArguments { ThreadId = threadId });
+		debugProtocolHost.SendRequestSync(new StepInArguments { ThreadId = threadId, SingleThread = singleThread ? true : null });
 		return debugProtocolHost;
 	}
 
-	public static DebugProtocolHost WithStepOutRequest(this DebugProtocolHost debugProtocolHost, int threadId)
+	public static DebugProtocolHost WithStepOutRequest(this DebugProtocolHost debugProtocolHost, int threadId, bool singleThread = false)
 	{
-		debugProtocolHost.SendRequestSync(new StepOutArguments { ThreadId = threadId });
+		debugProtocolHost.SendRequestSync(new StepOutArguments { ThreadId = threadId, SingleThread = singleThread ? true : null });
 		return debugProtocolHost;
 	}
 
-	public static DebugProtocolHost WithStepOverRequest(this DebugProtocolHost debugProtocolHost, int threadId)
+	public static DebugProtocolHost WithStepOverRequest(this DebugProtocolHost debugProtocolHost, int threadId, bool singleThread = false)
 	{
-		debugProtocolHost.SendRequestSync(new NextArguments { ThreadId = threadId });
+		debugProtocolHost.SendRequestSync(new NextArguments { ThreadId = threadId, SingleThread = singleThread ? true : null });
 		return debugProtocolHost;
 	}
 

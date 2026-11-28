@@ -59,7 +59,8 @@ public partial class ManagedDebugger
 	public event Action<int, string>? OnStopped;
 	// ThreadId, FilePath, Line, Column, Reason, HitBreakpointIds, DecompiledSourceInfo
 	public event Action<int, string, int, int, string, List<int>?>? OnStopped2;
-	public event Action<int>? OnContinued;
+	// ThreadId, AllThreadsContinued
+	public event Action<int, bool>? OnContinued;
 	public event Action<int?>? OnExited;
 	public event Action? OnTerminated;
 	public event Action<int>? OnThreadStarted;
@@ -334,12 +335,13 @@ public partial class ManagedDebugger
 	/// client was never told about, e.g. a breakpoint whose condition is false, sends no continued event
 	/// </remarks>
 	/// <param name="threadId">The thread the client's request named</param>
-	private void ContinueFromStop(int threadId)
+	private void ContinueFromStop(int threadId, bool singleThread = false)
 	{
 		if (_run is not RunState.Stopped) throw new InvalidOperationException("The debuggee is not stopped");
 		Guard.Against.Null(CorProcess);
 		_variableManager.ClearAndDisposeHandleValues();
 		_frameReferenceManager.Clear();
+		SetThreadsToResume(threadId, singleThread);
 
 		// The runtime counts stops, and only reports a superfluous continue when the count is zero, i.e. the process is already running.
 		// The stop was undone without the client being told, e.g. by an evaluation that could not be aborted, so the debuggee is
@@ -349,7 +351,68 @@ public partial class ManagedDebugger
 		else Marshal.ThrowExceptionForHR(result);
 		_run = RunState.Running.Instance;
 		// The request holds DapRequestAndRuntimeEventLock, so this is sent before any stop the continue leads to
-		OnContinued?.Invoke(threadId);
+		OnContinued?.Invoke(threadId, OtherThreadsSuspended is false);
+	}
+
+	// Only the threads that existed at the single-thread request were suspended: a thread started since then runs
+	private int? _singleThreadRunThreadId;
+	private bool OtherThreadsSuspended => _singleThreadRunThreadId is not null;
+
+	// The debug states last until changed, so the continues the debugger makes on its own while a step goes on, and evaluations, keep them
+	private void SetThreadsToResume(int threadId, bool singleThread)
+	{
+		Guard.Against.Null(CorProcess);
+		if (singleThread && StepNeedsOtherThreads(_step))
+		{
+			_logger?.Invoke($"The step waits for an await to resume, which may need any thread: running all threads rather than only thread {threadId}");
+			singleThread = false;
+		}
+		if (singleThread && TryGetThread(threadId) is { } thread)
+		{
+			CorProcess.SetAllThreadsDebugState(CorDebugThreadState.THREAD_SUSPEND, thread);
+			// The thread may have been suspended by an earlier single-thread request on another thread
+			thread.DebugState = CorDebugThreadState.THREAD_RUN;
+			_singleThreadRunThreadId = threadId;
+		}
+		else if (OtherThreadsSuspended)
+		{
+			CorProcess.SetAllThreadsDebugState(CorDebugThreadState.THREAD_RUN, null!);
+			_singleThreadRunThreadId = null;
+		}
+	}
+
+	/// <summary>
+	/// A step waiting for an await to resume needs the other threads: the awaited work, e.g. a timer, and the continuation may run on any of them
+	/// </summary>
+	private static bool StepNeedsOtherThreads(StepState step) => step is StepState.AwaitingResume or StepState.AwaitingTaskCompletion or StepState.RuntimeAsyncAwait;
+
+	private void EndSingleThreadRun(string reason)
+	{
+		if (_run is not RunState.Running || _singleThreadRunThreadId is not { } threadId) return;
+		Guard.Against.Null(CorProcess);
+		_logger?.Invoke($"Resuming the threads suspended for the single-thread run of thread {threadId}: {reason}");
+		CorProcess.SetAllThreadsDebugState(CorDebugThreadState.THREAD_RUN, null!);
+		_singleThreadRunThreadId = null;
+		OnContinued?.Invoke(threadId, true);
+	}
+
+	private void EndSingleThreadRunIfStepNeedsOtherThreads()
+	{
+		if (StepNeedsOtherThreads(_step)) EndSingleThreadRun($"the step is waiting for an await to resume ({_step.GetType().Name})");
+	}
+
+	// Remembered past the await, so the step can suspend the other threads again once the await resumes
+	private bool _singleThreadStep;
+
+	// The thread an await resumes on is only known once it runs, so the other threads had to run until now
+	private void ResumeSingleThreadStepOn(ICorDebugThread thread)
+	{
+		if (_singleThreadStep is false || OtherThreadsSuspended) return;
+		Guard.Against.Null(CorProcess);
+		_logger?.Invoke($"The await resumed on thread {thread.Id}: suspending the other threads again for the rest of the single-thread step");
+		CorProcess.SetAllThreadsDebugState(CorDebugThreadState.THREAD_SUSPEND, thread);
+		thread.DebugState = CorDebugThreadState.THREAD_RUN;
+		_singleThreadRunThreadId = thread.Id;
 	}
 
 	private void ConfigureExceptionCallbacks()
@@ -596,6 +659,8 @@ public partial class ManagedDebugger
 		while (_runtimeEventChannel.Reader.TryRead(out _)) { }
 
 		// Detach from the process
+		if (OtherThreadsSuspended) debugging.Process.TrySetAllThreadsDebugState(CorDebugThreadState.THREAD_RUN, null!);
+		_singleThreadRunThreadId = null;
 		debugging.Process.TryDetach();
 		debugging.DebuggeeProcess?.Dispose();
 		_session = SessionState.Ended.Instance;

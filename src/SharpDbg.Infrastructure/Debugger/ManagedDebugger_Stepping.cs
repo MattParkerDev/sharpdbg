@@ -11,6 +11,7 @@ public partial class ManagedDebugger
 	{
 		if (_step is not StepState.Idle) throw new InvalidOperationException("A step operation is already in progress");
 		_step = step;
+		EndSingleThreadRunIfStepNeedsOtherThreads();
 	}
 
 	/// <summary>
@@ -57,19 +58,21 @@ public partial class ManagedDebugger
 	/// <summary>
 	/// Start a step requested by the user, and continue
 	/// </summary>
-	private async Task StartUserStep(int threadId, StepType stepType)
+	private async Task StartUserStep(int threadId, StepType stepType, bool singleThread)
 	{
 		if (_run is not RunState.Stopped)
 		{
 			_logger?.Invoke("Ignoring the step, as the debuggee is not stopped");
 			return;
 		}
-		if (TryGetThread(threadId) is not { } thread) return;
+		// Fail the request, so the client is told, rather than answering as if the step had started
+		var thread = GetThread(new ThreadId(threadId));
 		if (thread.ActiveFrame is not ICorDebugILFrame) throw new InvalidOperationException("Active frame is not an IL frame");
 		if (_step is not StepState.Idle) throw new InvalidOperationException("A step operation is already in progress");
 
+		_singleThreadStep = singleThread;
 		StartStep(await _asyncStepper.TryCreateAsyncStep(thread, stepType) ?? new StepState.Simple(CreateStepper(thread, stepType)));
-		ContinueFromStop(threadId);
+		ContinueFromStop(threadId, singleThread);
 	}
 
 	/// <summary>
@@ -109,6 +112,7 @@ public partial class ManagedDebugger
 			case StepState.AwaitingResume awaitingResume when awaitingResume.ResumeBreakpoint == breakpoint:
 			{
 				if (await _asyncStepper.IsResumingSteppingActivation(thread, awaitingResume) is false) break;
+				ResumeSingleThreadStepOn(thread);
 				EndStep();
 				if (awaitingResume.StopOffset is { } stopOffset)
 				{
@@ -122,6 +126,7 @@ public partial class ManagedDebugger
 			{
 				var resume = _asyncStepper.TakeRuntimeResume(thread, runtimeAsync.Step);
 				if (resume is AsyncStepper.RuntimeResume.Another) break;
+				ResumeSingleThreadStepOn(thread);
 				if (resume is AsyncStepper.RuntimeResume.DoneAtOnce && runtimeAsync.Step.StopsAtResume is false)
 				{
 					_logger?.Invoke("The await was done at once: the step goes on");
@@ -156,10 +161,12 @@ public partial class ManagedDebugger
 				runtimeAsync.Stepper?.TryDeactivate();
 				DeactivateIfUnused(breakpoint);
 				_step = waiting;
+				EndSingleThreadRunIfStepNeedsOtherThreads();
 				break;
 			}
 			case StepState.AwaitingTaskCompletion awaitingTaskCompletion when awaitingTaskCompletion.NotifyBreakpoint == breakpoint:
 			{
+				ResumeSingleThreadStepOn(thread);
 				EndStep();
 				// A state machine calls GetResult itself, so we can step out to it. A runtime-async caller is still suspended
 				// while the dispatcher calls GetResult, so we need its resume breakpoint instead

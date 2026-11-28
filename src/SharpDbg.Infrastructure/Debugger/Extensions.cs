@@ -193,8 +193,20 @@ public static class Extensions
 		startEval();
 
 		using var _ = evalStatus.BeginEvaluation();
-		eval.Thread.Process.Continue(false);
-		var evalEvent = await WaitForEvalEventOrAbortAsync(eval, processEventsUntilEvalEventFunc());
+		// A thread a single-thread continue or step left suspended could not run its own evaluation
+		var thread = eval.Thread;
+		var wasSuspended = thread.DebugState is CorDebugThreadState.THREAD_SUSPEND;
+		if (wasSuspended) thread.DebugState = CorDebugThreadState.THREAD_RUN;
+		CorDebugManagedCallbackEventArgs evalEvent;
+		try
+		{
+			thread.Process.Continue(false);
+			evalEvent = await WaitForEvalEventOrAbortAsync(eval, processEventsUntilEvalEventFunc());
+		}
+		finally
+		{
+			if (wasSuspended) thread.TrySetDebugState(CorDebugThreadState.THREAD_SUSPEND);
+		}
 		if (evalEvent is EvalCompleteCorDebugManagedCallbackEventArgs completeEvent)
 		{
 			if (completeEvent.Eval != eval) throw new ManagedDebugger.EvalException("EvalComplete callback error - Eval does not match");

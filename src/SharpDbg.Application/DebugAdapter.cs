@@ -92,6 +92,7 @@ public class DebugAdapter : IDapRequestHandler
 		ResolveStackFrameArguments args => Respond(args, HandleResolveStackFrameAsync),
 		ScopesArguments args => Respond(args, HandleScopesAsync),
 		VariablesArguments args => Respond(args, HandleVariablesAsync),
+		LoadedSourcesArguments args => Respond(args, HandleLoadedSourcesAsync),
 		EvaluateArguments args => Respond(args, HandleEvaluateAsync),
 		ContinueArguments args => Respond(args, HandleContinueAsync),
 		NextArguments args => Respond(args, HandleNextAsync),
@@ -356,6 +357,7 @@ public class DebugAdapter : IDapRequestHandler
 			SupportsExceptionFilterOptions = true,
 			SupportsStepInTargetsRequest = false,
 			SupportsGotoTargetsRequest = false,
+			SupportsLoadedSourcesRequest = true,
 			ExceptionBreakpointFilters =
 			[
 				new ExceptionBreakpointsFilter { Filter = "all", Label = "All Exceptions", Default = false },
@@ -628,6 +630,17 @@ public class DebugAdapter : IDapRequestHandler
 					VariablesReference = v.VariablesReference
 				}).ToList()
 			};
+		});
+	}
+
+	private ValueTask<DapResult<LoadedSourcesResponse>> HandleLoadedSourcesAsync(LoadedSourcesArguments arguments)
+	{
+		return RunLocked<LoadedSourcesResponse>("Failed to get loaded sources", () =>
+		{
+			var sources = _debugger.GetLoadedSources()
+				.Select(path => new Source { Path = path, Name = System.IO.Path.GetFileName(path) })
+				.ToList();
+			return new LoadedSourcesResponse { Sources = sources };
 		});
 	}
 

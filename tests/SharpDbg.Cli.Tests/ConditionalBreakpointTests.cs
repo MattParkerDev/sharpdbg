@@ -273,6 +273,72 @@ public class ConditionalBreakpointTests(ITestOutputHelper testOutputHelper)
 	}
 
 	[Fact]
+	public async Task HitCondition_WithCondition_CountsOnlyHitsWhereTheConditionHolds()
+	{
+		var startSuspended = true;
+		var hitConditionFilePath = Path.JoinFromGitRoot("tests", "DebuggableConsoleApp", "HitConditionClass.cs");
+
+		var (debugProtocolHost, adapter, p2) = TestHelper.GetRunningDebugProtocolHost(testOutputHelper, startSuspended);
+		using var _ = adapter;
+		using var __ = new ProcessKiller(p2);
+		using var ___ = debugProtocolHost;
+
+		await debugProtocolHost
+			.WithInitializeRequest()
+			.WithAttachRequest(p2.Id)
+			.WaitForInitializedEvent();
+
+		debugProtocolHost
+			.WithBreakpointsRequest(hitConditionFilePath, [new SharpDbgBreakpointRequest(10, Condition: "_count % 2 == 0", HitCondition: "==2")])
+			.WithConfigurationDoneRequest()
+			.WithOptionalResumeRuntime(p2.Id, startSuspended);
+
+		// The condition holds when _count is 2, 4, ... - the hit condition counts only those, so the 2nd is _count == 4.
+		// Counting every hit before checking the condition would stop at _count == 2 instead.
+		var stoppedEvent = await debugProtocolHost.WaitForStoppedEvent();
+		var stopInfo = stoppedEvent.ReadStopInfo();
+		stopInfo.filePath.Should().EndWith("HitConditionClass.cs");
+		stopInfo.line.Should().Be(10);
+
+		debugProtocolHost.WithStackTraceRequest(stoppedEvent.ThreadId!.Value, out var stackTraceResponse);
+		var stackFrameId = stackTraceResponse.StackFrames!.First().Id;
+		debugProtocolHost.Evaluate(stackFrameId, "_count").Result.Should().Be("4");
+	}
+
+	[Fact]
+	public async Task HitCondition_WithConditionThatFailsToEvaluate_AlwaysStopsAndCountsTheHit()
+	{
+		var startSuspended = true;
+		var hitConditionFilePath = Path.JoinFromGitRoot("tests", "DebuggableConsoleApp", "HitConditionClass.cs");
+
+		var (debugProtocolHost, adapter, p2) = TestHelper.GetRunningDebugProtocolHost(testOutputHelper, startSuspended);
+		using var _ = adapter;
+		using var __ = new ProcessKiller(p2);
+		using var ___ = debugProtocolHost;
+
+		await debugProtocolHost
+			.WithInitializeRequest()
+			.WithAttachRequest(p2.Id)
+			.WaitForInitializedEvent();
+
+		// The condition holds when _count is odd and throws DivideByZeroException when it is even
+		debugProtocolHost
+			.WithBreakpointsRequest(hitConditionFilePath, [new SharpDbgBreakpointRequest(10, Condition: "10 / (_count % 2) == 10", HitCondition: "==3")])
+			.WithConfigurationDoneRequest()
+			.WithOptionalResumeRuntime(p2.Id, startSuspended);
+
+		// A condition error stops even though the hit condition is not met (hit 2 of ==3)...
+		var stoppedEvent = await debugProtocolHost.WaitForStoppedEvent();
+		debugProtocolHost.WithStackTraceRequest(stoppedEvent.ThreadId!.Value, out var stackTraceResponse);
+		debugProtocolHost.Evaluate(stackTraceResponse.StackFrames!.First().Id, "_count").Result.Should().Be("2");
+
+		// ...and still counts as a hit, so _count == 3 is the 3rd hit and stops
+		var stoppedEvent2 = await debugProtocolHost.WithContinueRequest().WaitForStoppedEvent();
+		debugProtocolHost.WithStackTraceRequest(stoppedEvent2.ThreadId!.Value, out var stackTraceResponse2);
+		debugProtocolHost.Evaluate(stackTraceResponse2.StackFrames!.First().Id, "_count").Result.Should().Be("3");
+	}
+
+	[Fact]
 	public async Task StepOver_CallHittingBreakpointWithFalseCondition_StillCompletesTheStep()
 	{
 		var startSuspended = true;

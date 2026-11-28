@@ -263,23 +263,30 @@ public partial class ManagedDebugger
 		var hitBreakpoints = new List<BreakpointInfo>();
 		foreach (var managedBreakpoint in managedBreakpoints)
 		{
-			managedBreakpoint.HitCount++;
-
-			if (managedBreakpoint.HitCondition is not null && EvaluateHitCondition(managedBreakpoint.HitCount, managedBreakpoint.HitCondition) is false)
-			{
-				_logger?.Invoke($"Hit count condition not met: count={managedBreakpoint.HitCount}, condition={managedBreakpoint.HitCondition}");
-				continue;
-			}
-
+			// The condition is checked first - only hits where the condition holds count towards the hit condition.
+			// A condition that cannot be evaluated is reported, counts as a hit, and always stops, whatever the hit condition.
+			var conditionFailed = false;
 			if (managedBreakpoint.Condition is not null)
 			{
 				var (isTrue, error) = await EvaluateBreakpointCondition(corThread, managedBreakpoint.Condition);
-				if (error is not null) ReportBreakpointConditionError(managedBreakpoint, error);
+				if (error is not null)
+				{
+					ReportBreakpointConditionError(managedBreakpoint, error);
+					conditionFailed = true;
+				}
 				else if (isTrue is false)
 				{
 					_logger?.Invoke($"Conditional breakpoint condition not met: {managedBreakpoint.Condition}");
 					continue;
 				}
+			}
+
+			managedBreakpoint.HitCount++;
+
+			if (conditionFailed is false && managedBreakpoint.HitCondition is not null && EvaluateHitCondition(managedBreakpoint.HitCount, managedBreakpoint.HitCondition) is false)
+			{
+				_logger?.Invoke($"Hit count condition not met: count={managedBreakpoint.HitCount}, condition={managedBreakpoint.HitCondition}");
+				continue;
 			}
 
 			hitBreakpoints.Add(managedBreakpoint);

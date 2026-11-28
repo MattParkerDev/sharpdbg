@@ -35,4 +35,13 @@ public class EvaluationSemanticsClass
 	{
 		public DerivedFromGeneric() => Value = 9;
 	}
+
+	// Accessed with the volatile. prefix
+	private static volatile int _volatileCount = 11;
+	private static readonly VolatileHolder Holder = new();
+
+	public class VolatileHolder
+	{
+		public volatile bool Flag = true;
+	}
 }

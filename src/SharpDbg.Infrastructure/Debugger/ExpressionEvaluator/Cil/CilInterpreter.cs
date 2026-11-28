@@ -143,7 +143,8 @@ internal sealed class CilInterpreter(ManagedDebugger debugger, RuntimeAssemblyPr
 			{
 				var op = instruction.OpCode;
 
-				if (op == OpCodes.Nop || op == OpCodes.Break) continue;
+				// volatile. only orders the memory access it prefixes, and the debuggee is stopped while the interpreter reads and writes it
+				if (op == OpCodes.Nop || op == OpCodes.Break || op == OpCodes.Volatile) continue;
 				if (op == OpCodes.Constrained)
 				{
 					constrainedType = resolver.ResolveTypeToken((int)instruction.Operand!);

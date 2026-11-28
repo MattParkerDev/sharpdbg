@@ -54,6 +54,10 @@ public class EvalSemanticsTests(ITestOutputHelper testOutputHelper)
 			("matrix[0, 1] + matrix[1, 1]", "6"),
 			("(bool)boxedFalse ? \"yes\" : \"no\"", "\"no\""),
 			("!(bool)boxedFalse ? \"yes\" : \"no\"", "\"yes\""),
+			("_volatileCount", "11"),
+			("_volatileCount + 1", "12"),
+			("_volatileCount = 11", "11"),
+			("Holder.Flag", "true"),
 		];
 
 		var failures = new List<string>();

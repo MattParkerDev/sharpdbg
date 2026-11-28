@@ -204,4 +204,9 @@ public static partial class TestHelper
 		debugProtocolHost.WithEvaluateRequest(frameId, expression, out var evaluateResponse);
 		return evaluateResponse;
 	}
+
+	public static SetVariableResponse SetVariable(this DebugProtocolHost debugProtocolHost, int variablesReference, string name, string value)
+	{
+		return debugProtocolHost.SendRequestSync(new SetVariableArguments { VariablesReference = variablesReference, Name = name, Value = value });
+	}
 }

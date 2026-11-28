@@ -91,7 +91,7 @@ internal sealed class CilExpressionCompiler(ManagedDebugger debugger)
 	private static readonly PortableExecutableReference _intrinsicMethodsReference = MetadataReference.CreateFromImage(CreateIntrinsicMethodsAssembly());
 
 	private const int CacheCapacity = 256;
-	private readonly record struct CompileCacheKey(int ModuleVersion, CompileContextKind ContextKind, CORDB_ADDRESS Module, int Token, int IlOffset, string Expression, bool HasException);
+	private readonly record struct CompileCacheKey(int ModuleVersion, CompileContextKind ContextKind, CORDB_ADDRESS Module, int Token, int IlOffset, string Expression, bool HasException, string? BoundVariable);
 	private enum CompileContextKind { Method, Type }
 	private readonly Dictionary<CompileCacheKey, CacheEntry> _compileCache = new();
 	private readonly LinkedList<CompileCacheKey> _compileLru = new();
@@ -134,7 +134,7 @@ internal sealed class CilExpressionCompiler(ManagedDebugger debugger)
 		var diagnostics = DiagnosticBag.GetInstance();
 		try
 		{
-			var aliases = GetAliases(hasException);
+			var aliases = GetAliases(hasException, context.BoundVariable);
 			var result = evaluationContext.CompileExpression(
 				expression,
 				DkmEvaluationFlags.TreatAsExpression,
@@ -178,7 +178,8 @@ internal sealed class CilExpressionCompiler(ManagedDebugger debugger)
 				context.RootValue.ExactType.Class.Token,
 				0,
 				expression,
-				hasException);
+				hasException,
+				null);
 		}
 		return new CompileCacheKey(
 			debugger.ModuleSet_Version,
@@ -187,7 +188,8 @@ internal sealed class CilExpressionCompiler(ManagedDebugger debugger)
 			frame.Function.Token,
 			EvaluationContextBase.NormalizeILOffset((uint)frame.IP.pnOffset),
 			expression,
-			hasException);
+			hasException,
+			context.BoundVariable is { } boundVariable ? $"{boundVariable.Name}:{boundVariable.AssemblyQualifiedTypeName}" : null);
 	}
 
 	private bool TryGetCachedCompiled(CompileCacheKey key, out CompiledEvaluationMethod result)
@@ -225,9 +227,14 @@ internal sealed class CilExpressionCompiler(ManagedDebugger debugger)
 		_metadataBlocksCache.Clear();
 	}
 
-	private static ImmutableArray<Alias> GetAliases(bool hasException) => hasException
-		? [new Alias(DkmClrAliasKind.Exception, "Error", "$exception", typeof(Exception).AssemblyQualifiedName!, Guid.Empty, null!)]
-		: ImmutableArray<Alias>.Empty;
+	private static ImmutableArray<Alias> GetAliases(bool hasException, EvaluationAlias? boundVariable)
+	{
+		var aliases = ImmutableArray.CreateBuilder<Alias>();
+		if (hasException) aliases.Add(new Alias(DkmClrAliasKind.Exception, "Error", "$exception", typeof(Exception).AssemblyQualifiedName!, Guid.Empty, null!));
+		// Compiled as a 'ref' to the interpreter's synthetic variable of the same name, see CilInterpreter
+		if (boundVariable is not null) aliases.Add(new Alias(DkmClrAliasKind.Variable, boundVariable.Name, boundVariable.Name, boundVariable.AssemblyQualifiedTypeName, Guid.Empty, null!));
+		return aliases.ToImmutable();
+	}
 
 	internal DelegateMaterializerAssembly GetDelegateMaterializer(CompiledExpressionEvaluationContext context)
 	{

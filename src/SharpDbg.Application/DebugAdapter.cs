@@ -92,6 +92,7 @@ public class DebugAdapter : IDapRequestHandler
 		ResolveStackFrameArguments args => Respond(args, HandleResolveStackFrameAsync),
 		ScopesArguments args => Respond(args, HandleScopesAsync),
 		VariablesArguments args => Respond(args, HandleVariablesAsync),
+		SetVariableArguments args => Respond(args, HandleSetVariableAsync),
 		EvaluateArguments args => Respond(args, HandleEvaluateAsync),
 		ContinueArguments args => Respond(args, HandleContinueAsync),
 		NextArguments args => Respond(args, HandleNextAsync),
@@ -349,7 +350,7 @@ public class DebugAdapter : IDapRequestHandler
 			SupportsHitConditionalBreakpoints = true,
 			SupportsEvaluateForHovers = true,
 			SupportsStepBack = false,
-			SupportsSetVariable = false,
+			SupportsSetVariable = true,
 			SupportsRestartFrame = false,
 			SupportsTerminateRequest = true,
 			SupportsExceptionInfoRequest = true,
@@ -627,6 +628,20 @@ public class DebugAdapter : IDapRequestHandler
 					PresentationHint = v.PresentationHint?.ToDto(),
 					VariablesReference = v.VariablesReference
 				}).ToList()
+			};
+		});
+	}
+
+	private ValueTask<DapResult<SetVariableResponse>> HandleSetVariableAsync(SetVariableArguments arguments)
+	{
+		return RunLocked<SetVariableResponse>("Failed to set variable", async () =>
+		{
+			var variableInfo = await _debugger.SetVariable(arguments.VariablesReference, arguments.Name, arguments.Value);
+			return new SetVariableResponse
+			{
+				Value = variableInfo.Value,
+				Type = variableInfo.Type,
+				VariablesReference = variableInfo.VariablesReference
 			};
 		});
 	}

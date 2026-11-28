@@ -24,6 +24,7 @@ internal sealed class CilInterpreter(ManagedDebugger debugger, RuntimeAssemblyPr
 		var resolver = CreateResolver(compiled, context, frame);
 		await using var delegateAssemblyLoader = new DebuggeeDelegateAssemblyLoader(debugger, compiled, resolver, context, handles, delegateMaterializer);
 		var syntheticVariables = new Dictionary<string, ICilLocation>(StringComparer.Ordinal);
+		if (context.BoundVariable is { } boundVariable) syntheticVariables[boundVariable.Name] = new CorDebugLocation(boundVariable.Value);
 		var evaluationClosures = new HashSet<EvaluationClosure>(ReferenceEqualityComparer.Instance);
 		var result = await InterpretAsync(compiled, decoded, arguments, locals, resolver, context, handles, syntheticVariables, new Dictionary<FieldDefinitionHandle, ICilLocation>(), evaluationClosures, delegateAssemblyLoader);
 		var value = result.Value is EvaluationDelegate

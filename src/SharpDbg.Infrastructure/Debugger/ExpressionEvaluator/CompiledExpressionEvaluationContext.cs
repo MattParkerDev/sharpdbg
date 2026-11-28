@@ -9,7 +9,10 @@ public class CompiledExpressionEvaluationContext(ICorDebugThread thread, ThreadI
 	public ThreadId ThreadId { get; set; } = threadId;
 	/// Used as the root value for identifier resolution, if provided. Primarily for evaluating DebuggerDisplay expressions, which only have access to the current object.
 	public ICorDebugValue? RootValue { get; set; } = rootValue;
+	public EvaluationAlias? BoundVariable { get; init; }
 }
+
+public sealed record EvaluationAlias(string Name, string AssemblyQualifiedTypeName, ICorDebugValue Value);
 
 public class RuntimeAssemblyPrimitiveTypeClasses(Dictionary<CorElementType, ICorDebugClass> corElementToValueClassMap, ICorDebugClass? corVoidClass, ICorDebugClass? corDecimalClass)
 {

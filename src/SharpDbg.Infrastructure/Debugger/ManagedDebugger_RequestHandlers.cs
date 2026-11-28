@@ -644,15 +644,21 @@ public partial class ManagedDebugger
 
 		var frameInfo = _frameReferenceManager.GetFrameInfoById(frameId.Value);
 		if (frameInfo is not var (threadId, frameStackDepth)) throw new InvalidOperationException("Frame ID does not exist");
+		return await EvaluateInFrame(expression, threadId, frameStackDepth);
+	}
+
+	private async Task<VariableInfo> EvaluateInFrame(string expression, ThreadId threadId, FrameStackDepth frameStackDepth, EvaluationAlias? boundVariable = null, bool throwOnError = false)
+	{
 		var thread = GetThread(threadId);
 
-		var evalContext = new CompiledExpressionEvaluationContext(thread, threadId, frameStackDepth);
+		var evalContext = new CompiledExpressionEvaluationContext(thread, threadId, frameStackDepth) { BoundVariable = boundVariable };
 		ArgumentNullException.ThrowIfNull(_expressionEvaluator);
 		using var result = await _expressionEvaluator.Evaluate(expression, evalContext);
 
 		if (result.Error is not null)
 		{
 			_logger?.Invoke($"Evaluation error: {result.Error}");
+			if (throwOnError) throw new InvalidOperationException(result.Error);
 			return new VariableInfo
 			{
 				Name = null!,

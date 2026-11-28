@@ -15,13 +15,14 @@ public class BreakpointManager
 	/// <summary>
 	/// Create a new breakpoint
 	/// </summary>
-	public BreakpointInfo CreateBreakpoint(string filePath, int line, int? column = null, string? condition = null, string? hitCondition = null)
+	public BreakpointInfo CreateBreakpoint(string filePath, int line, int? column = null, string? condition = null, string? hitCondition = null, string? logMessage = null)
 	{
 		lock (_lock)
 		{
 			var id = _nextBreakpointId++;
 			if (string.IsNullOrWhiteSpace(condition)) condition = null;
 			if (string.IsNullOrWhiteSpace(hitCondition)) hitCondition = null;
+			if (string.IsNullOrWhiteSpace(logMessage)) logMessage = null;
 			var bp = new BreakpointInfo
 			{
 				Id = id,
@@ -30,6 +31,7 @@ public class BreakpointManager
 				RequestedColumn = column,
 				Condition = condition,
 				HitCondition = hitCondition,
+				LogMessage = logMessage,
 				HitCount = 0
 			};
 

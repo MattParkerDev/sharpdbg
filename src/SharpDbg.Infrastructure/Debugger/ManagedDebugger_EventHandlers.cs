@@ -282,6 +282,15 @@ public partial class ManagedDebugger
 				}
 			}
 
+			// Logpoint: write the interpolated message and continue instead of stopping.
+			if (managedBreakpoint.LogMessage is not null)
+			{
+				var message = await FormatLogMessage(corThread, managedBreakpoint.LogMessage);
+				_logger?.Invoke($"Logpoint hit: {message}");
+				OnOutput?.Invoke(message + Environment.NewLine, false);
+				continue;
+			}
+
 			hitBreakpoints.Add(managedBreakpoint);
 		}
 

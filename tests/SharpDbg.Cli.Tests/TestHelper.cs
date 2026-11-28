@@ -1,7 +1,7 @@
 using System.Diagnostics;
 using AwesomeAssertions;
-using Microsoft.Diagnostics.NETCore.Client;
 using SharpDbg.Cli.Tests.Helpers;
+using SharpDbg.Infrastructure;
 using SharpDbg.Infrastructure.Debugger;
 using SharpDbg.InMemory;
 using SharpDbg.DapProtocol;
@@ -139,7 +139,8 @@ public static partial class TestHelper
 	public static DebugProtocolHost WithOptionalResumeRuntime(this DebugProtocolHost debugProtocolHost, int processId, bool startSuspended)
 	{
 		// DiagnosticsClient.ResumeRuntime seems to have a different implementation on MacOS - it will throw if the runtime is not paused...
-		if (startSuspended) new DiagnosticsClient(processId).ResumeRuntime();
+		// Not DiagnosticsClient.ResumeRuntime directly, which can connect before the runtime listens on Windows and then never return
+		if (startSuspended) DiagnosticClientHelper.DiagnosticClientResumeRuntime(processId).GetAwaiter().GetResult();
 		return debugProtocolHost;
 	}
 

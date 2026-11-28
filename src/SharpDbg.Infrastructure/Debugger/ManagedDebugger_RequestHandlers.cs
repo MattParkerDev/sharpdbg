@@ -494,6 +494,7 @@ public partial class ManagedDebugger
 				stackFrameInfo.Column = sourceInfo.Value.StartColumn;
 				stackFrameInfo.EndColumn = sourceInfo.Value.EndColumn;
 				stackFrameInfo.Source = sourceInfo.Value.FilePath;
+				stackFrameInfo.SourceReference = GetEmbeddedSourceReference(module, sourceInfo.Value.FilePath);
 				stackFrameInfo.DecompiledSourceInfo = sourceInfo.Value.DecompiledSourceInfo;
 			}
 		}
@@ -522,6 +523,7 @@ public partial class ManagedDebugger
 			Column = source?.StartColumn ?? 0,
 			EndColumn = source?.EndColumn,
 			Source = source?.FilePath,
+			SourceReference = source is null ? 0 : GetEmbeddedSourceReference(frame.Module, source.Value.FilePath),
 			IsUserCode = frame.Module.IsUserCode,
 			IsResolved = frame.Module.MetadataReader.HasSymbols,
 			DecompiledSourceInfo = source?.DecompiledSourceInfo
